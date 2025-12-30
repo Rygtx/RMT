@@ -20,17 +20,9 @@ LoadItemFold(index) {
             continue
 
         LoadItemFoldTip(tableItem, foldIndex, tableItem.UnderPosY)
-        CurUnderPosY := tableItem.UnderPosY + 25
-        if (!FoldInfo.FoldStateArr[foldIndex])
-            UpdateUnderPosY(index, 25)
-
-        loop IndexSpan[2] - IndexSpan[1] + 1 {
-            itemIndex := A_Index + IndexSpan[1] - 1
-            ; LoadTabItemUI(tableItem, itemIndex, foldIndex, CurUnderPosY)
-            CurUnderPosY += 40
-            if (!FoldInfo.FoldStateArr[foldIndex])
-                UpdateUnderPosY(index, 40)
-        }
+        ;行高40 titleTip 25 group间隔5
+        AllItemHeight := FoldInfo.FoldStateArr[foldIndex] ? 0 : (IndexSpan[2] - IndexSpan[1] + 1) * 40 + 25
+        UpdateUnderPosY(index, AllItemHeight)
         UpdateUnderPosY(index, 5)
     }
     LoadTabItem(tableItem)
@@ -323,6 +315,7 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     isFirst := foldInfo.IndexSpanArr[foldIndex] == "无-无"
     UpdateFoldIndexInfo(foldInfo, AddIndex, foldIndex, true)
     UpdateConItemIndex(tableItem, AddIndex, foldIndex, true)
+    tableItem.ColorStateArr.InsertAt(AddIndex, 0)
     tableItem.TKArr.InsertAt(AddIndex, "")
     tableItem.TriggerTypeArr.InsertAt(AddIndex, 1)
     tableItem.MacroArr.InsertAt(AddIndex, "")
@@ -347,14 +340,6 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     if (isFirst) {
         MySoftData.TabCtrl.UseTab(tableItem.Index)
         LoadItemFoldTip(tableItem, foldIndex, PosY)
-        LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY + 25)
-        MySoftData.TabCtrl.UseTab()
-    }
-    else {
-        IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
-        PosY += (IndexSpan[2] - IndexSpan[1]) * 40 + 25
-        MySoftData.TabCtrl.UseTab(tableItem.Index)
-        LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY)
         MySoftData.TabCtrl.UseTab()
     }
 
@@ -363,18 +348,13 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
 
     addHei := isFirst ? 75 : 40
     tableItem.FoldOffsetArr[foldIndex] += addHei
-    for index, value in tableItem.IndexConArr {
-        value.Text := index
-    }
-
     MySlider.RefreshTab()
 }
 
 ;删除宏配置
-OnItemDelMacroBtnClick(tableItem, btn, *) {
+OnItemDelMacroBtnClick(tableItem, DelIndex, *) {
     foldInfo := tableItem.FoldInfo
-    DelIndex := tableItem.ConIndexMap[btn].index
-    foldIndex := tableItem.ConIndexMap[btn].itemConInfo.FoldIndex
+    foldIndex := GetItemFoldIndex(tableItem, DelIndex)
     result := MsgBox(GetLang("是否删除当前宏"), GetLang("提示"), 1)
     if (result == "Cancel")
         return
@@ -393,6 +373,8 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.FoldOffsetArr[foldIndex] += afterHei - beforeHei
     tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
+    RecycleTabItem(tableItem)
+    tableItem.ColorStateArr.RemoveAt(itemIndex)
     tableItem.SerialArr.RemoveAt(itemIndex)
     tableItem.TKArr.RemoveAt(itemIndex)
     tableItem.MacroArr.RemoveAt(itemIndex)
@@ -404,19 +386,7 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.TimingSerialArr.RemoveAt(itemIndex)
     tableItem.StartTipSoundArr.RemoveAt(itemIndex)
     tableItem.EndTipSoundArr.RemoveAt(itemIndex)
-
-    tableItem.ColorStateArr.RemoveAt(itemIndex)
-    tableItem.ColorConArr.RemoveAt(itemIndex)
-    tableItem.IndexConArr.RemoveAt(itemIndex)
-    tableItem.RemarkConArr.RemoveAt(itemIndex)
-    tableItem.TKConArr.RemoveAt(itemIndex)
-    tableItem.TriggerTypeConArr.RemoveAt(itemIndex)
-    tableItem.LoopCountConArr.RemoveAt(itemIndex)
-    tableItem.ForbidConArr.RemoveAt(itemIndex)
     tableItem.IsWorkIndexArr.RemoveAt(itemIndex)
-    for index, value in tableItem.IndexConArr {
-        value.Text := index
-    }
 }
 
 ;增加宏模块
@@ -543,23 +513,21 @@ OnItemDelFoldBtnClick(tableItem, btn, *) {
 }
 
 ;编辑字串宏触发键
-OnItemEditTriggerStr(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditTriggerStr(tableItem, index, *) {
     triggerStr := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey) {
         tableItem.TKConArr[index].Text := sureTriggerKey == "" ? GetLang("编辑") : sureTriggerKey
         tableItem.TKArr[index] := sureTriggerKey
     }
-    
+
     MyTriggerStrGui.SaveBtnAction := OnSaveSetting
     MyTriggerStrGui.SureBtnAction := SureAction
     MyTriggerStrGui.ShowGui(triggerStr, 0, false)
 }
 
 ;自定义编辑触发按键
-OnItemCustomEditTriggerStr(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemCustomEditTriggerStr(tableItem, index, *) {
     isNormal := CheckIsNormalTable(tableItem.Index)
     if (!isNormal)
         return
@@ -575,8 +543,7 @@ OnItemCustomEditTriggerStr(tableItem, btn, *) {
 }
 
 ;编辑按键宏触发键
-OnItemEditTriggerKey(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditTriggerKey(tableItem, index, *) {
     triggerKey := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey, holdTime) {
@@ -591,19 +558,16 @@ OnItemEditTriggerKey(tableItem, btn, *) {
 }
 
 ;编辑定时器
-OnItemEditTiming(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditTiming(tableItem, index, *) {
     SerialStr := tableItem.TimingSerialArr[index]
     MyTimingGui.ShowGui(SerialStr)
 }
 
-OnItemEditMacroSetting(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditMacroSetting(tableItem, index, *) {
     MyMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
-OnItemEditMacro(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditMacro(tableItem, index, *) {
     macro := tableItem.MacroArr[index]
 
     SureAction(sureMacro) {
@@ -629,8 +593,7 @@ OnItemEditMacro(tableItem, btn, *) {
     MyMacroGui.ShowGui(macro, true)
 }
 
-OnItemEditReplaceKey(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemEditReplaceKey(tableItem, index, *) {
     replaceKey := tableItem.MacroArr[index]
 
     SureAction(sureMacro) {
@@ -647,8 +610,7 @@ OnItemEditFrontInfo(tableItem, btn, *) {
     MyFrontInfoGui.ShowGui(frontInfoCon)
 }
 
-OnItemMoveUp(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemMoveUp(tableItem, index, *) {
     if (index == 1) {
         MsgBox(GetLang("上面没有元素，无法上移！！！"))
         return
@@ -656,8 +618,7 @@ OnItemMoveUp(tableItem, btn, *) {
     SwapTableContent(tableItem, index, index - 1)
 }
 
-OnItemMoveDown(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
+OnItemMoveDown(tableItem, index, *) {
     lastIndex := tableItem.ModeArr.length
     if (lastIndex == index) {
         MsgBox(GetLang("下面没有元素，无法下移！！！"))
@@ -743,6 +704,7 @@ UpdateItemConPos(tableItem, isDown) {
     }
 
     for index, value in tableItem.AllGroup {
+        RefreshTabItem(tableItem)
         RefreshGroupItem(tableItem, Index)
         value.Redraw()
     }

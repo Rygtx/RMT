@@ -1447,30 +1447,28 @@ WaitIfPaused(tableItem, itemIndex) {
     }
 }
 
-GetItemFoldForbidState(tableItem, itemIndex) {
+GetItemFoldIndex(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
     for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
         IndexSpan := StrSplit(IndexSpanStr, "-")
         if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
             if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex)
-                return FoldInfo.ForbidStateArr[Index]
+                return Index
         }
     }
-    return false
+    return 0
+}
+
+GetItemFoldForbidState(tableItem, itemIndex) {
+    FoldInfo := tableItem.FoldInfo
+    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
+    return FoldInfo.ForbidStateArr[FoldIndex]
 }
 
 GetItemFrontInfo(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
-    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
-        IndexSpan := StrSplit(IndexSpanStr, "-")
-        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
-            if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex) {
-                return FoldInfo.FrontInfoArr[Index]
-            }
-        }
-    }
-
-    return ""
+    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
+    return FoldInfo.FrontInfoArr[FoldIndex]
 }
 
 GetItemOffsetOfFold(tableItem, itemIndex) {
@@ -1636,9 +1634,20 @@ GetExVariableActiveLength(Arr) {
 GetItemColorValue(state) {
     ColorMap := [0, "", 1, "Images\Soft\GreenColor.png", 2, "Images\Soft\YellowColor.png", 3,
         "Images\Soft\RedColor.png"]
-    
+
     if (ColorMap.Has(state))
         return ColorMap[state]
-    
+
     return ""
 }
+
+GetItemColorState(ColorValue) {
+    ColorMap := ["", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
+        "Images\Soft\RedColor.png",  3]
+
+    if (ColorMap.Has(ColorValue))
+        return ColorMap[ColorValue]
+
+    return 0
+}
+

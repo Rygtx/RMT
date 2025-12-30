@@ -116,32 +116,41 @@ LoadTabSingleItem(tableItem, ItemConObj) {
         EditCon, PreCon, NextCon, ForbidCon, DelCon, LineCon]
 }
 
-GetItemConObj(tableItem, itemIndex) {
+RefreshTabItem(tableItem) {
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
-    if (ItemUsePool.Has(itemIndex))
-        return ItemUsePool[itemIndex]
+    FoldInfo := tableItem.FoldInfo
+    ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作
+    UsePool := ItemUsePool.Clone()
+    for index, ItemConObj in UsePool {
+        foldIndex := GetItemFoldIndex(tableItem, index)
+        isFold := foldIndex == 0 ? true : FoldInfo.FoldStateArr[foldIndex]
+        if (isFold) {
+            RecycleTabSingleItem(tableItem, index)
+            continue
+        }
 
-    ItemFreeArr := ItemFreeConPoolMap[tableItem.Index]
-    ItemConObj := ItemFreeArr.Pop()
-    ItemUsePool.Set(itemIndex, ItemConObj)
+        FoldCon := tableItem.AllGroup[foldIndex]
+        FoldCon.GetPos(&FoldX, &FoldY, &w, &h)
+        IndexSpanStr := FoldInfo.IndexSpanArr[foldIndex]
+        IndexSpan := StrSplit(IndexSpanStr, "-")
+        isMenu := CheckIsMenuMacroTable(tableItem.Index)
+        titleHeight := isMenu ? 105 : 75
+        OffsetNum := index - IndexSpan[1]
+        PosY := OffsetNum * 40 + titleHeight + FoldY
+        isOverScreen := PosY < -50 || PosY > 600
+        if (isOverScreen || isFold) {
+            RecycleTabSingleItem(tableItem, index)
+            continue
+        }
 
-    isTiming := CheckIsTimingMacroTable(tableItem.Index)
-    TKBtnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex] == "" ? GetLang("编辑") : tableItem.TKArr[ItemIndex
-        ]
-    LoopStr := tableItem.LoopCountArr[ItemIndex] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[ItemIndex]
+        for Index, Con in ItemConObj.ConArr {
+            if (Con == "")
+                continue
 
-    ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
-    ItemConObj.ColorCon.Visible := tableItem.ColorStateArr[itemIndex] != 0
-    ItemConObj.IndexCon := itemIndex "."
-    ItemConObj.RemarkCon.Value := tableItem.RemarkArr[ItemIndex]
-    ItemConObj.TKBtnCon.Text := TKBtnStr
-    ItemConObj.TKTypeCon.Value := tableItem.TriggerTypeArr[ItemIndex]
-    ItemConObj.LoopCon.Text := LoopStr
-    ItemConObj.ForbidCon.Value := tableItem.ForbidArr[ItemIndex]
-
-    ItemConObj.TKBtnCon.OnEvent("Click", )
-
-    return ItemConObj
+            SelfOffsetY := ObjHasOwnProp(Con, "OffsetY") ? Con.OffsetY : 0
+            Con.Move(Con.OriPosX, PosY + SelfOffsetY)
+        }
+    }
 }
 
 RefreshGroupItem(tableItem, foldIndex) {
@@ -180,5 +189,88 @@ RefreshGroupItem(tableItem, foldIndex) {
             SelfOffsetY := ObjHasOwnProp(Con, "OffsetY") ? Con.OffsetY : 0
             Con.Move(Con.OriPosX, PosY + SelfOffsetY)
         }
+    }
+}
+
+GetItemConObj(tableItem, itemIndex) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    if (ItemUsePool.Has(itemIndex))
+        return ItemUsePool[itemIndex]
+
+    ItemFreeArr := ItemFreeConPoolMap[tableItem.Index]
+    if (ItemFreeArr.Length == 0) {
+        MySoftData.TabCtrl.UseTab(tableItem.Index)
+        ItemConObj := Object()
+        LoadTabSingleItem(tableItem, ItemConObj)
+        MySoftData.TabCtrl.UseTab()
+        ItemFreeArr.Push(ItemConObj)
+    }
+    ItemConObj := ItemFreeArr.Pop()
+    ItemUsePool.Set(itemIndex, ItemConObj)
+
+    isTiming := CheckIsTimingMacroTable(tableItem.Index)
+    isMacro := CheckIsMacroTable(tableItem.Index)
+    isTriggerStr := CheckIsStringMacroTable(tableItem.Index)
+    TKBtnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex]
+    TKBtnStr := TKBtnStr == "" ? GetLang("编辑") : TKBtnStr
+    LoopStr := tableItem.LoopCountArr[ItemIndex] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[ItemIndex]
+    EditTKAction := isTriggerStr ? OnItemEditTriggerStr : OnItemEditTriggerKey
+    EditTKAction := isTiming ? OnItemEditTiming : EditTKAction
+    EditMacroAction := isMacro ? OnItemEditMacro : OnItemEditReplaceKey
+
+    ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
+    ItemConObj.ColorCon.Visible := tableItem.ColorStateArr[itemIndex] != 0
+    ItemConObj.IndexCon.Value := itemIndex "."
+    ItemConObj.RemarkCon.Value := tableItem.RemarkArr[ItemIndex]
+    ItemConObj.TKBtnCon.Text := TKBtnStr
+    ItemConObj.TKTypeCon.Value := tableItem.TriggerTypeArr[ItemIndex]
+    ItemConObj.LoopCon.Text := LoopStr
+    ItemConObj.ForbidCon.Value := tableItem.ForbidArr[ItemIndex]
+
+    ItemConObj.TKBtnCon.OnEvent("Click", EditTKAction.Bind(tableItem, itemIndex))
+    ItemConObj.SettingCon.OnEvent("Click", OnItemEditMacroSetting.Bind(tableItem, itemIndex))
+    ItemConObj.EditCon.OnEvent("Click", EditMacroAction.Bind(tableItem, itemIndex))
+    ItemConObj.PreCon.OnEvent("Click", OnItemMoveUp.Bind(tableItem, itemIndex))
+    ItemConObj.NextCon.OnEvent("Click", OnItemMoveDown.Bind(tableItem, itemIndex))
+    ItemConObj.DelCon.OnEvent("Click", "", 0)
+    ItemConObj.DelCon.OnEvent("Click", OnItemDelMacroBtnClick.Bind(tableItem, itemIndex))
+    return ItemConObj
+}
+
+RecycleTabSingleItem(tableItem, itemIndex) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    if (!ItemUsePool.Has(itemIndex))
+        return
+
+    ItemFreeArr := ItemFreeConPoolMap[tableItem.Index]
+    ItemConObj := ItemUsePool[itemIndex]
+    ItemUsePool.Delete(itemIndex)
+    ItemFreeArr.Push(ItemConObj)
+
+    ColorState := GetItemColorState(ItemConObj.ColorCon.Value)
+    LoopValue := ItemConObj.LoopCon.Text == GetLang("无限") ? -1 : ItemConObj.LoopCon.Text
+
+    ;记录可能修改的值
+    tableItem.ColorStateArr[itemIndex] := ColorState
+    tableItem.TKArr[itemIndex] := ItemConObj.TKBtnCon.Text
+    tableItem.TriggerTypeArr[itemIndex] := ItemConObj.TKTypeCon.Value
+    tableItem.ForbidArr[itemIndex] := ItemConObj.ForbidCon.Value
+    tableItem.RemarkArr[itemIndex] := ItemConObj.RemarkCon.Value
+    tableItem.LoopCountArr[itemIndex] := LoopValue
+
+    for Index, Con in ItemConObj.ConArr {
+        if (Con == "")
+            continue
+        Con.Move(Con.OriPosX, -1000)
+    }
+}
+
+RecycleTabItem(tableItem) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    FoldInfo := tableItem.FoldInfo
+    ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作
+    UsePool := ItemUsePool.Clone()
+    for itemIndex, ItemConObj in UsePool {
+        RecycleTabSingleItem(tableItem, itemIndex)
     }
 }
