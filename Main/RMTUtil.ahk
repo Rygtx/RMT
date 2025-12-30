@@ -147,12 +147,6 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
     }
 }
 
-BindSave() {
-    MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
-    MyTriggerStrGui.SaveBtnAction := OnSaveSetting
-    MyMacroGui.SaveBtnAction := OnSaveSetting
-}
-
 PluginInit() {
     global MyWorkPool := WorkPool()
     global MyChineseOcr := RapidOcr(A_ScriptDir)
@@ -276,6 +270,7 @@ InitFilePath() {
     global StopFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\StopFile.ini"
     global VariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
+    global TextProcessFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"
     global SubMacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SubMacroFile.ini"
     global LoopFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\LoopFile.ini"
     global OperationFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OperationFile.ini"

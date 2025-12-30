@@ -18,6 +18,7 @@
 #Include LoopGui.ahk
 #Include CompareProGui.ahk
 #Include CompareProEditItemGui.ahk
+#Include TextProcessGui.ahk
 
 class MacroEditGui {
     __new() {
@@ -52,6 +53,7 @@ class MacroEditGui {
         this.SubMacroLastIndex := 0
 
         this.CMDStrArr := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输出", "运行", "循环", "宏操作", "变量", "变量提取",
+            "文本处理",
             "如果",
             "如果Pro",
             "运算", "RMT指令", "后台鼠标", "后台按键"])
@@ -59,7 +61,7 @@ class MacroEditGui {
         this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3", GetLang("搜索Pro"),
         "Icon4", GetLang("移动"), "Icon5", GetLang("移动Pro"),
         "Icon6", GetLang("输出"), "Icon7", GetLang("运行"), "Icon8", GetLang("循环"), "Icon9", GetLang("宏操作"), "Icon10",
-        GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12",
+        GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12", GetLang("文本处理"), "Icon23",
         GetLang("如果"), "Icon13", GetLang("如果Pro"),
         "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
         "Icon2", GetLang("真"), "Icon18", GetLang("假"),
@@ -118,6 +120,10 @@ class MacroEditGui {
         this.ExVariableGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
         this.SubGuiMap.Set(GetLang("变量提取"), this.ExVariableGui)
 
+        this.TextProcessGui := TextProcessGui()
+        this.TextProcessGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
+        this.SubGuiMap.Set(GetLang("文本处理"), this.TextProcessGui)
+
         this.SubMacroGui := SubMacroGui()
         this.SubMacroGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
         this.SubGuiMap.Set(GetLang("宏操作"), this.SubMacroGui)
@@ -150,7 +156,7 @@ class MacroEditGui {
         }
         else {
             this.AddGui()
-            ImageListID := IL_Create(22)
+            ImageListID := IL_Create(23)
             this.MacroTreeViewCon.SetImageList(ImageListID)
             IL_Add(ImageListID, "Images\Soft\Interval.png")
             IL_Add(ImageListID, "Images\Soft\Key.png")
@@ -164,6 +170,7 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\Sub.png")
             IL_Add(ImageListID, "Images\Soft\Var.png")
             IL_Add(ImageListID, "Images\Soft\Extract.png")
+            IL_Add(ImageListID, "Images\Soft\TextProcess.png")
             IL_Add(ImageListID, "Images\Soft\If.png")
             IL_Add(ImageListID, "Images\Soft\IfPro.png")
             IL_Add(ImageListID, "Images\Soft\Operation.png")
@@ -307,6 +314,13 @@ class MacroEditGui {
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGKeyGui))
         this.CmdBtnConMap.Set("后台按键", btnCon)
+
+        PosX := 15
+        PosY += 40
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文本处理"))
+        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextProcessGui))
+        this.CmdBtnConMap.Set("文本处理", btnCon)
 
         PosX := 200
         PosY := 10
@@ -709,7 +723,7 @@ class MacroEditGui {
                 }
 
                 if (this.DebugStepNum >= cmdArr.Length) {
-                    MsgBox(GetLang("单步运行结束"), "","Owner" this.Gui.Hwnd)
+                    MsgBox(GetLang("单步运行结束"), "", "Owner" this.Gui.Hwnd)
                     this.DebugStepNum := 0
                     this.DebugItemID := 0
                     return
@@ -900,6 +914,11 @@ class MacroEditGui {
 
     ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
+        if (subGui == this.TextProcessGui) {
+            MsgBox("暂时不开放，等其他指令完善后将开放，敬请期待")
+            return
+        }
+
         this.CmdEditType := modeType
         if ObjHasOwnProp(subGui, "VariableObjArr") {
             macroStr := this.GetTreeMacroStr(0)

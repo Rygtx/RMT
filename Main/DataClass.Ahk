@@ -589,6 +589,29 @@ class RMTCMDData {
     }
 }
 
+class TextProcessData {
+    __New() {
+        this.SerialStr := ""
+        this.IsIgnoreExist := 0
+        this.ToggleArr := [1, 0, 0, 0, 0, 0]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
+        this.SourceVariable := "" ; 文本来源变量名
+        this.ProcessType := 1 ; 1: 文本分割 2: 文本替换
+        this.SplitDelimiter := "," ; 分割符号
+        this.SearchText := "" ; 查找文本
+        this.ReplaceText := "" ; 替换文本
+        this.CaseSensitive := 0 ; 大小写敏感
+        this.UseRegex := 0 ; 使用正则表达式
+        this.ReverseProcess := 0 ; 反向处理
+        this.ResultAction := 1 ; 结果处理方式: 1=覆盖, 2=追加, 3=前置
+        this.SplitParam := "" ; 分割参数
+        this.MaxSplitCount := 0 ; 最大分割数
+        this.CaseType := 1 ; 大小写转换类型
+        this.EncodeType := 1 ; 编码类型
+        this.StatType := 1 ; 统计类型
+    }
+}
+
 class MouseWinData {
     __New() {
         this.WinTitle := ""

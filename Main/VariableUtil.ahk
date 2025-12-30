@@ -28,13 +28,14 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
 
         IsVariable := StrCompare(paramArr[1], GetLang("变量"), false) == 0
         IsExVariable := StrCompare(paramArr[1], GetLang("变量提取"), false) == 0
+        IsTextProcess := StrCompare(paramArr[1], GetLang("文本处理"), false) == 0
         IsIf := StrCompare(paramArr[1], GetLang("如果"), false) == 0
         IsOpera := StrCompare(paramArr[1], GetLang("运算"), false) == 0
         IsSearch := StrCompare(paramArr[1], GetLang("搜索"), false) == 0
         IsSearchPro := StrCompare(paramArr[1], GetLang("搜索Pro"), false) == 0
         IsLoop := StrCompare(paramArr[1], GetLang("循环"), false) == 0
         IsIfPro := StrCompare(paramArr[1], GetLang("如果Pro"), false) == 0
-        IsVarRelate := IsVariable || IsExVariable || IsIf || IsOpera || IsSearch || IsSearchPro
+        IsVarRelate := IsVariable || IsExVariable || IsTextProcess || IsIf || IsOpera || IsSearch || IsSearchPro
             || IsLoop || IsIfPro
         if (!IsVarRelate)
             continue
@@ -51,6 +52,15 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         }
         else if (IsExVariable) {
             saveStr := IniRead(ExVariableFile, IniSection, paramArr[2], "")
+            Data := JSON.parse(saveStr, , false)
+
+            loop 4 {
+                if (Data.ToggleArr[A_Index])
+                    VariableMap[Data.VariableArr[A_Index]] := true
+            }
+        }
+        else if (IsTextProcess) {
+            saveStr := IniRead(TextProcessFile, IniSection, paramArr[2], "")
             Data := JSON.parse(saveStr, , false)
 
             loop 4 {

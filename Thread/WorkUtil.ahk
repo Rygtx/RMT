@@ -114,6 +114,7 @@ InitWorkFilePath() {
     global StopFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\StopFile.ini"
     global VariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
+    global TextProcessFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"
     global SubMacroFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SubMacroFile.ini"
     global LoopFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\LoopFile.ini"
     global OperationFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\OperationFile.ini"

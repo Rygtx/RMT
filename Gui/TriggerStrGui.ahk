@@ -448,7 +448,7 @@ class TriggerStrGui {
 
         PosY += 25
         PosX := 20
-        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), GetLang("备注:字串长度必须大于0,但不能超过40, 鼠标点击会重置字串识别器"))
+        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), GetLang("备注：字串长度必须大于0,但不能超过40, 鼠标点击会重置字串识别器"))
 
         PosY += 30
         PosX := 20
@@ -465,7 +465,7 @@ class TriggerStrGui {
         btnCon.OnEvent("Click", (*) => this.ClearStr())
 
         PosX += 240
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定选项"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
 
         PosX += 240
