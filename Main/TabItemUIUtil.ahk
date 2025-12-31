@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
-#Include ItemUtil.ahk
+ItemFreeConPoolMap := Map()
+ItemUseConPoolMap := Map()
 
 LoadItemFold(index) {
     tableItem := MySoftData.TableInfo[index]
@@ -8,6 +9,8 @@ LoadItemFold(index) {
     tableItem.UnderPosY := MySoftData.TabPosY
     tableItem.FoldOffsetArr := []
     tableItem.FoldBtnArr := []
+    ItemFreeConPoolMap.Set(tableItem.Index, [])
+    ItemUseConPoolMap.Set(tableItem.Index, Map())
     isMenu := CheckIsMenuMacroTable(tableItem.Index)
     titleHeight := isMenu ? 85 : 55
     UpdateUnderPosY(index, 25)
@@ -25,7 +28,6 @@ LoadItemFold(index) {
         UpdateUnderPosY(index, AllItemHeight)
         UpdateUnderPosY(index, 5)
     }
-    LoadTabItem(tableItem)
     UpdateItemConPos(tableItem, true)
 }
 
@@ -314,7 +316,7 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
 
     isFirst := foldInfo.IndexSpanArr[foldIndex] == "无-无"
     UpdateFoldIndexInfo(foldInfo, AddIndex, foldIndex, true)
-    UpdateConItemIndex(tableItem, AddIndex, foldIndex, true)
+    RecycleTabItem(tableItem)
     tableItem.ColorStateArr.InsertAt(AddIndex, 0)
     tableItem.TKArr.InsertAt(AddIndex, "")
     tableItem.TriggerTypeArr.InsertAt(AddIndex, 1)
@@ -359,6 +361,7 @@ OnItemDelMacroBtnClick(tableItem, DelIndex, *) {
     if (result == "Cancel")
         return
 
+    RecycleTabItem(tableItem)
     OnItemDelMacro(tableItem, DelIndex, foldInfo, foldIndex)
     MySlider.RefreshTab()
 }
@@ -367,13 +370,11 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     isMenu := CheckIsMenuMacroTable(tableItem.Index)
     beforeHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)
     UpdateFoldIndexInfo(foldInfo, itemIndex, foldIndex, false)
-    UpdateConItemIndex(tableItem, itemIndex, foldIndex, false)
     HandleItemTopLabel(foldInfo, tableItem, foldIndex)
     afterHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)
     tableItem.FoldOffsetArr[foldIndex] += afterHei - beforeHei
     tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
-    RecycleTabItem(tableItem)
     tableItem.ColorStateArr.RemoveAt(itemIndex)
     tableItem.SerialArr.RemoveAt(itemIndex)
     tableItem.TKArr.RemoveAt(itemIndex)
@@ -408,7 +409,8 @@ OnItemAddFoldBtnClick(tableItem, btn, *) {
     UpdateConFoldIndex(tableItem, foldIndex, true)
     LastGroupCon := tableItem.AllGroup[foldIndex]
     LastGroupCon.GetPos(&x, &y, &w, &h)
-    LastOriPosY := tableItem.ConIndexMap[LastGroupCon].itemConInfo.OriPosY
+    LastItemConInfo := tableItem.ConIndexMap[LastGroupCon].itemConInfo
+    LastOriPosY := LastItemConInfo.OriPosY + LastItemConInfo.SelfOffsetY
     PosY := LastOriPosY + h - tableItem.FoldOffsetArr[foldIndex]
     MySoftData.TabCtrl.UseTab(tableItem.Index)
     LoadItemFoldTitle(tableItem, foldIndex + 1, PosY)
@@ -421,6 +423,7 @@ OnItemAddFoldBtnClick(tableItem, btn, *) {
 }
 
 OnItemAddMenuItem(tableItem, foldIndex) {
+    RecycleTabItem(tableItem)
     loop 8 {
         foldInfo := tableItem.FoldInfo
         isMenu := CheckIsMenuMacroTable(tableItem.Index)
@@ -429,7 +432,7 @@ OnItemAddMenuItem(tableItem, foldIndex) {
 
         isFirst := foldInfo.IndexSpanArr[foldIndex] == "无-无"
         UpdateFoldIndexInfo(foldInfo, AddIndex, foldIndex, true)
-        UpdateConItemIndex(tableItem, AddIndex, foldIndex, true)
+        tableItem.ColorStateArr.InsertAt(AddIndex, 0)
         tableItem.TKArr.InsertAt(AddIndex, "")
         tableItem.TriggerTypeArr.InsertAt(AddIndex, 1)
         tableItem.MacroArr.InsertAt(AddIndex, "")
@@ -454,14 +457,6 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         if (isFirst) {
             MySoftData.TabCtrl.UseTab(tableItem.Index)
             LoadItemFoldTip(tableItem, foldIndex, PosY)
-            LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY + 25)
-            MySoftData.TabCtrl.UseTab()
-        }
-        else {
-            IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
-            PosY += (IndexSpan[2] - IndexSpan[1]) * 40 + 25
-            MySoftData.TabCtrl.UseTab(tableItem.Index)
-            LoadTabItemUI(tableItem, AddIndex, foldIndex, PosY)
             MySoftData.TabCtrl.UseTab()
         }
 
@@ -470,9 +465,6 @@ OnItemAddMenuItem(tableItem, foldIndex) {
 
         addHei := isFirst ? 75 : 40
         tableItem.FoldOffsetArr[foldIndex] += addHei
-        for index, value in tableItem.IndexConArr {
-            value.Text := index
-        }
     }
 }
 
@@ -489,6 +481,8 @@ OnItemDelFoldBtnClick(tableItem, btn, *) {
         MsgBox(GetLang("最后一个模块，不可删除！！！"))
         return
     }
+
+    RecycleTabItem(tableItem)
     hasSetting := foldInfo.IndexSpanArr[foldIndex] != "无-无"
     if (hasSetting) {
         IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
@@ -508,7 +502,7 @@ OnItemDelFoldBtnClick(tableItem, btn, *) {
     foldInfo.TKArr.RemoveAt(foldIndex)
     foldInfo.HoldTimeArr.RemoveAt(foldIndex)
     tableItem.FoldOffsetArr.RemoveAt(foldIndex)
-
+    tableItem.AllGroup.RemoveAt(foldIndex)
     MySlider.RefreshTab()
 }
 
@@ -710,38 +704,6 @@ UpdateItemConPos(tableItem, isDown) {
     }
 }
 
-UpdateConItemIndex(tableItem, OperIndex, FoldIndex, IsAdd) {
-    DelKeys := []
-    for key, value in tableItem.ConIndexMap {
-        if (value.index < OperIndex)
-            continue
-
-        if (value.index == OperIndex) {
-            if (IsAdd) {
-                value.index += 1
-            }
-            else {
-                value.itemConInfo.Hide()
-                DelKeys.Push(key)
-            }
-        }
-        else if (value.index > OperIndex) {
-            if (IsAdd) {
-                value.index += 1
-            }
-            else {
-                value.index -= 1
-                if (FoldIndex == value.itemConInfo.FoldIndex)
-                    value.itemConInfo.DelAfterOffset(40)
-            }
-        }
-    }
-
-    for index, value in DelKeys {
-        tableItem.ConIndexMap.Delete(value)
-    }
-}
-
 HandleItemTopLabel(foldInfo, tableItem, foldIndex) {
     isNull := foldInfo.IndexSpanArr[foldIndex] == "无-无"
     if (!isNull)
@@ -855,4 +817,282 @@ GetFoldAddItemIndex(FoldInfo, FoldIndex) {
     }
 
     return CurFoldLastIndex + 1
+}
+
+;无尽列表调整方法
+LoadTabSingleItem(tableItem, ItemConObj) {
+    MyGui := MySoftData.MyGui
+    TabPosX := MySoftData.TabPosX
+    tableIndex := tableItem.Index
+    isMacro := CheckIsMacroTable(tableIndex)
+    isNormal := CheckIsNormalTable(tableIndex)
+    isTriggerStr := CheckIsStringMacroTable(tableIndex)
+    isTiming := CheckIsTimingMacroTable(tableIndex)
+    isMenu := CheckIsMenuMacroTable(tableIndex)
+    isSubMacro := CheckIsSubMacroTable(tableIndex)
+    isNoTriggerKey := CheckIsNoTriggerKey(tableIndex)
+
+    MySoftData.TabCtrl.UseTab(tableItem.Index)
+    ;颜色
+    ColorCon := MyGui.Add("Pic", Format("x{} y{} w{} h27", TabPosX + 20, -1000, 29),
+    "Images\Soft\GreenColor.png")
+    ColorCon.Visible := false
+    ColorCon.OriPosX := TabPosX + 20
+
+    ;序号
+    IndexCon := MyGui.Add("Text", Format("x{} y{} w{} +BackgroundTrans", TabPosX + 20, -1000, 30), 0 ".")
+    IndexCon.OffsetY := 5
+    IndexCon.OriPosX := TabPosX + 20
+
+    ;备注
+    RemarkCon := MyGui.Add("Edit", Format("x{} y{} w180", TabPosX + 60, -1000), "")
+    RemarkCon.OriPosX := TabPosX + 60
+
+    ;触发按键
+    btnStr := isTiming ? GetLang("定时") : GetLang("编辑")
+    TKBtnCon := MyGui.Add("Button", Format("x{} y{} w100 h29", TabPosX + 250, -1000), btnStr)
+    TKBtnCon.Enabled := !isSubMacro && !isMenu
+    TKBtnCon.OffsetY := -1
+    TKBtnCon.OriPosX := TabPosX + 250
+
+    ;触发类型
+    TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", TabPosX + 360, -1000, 70),
+    GetLangArr(["按下", "松开", "松止", "开关", "长按"]))
+    TKTypeCon.Enabled := isNormal
+    TKTypeCon.OriPosX := TabPosX + 360
+
+    ;循环次数
+    LoopCon := MyGui.Add("ComboBox", Format("x{} y{} w60 R5 center", TabPosX + 440, -1000), GetLangArr(["无限"]))
+    LoopCon.Text := GetLang("无限")
+    LoopCon.Enabled := isMacro
+    LoopCon.OriPosX := TabPosX + 440
+
+    SettingCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 510, -1000), GetLang("设置"))
+    SettingCon.OffsetY := -1
+    SettingCon.OriPosX := TabPosX + 510
+
+    ;编辑
+    EditCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 580, -1000 - 1), GetLang("编辑"))
+    EditCon.OffsetY := -1
+    EditCon.OriPosX := TabPosX + 580
+
+    ;上
+    PreCon := MyGui.Add("Button", Format("x{} y{} w20 h28", TabPosX + 700, -1000), "↑")
+    PreCon.OriPosX := TabPosX + 700
+
+    ;下
+    NextCon := MyGui.Add("Button", Format("x{} y{} w20 h28", TabPosX + 725, -1000), "↓")
+    NextCon.OriPosX := TabPosX + 725
+
+    ;禁用
+    ForbidCon := MyGui.Add("Checkbox", Format("x{} y{}", TabPosX + 755, -1000), GetLang("禁用"))
+    ForbidCon.OffsetY := 4
+    ForbidCon.OriPosX := TabPosX + 755
+
+    ;删除
+    DelCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 810, -1000), GetLang("删除"))
+    DelCon.Enabled := !isMenu
+    DelCon.OffsetY := -1
+    DelCon.OriPosX := TabPosX + 810
+
+    ;分割线
+    LineCon := ""
+    if (MySoftData.ShowSplitLine) {
+        LineCon := MyGui.Add("Text", Format("x{} y{} w870 h1 0x10", TabPosX + 20, -1000), "") ; SS_ETCHEDHORZ
+        LineCon.Offset := 32
+        LineCon.OriPosX := TabPosX + 20
+    }
+
+    ItemConObj.ColorCon := ColorCon
+    ItemConObj.IndexCon := IndexCon
+    ItemConObj.RemarkCon := RemarkCon
+    ItemConObj.TKBtnCon := TKBtnCon
+    ItemConObj.TKTypeCon := TKTypeCon
+    ItemConObj.LoopCon := LoopCon
+    ItemConObj.SettingCon := SettingCon
+    ItemConObj.EditCon := EditCon
+    ItemConObj.PreCon := PreCon
+    ItemConObj.NextCon := NextCon
+    ItemConObj.ForbidCon := ForbidCon
+    ItemConObj.DelCon := DelCon
+    ItemConObj.LineCon := LineCon
+
+    ItemConObj.ConArr := [ColorCon, IndexCon, RemarkCon, TKBtnCon, TKTypeCon, LoopCon, SettingCon,
+        EditCon, PreCon, NextCon, ForbidCon, DelCon, LineCon]
+    
+    MySoftData.TabCtrl.UseTab()
+}
+
+RefreshTabItem(tableItem) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    FoldInfo := tableItem.FoldInfo
+    ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作
+    UsePool := ItemUsePool.Clone()
+    for index, ItemConObj in UsePool {
+        foldIndex := GetItemFoldIndex(tableItem, index)
+        isFold := foldIndex == 0 ? true : FoldInfo.FoldStateArr[foldIndex]
+        if (isFold) {
+            RecycleTabSingleItem(tableItem, index)
+            continue
+        }
+
+        FoldCon := tableItem.AllGroup[foldIndex]
+        FoldCon.GetPos(&FoldX, &FoldY, &w, &h)
+        IndexSpanStr := FoldInfo.IndexSpanArr[foldIndex]
+        IndexSpan := StrSplit(IndexSpanStr, "-")
+        isMenu := CheckIsMenuMacroTable(tableItem.Index)
+        titleHeight := isMenu ? 105 : 75
+        OffsetNum := index - IndexSpan[1]
+        PosY := OffsetNum * 40 + titleHeight + FoldY
+        isOverScreen := PosY < -50 || PosY > 600
+        if (isOverScreen || isFold) {
+            RecycleTabSingleItem(tableItem, index)
+            continue
+        }
+
+        for Index, Con in ItemConObj.ConArr {
+            if (Con == "")
+                continue
+
+            SelfOffsetY := ObjHasOwnProp(Con, "OffsetY") ? Con.OffsetY : 0
+            Con.Move(Con.OriPosX, PosY + SelfOffsetY)
+        }
+    }
+}
+
+RefreshGroupItem(tableItem, foldIndex) {
+    isMacro := CheckIsMacroTable(tableItem.Index)
+    if (!isMacro)
+        return
+
+    FoldInfo := tableItem.FoldInfo
+    isFold := FoldInfo.FoldStateArr[foldIndex]
+    if (isFold)
+        return
+
+    FoldCon := tableItem.AllGroup[foldIndex]
+    FoldCon.GetPos(&FoldX, &FoldY, &w, &h)
+    if (FoldY + h < -50 || FoldY > 600)
+        return
+
+    IndexSpanStr := FoldInfo.IndexSpanArr[foldIndex]
+    IndexSpan := StrSplit(IndexSpanStr, "-")
+    if (!IsInteger(IndexSpan[1]) || !IsInteger(IndexSpan[2]))
+        return
+
+    isMenu := CheckIsMenuMacroTable(tableItem.Index)
+    titleHeight := isMenu ? 105 : 75
+    loop IndexSpan[2] - IndexSpan[1] + 1 {
+        itemIndex := IndexSpan[1] + A_Index - 1
+        PosY := (A_Index - 1) * 40 + titleHeight + FoldY
+        if (PosY < -50 || PosY > 600)
+            continue
+
+        ItemConObj := GetItemConObj(tableItem, itemIndex)
+        for Index, Con in ItemConObj.ConArr {
+            if (Con == "")
+                continue
+
+            SelfOffsetY := ObjHasOwnProp(Con, "OffsetY") ? Con.OffsetY : 0
+            Con.Move(Con.OriPosX, PosY + SelfOffsetY)
+        }
+    }
+}
+
+GetItemConObj(tableItem, itemIndex) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    if (ItemUsePool.Has(itemIndex))
+        return ItemUsePool[itemIndex]
+
+    ItemFreeArr := ItemFreeConPoolMap[tableItem.Index]
+    if (ItemFreeArr.Length == 0) {
+        ItemConObj := Object()
+        LoadTabSingleItem(tableItem, ItemConObj)
+        ItemFreeArr.Push(ItemConObj)
+    }
+    ItemConObj := ItemFreeArr.Pop()
+    ItemUsePool.Set(itemIndex, ItemConObj)
+
+    isTiming := CheckIsTimingMacroTable(tableItem.Index)
+    isMacro := CheckIsMacroTable(tableItem.Index)
+    isTriggerStr := CheckIsStringMacroTable(tableItem.Index)
+    TKBtnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex]
+    TKBtnStr := TKBtnStr == "" ? GetLang("编辑") : TKBtnStr
+    LoopStr := tableItem.LoopCountArr[ItemIndex] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[ItemIndex]
+    EditTKAction := isTriggerStr ? OnItemEditTriggerStr : OnItemEditTriggerKey
+    EditTKAction := isTiming ? OnItemEditTiming : EditTKAction
+    EditMacroAction := isMacro ? OnItemEditMacro : OnItemEditReplaceKey
+
+    ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
+    ItemConObj.ColorCon.Visible := tableItem.ColorStateArr[itemIndex] != 0
+    ItemConObj.IndexCon.Value := itemIndex "."
+    ItemConObj.RemarkCon.Value := tableItem.RemarkArr[ItemIndex]
+    ItemConObj.TKBtnCon.Text := TKBtnStr
+    ItemConObj.TKTypeCon.Value := tableItem.TriggerTypeArr[ItemIndex]
+    ItemConObj.LoopCon.Text := LoopStr
+    ItemConObj.ForbidCon.Value := tableItem.ForbidArr[ItemIndex]
+
+    TabItemOnEvent(ItemConObj.TKBtnCon, "Click", EditTKAction.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.SettingCon, "Click", OnItemEditMacroSetting.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.EditCon, "Click", EditMacroAction.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.PreCon, "Click", OnItemMoveUp.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.NextCon, "Click", OnItemMoveDown.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.DelCon, "Click", OnItemDelMacroBtnClick.Bind(tableItem, itemIndex))
+    return ItemConObj
+}
+
+TabItemOnEvent(Con, EventName, Callback) {
+    ;先删除之前绑定的事件
+    EventAtr := EventName "Action"
+    if (ObjHasOwnProp(Con, EventAtr)) {
+        if (EventName == "Click")
+            Con.OnEvent(EventName, Con.ClickAction, 0)
+        if (EventName == "ContextMenu")
+            Con.OnEvent(EventName, Con.ContextMenuAction, 0)
+    }
+
+    if (EventName == "Click")
+        Con.ClickAction := Callback
+    if (EventName == "ContextMenu")
+        Con.ContextMenuAction := Callback
+
+    Con.OnEvent(EventName, Callback)
+}
+
+RecycleTabItem(tableItem) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    FoldInfo := tableItem.FoldInfo
+    ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作
+    UsePool := ItemUsePool.Clone()
+    for itemIndex, ItemConObj in UsePool {
+        RecycleTabSingleItem(tableItem, itemIndex)
+    }
+}
+
+RecycleTabSingleItem(tableItem, itemIndex) {
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    if (!ItemUsePool.Has(itemIndex))
+        return
+
+    ItemFreeArr := ItemFreeConPoolMap[tableItem.Index]
+    ItemConObj := ItemUsePool[itemIndex]
+    ItemUsePool.Delete(itemIndex)
+    ItemFreeArr.Push(ItemConObj)
+
+    ColorState := GetItemColorState(ItemConObj.ColorCon.Value)
+    LoopValue := ItemConObj.LoopCon.Text == GetLang("无限") ? -1 : ItemConObj.LoopCon.Text
+
+    ;记录可能修改的值
+    tableItem.ColorStateArr[itemIndex] := ColorState
+    tableItem.TKArr[itemIndex] := ItemConObj.TKBtnCon.Text
+    tableItem.TriggerTypeArr[itemIndex] := ItemConObj.TKTypeCon.Value
+    tableItem.ForbidArr[itemIndex] := ItemConObj.ForbidCon.Value
+    tableItem.RemarkArr[itemIndex] := ItemConObj.RemarkCon.Value
+    tableItem.LoopCountArr[itemIndex] := LoopValue
+
+    for Index, Con in ItemConObj.ConArr {
+        if (Con == "")
+            continue
+        Con.Move(Con.OriPosX, -1000)
+    }
 }
