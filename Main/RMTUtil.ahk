@@ -362,39 +362,40 @@ CMDReport(CMDStr) {
 SetTableItemState(tableIndex, itemIndex, state) {
     tableItem := MySoftData.TableInfo[tableIndex]
     LastColorState := tableItem.ColorStateArr[itemIndex]
-    ColorCon := tableItem.ColorConArr[itemIndex]
     isVisible := state != 0
+
+    if (LastColorState == 0 && (state == 2 || state == 3))  ;默认状态不可暂停，终止
+        return
+
+    if (state == 2 && LastColorState != 1)  ;非运行状态忽略
+        return
+    if (state == 3 && LastColorState == 3)  ;终止状态忽略
+        return
+
     tableItem.ColorStateArr[itemIndex] := state
-    if (state == 1) {
-        ColorCon.Value := "Images\Soft\GreenColor.png"
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    if (ItemUsePool.Has(itemIndex)) {
+        ItemConObj := ItemUsePool[itemIndex]
+        ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
+        ItemConObj.ColorCon.Visible := isVisible
     }
-    else if (state == 2) {
-        if (!ColorCon.Visible || LastColorState != 1) { ;非运行状态忽略
-            tableItem.ColorStateArr[itemIndex] := LastColorState
-            return
-        }
 
-        ColorCon.Value := "Images\Soft\YellowColor.png"
-    }
-    else if (state == 3) {
-        if (!ColorCon.Visible || LastColorState == 3) { ;终止状态忽略
-            tableItem.ColorStateArr[itemIndex] := LastColorState
-            return
-        }
-
-        ColorCon.Value := "Images\Soft\RedColor.png"
+    if (state == 3) {
         SetTimer(CancelTableItemStopState.Bind(tableIndex, itemIndex), -5000)
     }
-    ColorCon.Visible := isVisible
 }
 
 CancelTableItemStopState(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    ColorState := tableItem.ColorStateArr[itemIndex]
-    ColorCon := tableItem.ColorConArr[itemIndex]
-    if (ColorCon.Visible && ColorState == 3) {
-        ColorCon.Visible := false
+    if (tableItem.ColorStateArr[itemIndex] == 3) {
         tableItem.ColorStateArr[itemIndex] := 0
+
+        ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+        if (ItemUsePool.Has(itemIndex)) {
+            ItemConObj := ItemUsePool[itemIndex]
+            ItemConObj.ColorCon.Value := ""
+            ItemConObj.ColorCon.Visible := false
+        }
     }
 }
 

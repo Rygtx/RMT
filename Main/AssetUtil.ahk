@@ -706,10 +706,10 @@ GetSavedTableItemInfo(index) {
     loop tableItem.ModeArr.Length {
         TKArrStr .= tableItem.TKArr[A_Index]
         ModeArrStr .= tableItem.ModeArr[A_Index]
-        ForbidArrStr .= tableItem.ForbidConArr[A_Index].Value
+        ForbidArrStr .= tableItem.ForbidArr[A_Index]
         HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
-        RemarkArrStr .= tableItem.RemarkConArr[A_Index].Value
-        TriggerTypeArrStr .= tableItem.TriggerTypeConArr[A_Index].Value
+        RemarkArrStr .= tableItem.RemarkArr[A_Index]
+        TriggerTypeArrStr .= tableItem.TriggerTypeArr[A_Index]
         LoopCountArrStr .= GetItemSaveCountValue(tableItem.Index, A_Index)
         SerialArrStr .= tableItem.SerialArr[A_Index]
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
@@ -1632,8 +1632,8 @@ GetExVariableActiveLength(Arr) {
 }
 
 GetItemColorValue(state) {
-    ColorMap := [0, "", 1, "Images\Soft\GreenColor.png", 2, "Images\Soft\YellowColor.png", 3,
-        "Images\Soft\RedColor.png"]
+    ColorMap := Map(0, "", 1, "Images\Soft\GreenColor.png", 2, "Images\Soft\YellowColor.png", 3,
+        "Images\Soft\RedColor.png")
 
     if (ColorMap.Has(state))
         return ColorMap[state]
@@ -1642,8 +1642,8 @@ GetItemColorValue(state) {
 }
 
 GetItemColorState(ColorValue) {
-    ColorMap := ["", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
-        "Images\Soft\RedColor.png",  3]
+    ColorMap := Map("", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
+        "Images\Soft\RedColor.png",  3)
 
     if (ColorMap.Has(ColorValue))
         return ColorMap[ColorValue]

@@ -532,8 +532,9 @@ OnItemCustomEditTriggerStr(tableItem, index, *) {
     if CustomTK.Result = "Cancel"
         return
 
-    tableItem.TKConArr[index].Text := CustomTK.Value == "" ? GetLang("编辑") : CustomTK.Value
-    tableItem.TKArr[index] := CustomTK.Value
+    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+    ItemConObj := ItemUsePool[index]
+    ItemConObj.TKBtnCon.Text := CustomTK.Value == "" ? GetLang("编辑") : CustomTK.Value
 }
 
 ;编辑按键宏触发键
@@ -1033,6 +1034,7 @@ GetItemConObj(tableItem, itemIndex) {
     ItemConObj.ForbidCon.Value := tableItem.ForbidArr[ItemIndex]
 
     TabItemOnEvent(ItemConObj.TKBtnCon, "Click", EditTKAction.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.TKBtnCon, "ContextMenu", OnItemCustomEditTriggerStr.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.SettingCon, "Click", OnItemEditMacroSetting.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.EditCon, "Click", EditMacroAction.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.PreCon, "Click", OnItemMoveUp.Bind(tableItem, itemIndex))
@@ -1080,6 +1082,7 @@ RecycleTabSingleItem(tableItem, itemIndex) {
     ItemFreeArr.Push(ItemConObj)
 
     ColorState := GetItemColorState(ItemConObj.ColorCon.Value)
+    ColorState := ItemConObj.ColorCon.Visible ? ColorState : 0
     LoopValue := ItemConObj.LoopCon.Text == GetLang("无限") ? -1 : ItemConObj.LoopCon.Text
 
     ;记录可能修改的值
