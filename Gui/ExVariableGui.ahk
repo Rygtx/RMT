@@ -102,16 +102,16 @@ class ExVariableGui {
         this.OCROptConArr.Push(this.OCRTypeCon)
 
         PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标X："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
         this.OCROptConArr.Push(con)
-        PosX += 75
+        PosX += 80
         this.StartPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.OCROptConArr.Push(this.StartPosXCon)
 
-        PosX += 110
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标Y："))
+        PosX += 95
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
         this.OCROptConArr.Push(con)
-        PosX += 75
+        PosX += 80
         this.StartPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.OCROptConArr.Push(this.StartPosYCon)
 
@@ -126,16 +126,16 @@ class ExVariableGui {
         this.OCROptConArr.Push(this.SelectToggleCon)
 
         PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标X："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
         this.OCROptConArr.Push(con)
-        PosX += 75
+        PosX += 80
         this.EndPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.OCROptConArr.Push(this.EndPosXCon)
 
-        PosX += 110
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标Y："))
+        PosX += 95
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
         this.OCROptConArr.Push(con)
-        PosX += 75
+        PosX += 80
         this.EndPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         this.OCROptConArr.Push(this.EndPosYCon)
 

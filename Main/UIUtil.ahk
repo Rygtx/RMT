@@ -774,7 +774,7 @@ AddHelpUI(index) {
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
-    GetLang("2. 严禁用于违法用途，包括但不限于:游戏作弊、未经授权的系统访问或数据篡改"))
+    GetLang("2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。"))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
@@ -790,7 +790,7 @@ AddHelpUI(index) {
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 50),
-    GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利"))
+    GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。"))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)

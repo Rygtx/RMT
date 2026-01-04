@@ -320,12 +320,15 @@ class MMProGui {
     }
 
     ToggleFunc(state) {
+        MacroAction := (*) => this.TriggerMacro()
         if (state) {
             SetTimer this.PosAction, 100
+            Hotkey("!l", MacroAction, "On")
             Hotkey("F1", (*) => this.SureMMPro(), "On")
         }
         else {
             SetTimer this.PosAction, 0
+            Hotkey("!l", MacroAction, "Off")
             Hotkey("F1", (*) => this.SureMMPro(), "Off")
         }
     }
@@ -360,7 +363,7 @@ class MMProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", "1.左键拖拽改变位置", "2.上下左右方向键微调位置", "3.左键双击或回车键关闭取色器，同时确定点位信息")
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 

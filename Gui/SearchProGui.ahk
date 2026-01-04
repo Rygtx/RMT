@@ -133,8 +133,8 @@ class SearchProGui {
         this.MouseColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
         PosX := 10
         PosY += 30
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 100), GetLang("屏幕规格："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("屏幕规格："))
+        PosX += 80
         this.ConfigDLCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 130), [])
         this.ConfigDLCon.OnEvent("Change", (*) => this.OnChangeConfig())
         PosX += 140
@@ -156,46 +156,46 @@ class SearchProGui {
         PosX := 10
         SplitPosY := PosY
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 100), GetLang("搜索范围："))
-        PosX := 150
-        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("相似度(%)："))
+        PosX := 155
+        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("相似度(%)："))
         this.SimilarArr.Push(Con)
-        PosX += 75
+        PosX += 80
         this.SimilarCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
         this.SimilarArr.Push(this.SimilarCon)
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标X："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
+        PosX += 80
         this.StartPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
-        PosX := 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标Y："))
-        PosX += 75
+        PosX := 155
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
+        PosX += 80
         this.StartPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标X："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
+        PosX += 80
         this.EndPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
-        PosX := 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标Y："))
-        PosX += 75
+        PosX := 155
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
+        PosX += 80
         this.EndPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("搜索次数："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索次数："))
+        PosX += 80
         this.SearchCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
         this.SearchCountCon.OnEvent("LoseFocus", this.OnChangeType.Bind(this))
-        PosX := 150
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("每次间隔："))
+        PosX := 155
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
         this.CountTogArr.Push(con)
-        PosX += 75
+        PosX += 80
         con := this.SearchIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55))
         this.CountTogArr.Push(con)
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("鼠标动作："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("鼠标动作："))
+        PosX += 80
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 130),
         GetLangArr(["无动作",
             "移动至目标", "移动至目标点击"]))
@@ -203,15 +203,15 @@ class SearchProGui {
         this.MouseActionTypeCon.OnEvent("Change", this.OnChangeType.Bind(this))
         PosY += 30
         PosX := 10
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("移动速度："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度："))
         this.MouseSpeedArr.Push(con)
-        PosX += 75
+        PosX += 80
         con := this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55), "90")
         this.MouseSpeedArr.Push(con)
-        PosX := 150
+        PosX := 155
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("点击次数："))
         this.MouseClickArr.Push(con)
-        PosX += 75
+        PosX += 80
         con := this.ClickCountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 55), "1")
         this.MouseClickArr.Push(con)
 
@@ -679,7 +679,7 @@ class SearchProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", "1.左键拖拽改变位置", "2.上下左右方向键微调位置", "3.左键双击或回车键关闭取色器，同时确定点位信息")
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
