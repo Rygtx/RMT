@@ -46,10 +46,12 @@ OnSuspendHotkey(*) {
     if (MySoftData.IsSuspend) {
         OnKillAllMacro()
         SetTimer(TimingChecker, 0)
+        A_TrayMenu.Check(GetLang("休眠"))
         TraySetIcon("Images\Soft\IcoPause.ico")
     }
     else {
         TimingCheck()
+        A_TrayMenu.Uncheck(GetLang("休眠"))
         TraySetIcon("Images\Soft\rabit.ico")
     }
 

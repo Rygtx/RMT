@@ -967,7 +967,9 @@ AddRewardUI(index) {
 ; 系统托盘优化
 CustomTrayMenu() {
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
+    A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Delete("&Pause Script")
+    A_TrayMenu.Delete("&Suspend Hotkeys")
     A_TrayMenu.ClickCount := 1
     A_TrayMenu.Default := GetLang("显示窗口")
     TraySetIcon(, , true)
