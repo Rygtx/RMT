@@ -1,6 +1,7 @@
 class TableItem {
     __New() {
         this.SerialArr := []    ;每个item的序列码
+        this.ColorStateArr := []
         this.TKArr := []        ;触发键
         this.MacroArr := []     ;宏内容
         this.HoldTimeArr := []  ;按住时间
@@ -9,11 +10,10 @@ class TableItem {
         this.RemarkArr := []    ;备注
         this.TriggerTypeArr := []   ;触发类型
         this.TimingSerialArr := []  ;定时配置序列码
-        this.ModeArr := []      ;按键模式   1.send 2.拟真
+        this.ModeArr := []      ;按键模式   1.send 2.拟真 3.罗技
         this.StartTipSoundArr := [] ;开始提示音 1.无   2.触发提示  3.循环首次提示
         this.EndTipSoundArr := [] ;结束提示音 1.无   2.结束提示  3.循环结束提示
 
-        this.ColorStateArr := []
         this.ColorConArr := []
         this.IndexConArr := []
         this.RemarkConArr := []
@@ -288,7 +288,7 @@ class SoftData {
         this.IsTogEndRecord := false    ;通过开关结束录制
         ;这些按键不会松开，特别处理
         this.SpecialNumKeyMap := Map("WheelDown", 0, "WheelUp", 0)
-        
+
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;上次显示月数
     }

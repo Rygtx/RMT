@@ -706,10 +706,10 @@ GetSavedTableItemInfo(index) {
     loop tableItem.ModeArr.Length {
         TKArrStr .= tableItem.TKArr[A_Index]
         ModeArrStr .= tableItem.ModeArr[A_Index]
-        ForbidArrStr .= tableItem.ForbidConArr[A_Index].Value
+        ForbidArrStr .= tableItem.ForbidArr[A_Index]
         HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
-        RemarkArrStr .= tableItem.RemarkConArr[A_Index].Value
-        TriggerTypeArrStr .= tableItem.TriggerTypeConArr[A_Index].Value
+        RemarkArrStr .= tableItem.RemarkArr[A_Index]
+        TriggerTypeArrStr .= tableItem.TriggerTypeArr[A_Index]
         LoopCountArrStr .= GetItemSaveCountValue(tableItem.Index, A_Index)
         SerialArrStr .= tableItem.SerialArr[A_Index]
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
@@ -758,7 +758,6 @@ InitTableItemState() {
 
     tableItem := MySoftData.SpecialTableItem
     tableItem.ModeArr := [1]
-    tableItem.ColorStateArr := [0]
     InitSingleTableState(tableItem)
 }
 
@@ -771,6 +770,7 @@ InitSingleTableState(tableItem) {
     tableItem.VariableMapArr := []
     tableItem.IsWorkIndexArr := []
     tableItem.PauseArr := []
+    tableItem.ColorStateArr := []
     for index, value in tableItem.ModeArr {
         tableItem.KilledArr.Push(false)
         tableItem.PauseArr.Push(false)
@@ -779,6 +779,7 @@ InitSingleTableState(tableItem) {
         tableItem.ToggleStateArr.Push(false)
         tableItem.ToggleActionArr.Push("")
         tableItem.IsWorkIndexArr.Push(false)
+        tableItem.ColorStateArr.Push(0)
 
         VariableMap := Map()
         VariableMap["宏循环次数"] := 0
@@ -1446,30 +1447,42 @@ WaitIfPaused(tableItem, itemIndex) {
     }
 }
 
-GetItemFoldForbidState(tableItem, itemIndex) {
+GetItemFoldIndex(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
     for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
         IndexSpan := StrSplit(IndexSpanStr, "-")
         if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
             if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex)
-                return FoldInfo.ForbidStateArr[Index]
+                return Index
         }
     }
-    return false
+    return 0
+}
+
+GetItemFoldForbidState(tableItem, itemIndex) {
+    FoldInfo := tableItem.FoldInfo
+    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
+    return FoldInfo.ForbidStateArr[FoldIndex]
 }
 
 GetItemFrontInfo(tableItem, itemIndex) {
+    FoldInfo := tableItem.FoldInfo
+    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
+    return FoldInfo.FrontInfoArr[FoldIndex]
+}
+
+GetItemOffsetOfFold(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
     for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
         IndexSpan := StrSplit(IndexSpanStr, "-")
         if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
             if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex) {
-                return FoldInfo.FrontInfoArr[Index]
+                return itemIndex - IndexSpan[1] + 1
             }
         }
     }
 
-    return ""
+    return 1
 }
 
 CustomMsgBox(Text := "", Title := "", Buttons := "") {
@@ -1617,3 +1630,24 @@ GetExVariableActiveLength(Arr) {
     }
     return Length
 }
+
+GetItemColorValue(state) {
+    ColorMap := Map(0, "", 1, "Images\Soft\GreenColor.png", 2, "Images\Soft\YellowColor.png", 3,
+        "Images\Soft\RedColor.png")
+
+    if (ColorMap.Has(state))
+        return ColorMap[state]
+
+    return ""
+}
+
+GetItemColorState(ColorValue) {
+    ColorMap := Map("", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
+        "Images\Soft\RedColor.png",  3)
+
+    if (ColorMap.Has(ColorValue))
+        return ColorMap[ColorValue]
+
+    return 0
+}
+
