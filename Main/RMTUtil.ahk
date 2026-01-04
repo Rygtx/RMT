@@ -649,10 +649,14 @@ RepairPath(SettingName, FilePath, DataType) {
     hasRepair := false
     loop read, FilePath {
         LineStr := A_LoopReadLine
+        FoundPos := InStr(LineStr, "=")
         if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
             continue
 
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
+        if (FoundPos == 0)
+            continue
+
+        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
 
