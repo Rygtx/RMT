@@ -302,10 +302,6 @@ SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         return
 
     loop RealNameArr.Length {
-        if (Type(RealValueArr[A_Index]) == "String") {
-            RealValueArr[A_Index] := Trim(RealValueArr[A_Index], "`n")
-            RealValueArr[A_Index] := Trim(RealValueArr[A_Index])
-        }
         NameValueCMDStr .= Format("_{}_{}", RealNameArr[A_Index], RealValueArr[A_Index])
         MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
     }

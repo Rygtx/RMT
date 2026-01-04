@@ -768,10 +768,11 @@ OnExVariableOnce(tableItem, index, Data) {
 
     isOk := false
     allText := ""
-    for _, value in TextObjs {
-        allText .= value.text "`n"
+    for index, value in TextObjs {
+        allText .= value.text
+        if (index < TextObjs.Length)
+            allText .= "`n"
     }
-    allText := Trim(allText)
     ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)

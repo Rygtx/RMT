@@ -914,10 +914,10 @@ class MacroEditGui {
 
     ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
-        if (subGui == this.TextProcessGui) {
-            MsgBox("暂时不开放，等其他指令完善后将开放，敬请期待")
-            return
-        }
+        ; if (subGui == this.TextProcessGui) {
+        ;     MsgBox("暂时不开放，等其他指令完善后将开放，敬请期待")
+        ;     return
+        ; }
 
         this.CmdEditType := modeType
         if ObjHasOwnProp(subGui, "VariableObjArr") {
