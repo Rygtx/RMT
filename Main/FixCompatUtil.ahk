@@ -18,7 +18,7 @@ Compat1_0_8F4FlodInfo(FoldInfo) {
 }
 
 ;1.0.8F7到新版本兼容, 新增鼠标类型
-Compat1_0_8F7MMPro(filePath) {
+CompatMMPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
@@ -26,24 +26,85 @@ Compat1_0_8F7MMPro(filePath) {
     Symbol := "MMPro"
     loop read, filePath {
         LineStr := A_LoopReadLine
+        FoundPos := InStr(LineStr, "=")
         if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
             continue
 
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
+        if (FoundPos == 0)
+            continue
+
+        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
 
         if (saveStr == "")
             continue
 
+        ;1.0.8F7到新版本兼容, 新增鼠标类型
         ;如果有了，那就说明是新版本，不需要兼容处理
-        if (ObjHasOwnProp(Data, "ActionType"))
-            continue
+        if (!ObjHasOwnProp(Data, "ActionType")) {
+            Data.ActionType := 1
+            hasFix := true
+        }
 
-        Data.ActionType := 1
-        hasFix := true
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        ;1.0.9F4 新增窗口分辨率映射不同的配置
+        ;如果有了，那就说明是新版本，不需要兼容处理
+        if (!ObjHasOwnProp(Data, "ConfigName")) {
+            Data.ConfigName := "默认"
+            Data.ConfigArr := []
+            hasFix := true
+
+        }
+
+        ;自动选择对应的窗口规则配置如果有的话
+        if (!Data.ConfigArr.Length == 0) {
+            CurConfigRuleStr := StrSplit(Data.ConfigName, "_")[1]
+            CurScreenRuleStr := Format("{}*{}", A_ScreenWidth, A_ScreenHeight)
+            ;默认就是这个配置就不用更换了
+            if (CurConfigRuleStr == CurScreenRuleStr)
+                continue
+
+            ConfigData := ""
+            loop Data.ConfigArr.Length {
+                ConfigRuleStr := StrSplit(Data.ConfigArr[A_Index].ConfigName, "_")[1]
+                if (ConfigRuleStr == CurScreenRuleStr) {
+                    ConfigData := Data.ConfigArr.RemoveAt(A_Index)
+                    break
+                }
+            }
+            ;匹配上了，交换内容
+            if (ConfigData != "") {
+                LastConfig := Object()
+                LastConfig.ConfigName := Data.ConfigName
+                LastConfig.PosVarX := Data.PosVarX
+                LastConfig.PosVarY := Data.PosVarY
+                LastConfig.ActionType := Data.ActionType
+                LastConfig.IsRelative := Data.IsRelative
+                LastConfig.IsGameView := Data.IsGameView
+                LastConfig.Speed := Data.Speed
+                LastConfig.Count := Data.Count
+                LastConfig.Interval := Data.Interval
+                Data.ConfigArr.Push(LastConfig)
+
+                Data.ConfigName := ConfigData.ConfigName
+                Data.PosVarX := ConfigData.PosVarX
+                Data.PosVarY := ConfigData.PosVarY
+                Data.ActionType := ConfigData.ActionType
+                Data.IsRelative := ConfigData.IsRelative
+                Data.IsGameView := ConfigData.IsGameView
+                Data.Speed := ConfigData.Speed
+                Data.Count := ConfigData.Count
+                Data.Interval := ConfigData.Interval
+
+                hasFix := true
+            }
+
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
     }
     return hasFix
 }
@@ -65,8 +126,7 @@ Compat1_0_9F1TipSound(tableItem) {
     }
 }
 
-;宏插入可以指定次数
-Compat1_0_9F1MacroInsert(FilePath) {
+CompatSubMacro(FilePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
@@ -74,24 +134,29 @@ Compat1_0_9F1MacroInsert(FilePath) {
     Symbol := "SubMacro"
     loop read, FilePath {
         LineStr := A_LoopReadLine
+        FoundPos := InStr(LineStr, "=")
         if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
             continue
 
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
+        if (FoundPos == 0)
+            continue
+
+        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
-
         if (saveStr == "")
             continue
 
-        ;如果有了，那就说明是新版本，不需要兼容处理
-        if (ObjHasOwnProp(Data, "InsertCount"))
-            continue
+        ;宏插入可以指定次数
+        if (!ObjHasOwnProp(Data, "InsertCount")) {
+            hasFix := true
+            Data.InsertCount := 1
+        }
 
-        hasFix := true
-        Data.InsertCount := 1
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, FilePath, IniSection, Data.SerialStr)
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, FilePath, IniSection, Data.SerialStr)
+        }
     }
     return hasFix
 }
@@ -114,7 +179,7 @@ Compat1_0_9F3Interval(tableItem) {
 }
 
 ;1.0.9F4 新增窗口分辨率映射不同的配置
-Compat1_0_9F4Search(filePath) {
+CompatSearch(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
@@ -122,10 +187,14 @@ Compat1_0_9F4Search(filePath) {
     Symbol := "Search"
     loop read, filePath {
         LineStr := A_LoopReadLine
+        FoundPos := InStr(LineStr, "=")
         if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
             continue
 
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
+        if (FoundPos == 0)
+            continue
+
+        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
 
@@ -133,14 +202,76 @@ Compat1_0_9F4Search(filePath) {
             continue
 
         ;如果有了，那就说明是新版本，不需要兼容处理
-        if (ObjHasOwnProp(Data, "ConfigName"))
-            continue
+        if (!ObjHasOwnProp(Data, "ConfigName")) {
+            Data.ConfigName := "默认"
+            Data.ConfigArr := []
+            hasFix := true
+        }
 
-        Data.ConfigName := "默认"
-        Data.ConfigArr := []
-        hasFix := true
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        ;自动选择对应的窗口规则配置如果有的话
+        if (Data.ConfigArr.Length != 0) {
+            CurConfigRuleStr := StrSplit(Data.ConfigName, "_")[1]
+            CurScreenRuleStr := Format("{}*{}", A_ScreenWidth, A_ScreenHeight)
+            ;默认就是这个配置就不用更换了
+            if (CurConfigRuleStr == CurScreenRuleStr)
+                continue
+
+            ConfigData := ""
+            loop Data.ConfigArr.Length {
+                ConfigRuleStr := StrSplit(Data.ConfigArr[A_Index].ConfigName, "_")[1]
+                if (ConfigRuleStr == CurScreenRuleStr) {
+                    ConfigData := Data.ConfigArr.RemoveAt(A_Index)
+                    break
+                }
+            }
+            ;匹配上了，交换内容
+            if (ConfigData != "") {
+                LastConfig := Object()
+                LastConfig.ConfigName := Data.ConfigName
+                LastConfig.SearchType := Data.SearchType
+                LastConfig.SearchColor := Data.SearchColor
+                LastConfig.SearchText := Data.SearchText
+                LastConfig.SearchImagePath := Data.SearchImagePath
+                LastConfig.Similar := Data.Similar
+                LastConfig.OCRType := Data.OCRType
+                LastConfig.SearchImageType := Data.SearchImageType
+                LastConfig.StartPosX := Data.StartPosX
+                LastConfig.StartPosY := Data.StartPosY
+                LastConfig.EndPosX := Data.EndPosX
+                LastConfig.EndPosY := Data.EndPosY
+                LastConfig.SearchCount := Data.SearchCount
+                LastConfig.SearchInterval := Data.SearchInterval
+                LastConfig.MouseActionType := Data.MouseActionType
+                LastConfig.Speed := Data.Speed
+                LastConfig.ClickCount := Data.ClickCount
+                Data.ConfigArr.Push(LastConfig)
+
+                Data.ConfigName := ConfigData.ConfigName
+                Data.SearchType := ConfigData.SearchType
+                Data.SearchColor := ConfigData.SearchColor
+                Data.SearchText := ConfigData.SearchText
+                Data.SearchImagePath := ConfigData.SearchImagePath
+                Data.Similar := ConfigData.Similar
+                Data.OCRType := ConfigData.OCRType
+                Data.SearchImageType := ConfigData.SearchImageType
+                Data.StartPosX := ConfigData.StartPosX
+                Data.StartPosY := ConfigData.StartPosY
+                Data.EndPosX := ConfigData.EndPosX
+                Data.EndPosY := ConfigData.EndPosY
+                Data.SearchCount := ConfigData.SearchCount
+                Data.SearchInterval := ConfigData.SearchInterval
+                Data.MouseActionType := ConfigData.MouseActionType
+                Data.Speed := ConfigData.Speed
+                Data.ClickCount := ConfigData.ClickCount
+
+                hasFix := true
+            }
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
     }
     return hasFix
 }
@@ -154,10 +285,14 @@ Compat1_0_9F4SearchAutoSelect(filePath) {
     Symbol := "Search"
     loop read, filePath {
         LineStr := A_LoopReadLine
+        FoundPos := InStr(LineStr, "=")
         if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
             continue
 
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
+        if (FoundPos == 0)
+            continue
+
+        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
         saveStr := IniRead(FilePath, IniSection, SerialStr, "")
         Data := JSON.parse(saveStr, , false)
         if (saveStr == "")
@@ -201,7 +336,7 @@ Compat1_0_9F4SearchAutoSelect(filePath) {
             LastConfig.Speed := Data.Speed
             LastConfig.ClickCount := Data.ClickCount
             Data.ConfigArr.Push(LastConfig)
-    
+
             Data.ConfigName := ConfigData.ConfigName
             Data.SearchType := ConfigData.SearchType
             Data.SearchColor := ConfigData.SearchColor
@@ -220,107 +355,7 @@ Compat1_0_9F4SearchAutoSelect(filePath) {
             Data.Speed := ConfigData.Speed
             Data.ClickCount := ConfigData.ClickCount
         }
-        
-        hasFix := true
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-    }
-    return hasFix
-}
 
-
-;1.0.9F4 新增窗口分辨率映射不同的配置
-Compat1_0_9F4MMPro(filePath) {
-    hasFix := false
-    if (!FileExist(FilePath))
-        return hasFix
-
-    Symbol := "MMPro"
-    loop read, filePath {
-        LineStr := A_LoopReadLine
-        if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
-            continue
-
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
-        saveStr := IniRead(FilePath, IniSection, SerialStr, "")
-        Data := JSON.parse(saveStr, , false)
-
-        if (saveStr == "")
-            continue
-
-        ;如果有了，那就说明是新版本，不需要兼容处理
-        if (ObjHasOwnProp(Data, "ConfigName"))
-            continue
-
-        Data.ConfigName := "默认"
-        Data.ConfigArr := []
-        hasFix := true
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-    }
-    return hasFix
-}
-
-;自动选择对应的窗口规则配置如果有的话
-Compat1_0_9F4MMProAutoSelect(filePath) {
-    hasFix := false
-    if (!FileExist(FilePath))
-        return hasFix
-
-    Symbol := "MMPro"
-    loop read, filePath {
-        LineStr := A_LoopReadLine
-        if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
-            continue
-
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
-        saveStr := IniRead(FilePath, IniSection, SerialStr, "")
-        Data := JSON.parse(saveStr, , false)
-        if (saveStr == "")
-            continue
-
-        ;没有配置就不用切换了
-        if (Data.ConfigArr.Length == 0)
-            continue
-        CurConfigRuleStr := StrSplit(Data.ConfigName, "_")[1]
-        CurScreenRuleStr := Format("{}*{}", A_ScreenWidth, A_ScreenHeight)
-        ;默认就是这个配置就不用更换了
-        if (CurConfigRuleStr == CurScreenRuleStr)
-            continue
-
-        ConfigData := ""
-        loop Data.ConfigArr.Length {
-            ConfigRuleStr := StrSplit(Data.ConfigArr[A_Index].ConfigName, "_")[1]
-            if (ConfigRuleStr == CurScreenRuleStr) {
-                ConfigData := Data.ConfigArr.RemoveAt(A_Index)
-                break
-            }
-        }
-        ;匹配上了，交换内容
-        if (ConfigData != "") {
-            LastConfig := Object()
-            LastConfig.ConfigName := Data.ConfigName
-            LastConfig.PosVarX := Data.PosVarX
-            LastConfig.PosVarY := Data.PosVarY
-            LastConfig.ActionType := Data.ActionType
-            LastConfig.IsRelative := Data.IsRelative
-            LastConfig.IsGameView := Data.IsGameView
-            LastConfig.Speed := Data.Speed
-            LastConfig.Count := Data.Count
-            LastConfig.Interval := Data.Interval
-            Data.ConfigArr.Push(LastConfig)
-    
-            Data.ConfigName := ConfigData.ConfigName
-            Data.PosVarX := ConfigData.PosVarX
-            Data.PosVarY := ConfigData.PosVarY
-            Data.ActionType := ConfigData.ActionType
-            Data.IsRelative := ConfigData.IsRelative
-            Data.IsGameView := ConfigData.IsGameView
-            Data.Speed := ConfigData.Speed
-            Data.Count := ConfigData.Count
-            Data.Interval := ConfigData.Interval
-        }
-        
         hasFix := true
         saveStr := JSON.stringify(Data, 0)
         IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
