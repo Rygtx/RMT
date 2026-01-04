@@ -660,3 +660,19 @@ class MouseWinData {
         return true
     }
 }
+
+class SerialData {
+    __New(Str) {
+        this.Str := Str
+        this.NumMap := Map()
+        this.CurNum := 1
+    }
+
+    Refresh() {
+        if (this.NumMap.Has(this.CurNum)) {
+            this.NumMap.Delete(this.CurNum)
+            this.CurNum++
+            this.Refresh()
+        }
+    }
+}

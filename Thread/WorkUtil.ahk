@@ -111,7 +111,6 @@ InitWorkFilePath() {
     global BGKeyFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGKeyFile.ini"
     global RunFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\RunFile.ini"
     global OutputFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\OutputFile.ini"
-    global StopFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\StopFile.ini"
     global VariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
     global TextProcessFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"

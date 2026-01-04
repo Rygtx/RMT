@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #Include ExcelUtil.ahk
+#Include SerialUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -488,6 +489,8 @@ ReadTableItemInfo(index) {
     SetArr(savedStartTipSoundStr, "π", tableItem.StartTipSoundArr)
     SetArr(savedEndTipSoundStr, "π", tableItem.EndTipSoundArr)
     tableItem.FoldInfo := JSON.parse(savedFoldInfoStr, , false)
+    SetSerialByArr(tableItem.SerialArr)
+    SetSerialByArr(tableItem.TimingSerialArr)
     Compat1_0_8F4FlodInfo(tableItem.FoldInfo)
     Compat1_0_9F1TipSound(tableItem)
 
@@ -1421,11 +1424,6 @@ ShowNoVariableTip(variableName) {
         MsgBox(GetLang("当前环境不存在变量") variableName)
 }
 
-GetSerialStr(CmdStr) {
-    currentDateTime := FormatTime(, "HHmmss")
-    randomNum := Random(0, 9)
-    return CmdStr CurrentDateTime randomNum
-}
 
 GetRandomStr(length) {
     result := Random(1, 9)

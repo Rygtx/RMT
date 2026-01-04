@@ -136,7 +136,7 @@ class BGMouseGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("BGMouse")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("BGMouse")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetBGMouseData(this.SerialStr)
 

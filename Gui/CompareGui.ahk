@@ -205,7 +205,7 @@ class CompareGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Compare")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("Compare")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetCompareData(this.SerialStr)
 

@@ -753,7 +753,7 @@ class BGKeyGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("BGKey")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("BGKey")
         this.Data := this.GetBGKeyData(this.SerialStr)
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
 

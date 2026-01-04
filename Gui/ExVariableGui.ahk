@@ -224,7 +224,7 @@ class ExVariableGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("ExVariable")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("ExVariable")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetExVariableData(this.SerialStr)
 

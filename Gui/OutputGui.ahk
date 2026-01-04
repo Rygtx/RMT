@@ -137,7 +137,7 @@ class OutputGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Output")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("Output")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetOutputData(this.SerialStr)
 

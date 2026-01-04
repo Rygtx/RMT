@@ -339,7 +339,7 @@ class SearchProGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Search")
+        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("Search+")
         this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
         this.Data := this.GetSearchData(this.SerialStr)
         if (!this.CheckIfDataValid())

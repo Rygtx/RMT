@@ -18,14 +18,14 @@ SetGlobalVar() {
 }
 
 GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
-    if (macroStr == "") 
+    if (macroStr == "")
         return
     cmdArr := SplitMacro(macroStr)
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (paramArr.Length >= 2 && visitMap.Has(paramArr[2]))
             continue
-
+        SetCMDSerial(cmdArr[A_Index])
         IsVariable := StrCompare(paramArr[1], GetLang("变量"), false) == 0
         IsExVariable := StrCompare(paramArr[1], GetLang("变量提取"), false) == 0
         IsTextProcess := StrCompare(paramArr[1], GetLang("文本处理"), false) == 0
@@ -42,8 +42,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         visitMap[paramArr[2]] := true
 
         if (IsVariable) {
-            saveStr := IniRead(VariableFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(VariableFile, paramArr[2])
 
             loop 4 {
                 if (Data.ToggleArr[A_Index])
@@ -51,8 +50,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
             }
         }
         else if (IsExVariable) {
-            saveStr := IniRead(ExVariableFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(ExVariableFile, paramArr[2])
 
             loop 4 {
                 if (Data.ToggleArr[A_Index])
@@ -60,8 +58,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
             }
         }
         else if (IsTextProcess) {
-            saveStr := IniRead(TextProcessFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(TextProcessFile, paramArr[2])
 
             loop 4 {
                 if (Data.ToggleArr[A_Index])
@@ -69,16 +66,14 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
             }
         }
         else if (IsIf) {
-            saveStr := IniRead(CompareFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(CompareFile, paramArr[2])
 
             if (Data.SaveToggle) {
                 VariableMap[Data.SaveName] := true
             }
         }
         else if (IsOpera) {
-            saveStr := IniRead(OperationFile, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(OperationFile, paramArr[2])
 
             loop 4 {
                 if (Data.ToggleArr[A_Index])
@@ -87,8 +82,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         }
         else if (IsSearch || IsSearchPro) {
             FileName := IsSearch ? SearchFile : SearchProFile
-            saveStr := IniRead(FileName, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(FileName, paramArr[2])
             if (Data.ResultToggle) {
                 VariableMap[Data.ResultSaveName] := true
             }
@@ -105,9 +99,8 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         if (IsIf || IsSearch || IsSearchPro) {
             FileMap := Map(GetLang("如果"), CompareFile, GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile)
             filePath := FileMap[paramArr[1]]
-            saveStr := IniRead(filePath, IniSection, paramArr[2], "")
-            Data := JSON.parse(saveStr, , false)
-    
+            Data := GetMacroCMDData(filePath, paramArr[2])
+
             GetMacroStrGlobalVar(Data.TrueMacro, VariableMap, visitMap)
             GetMacroStrGlobalVar(Data.FalseMacro, VariableMap, visitMap)
         }
