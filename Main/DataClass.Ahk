@@ -14,14 +14,6 @@ class TableItem {
         this.StartTipSoundArr := [] ;开始提示音 1.无   2.触发提示  3.循环首次提示
         this.EndTipSoundArr := [] ;结束提示音 1.无   2.结束提示  3.循环结束提示
 
-        this.ColorConArr := []
-        this.IndexConArr := []
-        this.RemarkConArr := []
-        this.TKConArr := []
-        this.TriggerTypeConArr := []
-        this.LoopCountConArr := []
-        this.ForbidConArr := []
-
         this.HoldKeyArr := []       ;记录当前按下的按键，以便结束时松开
         this.KilledArr := []        ;标记结束状态
         this.PauseArr := []         ;暂停
@@ -278,8 +270,9 @@ class SoftData {
         this.CMDFontColor := "000000"
 
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
-            "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
+        ; this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
+        ;     "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
+        this.SoftHotKeyArr := []      ;测试时候启动
 
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围

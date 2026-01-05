@@ -437,12 +437,7 @@ BindTabHotKey() {
             isJoyKey := RegExMatch(tableItem.TKArr[index], "Joy")
             isHotstring := SubStr(tableItem.TKArr[index], 1, 1) == ":"
             frontInfo := GetItemFrontInfo(tableItem, index)
-            realFrontStr := GetParamsWinInfoStr(frontInfo)
-
-            if (realFrontStr != "") {
-                HotIfWinActive(realFrontStr)
-            }
-
+    
             if (isJoyKey) {
                 MyJoyMacro.AddMacro(tableItem.TKArr[index], actionArr[1], frontInfo)
             }
@@ -455,10 +450,6 @@ BindTabHotKey() {
 
                 if (actionArr[2] != "")
                     Hotkey(key " up", actionArr[2])
-            }
-
-            if (frontInfo != "") {
-                HotIfWinActive
             }
         }
     }

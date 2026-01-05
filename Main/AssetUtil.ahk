@@ -713,7 +713,7 @@ GetSavedTableItemInfo(index) {
         HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
         RemarkArrStr .= tableItem.RemarkArr[A_Index]
         TriggerTypeArrStr .= tableItem.TriggerTypeArr[A_Index]
-        LoopCountArrStr .= GetItemSaveCountValue(tableItem.Index, A_Index)
+        LoopCountArrStr .= tableItem.LoopCountArr[A_Index]
         SerialArrStr .= tableItem.SerialArr[A_Index]
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
@@ -849,22 +849,6 @@ UpdateUnderPosY(tableIndex, value) {
 
 GetTableSymbol(index) {
     return MySoftData.TabSymbolArr[index]
-}
-
-GetItemSaveCountValue(tableIndex, Index) {
-    itemtable := MySoftData.TableInfo[tableIndex]
-    if (itemtable.LoopCountConArr.Length >= Index) {
-        value := itemtable.LoopCountConArr[Index].Text
-        if (value == GetLang("无限"))
-            return -1
-        if (IsInteger(value)) {
-            if (Integer(value) < 0)
-                return -1
-            else
-                return value
-        }
-    }
-    return 1
 }
 
 GetTimingTableIndex() {
