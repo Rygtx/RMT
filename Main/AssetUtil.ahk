@@ -882,21 +882,6 @@ CheckIsMacroTable(index) {
     return false
 }
 
-CheckIfAddSetTable(index) {
-    symbol := GetTableSymbol(index)
-    if (symbol == "Normal")
-        return true
-    if (symbol == "String")
-        return true
-    if (symbol == "Timing")
-        return true
-    if (symbol == "SubMacro")
-        return true
-    if (symbol == "Replace")
-        return true
-    return false
-}
-
 CheckIsStringMacroTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "String")

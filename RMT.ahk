@@ -98,7 +98,7 @@ HandleOpenArg()         ;处理打开软件的参数
 EditListen()        ;右键编辑数据监听
 InitData()          ;初始化软件数据
 InitUI()            ;初始化UI
-SetGlobalVar()      ;缓存全局变量
+SetEditData()      ;缓存编辑器数据
 
 ;放后面初始化，因为这初始化时间比较长
 PluginInit()

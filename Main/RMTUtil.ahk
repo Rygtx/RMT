@@ -10,7 +10,6 @@ OnSaveSetting(*) {
     if (ObjHasOwnProp(MyWorkPool, "Clear"))
         MyWorkPool.Clear()
 
-
     loop MySoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         RecycleTabItem(tableItem)
@@ -967,4 +966,25 @@ HandleOpenArg() {
             continue
         }
     }
+}
+
+SetEditData() {
+    VariableMap := Map()
+    visitMap := Map()
+    loop MySoftData.TabNameArr.Length {
+        tableIndex := A_Index
+        tableItem := MySoftData.TableInfo[tableIndex]
+        isMacro := CheckIsMacroTable(tableIndex)
+        if (!isMacro)
+            continue
+        
+        for index, value in tableItem.ModeArr {
+            if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+                continue
+
+            macroStr := tableItem.MacroArr[index]
+            GetMacroStrGlobalVar(macroStr, VariableMap, visitMap)
+        }
+    }
+    MySoftData.GlobalVariMap := VariableMap
 }

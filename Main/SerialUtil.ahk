@@ -11,7 +11,7 @@ SetCMDSerial(CMD) {
     paramArr := StrSplit(CMD, "_")
     if (paramArr.Length == 1)
         return
-    
+
     if (SubStr(paramArr[1], 1, 2) == "🚫") {
         paramArr[1] := StrReplace(paramArr[1], "🚫", "")
     }
@@ -22,14 +22,19 @@ SetCMDSerial(CMD) {
     if (IsMouseMove || IsPressKey || IsInterval || IsRMT)
         return
 
-
     textOnly := RegExReplace(paramArr[2], "\d+")
     numbersOnly := RegExReplace(paramArr[2], "\D+")
     if (!SerialMap.Has(textOnly)) {
         SerialMap.Set(textOnly, SerialData(textOnly))
     }
     Data := SerialMap[textOnly]
-    Data.NumMap.Set(Integer(numbersOnly), true)
+    try {
+        Data.NumMap.Set(Integer(numbersOnly), true)
+    }
+    catch as e {
+        MsgBox(GetLang("解包失败: ") e.Message, GetLang("错误"), 0x10)
+    }
+
     Data.Refresh()
 }
 

@@ -1,22 +1,5 @@
 #Requires AutoHotkey v2.0
 
-SetGlobalVar() {
-    VariableMap := Map()
-    visitMap := Map()
-    loop MySoftData.TabNameArr.Length {
-        tableItem := MySoftData.TableInfo[A_Index]
-        tableIndex := A_Index
-        for index, value in tableItem.ModeArr {
-            if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
-                continue
-
-            macroStr := tableItem.MacroArr[index]
-            GetMacroStrGlobalVar(macroStr, VariableMap, visitMap)
-        }
-    }
-    MySoftData.GlobalVariMap := VariableMap
-}
-
 GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
     if (macroStr == "")
         return

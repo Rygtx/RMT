@@ -161,7 +161,7 @@ CompatSubMacro(FilePath) {
     return hasFix
 }
 
-;1.0.9F3 间隔指令调整 统一使用两个参数
+;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
 Compat1_0_9F3Interval(tableItem) {
     for index, MacroStr in tableItem.MacroArr {
         cmdArr := SplitMacro(MacroStr)
@@ -174,7 +174,6 @@ Compat1_0_9F3Interval(tableItem) {
             }
         }
         tableItem.MacroArr[index] := GetMacroStrByCmdArr(cmdArr)
-        return
     }
 }
 
