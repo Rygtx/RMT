@@ -94,6 +94,7 @@ global MyMacroCount := MacroCount
 
 InitFilePath()          ;初始化文件路径
 LoadCurMacroSetting()   ;加载当前配置宏
+HandleOpenArg()         ;处理打开软件的参数
 EditListen()        ;右键编辑数据监听
 InitData()          ;初始化软件数据
 InitUI()            ;初始化UI

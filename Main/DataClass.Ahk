@@ -239,6 +239,8 @@ class SoftData {
         this.TabPosY := 0               ;Tab位置Y
         this.TableInfo := []            ;TableItem所有信息，每个宏的所有信息
 
+        this.IsMinStart := false        ;最小化启动
+
         ;Tab所有页签
         this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
         ;Tab页签对应的英文

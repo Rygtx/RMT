@@ -35,6 +35,11 @@ OnOpen() {
     if (uptimeMs <= 120 * 1000 && IsBootStart() && !MySoftData.IsReload)
         return
 
+    if (MySoftData.IsMinStart) {
+        MySoftData.IsMinStart := false
+        return
+    }
+
     RefreshGui()
 }
 

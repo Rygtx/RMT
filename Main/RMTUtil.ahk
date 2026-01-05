@@ -953,3 +953,16 @@ OnTriggerSepcialItemMacro(MacroStr) {
     OnTriggerMacroOnce(tableItem, MacroStr, 1)
     tableItem.ColorStateArr[1] := 0 ;默认状态
 }
+
+HandleOpenArg() {
+    if (A_Args.Length <= 0)
+        return
+
+    loop A_Args.Length {
+        arg := A_Args[A_Index]
+        if (arg == "-min") {
+            MySoftData.IsMinStart := true
+            continue
+        }
+    }
+}
