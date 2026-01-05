@@ -251,6 +251,11 @@ class CompareGui {
                 MsgBox(GetLang("结果变量名不规范：变量名不能为空"))
                 return false
             }
+
+            if (InStr(this.SaveNameCon.Text, "_")) {
+                MsgBox((GetLang("结果变量名不规范：变量名不能包含下划线")))
+                return false
+            }
         }
 
         return true

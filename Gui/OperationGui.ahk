@@ -218,6 +218,11 @@ class OperationGui {
                     MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能为空"), A_Index))
                     return false
                 }
+
+                if (InStr(this.UpdateNameConArr[A_Index].Text, "_")) {
+                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能包含下划线"), A_Index))
+                    return false
+                }
             }
         }
 

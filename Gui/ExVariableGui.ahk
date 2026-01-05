@@ -336,6 +336,11 @@ class ExVariableGui {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能是纯数字"), A_Index))
                     return false
                 }
+
+                if (InStr(this.VariableConArr[A_Index].Text, "_")) {
+                    MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能包含下划线"), A_Index))
+                    return false
+                }
             }
         }
 

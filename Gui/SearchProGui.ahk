@@ -627,6 +627,11 @@ class SearchProGui {
                 MsgBox(GetLang("结果变量名不规范：变量名不能为空"))
                 return false
             }
+
+            if (InStr(this.ResultSaveNameCon.Text, "_")) {
+                MsgBox((GetLang("结果变量名不规范：变量名不能包含下划线")))
+                return false
+            }
         }
 
         return true
@@ -679,7 +684,8 @@ class SearchProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
+        ))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
@@ -823,7 +829,7 @@ class SearchProGui {
         this.OCRTypeCon.Enabled := isText
         this.TextTipCon.Enabled := isText
         this.MousePosCon.Focus()
-    
+
         this.SetConArrState(this.SimilarArr, !isText)
 
         CountValue := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
