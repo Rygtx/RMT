@@ -533,8 +533,10 @@ OnItemCustomEditTriggerStr(tableItem, index, *) {
         return
 
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
-    ItemConObj := ItemUsePool[index]
-    ItemConObj.TKBtnCon.Text := CustomTK.Value == "" ? GetLang("编辑") : CustomTK.Value
+    if (ItemUsePool.Has(index)) {
+        ItemConObj := ItemUsePool[index]
+        ItemConObj.TKBtnCon.Text := CustomTK.Value == "" ? GetLang("编辑") : CustomTK.Value
+    }
 }
 
 ;编辑按键宏触发键
@@ -542,9 +544,12 @@ OnItemEditTriggerKey(tableItem, index, *) {
     triggerKey := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey, holdTime) {
-        tableItem.TKConArr[index].Text := sureTriggerKey == "" ? GetLang("编辑") : sureTriggerKey
-        tableItem.TKArr[index] := sureTriggerKey
         tableItem.HoldTimeArr[index] := holdTime
+        ItemUsePool := ItemUseConPoolMap[tableItem.Index]
+        if (ItemUsePool.Has(index)) {
+            ItemConObj := ItemUsePool[index]
+            ItemConObj.TKBtnCon.Text := sureTriggerKey == "" ? GetLang("编辑") : sureTriggerKey
+        }
     }
 
     MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
@@ -920,7 +925,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
 
     ItemConObj.ConArr := [ColorCon, IndexCon, RemarkCon, TKBtnCon, TKTypeCon, LoopCon, SettingCon,
         EditCon, PreCon, NextCon, ForbidCon, DelCon, LineCon]
-    
+
     MySoftData.TabCtrl.UseTab()
 }
 
@@ -1062,6 +1067,9 @@ TabItemOnEvent(Con, EventName, Callback) {
 }
 
 RecycleTabItem(tableItem) {
+    if (!ItemUseConPoolMap.Has(tableItem.Index))
+        return
+
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     FoldInfo := tableItem.FoldInfo
     ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作

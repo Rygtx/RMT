@@ -10,7 +10,10 @@ OnSaveSetting(*) {
     if (ObjHasOwnProp(MyWorkPool, "Clear"))
         MyWorkPool.Clear()
 
+
     loop MySoftData.TabNameArr.Length {
+        tableItem := MySoftData.TableInfo[A_Index]
+        RecycleTabItem(tableItem)
         SaveTableItemInfo(A_Index)
     }
 
