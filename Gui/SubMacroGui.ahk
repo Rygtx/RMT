@@ -159,8 +159,8 @@ class SubMacroGui {
             lastIndex := Max(1, this.DropDownIndexCon.Value)
             tableIndex := this.TypeCon.Value - 1
             DropDownArr := []
-            for index, Con in MySoftData.TableInfo[tableIndex].RemarkArr {
-                DropDownArr.Push(A_Index ". " Con.Value)
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
             }
             this.DropDownIndexCon.Delete()
             this.DropDownIndexCon.Add(DropDownArr)

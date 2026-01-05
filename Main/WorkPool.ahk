@@ -191,7 +191,7 @@ class WorkPool {
             MySetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
         }
         else if (isPauseState) {
-            MySetItemPauseState(paramArr[2], paramArr[3], paramArr[4])
+            MySetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
         }
         else if (isMsgBox) {
             MyMsgBoxContent(paramArr[2])
