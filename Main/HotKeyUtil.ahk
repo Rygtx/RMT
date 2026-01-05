@@ -818,9 +818,9 @@ OnBGMouse(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(BGMouseFile, paramArr[2])
 
-    WM_DOWN_ARR := [0x201, 0x204, 0x207]    ;左键，中键，右键
-    WM_UP_ARR := [0x202, 0x205, 0x208]    ;左键，中键，右键
-    WM_DCLICK_ARR := [0x203, 0x206, 0x209]    ;左键，中键，右键
+    WM_DOWN_ARR := [0x201, 0x207, 0x204]    ;左键，中键，右键
+    WM_UP_ARR := [0x202, 0x208, 0x205]    ;左键，中键，右键
+    WM_DCLICK_ARR := [0x203, 0x209, 0x206]    ;左键，中键，右键
     hasPosVarX := TryGetVariableValue(&PosX, tableItem, index, Data.PosVarX)
     hasPosVarY := TryGetVariableValue(&PosY, tableItem, index, Data.PosVarY)
     if (!hasPosVarX || !hasPosVarY) {

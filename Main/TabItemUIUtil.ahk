@@ -490,7 +490,9 @@ OnItemMoveUp(tableItem, index, *) {
         MsgBox(GetLang("上面没有元素，无法上移！！！"))
         return
     }
+    RecycleTabItem(tableItem)
     SwapTableContent(tableItem, index, index - 1)
+    UpdateItemConPos(tableItem, true)
 }
 
 OnItemMoveDown(tableItem, index, *) {
@@ -499,7 +501,9 @@ OnItemMoveDown(tableItem, index, *) {
         MsgBox(GetLang("下面没有元素，无法下移！！！"))
         return
     }
+    RecycleTabItem(tableItem)
     SwapTableContent(tableItem, index, index + 1)
+    UpdateItemConPos(tableItem, true)
 }
 
 OnFoldRemarkChange(tableItem, con, *) {

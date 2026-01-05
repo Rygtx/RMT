@@ -124,7 +124,6 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.SerialArr, indexA, indexB)
     SwapArrValue(tableItem.RemarkArr, indexA, indexB)
     SwapArrValue(tableItem.TKArr, indexA, indexB)
-    SwapArrValue(tableItem.TKArr, indexA, indexB)
     SwapArrValue(tableItem.TriggerTypeArr, indexA, indexB)
     SwapArrValue(tableItem.HoldTimeArr, indexA, indexB)
     SwapArrValue(tableItem.MacroArr, indexA, indexB)
