@@ -103,9 +103,9 @@ Join the **official RMT community** to share configurations, discuss usage, repo
 
 | Type | Link |
 |:--|:--|
-| 💬 **QQ Group** | 🔗 [Join Group (837661891)](https://qm.qq.com/q/DgpDumEPzq) |
+| 👥 **QQ Group** | 🔗 [Join Group (837661891)](https://qm.qq.com/q/DgpDumEPzq) |
+| 📢 **QQ Channel** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
 | 🐙 **GitHub Discussions** | 🔗 [GitHub Forum](https://github.com/zclucas/RMT/discussions) |
-| 💬 **QQ Channel** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
 | 🎧 **Discord Server** | 🔗 [Discord](https://discord.gg/m8ewvgtzat) |
 
 > 💡 Beginners, advanced users, and contributors are all welcome to participate!
