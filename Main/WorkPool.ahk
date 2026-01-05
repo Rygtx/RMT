@@ -188,7 +188,7 @@ class WorkPool {
             MyExcuteRMTCMDAction(Cmd)
         }
         else if (isItemState) {
-            MySetTableItemState(paramArr[2], paramArr[3], paramArr[4])
+            MySetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
         }
         else if (isPauseState) {
             MySetItemPauseState(paramArr[2], paramArr[3], paramArr[4])
