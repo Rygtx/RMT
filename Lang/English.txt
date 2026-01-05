@@ -818,3 +818,4 @@ RMT默认初始化配置=RMT Default Setting
 按键时间请输入大于0的整数=Hold time enter an integer greater than 0.、
 轴=Axis
 确定信息=Confirm Info
+（仅交流群成员有编辑权限）=(Editing is limited to group members.)

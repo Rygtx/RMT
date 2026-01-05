@@ -68,8 +68,7 @@ Understand the core concepts and configuration logic — from beginner to expert
 | RMT 1.0.9 | Major editor overhaul + variable monitor | [BV1YYvSB2ExQ](https://www.bilibili.com/video/BV1YYvSB2ExQ) |
 
 
-🎬 More videos available on Bilibili:  
-👉 [@浮生若梦的兔子 (RMT Developer)](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
+🎬 More videos available on Bilibili:👉 [@浮生若梦的兔子 (RMT Developer)](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
 
 ---
 
