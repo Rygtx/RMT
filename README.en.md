@@ -49,20 +49,24 @@ Understand the core concepts and configuration logic — from beginner to expert
 
 ---
 
-## 🎥 Updates & Feature Demos
+## 🎥 Software Updates & Feature Demos
 
 | Version | Highlights | Video Link |
-|----------|-------------|-------------|
-| ButtonAssist 1.0 | The very first version! | [BV1EU411f7dC](https://www.bilibili.com/video/BV1EU411f7dC) |
-| ButtonAssist 2.0 | Process-specific triggers | [BV1ojtHeUEjR](https://www.bilibili.com/video/BV1ojtHeUEjR) |
-| ButtonAssist 3.0 | Added image search feature | [BV1i5CEYtEok](https://www.bilibili.com/video/BV1i5CEYtEok) |
-| ButtonAssist 4.0 | GUI editor + gamepad macros | [BV13Lr1YREMr](https://www.bilibili.com/video/BV13Lr1YREMr) |
-| ButtonAssist 5.0 | Macro recording introduced | [BV1kr9NYZE36](https://www.bilibili.com/video/BV1kr9NYZE36) |
-| ButtonAssist 6.0 | OCR text recognition added | [BV1UCZPYGEN8](https://www.bilibili.com/video/BV1UCZPYGEN8) |
-| RMT 1.0 | Enhanced logic system | [BV1oWVRzaEzk](https://www.bilibili.com/video/BV1oWVRzaEzk) |
-| RMT 1.0.7 | Scheduled macros, custom overlays, config manager | [BV1T2e8zAEaf](https://www.bilibili.com/video/BV1T2e8zAEaf) |
-| RMT 1.0.8 | Live Q&A session | [BV1CYx1zmEx3](https://www.bilibili.com/video/BV1CYx1zmEx3) |
-| RMT 1.0.8 | Menu macros + sharable configs | [BV1571XBDEdR](https://www.bilibili.com/video/BV1571XBDEdR) |
+|--------|------------|------------|
+| ButtonAssist 1.0 | First release — the journey begins! | [BV1EU411f7dC](https://www.bilibili.com/video/BV1EU411f7dC) |
+| ButtonAssist 2.0 | Support for process-specific triggers | [BV1ojtHeUEjR](https://www.bilibili.com/video/BV1ojtHeUEjR) |
+| ButtonAssist 3.0 | Image search feature introduced | [BV1i5CEYtEok](https://www.bilibili.com/video/BV1i5CEYtEok) |
+| ButtonAssist 4.0 | Graphical editor + gamepad macros | [BV13Lr1YREMr](https://www.bilibili.com/video/BV13Lr1YREMr) |
+| ButtonAssist 5.0 | Macro command recording arrives | [BV1kr9NYZE36](https://www.bilibili.com/video/BV1kr9NYZE36) |
+| ButtonAssist 6.0 | Text recognition capabilities added | [BV1UCZPYGEN8](https://www.bilibili.com/video/BV1UCZPYGEN8) |
+| RMT 1.0 | Enhanced logic commands, major feature upgrade | [BV1oWVRzaEzk](https://www.bilibili.com/video/BV1oWVRzaEzk) |
+| RMT 1.0.5 | Multithreading + command chaining | [BV1yATVzVE4E](https://www.bilibili.com/video/BV1yATVzVE4E) |
+| RMT 1.0.6 | Gamepad macro recording + multi-point color picking | [BV1jD3eziE4d](https://www.bilibili.com/video/BV1jD3eziE4d) |
+| RMT 1.0.7 | Scheduled macros, custom stickers, configuration management | [BV1T2e8zAEaf](https://www.bilibili.com/video/BV1T2e8zAEaf) |
+| RMT 1.0.8 | Live stream, community discussion & Q&A | [BV1CYx1zmEx3](https://www.bilibili.com/video/BV1CYx1zmEx3) |
+| RMT 1.0.8 | Menu macros introduced, shareable configurations | [BV1571XBDEdR](https://www.bilibili.com/video/BV1571XBDEdR) |
+| RMT 1.0.9 | Major editor overhaul + variable monitor | [BV1YYvSB2ExQ](https://www.bilibili.com/video/BV1YYvSB2ExQ) |
+
 
 🎬 More videos available on Bilibili:  
 👉 [@浮生若梦的兔子 (RMT Developer)](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
@@ -80,31 +84,30 @@ Understand the core concepts and configuration logic — from beginner to expert
 
 ---
 
-## 🧠 Configuration Sharing Repository
+## 🗂️ Configuration Sharing Repository
 
-RMT allows users to freely share and download macro configuration files.  
-You can find or contribute configurations on the following repositories:
+RMT allows users to freely **share, download, and exchange** macro configuration files.  
+You can browse or contribute configurations via the platform below:
 
-| 🌍 Platform | 🔗 Repository | 📦 Description |
-|:--:|:--:|:--|
-| 🐱 **GitHub** | [RMT-Setting (GitHub)](https://github.com/zclucas/RMT-Setting) | Faster for global users |
-| 🅶 **Gitee** | [RMT-Setting (Gitee)](https://gitee.com/fateman/RMT-Setting) | Stable for China users |
+🔗 **RMT Configuration Repository**  
+📦 https://zclucas.github.io/RMT-Setting/
 
-> 💡 You can upload your recorded or custom macros to the shared repository  
-> and contribute your creative configurations to the community via **PR**!
+> ✨ You can upload your recorded or edited macros to the repository and grow with the community  
+> ⚠️ If the page is not accessible in your default browser, please try another browser
 
 ---
 
-## 💬 Community & Support
+## 🌐 Community & Support
 
-Join the official RMT community to share experiences, ask questions, and get help!
+Join the **official RMT community** to share configurations, discuss usage, report issues, or get help:
 
-| 📢 Type | 💬 Entry |
+| Type | Link |
 |:--|:--|
-| 💡 QQ Groups | [Group 1: 837661891](https://qm.qq.com/q/DgpDumEPzq) (Full)<br>[Group 2: 1050141694](https://qm.qq.com/q/uZszuxabPW) |
-| 💭 QQ Channel | [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
+| 💬 **QQ Channel** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
+| 🐙 **GitHub Discussions** | 🔗 [GitHub Forum](https://github.com/zclucas/RMT/discussions) |
+| 🎧 **Discord Server** | 🔗 [Discord](https://discord.gg/m8ewvgtzat) |
 
-> 🧠 Whether you're a beginner, contributor, or developer — all are welcome to join and discuss!
+> 💡 Beginners, advanced users, and contributors are all welcome to participate!
 
 ---
 

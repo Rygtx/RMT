@@ -60,9 +60,12 @@ RMT（若梦兔）是完全免费的开源项目。
 | ButtonAssist 5.0 | 宏指令录制登场 | [BV1kr9NYZE36](https://www.bilibili.com/video/BV1kr9NYZE36) |
 | ButtonAssist 6.0 | 文本识别能力加入 | [BV1UCZPYGEN8](https://www.bilibili.com/video/BV1UCZPYGEN8) |
 | RMT 1.0 | 逻辑指令增强，功能跃升 | [BV1oWVRzaEzk](https://www.bilibili.com/video/BV1oWVRzaEzk) |
+| RMT 1.0.5 | 多线程 + 指令串联 | [BV1yATVzVE4E](https://www.bilibili.com/video/BV1yATVzVE4E) |
+| RMT 1.0.6 | 手柄宏录制 + 多点取色 | [BV1jD3eziE4d](https://www.bilibili.com/video/BV1jD3eziE4d) |
 | RMT 1.0.7 | 定时宏、自定义贴图、配置管理 | [BV1T2e8zAEaf](https://www.bilibili.com/video/BV1T2e8zAEaf) |
 | RMT 1.0.8 | 直播交流与答疑 | [BV1CYx1zmEx3](https://www.bilibili.com/video/BV1CYx1zmEx3) |
 | RMT 1.0.8 | 菜单宏登场，配置可共享 | [BV1571XBDEdR](https://www.bilibili.com/video/BV1571XBDEdR) |
+| RMT 1.0.9 | 编辑器全面进化 + 变量监视 | [BV1YYvSB2ExQ](https://www.bilibili.com/video/BV1YYvSB2ExQ) |
 
 🎬 更多内容请关注 B 站账号：  
 👉 [浮生若梦的兔子](https://space.bilibili.com/397441876?spm_id_from=333.1007.0.0)
@@ -80,30 +83,29 @@ RMT（若梦兔）是完全免费的开源项目。
 
 ---
 
-## 🧠 配置共享仓库
+## 🗂️ 配置共享仓库
 
-RMT 支持用户自由分享与下载宏配置文件，你可以在以下两个平台获取或贡献配置：  
+RMT 支持用户自由 **分享 / 下载** 宏配置文件，你可以在以下平台获取或贡献配置：
 
-| 🌍 平台 | 🔗 仓库地址 | 📦 特点 |
-|:--:|:--:|:--|
-| 🐱 **GitHub** | [RMT-Setting (GitHub)](https://github.com/zclucas/RMT-Setting) | 国际访问快 |
-| 🅶 **Gitee** | [RMT-Setting (Gitee)](https://gitee.com/fateman/RMT-Setting) | 国内访问更稳定 |
+🔗 **RMT 配置共享仓库**  
+📦 https://zclucas.github.io/RMT-Setting/
 
-> 💡 你可以将自己录制或编辑的宏上传到共享仓库，与社区一起成长。  
-> 欢迎通过 社区 或  PR 分享你的创意配置！
+> ✨ 你可以将自己录制或编辑的宏上传到共享仓库，与社区共同成长  
+> ⚠️ 若默认浏览器无法访问，请尝试更换其他浏览器
 
 ---
 
-## 💬 社区与支持
+## 🌐 社区与支持
 
-加入 RMT 官方社区，与大家一起交流使用心得、分享配置、反馈问题或获取帮助！
+加入 **RMT 官方社区**，与其他用户一起交流经验、分享配置、反馈问题或获取帮助：
 
-| 📢 类型 | 💬 入口 |
+| 类型 | 入口 |
 |:--|:--|
-| 💡 QQ 群 | [1群：837661891](https://qm.qq.com/q/DgpDumEPzq)（已满）<br>[2群：1050141694](https://qm.qq.com/q/uZszuxabPW) |
-| 💭 QQ 频道 | [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
+| 💬 **QQ 频道** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
+| 🐙 **GitHub 讨论区** | 🔗 [GitHub Discussions](https://github.com/zclucas/RMT/discussions) |
+| 🎧 **Discord 社区** | 🔗 [Discord](https://discord.gg/m8ewvgtzat) |
 
-> 🧠 无论是新手提问、配置分享，还是功能建议，都欢迎在社区中积极交流！
+> 💡 无论是新手提问、配置分享，还是功能建议，都欢迎在社区中积极交流！
 
 ---
 
