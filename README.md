@@ -101,8 +101,8 @@ RMT 支持用户自由 **分享 / 下载** 宏配置文件，你可以在以下�
 
 | 类型 | 入口 |
 |:--|:--|
-| 💬 **QQ 频道** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
 | 🐙 **GitHub 讨论区** | 🔗 [GitHub Discussions](https://github.com/zclucas/RMT/discussions) |
+| 💬 **QQ 频道** | 🔗 [pd63973680](https://pd.qq.com/s/5wyjvj7zw) |
 | 🎧 **Discord 社区** | 🔗 [Discord](https://discord.gg/m8ewvgtzat) |
 
 > 💡 无论是新手提问、配置分享，还是功能建议，都欢迎在社区中积极交流！
