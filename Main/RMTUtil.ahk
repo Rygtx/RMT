@@ -787,11 +787,12 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
 
     DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
         "输出", OutputFile, "运行", RunFile, "变量", VariableFile, "变量提取", ExVariableFile, "运算", OperationFile,
-        "如果", CompareFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
+        "如果", CompareFile, "如果Pro", CompareProFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
 
     dataFile := DataFileMap[paramArr[1]]
     Data := GetMacroCMDData(dataFile, paramArr[2])
-    Data.SerialStr := SubStr(Data.SerialStr, 1, StrLen(Data.SerialStr) - 7) GetRandomStr(7)
+    textOnly := RegExReplace(paramArr[2], "\d+")
+    Data.SerialStr := GetCMDSerialStr(textOnly)
     CopyedMap.Set(paramArr[2], Data.SerialStr)
     paramArr[2] := Data.SerialStr
 
@@ -977,7 +978,7 @@ SetEditData() {
         isMacro := CheckIsMacroTable(tableIndex)
         if (!isMacro)
             continue
-        
+
         for index, value in tableItem.ModeArr {
             if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
                 continue
