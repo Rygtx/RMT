@@ -970,11 +970,12 @@ RecycleTabSingleItem(tableItem, itemIndex) {
 
     ColorState := GetItemColorState(ItemConObj.ColorCon.Value)
     ColorState := ItemConObj.ColorCon.Visible ? ColorState : 0
+    BtnStr := ItemConObj.TKBtnCon.Text == GetLang("编辑") ? "" : ItemConObj.TKBtnCon.Text
     LoopValue := ItemConObj.LoopCon.Text == GetLang("无限") ? -1 : ItemConObj.LoopCon.Text
 
     ;记录可能修改的值
     tableItem.ColorStateArr[itemIndex] := ColorState
-    tableItem.TKArr[itemIndex] := ItemConObj.TKBtnCon.Text
+    tableItem.TKArr[itemIndex] := BtnStr
     tableItem.TriggerTypeArr[itemIndex] := ItemConObj.TKTypeCon.Value
     tableItem.ForbidArr[itemIndex] := ItemConObj.ForbidCon.Value
     tableItem.RemarkArr[itemIndex] := ItemConObj.RemarkCon.Value

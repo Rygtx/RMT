@@ -193,6 +193,8 @@ class SettingMgrGui {
         hasWork := this.OnRepairSetting(SettingDir)
         if (hasWork) {
             MsgBox("已校对")
+            IniWrite(true, IniFile, IniSection, "IsReload")
+            Reload()
         }
         else {
             tipStr := (
@@ -390,6 +392,7 @@ class SettingMgrGui {
         hasWork := false
         hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchFile.ini", 1) || hasWork
         hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchProFile.ini", 1) || hasWork
+        hasWork := CompatCMD(SettringDir "\MacroFile.ini") || hasWork
         hasWork := CompatMMPro(SettringDir "\MMProFile.ini") || hasWork
         hasWork := CompatSubMacro(SettringDir "\SubMacroFile.ini") || hasWork
         hasWork := CompatSearch(SettringDir "\SearchProFile.ini") || hasWork

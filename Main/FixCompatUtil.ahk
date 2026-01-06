@@ -161,20 +161,40 @@ CompatSubMacro(FilePath) {
     return hasFix
 }
 
-;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
-Compat1_0_9F3Interval(tableItem) {
-    for index, MacroStr in tableItem.MacroArr {
-        cmdArr := SplitMacro(MacroStr)
-        for cmdStr in cmdArr {
-            paramArr := StrSplit(cmdStr, "_")
-            if (paramArr[1] == "间隔" && paramArr.Length == 3) {
-                paramArr[2] := paramArr[3]
-                paramArr.RemoveAt(3)
-                cmdArr[A_Index] := GetCmdByParams(paramArr)
+CompatCMD(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+    loop MySoftData.TabSymbolArr.Length {
+        symbol := GetTableSymbol(A_Index)
+        loop {
+            MacroLabel := symbol "MacroArr" A_Index
+            MacroStr := IniRead(filePath, IniSection, MacroLabel, "")
+            if (MacroStr == "")
+                break
+            CMDArr := SplitMacro(MacroStr)
+            curFix := false
+            loop CMDArr.Length {
+                paramArr := SplitKeyCommand(CMDArr[A_Index])
+
+                ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
+                if (paramArr[1] == "间隔" && paramArr.Length == 3) {
+                    curFix := true
+                    paramArr[2] := paramArr[3]
+                    paramArr.RemoveAt(3)
+                    CMDArr[A_Index] := GetCmdByParams(paramArr)
+                }
+            }
+
+            if (curFix) {
+                hasFix := true
+                MacroStr := GetMacroStrByCmdArr(CMDArr)
+                IniWrite(MacroStr, filePath, IniSection, MacroLabel)
             }
         }
-        tableItem.MacroArr[index] := GetMacroStrByCmdArr(cmdArr)
+
     }
+    return hasFix
 }
 
 ;1.0.9F4 新增窗口分辨率映射不同的配置
