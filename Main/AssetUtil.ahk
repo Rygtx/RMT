@@ -541,14 +541,14 @@ SetIntArr(str, symbol, Arr) {
 GetGetTableItemDefaultMacro(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal") {
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     }
     else if (symbol == "String")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Timing")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "SubMacro")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Replace")
         return "Left,a"
     return ""

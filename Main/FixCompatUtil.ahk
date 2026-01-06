@@ -1,5 +1,49 @@
 #Requires AutoHotkey v2.0
 
+CompatGetData(Symbol, LineStr, FilePath) {
+    FoundPos := InStr(LineStr, "=")
+    if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
+        return ""
+
+    if (FoundPos == 0)
+        return ""
+
+    SerialStr := SubStr(LineStr, 1, FoundPos - 1)
+    saveStr := IniRead(FilePath, IniSection, SerialStr, "")
+    Data := JSON.parse(saveStr, , false)
+
+    if (saveStr == "")
+        return ""
+
+    return Data
+}
+
+CompatMacro(MacroStr, &isFix) {
+    CMDArr := SplitMacro(MacroStr)
+    isFix := false
+    loop CMDArr.Length {
+        paramArr := SplitKeyCommand(CMDArr[A_Index])
+
+        ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
+        if (paramArr[1] == "间隔" && paramArr.Length == 3) {
+            isFix := true
+            paramArr[2] := paramArr[3]
+            paramArr.RemoveAt(3)
+            CMDArr[A_Index] := GetCmdByParams(paramArr)
+        }
+
+        ;1.1F1 按键指令动作类型改成中文
+        if (paramArr[1] == "按键" && IsInteger(paramArr[3])) {
+            isFix := true
+            keyTypeMap := Map(1, "按下", 2, "松开", 3, "点击")
+            paramArr[3] := keyTypeMap[Integer(paramArr[3])]
+            CMDArr[A_Index] := GetCmdByParams(paramArr)
+        }
+    }
+    MacroStr := GetMacroStrByCmdArr(CMDArr)
+    return MacroStr
+}
+
 ;1.0.8F4到新版本兼容, 模块中新增菜单模块相关数据
 Compat1_0_8F4FlodInfo(FoldInfo) {
     if (FoldInfo == "" || ObjHasOwnProp(FoldInfo, "FrontInfoArr"))
@@ -126,6 +170,31 @@ Compat1_0_9F1TipSound(tableItem) {
     }
 }
 
+
+
+CompatCMD(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+    loop MySoftData.TabSymbolArr.Length {
+        symbol := GetTableSymbol(A_Index)
+        loop {
+            MacroLabel := symbol "MacroArr" A_Index
+            MacroStr := IniRead(filePath, IniSection, MacroLabel, "")
+            if (MacroStr == "")
+                break
+
+            MacroStr := CompatMacro(MacroStr, &isFix)
+            if (isFix) {
+                hasFix := true
+                IniWrite(MacroStr, filePath, IniSection, MacroLabel)
+            }
+        }
+
+    }
+    return hasFix
+}
+
 CompatSubMacro(FilePath) {
     hasFix := false
     if (!FileExist(FilePath))
@@ -161,44 +230,37 @@ CompatSubMacro(FilePath) {
     return hasFix
 }
 
-CompatCMD(filePath) {
+CompatSearch(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    loop MySoftData.TabSymbolArr.Length {
-        symbol := GetTableSymbol(A_Index)
-        loop {
-            MacroLabel := symbol "MacroArr" A_Index
-            MacroStr := IniRead(filePath, IniSection, MacroLabel, "")
-            if (MacroStr == "")
-                break
-            CMDArr := SplitMacro(MacroStr)
-            curFix := false
-            loop CMDArr.Length {
-                paramArr := SplitKeyCommand(CMDArr[A_Index])
 
-                ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
-                if (paramArr[1] == "间隔" && paramArr.Length == 3) {
-                    curFix := true
-                    paramArr[2] := paramArr[3]
-                    paramArr.RemoveAt(3)
-                    CMDArr[A_Index] := GetCmdByParams(paramArr)
-                }
-            }
+    Symbol := "Search"
+    loop read, filePath {
+        Data := CompatGetData(Symbol, A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
 
-            if (curFix) {
-                hasFix := true
-                MacroStr := GetMacroStrByCmdArr(CMDArr)
-                IniWrite(MacroStr, filePath, IniSection, MacroLabel)
-            }
+        if (Data.TrueMacro != "") {
+            Data.TrueMacro := CompatMacro(Data.TrueMacro, &isFix)
+            hasFix := hasFix || isFix
         }
 
+        if (Data.FalseMacro != "") {
+            Data.FalseMacro := CompatMacro(Data.FalseMacro, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
     }
     return hasFix
 }
 
-;1.0.9F4 新增窗口分辨率映射不同的配置
-CompatSearch(filePath) {
+
+CompatSearchPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
@@ -287,6 +349,16 @@ CompatSearch(filePath) {
             }
         }
 
+        if (Data.TrueMacro != "") {
+            Data.MacroStr := CompatMacro(Data.MacroStr, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (Data.FalseMacro != "") {
+            Data.FalseMacro := CompatMacro(Data.FalseMacro, &isFix)
+            hasFix := hasFix || isFix
+        }
+
         if (hasFix) {
             saveStr := JSON.stringify(Data, 0)
             IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
@@ -294,3 +366,90 @@ CompatSearch(filePath) {
     }
     return hasFix
 }
+
+
+
+CompatCompare(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+
+    Symbol := "Compare"
+    loop read, filePath {
+        Data := CompatGetData(Symbol, A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        if (Data.TrueMacro != "") {
+            Data.TrueMacro := CompatMacro(Data.TrueMacro, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (Data.FalseMacro != "") {
+            Data.FalseMacro := CompatMacro(Data.FalseMacro, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
+    }
+    return hasFix
+}
+
+CompatComparePro(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+
+    Symbol := "Compare+"
+    loop read, filePath {
+        Data := CompatGetData(Symbol, A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        loop Data.MacroArr.Length {
+            if (Data.MacroArr[A_Index] != "") {
+                Data.MacroArr[A_Index] := CompatMacro(Data.MacroArr[A_Index], &isFix)
+                hasFix := hasFix || isFix
+            }
+        }
+
+        if (Data.DefaultMacro != "") {
+            Data.DefaultMacro := CompatMacro(Data.DefaultMacro, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
+    }
+    return hasFix
+}
+
+CompatLoop(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+
+    Symbol := "Loop"
+    loop read, filePath {
+        Data := CompatGetData(Symbol, A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        if (Data.LoopBody != "") {
+            Data.LoopBody := CompatMacro(Data.LoopBody, &isFix)
+            hasFix := hasFix || isFix
+        }
+
+        if (hasFix) {
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
+    }
+    return hasFix
+}
+

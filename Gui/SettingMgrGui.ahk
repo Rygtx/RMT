@@ -395,7 +395,11 @@ class SettingMgrGui {
         hasWork := CompatCMD(SettringDir "\MacroFile.ini") || hasWork
         hasWork := CompatMMPro(SettringDir "\MMProFile.ini") || hasWork
         hasWork := CompatSubMacro(SettringDir "\SubMacroFile.ini") || hasWork
-        hasWork := CompatSearch(SettringDir "\SearchProFile.ini") || hasWork
+        hasWork := CompatSearch(SettringDir "\SearchFile.ini") || hasWork
+        hasWork := CompatSearchPro(SettringDir "\SearchProFile.ini") || hasWork
+        hasWork := CompatCompare(SettringDir "\CompareFile.ini") || hasWork
+        hasWork := CompatComparePro(SettringDir "\CompareProFile.ini") || hasWork
+        hasWork := CompatLoop(SettringDir "\LoopFile.ini") || hasWork
         return hasWork
     }
 

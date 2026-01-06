@@ -1114,7 +1114,7 @@ class KeyGui {
     Init(cmd) {
         cmdArr := cmd != "" ? SplitKeyCommand(cmd) : []
         this.KeyStr := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.KeyTypeCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : 3
+        this.KeyTypeCon.Text := cmdArr.Length >= 3 ? cmdArr[3] : "点击"
         this.HoldTimeCon.Value := cmdArr.Length >= 4 ? cmdArr[4] : 100
         this.KeyCountCon.Value := cmdArr.Length >= 5 ? cmdArr[5] : 1
         this.PerIntervalCon.Value := cmdArr.Length >= 6 ? cmdArr[6] : 200
@@ -1187,7 +1187,7 @@ class KeyGui {
 
         CommandStr := GetLang("按键")
         CommandStr .= "_" this.KeyStr
-        CommandStr .= "_" this.KeyTypeCon.Value
+        CommandStr .= "_" this.KeyTypeCon.Text
         if (isShowHoldTime) {
             CommandStr .= "_" this.HoldTimeCon.Value
         }

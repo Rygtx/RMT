@@ -700,13 +700,13 @@ SimpleRecordMacroStr(MacroStr) {
     SimpleCmdArr := []
     loop CmdArr.Length {
         paramArr := SplitKeyCommand(CmdArr[A_Index])
-        isPressKey := paramArr[1] == "按键" && paramArr[3] == 1
+        isPressKey := paramArr[1] == "按键" && paramArr[3] == "按下"
         if (isPressKey && A_Index + 1 < CmdArr.Length) {
             next1ParamArr := SplitKeyCommand(CmdArr[A_Index + 1])
             next2ParamArr := SplitKeyCommand(CmdArr[A_Index + 2])
             isMatchFormat := next1ParamArr[1] == "间隔" && next2ParamArr[1] == "按键"
-            if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == 2) {
-                SimpleCmdStr := Format("按键_{}_3_{}", paramArr[2], next1ParamArr[2])
+            if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == "松开") {
+                SimpleCmdStr := Format("按键_{}_点击_{}", paramArr[2], next1ParamArr[2])
                 SimpleCmdArr.Push(SimpleCmdStr)
                 A_Index := A_Index + 2
                 continue

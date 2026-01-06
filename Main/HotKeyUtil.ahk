@@ -1011,11 +1011,12 @@ OnPressKey(tableItem, cmd, index) {
     isJoyKey := SubStr(paramArr[2], 1, 3) == "Joy"
     isJoyAxis := StrCompare(SubStr(paramArr[2], 1, 7), "JoyAxis", false) == 0
     actionMap := Map(1, SendNormalKeyClick, 2, SendGameModeKeyClick, 3, SendLogicKeyClick)
+    keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
     action := actionMap[Integer(tableItem.ModeArr[index])]
     action := isJoyKey ? SendJoyBtnClick : action
     action := isJoyAxis ? SendJoyAxisClick : action
 
-    keyType := Integer(paramArr[3])
+    keyType := keyTypeMap[paramArr[3]]
     holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
     count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1
     IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 1000
