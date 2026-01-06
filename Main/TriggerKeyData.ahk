@@ -225,7 +225,7 @@ class TriggerKeyData {
         }
 
         if (this.Key == "enter") {
-            MyTargetGui.OnEnterUp(this.Key)
+            MyColorPanel.OnEnterUp(this.Key)
         }
     }
 }

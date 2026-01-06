@@ -19,6 +19,7 @@
 #Include Gui\UseExplainGui.ahk
 #Include Gui\LoopGui.ahk
 #Include Gui\TargetGui.ahk
+#Include Gui\ColorPanelGui.ahk
 #Include Gui\ToolRecordSettingGui.ahk
 #Include Gui\VariableListenGui.ahk
 #Include Gui\CMDTipGui.ahk
@@ -76,6 +77,7 @@ global MyCMDTipGui := CMDTipGui()
 global MyTimingGui := TimingGui()
 global MySlider := VerticalSlider()
 global MyTargetGui := TargetGui()
+global MyColorPanel := ColorPanelGui()
 global MyMsgboxGui := CustomMsgBoxGui()
 global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
