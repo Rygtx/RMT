@@ -22,7 +22,7 @@ CompatMacro(MacroStr, &isFix) {
     CMDArr := SplitMacro(MacroStr)
     isFix := false
     loop CMDArr.Length {
-        paramArr := SplitKeyCommand(CMDArr[A_Index])
+        paramArr := SplitCommand(CMDArr[A_Index])
 
         ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
         if (paramArr[1] == "间隔" && paramArr.Length == 3) {

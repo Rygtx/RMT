@@ -1007,7 +1007,7 @@ OnInterval(tableItem, cmd, index) {
 }
 
 OnPressKey(tableItem, cmd, index) {
-    paramArr := SplitKeyCommand(cmd)
+    paramArr := SplitCommand(cmd)
     isJoyKey := SubStr(paramArr[2], 1, 3) == "Joy"
     isJoyAxis := StrCompare(SubStr(paramArr[2], 1, 7), "JoyAxis", false) == 0
     actionMap := Map(1, SendNormalKeyClick, 2, SendGameModeKeyClick, 3, SendLogicKeyClick)

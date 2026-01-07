@@ -292,7 +292,7 @@ class SearchProGui {
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
         this.ResultTogArr.Push(con)
         PosX += 85
-        con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
+        con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("假值"))
         this.ResultTogArr.Push(con)
 
         PosY += 25

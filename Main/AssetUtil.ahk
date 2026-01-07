@@ -153,38 +153,6 @@ SplitMacro(macroStr) {
 }
 
 SplitCommand(macro) {
-    splitIndex := RegExMatch(macro, "(\(.*\))", &match)
-    if (splitIndex == 0) {
-        return [macro, "", ""]
-    }
-    else {
-        macro1 := SubStr(macro, 1, splitIndex - 1)
-        result := [macro1]
-        lastSymbolIndex := 0
-        leftBracket := 0
-        loop parse match[1] {
-            if (A_LoopField == "(") {
-                leftBracket += 1
-                if (leftBracket == 1)
-                    lastSymbolIndex := A_Index
-            }
-
-            if (A_LoopField == ")") {
-                leftBracket -= 1
-                if (leftBracket == 0) {
-                    curMacro := SubStr(match[1], lastSymbolIndex + 1, A_Index - lastSymbolIndex - 1)
-                    result.Push(curMacro)
-                }
-            }
-        }
-        if (result.Length == 2) {
-            result.Push("")
-        }
-        return result
-    }
-}
-
-SplitKeyCommand(macro) {
     realKey := ""
     for key, value in MySoftData.SpecialKeyMap {
         newMacro := StrReplace(macro, key, "flagSymbol")

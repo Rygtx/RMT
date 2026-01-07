@@ -699,11 +699,11 @@ SimpleRecordMacroStr(MacroStr) {
     CmdArr := SplitMacro(MacroStr)
     SimpleCmdArr := []
     loop CmdArr.Length {
-        paramArr := SplitKeyCommand(CmdArr[A_Index])
+        paramArr := SplitCommand(CmdArr[A_Index])
         isPressKey := paramArr[1] == "按键" && paramArr[3] == "按下"
         if (isPressKey && A_Index + 1 < CmdArr.Length) {
-            next1ParamArr := SplitKeyCommand(CmdArr[A_Index + 1])
-            next2ParamArr := SplitKeyCommand(CmdArr[A_Index + 2])
+            next1ParamArr := SplitCommand(CmdArr[A_Index + 1])
+            next2ParamArr := SplitCommand(CmdArr[A_Index + 2])
             isMatchFormat := next1ParamArr[1] == "间隔" && next2ParamArr[1] == "按键"
             if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == "松开") {
                 SimpleCmdStr := Format("按键_{}_点击_{}", paramArr[2], next1ParamArr[2])
@@ -757,7 +757,7 @@ CheckIfDiscardCMD(triggerMap, cmd) {
     if (!InStr(cmd, "按键"))
         return false
 
-    paramArr := SplitKeyCommand(cmd)
+    paramArr := SplitCommand(cmd)
     if (triggerMap.Has(paramArr[2]) && triggerMap[paramArr[2]] < 2) {
         triggerMap[paramArr[2]] += 1
         return true
@@ -767,7 +767,7 @@ CheckIfDiscardCMD(triggerMap, cmd) {
 }
 
 FullCopyCmd(cmd, CopyedMap := Map()) {
-    paramArr := SplitKeyCommand(cmd)
+    paramArr := SplitCommand(cmd)
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
     if (IsSkip)
         paramArr[1] := SubStr(paramArr[1], 3)
