@@ -361,9 +361,9 @@ class CompareData {
     __New() {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.TrueMacro := ""
         this.FalseMacro := ""
         this.SaveToggle := 0
@@ -376,7 +376,7 @@ class CompareData {
 
 class CompareProData {
     __New() {
-        this.VariNameArr := [["Num1"], ["Num2"]]
+        this.VariNameArr := [["Var1"], ["Var2"]]
         this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
         this.VariableArr := [[1], [2]]
         this.LogicTypeArr := [1, 2]
@@ -463,9 +463,9 @@ class LoopData {
         this.CondiType := 1     ;条件类型 1：无 2：退出条件 3：继续条件
         this.LogicType := 1     ;逻辑关系  1：且    2：或
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.LoopBody := ""     ;循环体
     }
 
@@ -502,7 +502,7 @@ class VariableData {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.OperaTypeArr := [1, 1, 1, 1]   ;1赋值 2随机 3字符 4删除
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CopyVariableArr := ["1", "0", "0", "0"]
         this.MinVariableArr := ["0", "0", "0", "0"]
         this.MaxVariableArr := ["10", "10", "10", "10"]
@@ -514,7 +514,7 @@ class ExVariableData {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0, 0, 0]
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4", "Num5", "Num6"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
         this.ExtractStr := ""
         this.ExtractType := 1
         this.OCRType := 1
@@ -532,9 +532,9 @@ class OperationData {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.OperationArr := ["", "", "", ""]
-        this.UpdateNameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.UpdateNameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.SymbolGroups := [[], [], [], []]  ;操作符号
         this.ValueGroups := [[], [], [], []]     ;运算对象
     }
