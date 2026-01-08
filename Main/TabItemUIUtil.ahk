@@ -809,6 +809,10 @@ LoadTabSingleItem(tableItem, ItemConObj) {
 }
 
 RefreshTabItem(tableItem) {
+    isItem := CheckIsItemTable(tableItem.Index)
+    if (!isItem)
+        return
+
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     FoldInfo := tableItem.FoldInfo
     ;因为遍历里面涉及对ItemUsePool的Delete操作，会影响遍历操作
@@ -846,8 +850,8 @@ RefreshTabItem(tableItem) {
 }
 
 RefreshGroupItem(tableItem, foldIndex) {
-    isMacro := CheckIsMacroTable(tableItem.Index)
-    if (!isMacro)
+    isItem := CheckIsItemTable(tableItem.Index)
+    if (!isItem)
         return
 
     FoldInfo := tableItem.FoldInfo

@@ -603,11 +603,11 @@ GetTableItemDefaultInfo(index) {
         savedEndTipSoundStr := "1"
     }
     else if (symbol == "Replace") {
-        savedTKArrStr := "l"
+        savedTKArrStr := "k"
         savedHoldTimeArrStr := "500"
         savedModeArrStr := "1"
         savedForbidArrStr := "1"
-        savedRemarkArrStr := GetLang("将l按键替换成其他按键")
+        savedRemarkArrStr := GetLang("将k按键替换成其他按键")
         savedTriggerTypeStr := "1"
         savedLoopCountStr := "1"
         savedSerialeArrStr := "11"
@@ -830,6 +830,23 @@ GetTimingTableIndex() {
 CheckIsNormalTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal")
+        return true
+    return false
+}
+
+CheckIsItemTable(index) {
+    symbol := GetTableSymbol(index)
+    if (symbol == "Normal")
+        return true
+    if (symbol == "String")
+        return true
+    if (symbol == "SubMacro")
+        return true
+    if (symbol == "Timing")
+        return true
+    if (symbol == "Menu")
+        return true
+    if (symbol == "Replace")
         return true
     return false
 }

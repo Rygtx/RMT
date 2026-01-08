@@ -76,7 +76,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -104,7 +104,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -132,7 +132,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -161,7 +161,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -250,7 +250,6 @@ class VariableGui {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能包含下划线"), A_Index))
                     return false
                 }
-
             }
         }
         return true
@@ -259,9 +258,30 @@ class VariableGui {
     GetCommandStr() {
         CommandStr := Format("{}_{}", "变量", this.Data.SerialStr)
         Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        if (Remark == "") {
+            loop 4 {
+                if (this.ToggleConArr[A_Index].Value) {
+                    CurVarRemark := this.VariableConArr[A_Index].Text
+                    if (this.OperaTypeConArr[A_Index].Value == 1) {
+                        if (IsNumber(this.CopyVariableConArr[A_Index].Text)) {
+                            CurVarRemark .= "=" this.CopyVariableConArr[A_Index].Text
+                        }
+                    }
+                    else if (this.OperaTypeConArr[A_Index].Value == 2) {
+                        CurVarRemark .= GetLang("随机")
+                        isNumSpan := IsNumber(this.MinVariableConArr[A_Index].Text) && IsNumber(this.MaxVariableConArr[A_Index].Text)
+                        if (isNumSpan)
+                            CurVarRemark .= this.MinVariableConArr[A_Index].Text "~" this.MaxVariableConArr[A_Index].Text
+                    }
+                    else if (this.OperaTypeConArr[A_Index].Value == 4) {
+                        CurVarRemark .= GetLang("删除")
+                    }
+                    Remark .= CurVarRemark "&"
+                }
+            }
+            Remark := RTrim(Remark, "&")
         }
+        CommandStr .= "_" Remark
         return CommandStr
     }
 

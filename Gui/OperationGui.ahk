@@ -159,9 +159,16 @@ class OperationGui {
     GetCommandStr() {
         CommandStr := Format("{}_{}", GetLang("运算"), this.Data.SerialStr)
         Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        if (Remark == "") {
+            Remark := GetLang("更新")
+            loop 4 {
+                if (this.ToggleConArr[A_Index].Value) {
+                    Remark .= this.UpdateNameConArr[A_Index].Text "&"
+                }
+            }
+            Remark := RTrim(Remark, "&")
         }
+        CommandStr .= "_" Remark
         return CommandStr
     }
 

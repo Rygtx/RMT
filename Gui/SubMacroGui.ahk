@@ -64,7 +64,7 @@ class SubMacroGui {
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏序号："))
 
         PosX += 65
-        this.DropDownIndexCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 5, 185), [])
+        this.DropDownIndexCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R8", PosX, PosY - 5, 185), [])
 
         PosX := 10
         PosY += 40
@@ -116,8 +116,8 @@ class SubMacroGui {
 
         if (this.Data.MacroType != 1) {
             DropDownArr := []
-            for index, Con in MySoftData.TableInfo[tableIndex].RemarkArr {
-                DropDownArr.Push(A_Index ". " Con.Value)
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
             }
             this.DropDownIndexCon.Delete()
             this.DropDownIndexCon.Add(DropDownArr)
@@ -213,9 +213,16 @@ class SubMacroGui {
     GetCommandStr() {
         CommandStr := Format("{}_{}", GetLang("宏操作"), this.Data.SerialStr)
         Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        if (Remark == "") {
+            OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
+            IntervarlStr := MySoftData.Lang == "中文" ? "" : " "
+            MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+            OperStr := OperTipArr[this.CallTypeCon.Value]
+            TypeStr := MacroTypeArr[this.TypeCon.Value]
+            SerialStr := this.TypeCon.Value == 1 ? "" : this.DropDownIndexCon.value
+            Remark := OperStr IntervarlStr TypeStr SerialStr
         }
+        CommandStr .= "_" Remark
         return CommandStr
     }
 

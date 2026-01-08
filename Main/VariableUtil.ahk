@@ -112,7 +112,8 @@ GetLocalVar(macroStr) {
 
 GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     ResultArr := []
-    ResultMap := GetLocalVar(curMacroStr)
+    ; ResultMap := GetLocalVar(curMacroStr)   ;忘记有什么用，先屏蔽
+    ResultMap := Map()
     HasLoopCount := false   ;含有指令循环次数变量
     SpecialKeyArr := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
 
