@@ -34,10 +34,12 @@ CompatMacro(MacroStr, &isFix) {
 
         ;1.1F1 按键指令动作类型改成中文
         if (paramArr[1] == "按键" && IsInteger(paramArr[3])) {
-            isFix := true
             keyTypeMap := Map(1, "按下", 2, "松开", 3, "点击")
-            paramArr[3] := keyTypeMap[Integer(paramArr[3])]
-            CMDArr[A_Index] := GetCmdByParams(paramArr)
+            if (keyTypeMap.Has(Integer(paramArr[3]))) {
+                isFix := true
+                paramArr[3] := keyTypeMap[Integer(paramArr[3])]
+                CMDArr[A_Index] := GetCmdByParams(paramArr)
+            }
         }
     }
     MacroStr := GetMacroStrByCmdArr(CMDArr)
@@ -170,8 +172,6 @@ Compat1_0_9F1TipSound(tableItem) {
     }
 }
 
-
-
 CompatCMD(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
@@ -258,7 +258,6 @@ CompatSearch(filePath) {
     }
     return hasFix
 }
-
 
 CompatSearchPro(filePath) {
     hasFix := false
@@ -350,7 +349,7 @@ CompatSearchPro(filePath) {
         }
 
         if (Data.TrueMacro != "") {
-            Data.MacroStr := CompatMacro(Data.MacroStr, &isFix)
+            Data.TrueMacro := CompatMacro(Data.TrueMacro, &isFix)
             hasFix := hasFix || isFix
         }
 
@@ -366,8 +365,6 @@ CompatSearchPro(filePath) {
     }
     return hasFix
 }
-
-
 
 CompatCompare(filePath) {
     hasFix := false
@@ -452,4 +449,3 @@ CompatLoop(filePath) {
     }
     return hasFix
 }
-
