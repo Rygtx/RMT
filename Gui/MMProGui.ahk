@@ -5,6 +5,7 @@ class MMProGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
+        this.RuleMenu := ""
         this.SureBtnAction := ""
         this.VariableObjArr := []
         this.FocusCon := ""
@@ -79,11 +80,13 @@ class MMProGui {
         this.ConfigDLCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 220), [])
         this.ConfigDLCon.OnEvent("Change", (*) => this.OnChangeConfig())
         PosX += 230
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "+")
-        con.OnEvent("Click", (*) => this.OnAddConfig())
-        PosX += 30
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "-")
-        con.OnEvent("Click", (*) => this.OnRemoveConfig())
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 4, 50, 30), GetLang("编辑"))
+        con.OnEvent("Click", this.OnEditScreenRule.Bind(this))
+        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "+")
+        ; con.OnEvent("Click", (*) => this.OnAddConfig())
+        ; PosX += 30
+        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "-")
+        ; con.OnEvent("Click", (*) => this.OnRemoveConfig())
 
         PosY += 35
         PosX := 10
@@ -206,6 +209,50 @@ class MMProGui {
         this.ConfigDLCon.Delete()
         this.ConfigDLCon.Add(this.ConfigDLArr)
         this.ConfigDLCon.Text := this.Data.ConfigName
+    }
+
+    OnEditScreenRule(con, *) {
+        if (this.RuleMenu == "") {
+            this.ContextMenu := Menu()
+            this.ContextMenu.Add(GetLang("修改"), (*) => this.OnRuleMenuHandler(GetLang("修改")))
+            this.ContextMenu.Add(GetLang("增加"), (*) => this.OnRuleMenuHandler(GetLang("增加")))
+            this.ContextMenu.Add(GetLang("删除"), (*) => this.OnRuleMenuHandler(GetLang("删除")))
+        }
+        con.GetPos(&x, &y)
+        this.ContextMenu.Show(x, y)
+    }
+
+    OnRuleMenuHandler(Str) {
+        if (Str == GetLang("修改")) {
+            if (!ObjHasOwnProp(this, "WinRuleGui")) {
+                this.WinRuleGui := WinRuleGui()
+            }
+            SureAction(width, height, remark) {
+                ConfigName := Format("{}*{}", width, height)
+                if (remark != "")
+                    ConfigName := Format("{}*{}_{}", width, height, remark)
+                if (ConfigName == this.Data.ConfigName)
+                    return
+                loop this.ConfigDLArr.Length {
+                    if (this.ConfigDLArr[A_Index] == ConfigName) {
+                        MsgBox(Format("{} 配置已存在，修改失败", ConfigName))
+                        return
+                    }
+                }
+
+                this.Data.ConfigName := ConfigName
+                this.RefreshConfigDLArr()
+                saveStr := JSON.stringify(this.Data, 0)
+                IniWrite(saveStr, SearchProFile, IniSection, this.Data.SerialStr)
+                MsgBox(GetLang("修改成功"))
+            }
+            this.WinRuleGui.SureAction := SureAction
+            this.WinRuleGui.ShowGui()
+        }
+        else if (Str == GetLang("增加"))
+            this.OnAddConfig()
+        else if (Str == GetLang("删除"))
+            this.OnRemoveConfig()
     }
 
     OnAddConfig() {
@@ -363,7 +410,8 @@ class MMProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
+        ))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 

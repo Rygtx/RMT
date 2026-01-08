@@ -822,3 +822,8 @@ RMT默认初始化配置=RMT Default Setting
 （仅交流群成员有编辑权限）=(Editing is limited to group members.)
 更新=Update
 插入=Insert
+增加=Add
+修改成功=Modify Successfully
+窗口规格编辑器=Window Size Editor
+屏幕宽度：=Width:
+屏幕高度：Height

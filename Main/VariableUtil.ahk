@@ -149,11 +149,12 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     return ResultArr
 }
 
-;mode 1:移除所有  2：移除坐标变量
+;mode 1:移除所有  2：移除坐标变量 3:移除循环计数变量
 RemoveInVariable(VarArr, Mode := 1) {
     SpecialKeyArr1 := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
     SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2)
+    SpecialKeyArr3 := [GetLang("指令循环次数"), GetLang("宏循环次数")]
+    SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3)
     SpecialKeyArr := SpecialMap[Mode]
 
     ; 创建一个新数组来存储结果

@@ -200,11 +200,12 @@ FindImage(targetPath, searchX, searchY, searchW, searchH, matchThreshold, x, y) 
 }
 
 OnSearchOnce(tableItem, Data, index) {
-    X1 := Integer(Data.StartPosX)
-    Y1 := Integer(Data.StartPosY)
-    X2 := Integer(Data.EndPosX)
-    Y2 := Integer(Data.EndPosY)
-    VariableMap := tableItem.VariableMapArr[index]
+    HasX1 := TryGetVariableValue(&X1, tableItem, index, Data.StartPosX)
+    HasY1 := TryGetVariableValue(&Y1, tableItem, index, Data.StartPosY)
+    HasX2 := TryGetVariableValue(&X2, tableItem, index, Data.EndPosX)
+    HasY2 := TryGetVariableValue(&Y2, tableItem, index, Data.EndPosY)
+    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+        return
 
     CoordMode("Pixel", "Screen")
     if (Data.SearchType == 1) {
@@ -292,7 +293,6 @@ OnRunFile(tableItem, cmd, index) {
 OnCompare(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(CompareFile, paramArr[2])
-    VariableMap := tableItem.VariableMapArr[index]
     result := Data.LogicalType == 1 ? true : false
     loop 4 {
         if (!Data.ToggleArr[A_Index])
@@ -748,10 +748,12 @@ OnExVariable(tableItem, cmd, index) {
 }
 
 OnExVariableOnce(tableItem, index, Data) {
-    X1 := Data.StartPosX
-    Y1 := Data.StartPosY
-    X2 := Data.EndPosX
-    Y2 := Data.EndPosY
+    HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
+    HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
+    HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
+    HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+        return
 
     if (Data.ExtractType == 1) {
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
@@ -1422,20 +1424,20 @@ SendJoyAxisKey(key, state, tableItem, index) {
 OnTextProcess(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(TextProcessFile, paramArr[2])
-    
+
     ; 获取源变量值
     sourceText := ""
     if (!TryGetVariableValue(&sourceText, tableItem, index, Data.SourceVariable, false)) {
         return
     }
-    
+
     if (sourceText == "") {
         return
     }
-    
+
     NameArr := []
     ValueArr := []
-    
+
     ; 处理文本
     switch Data.ProcessType {
         case 1: ; 文本分割
@@ -1448,43 +1450,44 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 2: ; 文本替换
-            processedText := ProcessTextReplace(sourceText, Data.SearchText, Data.ReplaceText, Data.CaseSensitive, Data.UseRegex)
+            processedText := ProcessTextReplace(sourceText, Data.SearchText, Data.ReplaceText, Data.CaseSensitive, Data
+                .UseRegex)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 3: ; 数字提取
             extractedText := ExtractDigits(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 4: ; 字母提取
             extractedText := ExtractAlphabets(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 5: ; 中文提取
             extractedText := ExtractChineseChars(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 6: ; 去空格处理
             processedText := ProcessWhitespace(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 7: ; 大小写转换
             processedText := ProcessCaseConversion(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 8: ; URL编解码
             processedText := ProcessURLEncode(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 9: ; Base64编解码
             processedText := ProcessBase64(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 10: ; 文本统计
             statsText := GetTextStatistics(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, statsText)
-            
+
         case 11: ; 固定长度分割
             length := Data.SplitParam ? Integer(Data.SplitParam) : 10
             maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
@@ -1497,7 +1500,7 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 12: ; 多字符分割
             delimiters := Data.SplitParam ? Data.SplitParam : ",|;"
             maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
@@ -1510,30 +1513,30 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 13: ; 行过滤
             filteredText := FilterLines(sourceText, Data.SearchText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, filteredText)
-            
+
         case 14: ; 去重处理
             processedText := RemoveDuplicates(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 15: ; 排序处理
             processedText := SortText(sourceText, Data.ReverseProcess)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 16: ; 随机文本
             length := Data.SplitParam ? Integer(Data.SplitParam) : 10
             randomText := GenerateRandomText(length)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, randomText)
-            
+
         case 17: ; 日期时间
             format := Data.SplitParam ? Data.SplitParam : "yyyy-MM-dd HH:mm:ss"
             dateTimeText := GetDateTime(format)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, dateTimeText)
     }
-    
+
     ; 将结果保存到变量
     if (NameArr.Length > 0) {
         loop NameArr.Length {
@@ -1541,4 +1544,3 @@ OnTextProcess(tableItem, cmd, index) {
         }
     }
 }
-
