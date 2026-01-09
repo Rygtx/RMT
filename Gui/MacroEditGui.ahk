@@ -805,10 +805,10 @@ class MacroEditGui {
     TreeAddBranch(root, cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
         IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-        IsSearch := InStr(paramArr[1], GetLang("搜索"))
         IsSearchPro := InStr(paramArr[1], GetLang("搜索Pro"))
-        IsIf := InStr(paramArr[1], GetLang("如果"))
+        IsSearch := InStr(paramArr[1], GetLang("搜索")) && !IsSearchPro
         IsIfPro := InStr(paramArr[1], GetLang("如果Pro"))
+        IsIf := InStr(paramArr[1], GetLang("如果")) && !IsIfPro
         IsLoop := InStr(paramArr[1], GetLang("循环"))
         Cmd := RegExReplace(paramArr[1], "\d+")
         if (IsSkip)
@@ -829,8 +829,7 @@ class MacroEditGui {
             dataFileMap := Map(GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile, GetLang("如果"),
             CompareFile)
             dataFile := dataFileMap[Cmd]
-            saveStr := IniRead(dataFile, IniSection, paramArr[1], "")
-            Data := JSON.parse(saveStr, , false)
+            Data := GetMacroCMDData(dataFile, paramArr[1])
             TrueMacro := GetLangMacro(Data.TrueMacro, 1)
             FalseMacro := GetLangMacro(Data.FalseMacro, 1)
 
@@ -843,9 +842,7 @@ class MacroEditGui {
             this.TreeAddSubTree(falseRoot, FalseMacro)
         }
         else if (IsLoop) {
-            saveStr := IniRead(LoopFile, IniSection, paramArr[1], "")
-            Data := JSON.parse(saveStr, , false)
-
+            Data := GetMacroCMDData(LoopFile, paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
             countStr := Data.LoopCount == -1 ? GetLang("无限") : Data.LoopCount
             CountRoot := this.MacroTreeViewCon.Add(Format("{}:{}", GetLang("⎖循环次数"), countStr), root, iconStr)
@@ -863,9 +860,7 @@ class MacroEditGui {
             this.TreeAddSubTree(BodyRoot, LoopBody)
         }
         else if (IsIfPro) {
-            saveStr := IniRead(CompareProFile, IniSection, paramArr[1], "")
-            Data := JSON.parse(saveStr, , false)
-
+            Data := GetMacroCMDData(CompareProFile, paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("条件"))
             loop Data.VariNameArr.Length {
                 CondiStr := GetLang("条件：") CompareProData.GetCondiStr(Data, A_Index)
@@ -1149,8 +1144,8 @@ class MacroEditGui {
             return
 
         ItemNumber := this.GetItemNumber(nodeItemID)
-        saveStr := IniRead(FileName, IniSection, paramArr[1], "")
-        Data := JSON.parse(saveStr, , false)
+        Data := GetMacroCMDData(FileName, paramArr[1])
+        macroStr := GetLangMacro(macroStr, 2)
         if (cmd == GetLang("循环")) {
             Data.LoopBody := macroStr
         }
@@ -1179,11 +1174,7 @@ class MacroEditGui {
                 Data.FalseMacro := macroStr
         }
 
-        saveStr := JSON.stringify(Data, 0)
-        IniWrite(saveStr, FileName, IniSection, Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(Data.SerialStr)
-        }
+        SaveMacroCMDData(FileName, Data)
     }
 
     GetItemNumber(nodeItemID) {

@@ -144,14 +144,28 @@ GetLangCmd(Cmd, Mode) {
     action := Mode == 1 ? GetLang : GetLangKey
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
     paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
-    if (paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")) {
+
+    IsMM := paramArr[1] == "移动" || paramArr[1] == GetLang("移动")
+    IsPressKey := paramArr[1] == "按键" || paramArr[1] == GetLang("按键")
+    IsInterval := paramArr[1] == "间隔" || paramArr[1] == GetLang("间隔")
+    IsRMT := paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")
+    if (IsMM || IsPressKey || IsInterval || IsRMT) {
+        paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
+    }
+    else {
+        textOnly := RegExReplace(paramArr[1], "\d+")
+        numbersOnly := RegExReplace(paramArr[1], "\D+")
+        SkipStr := IsSkip ? "🚫" : ""
+        paramArr[1] := Format("{}{}{}", SkipStr, action(textOnly), numbersOnly)
+    }
+
+    if (IsRMT) {
         paramArr[2] := action(paramArr[2])
     }
 
-    if (paramArr[1] == "按键" || paramArr[1] == GetLang("按键")) {
+    if (IsPressKey) {
         paramArr[3] := action(paramArr[3])
     }
-    paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
     return GetCmdByParams(paramArr)
 }
 

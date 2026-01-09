@@ -1314,7 +1314,9 @@ GetWinPos() {
 }
 
 GetMacroCMDData(fileName, serialStr) {
-    global MySoftData
+    textOnly := RegExReplace(serialStr, "\d+")
+    numbersOnly := RegExReplace(serialStr, "\D+")
+    serialStr := Format("{}{}", GetLangKey(textOnly), numbersOnly)
     if (MySoftData.DataCacheMap.Has(serialStr)) {
         return MySoftData.DataCacheMap[serialStr]
     }
@@ -1323,6 +1325,14 @@ GetMacroCMDData(fileName, serialStr) {
     Data := JSON.parse(saveStr, , false)
     MySoftData.DataCacheMap.Set(serialStr, Data)
     return Data
+}
+
+SaveMacroCMDData(fileName, Data) {
+    saveStr := JSON.stringify(Data, 0)
+    IniWrite(saveStr, fileName, IniSection, Data.SerialStr)
+    if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
+        MySoftData.DataCacheMap.Delete(Data.SerialStr)
+    }
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {
