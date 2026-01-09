@@ -139,8 +139,8 @@ class OperationGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("Calc")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("运算")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := this.GetOperationData(this.SerialStr)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
@@ -157,8 +157,10 @@ class OperationGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("运算"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
         if (Remark == "") {
             Remark := GetLang("更新")
             loop 4 {
@@ -168,7 +170,7 @@ class OperationGui {
             }
             Remark := RTrim(Remark, "&")
         }
-        CommandStr .= "_" Remark
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 

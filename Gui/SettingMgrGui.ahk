@@ -390,16 +390,21 @@ class SettingMgrGui {
     OnRepairSetting(SettringDir) {
         SplitPath SettringDir, &fileName, , &fileExt, &fileNameNoExt
         hasWork := false
-        hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchFile.ini", 1) || hasWork
-        hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchProFile.ini", 1) || hasWork
         hasWork := CompatCMD(SettringDir "\MacroFile.ini") || hasWork
-        hasWork := CompatMMPro(SettringDir "\MMProFile.ini") || hasWork
-        hasWork := CompatSubMacro(SettringDir "\SubMacroFile.ini") || hasWork
         hasWork := CompatSearch(SettringDir "\SearchFile.ini") || hasWork
         hasWork := CompatSearchPro(SettringDir "\SearchProFile.ini") || hasWork
+        hasWork := CompatMMPro(SettringDir "\MMProFile.ini") || hasWork
+        hasWork := CompatOutput(SettringDir "\OutputFile.ini") || hasWork
+        hasWork := CompatRun(SettringDir "\RunFile.ini") || hasWork
+        hasWork := CompatLoop(SettringDir "\LoopFile.ini") || hasWork
+        hasWork := CompatSubMacro(SettringDir "\SubMacroFile.ini") || hasWork
+        hasWork := CompatVariable(SettringDir "\VariableFile.ini") || hasWork
+        hasWork := CompatExVariable(SettringDir "\ExVariableFile.ini") || hasWork
         hasWork := CompatCompare(SettringDir "\CompareFile.ini") || hasWork
         hasWork := CompatComparePro(SettringDir "\CompareProFile.ini") || hasWork
-        hasWork := CompatLoop(SettringDir "\LoopFile.ini") || hasWork
+        hasWork := CompatOperation(SettringDir "\OperationFile.ini") || hasWork
+        hasWork := CompatBGMouse(SettringDir "\BGMouseFile.ini") || hasWork
+        hasWork := CompatBGKey(SettringDir "\BGKeyFile.ini") || hasWork
         return hasWork
     }
 

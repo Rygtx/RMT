@@ -193,8 +193,8 @@ class VariableGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("Variable")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := this.GetVariableData(this.SerialStr)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
@@ -256,8 +256,10 @@ class VariableGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", "变量", this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
+         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
         if (Remark == "") {
             loop 4 {
                 if (this.ToggleConArr[A_Index].Value) {
@@ -281,7 +283,7 @@ class VariableGui {
             }
             Remark := RTrim(Remark, "&")
         }
-        CommandStr .= "_" Remark
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 

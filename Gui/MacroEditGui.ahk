@@ -39,7 +39,6 @@ class MacroEditGui {
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
         this.SaveBtnCtrl := {}
-        this.CmdBtnConMap := map()
         this.SubGuiMap := map()
         this.MacroTreeViewCon := ""
         this.MacroEditTextCon := ""
@@ -203,124 +202,105 @@ class MacroEditGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("间隔"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.IntervalGui))
-        this.CmdBtnConMap.Set("间隔", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("按键"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.KeyGui))
-        this.CmdBtnConMap.Set("按键", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("搜索"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SearchGui))
-        this.CmdBtnConMap.Set("搜索", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("搜索Pro"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SearchProGui))
-        this.CmdBtnConMap.Set("搜索Pro", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("移动"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.MoveMoveGui))
-        this.CmdBtnConMap.Set("移动", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("移动Pro"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.MMProGui))
-        this.CmdBtnConMap.Set("移动Pro", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("输出"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.OutputGui))
-        this.CmdBtnConMap.Set("输出", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("运行"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RunGui))
-        this.CmdBtnConMap.Set("运行", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("循环"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.LoopGui))
-        this.CmdBtnConMap.Set("循环", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("宏操作"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SubMacroGui))
-        this.CmdBtnConMap.Set("宏操作", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("变量"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.VariableGui))
-        this.CmdBtnConMap.Set("变量", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("变量提取"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.ExVariableGui))
-        this.CmdBtnConMap.Set("变量提取", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("如果"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.CompareGui))
-        this.CmdBtnConMap.Set("如果", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("如果Pro"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.CompareProGui))
-        this.CmdBtnConMap.Set("如果Pro", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("运算"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.OperationGui))
-        this.CmdBtnConMap.Set("运算", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("RMT指令"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RMTCMDGui))
-        this.CmdBtnConMap.Set("RMT指令", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("后台鼠标"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGMouseGui))
-        this.CmdBtnConMap.Set("后台鼠标", btnCon)
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("后台按键"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGKeyGui))
-        this.CmdBtnConMap.Set("后台按键", btnCon)
 
         PosX := 15
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文本处理"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextProcessGui))
-        this.CmdBtnConMap.Set("文本处理", btnCon)
 
         PosX := 200
         PosY := 10
@@ -824,11 +804,15 @@ class MacroEditGui {
 
     TreeAddBranch(root, cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
-        IsSearch := StrCompare(paramArr[1], GetLang("搜索"), false) == 0
-        IsSearchPro := StrCompare(paramArr[1], GetLang("搜索Pro"), false) == 0
-        IsIf := StrCompare(paramArr[1], GetLang("如果"), false) == 0
-        IsIfPro := StrCompare(paramArr[1], GetLang("如果Pro"), false) == 0
-        IsLoop := StrCompare(paramArr[1], GetLang("循环"), false) == 0
+        IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+        IsSearch := InStr(paramArr[1], GetLang("搜索"))
+        IsSearchPro := InStr(paramArr[1], GetLang("搜索Pro"))
+        IsIf := InStr(paramArr[1], GetLang("如果"))
+        IsIfPro := InStr(paramArr[1], GetLang("如果Pro"))
+        IsLoop := InStr(paramArr[1], GetLang("循环"))
+        Cmd := RegExReplace(paramArr[1], "\d+")
+        if (IsSkip)
+            return
         if (!IsSearch && !IsSearchPro && !IsIf && !IsLoop && !IsIfPro)
             return
 
@@ -837,18 +821,15 @@ class MacroEditGui {
             itemText := this.MacroTreeViewCon.GetText(ParentID)
             itemParamArr := StrSplit(itemText, "_")
             ParentID := this.MacroTreeViewCon.GetParent(ParentID)
-            if (itemParamArr.Length == 1)
-                continue
-
-            if (itemParamArr[2] == paramArr[2])
+            if (itemParamArr[1] == paramArr[1])
                 return
         }
 
         if (IsIf || IsSearch || IsSearchPro) {
             dataFileMap := Map(GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile, GetLang("如果"),
             CompareFile)
-            dataFile := dataFileMap[paramArr[1]]
-            saveStr := IniRead(dataFile, IniSection, paramArr[2], "")
+            dataFile := dataFileMap[Cmd]
+            saveStr := IniRead(dataFile, IniSection, paramArr[1], "")
             Data := JSON.parse(saveStr, , false)
             TrueMacro := GetLangMacro(Data.TrueMacro, 1)
             FalseMacro := GetLangMacro(Data.FalseMacro, 1)
@@ -862,7 +843,7 @@ class MacroEditGui {
             this.TreeAddSubTree(falseRoot, FalseMacro)
         }
         else if (IsLoop) {
-            saveStr := IniRead(LoopFile, IniSection, paramArr[2], "")
+            saveStr := IniRead(LoopFile, IniSection, paramArr[1], "")
             Data := JSON.parse(saveStr, , false)
 
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
@@ -882,7 +863,7 @@ class MacroEditGui {
             this.TreeAddSubTree(BodyRoot, LoopBody)
         }
         else if (IsIfPro) {
-            saveStr := IniRead(CompareProFile, IniSection, paramArr[2], "")
+            saveStr := IniRead(CompareProFile, IniSection, paramArr[1], "")
             Data := JSON.parse(saveStr, , false)
 
             iconStr := this.GetCmdIconStr(GetLang("条件"))
@@ -914,11 +895,6 @@ class MacroEditGui {
 
     ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
-        ; if (subGui == this.TextProcessGui) {
-        ;     MsgBox("暂时不开放，等其他指令完善后将开放，敬请期待")
-        ;     return
-        ; }
-
         this.CmdEditType := modeType
         if ObjHasOwnProp(subGui, "VariableObjArr") {
             macroStr := this.GetTreeMacroStr(0)
@@ -983,7 +959,6 @@ class MacroEditGui {
     ;修改指令
     OnModifyCmd(CommandStr) {
         this.MacroTreeViewCon.Modify(this.CurItemID, , CommandStr)
-        paramsArr := StrSplit(CommandStr, "_")
         ParentID := this.MacroTreeViewCon.GetParent(this.CurItemID)
         if (ParentID == 0) {
             this.RefreshTree(this.CurItemID)
@@ -1147,15 +1122,17 @@ class MacroEditGui {
         paramArr := StrSplit(cmdStr, "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             paramArr[1] := SubStr(paramArr[1], 3)
-        if (this.IconMap.Has(paramArr[1])) {
-            return this.IconMap.Get(paramArr[1])
+
+        textOnly := RegExReplace(paramArr[1], "\d+")
+        if (this.IconMap.Has(textOnly)) {
+            return this.IconMap.Get(textOnly)
         }
         return ""
     }
 
     SaveCommandData(RealCommandStr, macroStr, nodeItemID) {
         paramArr := StrSplit(RealCommandStr, "_")
-        cmd := paramArr[1]
+        cmd := RegExReplace(paramArr[1], "\d+")
 
         ; 映射表：命令 → 文件名
         fileMap := Map(
@@ -1172,7 +1149,7 @@ class MacroEditGui {
             return
 
         ItemNumber := this.GetItemNumber(nodeItemID)
-        saveStr := IniRead(FileName, IniSection, paramArr[2], "")
+        saveStr := IniRead(FileName, IniSection, paramArr[1], "")
         Data := JSON.parse(saveStr, , false)
         if (cmd == GetLang("循环")) {
             Data.LoopBody := macroStr

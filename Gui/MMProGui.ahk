@@ -147,9 +147,9 @@ class MMProGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("MMPro")
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("移动Pro")
         this.Data := this.GetMMProData(this.SerialStr)
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
 
         this.RefreshConfigDLArr()
         this.PosVarXCon.Delete()
@@ -188,11 +188,10 @@ class MMProGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("移动Pro"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 

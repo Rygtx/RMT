@@ -176,10 +176,11 @@ SplitCommand(macro) {
 GetCmdByParams(paramArr) {
     result := ""
     for index, value in paramArr {
-        result .= value
-        if (index != paramArr.Length)
-            result .= "_"
+        if (value != "") {
+            result .= value "_"
+        }
     }
+    result := Trim(result, "_")
     return result
 }
 
@@ -1377,7 +1378,6 @@ ShowNoVariableTip(variableName) {
         MsgBox(GetLang("当前环境不存在变量") variableName)
 }
 
-
 GetRandomStr(length) {
     result := Random(1, 9)
     loop length {
@@ -1594,11 +1594,10 @@ GetItemColorValue(state) {
 
 GetItemColorState(ColorValue) {
     ColorMap := Map("", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
-        "Images\Soft\RedColor.png",  3)
+        "Images\Soft\RedColor.png", 3)
 
     if (ColorMap.Has(ColorValue))
         return ColorMap[ColorValue]
 
     return 0
 }
-

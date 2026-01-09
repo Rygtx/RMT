@@ -60,31 +60,28 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             continue
-        IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
-        IsSearch := StrCompare(paramArr[1], "搜索", false) == 0
-        IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0
-        IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
-        IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
-        IsRun := StrCompare(paramArr[1], "运行", false) == 0
-        IsIf := StrCompare(paramArr[1], "如果", false) == 0
-        IsIfPro := StrCompare(paramArr[1], "如果Pro", false) == 0
-        IsMMPro := StrCompare(paramArr[1], "移动Pro", false) == 0
-        IsOutput := StrCompare(paramArr[1], "输出", false) == 0
-        IsVariable := StrCompare(paramArr[1], "变量", false) == 0
-        IsExVariable := StrCompare(paramArr[1], "变量提取", false) == 0
-        IsSubMacro := StrCompare(paramArr[1], "宏操作", false) == 0
-        IsOperation := StrCompare(paramArr[1], "运算", false) == 0
-        IsBGMouse := StrCompare(paramArr[1], "后台鼠标", false) == 0
-        IsBGKey := StrCompare(paramArr[1], "后台按键", false) == 0
-        IsRMT := StrCompare(paramArr[1], "RMT指令", false) == 0
-        IsLoop := StrCompare(paramArr[1], "循环", false) == 0
-        IsTextProcess := StrCompare(paramArr[1], "文本处理", false) == 0
+        IsMMPro := InStr(paramArr[1], "移动Pro")
+        IsMM := InStr(paramArr[1], "移动") && !IsMMPro
+        IsSearchPro := InStr(paramArr[1], "搜索Pro")
+        IsSearch := InStr(paramArr[1], "搜索") && !IsSearchPro
+        IsPressKey := InStr(paramArr[1], "按键")
+        IsInterval := InStr(paramArr[1], "间隔")
+        IsRun := InStr(paramArr[1], "运行")
+        IsIf := InStr(paramArr[1], "如果")
+        IsIfPro := InStr(paramArr[1], "如果Pro")
+        IsOutput := InStr(paramArr[1], "输出")
+        IsVariable := InStr(paramArr[1], "变量")
+        IsExVariable := InStr(paramArr[1], "变量提取")
+        IsSubMacro := InStr(paramArr[1], "宏操作")
+        IsOperation := InStr(paramArr[1], "运算")
+        IsBGMouse := InStr(paramArr[1], "后台鼠标")
+        IsBGKey := InStr(paramArr[1], "后台按键")
+        IsRMT := InStr(paramArr[1], "RMT指令")
+        IsLoop := InStr(paramArr[1], "循环")
+        IsTextProcess := InStr(paramArr[1], "文本处理")
 
         if (MySoftData.CMDTip) {
-            NoRemark := IsMouseMove || IsPressKey || IsInterval || IsRMT
-            hasRemark := !NoRemark && paramArr.Length > 2
-            tipStr := hasRemark ? paramArr[1] "_" paramArr[3] : cmdArr[A_Index]
-            MyCMDReportAciton(tipStr)
+            MyCMDReportAciton(cmdArr[A_Index])
         }
 
         if (IsInterval) {
@@ -99,7 +96,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
                 cmdArr.InsertAt(A_Index + 1, cmdArr[A_Index])
             }
         }
-        else if (IsMouseMove) {
+        else if (IsMM) {
             OnMouseMove(tableItem, cmdArr[A_Index], index)
         }
         else if (IsMMPro) {
@@ -153,10 +150,11 @@ OnTriggerMacroOnce(tableItem, macro, index) {
     }
 }
 
-OnSearch(tableItem, cmd, index) {
-    paramArr := StrSplit(cmd, "_")
-    dataFile := StrCompare(paramArr[1], "搜索", false) == 0 ? SearchFile : SearchProFile
-    Data := GetMacroCMDData(dataFile, paramArr[2])
+OnSearch(tableItem, cmdStr, index) {
+    paramArr := StrSplit(cmdStr, "_")
+    IsSearchPro := InStr(paramArr[1], "搜索Pro")
+    dataFile := IsSearchPro ? SearchProFile : SearchFile
+    Data := GetMacroCMDData(dataFile, paramArr[1])
     if (Data.SearchCount == -1) {
         isLoopFound := OnSearchOnce(tableItem, Data, index)
         if (!isLoopFound) {
@@ -278,7 +276,7 @@ OnSearchOnce(tableItem, Data, index) {
 
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(RunFile, paramArr[2])
+    Data := GetMacroCMDData(RunFile, paramArr[1])
 
     isMp3 := RegExMatch(Data.RunPath, ".mp3$")
     if (isMp3 && Data.BackPlay) {
@@ -292,9 +290,9 @@ OnRunFile(tableItem, cmd, index) {
 
 OnCompare(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareFile, paramArr[2])
+    Data := GetMacroCMDData(CompareFile, paramArr[1])
     result := Data.LogicalType == 1 ? true : false
-    loop 4 {
+    loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
 
@@ -355,7 +353,7 @@ OnCompare(tableItem, cmd, index) {
 
 OnComparePro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareProFile, paramArr[2])
+    Data := GetMacroCMDData(CompareProFile, paramArr[1])
 
     loop Data.VariNameArr.Length {
         NameArr := Data.VariNameArr[A_Index]
@@ -417,7 +415,7 @@ OnComparePro(tableItem, cmd, index) {
 
 OnMMPro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(MMProFile, paramArr[2])
+    Data := GetMacroCMDData(MMProFile, paramArr[1])
 
     LastSumTime := 0
     loop Data.Count {
@@ -471,7 +469,7 @@ OnMMProOnce(tableItem, index, Data) {
 
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OutputFile, paramArr[2])
+    Data := GetMacroCMDData(OutputFile, paramArr[1])
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == 1) {     ;send
@@ -522,7 +520,7 @@ OnOutput(tableItem, cmd, index) {
 
 OnLoop(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(LoopFile, paramArr[2])
+    Data := GetMacroCMDData(LoopFile, paramArr[1])
 
     if (Data.LoopCount == -1) {
         loop {
@@ -618,7 +616,7 @@ GetLoopState(tableItem, cmd, index, Data) {
 OnSubMacro(tableItem, cmd, index) {
     global MySoftData
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(SubMacroFile, paramArr[2])
+    Data := GetMacroCMDData(SubMacroFile, paramArr[1])
     macroIndex := Data.MacroType == 1 ? index : Data.Index
     macroTableIndex := Data.MacroType == 1 ? tableItem.Index : Data.MacroType - 1
     macroItem := Data.MacroType == 1 ? tableItem : MySoftData.TableInfo[macroTableIndex]
@@ -666,7 +664,7 @@ OnSubMacro(tableItem, cmd, index) {
 
 OnVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(VariableFile, paramArr[2])
+    Data := GetMacroCMDData(VariableFile, paramArr[1])
     LocalVariableMap := tableItem.VariableMapArr[index]
     DeleteNameArr := []
     VariableNameArr := []
@@ -710,7 +708,7 @@ OnVariable(tableItem, cmd, index) {
 
 OnExVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(ExVariableFile, paramArr[2])
+    Data := GetMacroCMDData(ExVariableFile, paramArr[1])
     count := Data.SearchCount
     interval := Data.SearchInterval
 
@@ -803,7 +801,7 @@ OnExVariableOnce(tableItem, index, Data) {
 
 OnOperation(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OperationFile, paramArr[2])
+    Data := GetMacroCMDData(OperationFile, paramArr[1])
     loop 4 {
         if (!Data.ToggleArr[A_Index])
             continue
@@ -818,7 +816,7 @@ OnOperation(tableItem, cmd, index) {
 
 OnBGMouse(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGMouseFile, paramArr[2])
+    Data := GetMacroCMDData(BGMouseFile, paramArr[1])
 
     WM_DOWN_ARR := [0x201, 0x207, 0x204]    ;左键，中键，右键
     WM_UP_ARR := [0x202, 0x208, 0x205]    ;左键，中键，右键
@@ -871,7 +869,7 @@ OnBGMouse(tableItem, cmd, index) {
 
 OnBGKey(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGKeyFile, paramArr[2])
+    Data := GetMacroCMDData(BGKeyFile, paramArr[1])
     loop Data.ClickCount {
         WaitIfPaused(tableItem, index)
 
@@ -1423,7 +1421,7 @@ SendJoyAxisKey(key, state, tableItem, index) {
 
 OnTextProcess(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(TextProcessFile, paramArr[2])
+    Data := GetMacroCMDData(TextProcessFile, paramArr[1])
 
     ; 获取源变量值
     sourceText := ""

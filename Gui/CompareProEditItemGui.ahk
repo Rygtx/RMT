@@ -26,7 +26,7 @@ class CompareProEditItemGui {
 
     MacroEditShowGui(CommandStr, CondiNumber) {
         paramArr := StrSplit(CommandStr, "_")
-        Data := GetMacroCMDData(CompareProFile, paramArr[2])
+        Data := GetMacroCMDData(CompareProFile, paramArr[1])
         this.Data := Data
         this.CondiNumber := CondiNumber
         EditType := CondiNumber <= Data.VariNameArr.Length ? 1 : 2

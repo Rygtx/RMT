@@ -102,8 +102,8 @@ class SubMacroGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("SubMacro")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := this.GetSubMacroData(this.SerialStr)
 
         this.TypeCon.Value := this.Data.MacroType
@@ -211,8 +211,10 @@ class SubMacroGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("宏操作"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
         if (Remark == "") {
             OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
             IntervarlStr := MySoftData.Lang == "中文" ? "" : " "
@@ -222,7 +224,7 @@ class SubMacroGui {
             SerialStr := this.TypeCon.Value == 1 ? "" : this.DropDownIndexCon.value
             Remark := OperStr IntervarlStr TypeStr SerialStr
         }
-        CommandStr .= "_" Remark
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 

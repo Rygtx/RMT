@@ -640,61 +640,6 @@ SelectArea() {
     action(x1, y1, x2, y2)
 }
 
-;DataType 1:SearchData
-RepairPath(SettingName, FilePath, DataType) {
-    SymbolArr := ["Search"]
-    Symbol := SymbolArr[DataType]
-    if (!FileExist(FilePath))
-        return false
-
-    hasRepair := false
-    loop read, FilePath {
-        LineStr := A_LoopReadLine
-        FoundPos := InStr(LineStr, "=")
-        if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
-            continue
-
-        if (FoundPos == 0)
-            continue
-
-        SerialStr := SubStr(LineStr, 1, FoundPos - 1)
-        saveStr := IniRead(FilePath, IniSection, SerialStr, "")
-        Data := JSON.parse(saveStr, , false)
-
-        if (Data == "")
-            continue
-
-        if (DataType == 1) {
-            if (!ObjHasOwnProp(Data, "SearchImagePath") || Data.SearchImagePath == "")
-                continue
-            StartPos := InStr(Data.SearchImagePath, "Setting", 1)
-            SubPath := SubStr(Data.SearchImagePath, StartPos)
-            NewPath1 := A_WorkingDir "\" SubPath
-
-            FileNameArr := StrSplit(NewPath1, "\")
-            NewPath2 := ""
-            for index, value in FileNameArr {
-                if (value == "Setting" && index + 2 <= FileNameArr.Length && FileNameArr[index + 2] == "Images") {
-                    FileNameArr[index + 1] := SettingName
-                }
-                NewPath2 .= value "\"
-            }
-
-            NewPath := RTrim(NewPath2, "\")
-            if (FileExist(NewPath)) {
-                Data.SearchImagePath := NewPath
-                saveStr := JSON.stringify(Data, 0)
-                IniWrite(saveStr, FilePath, IniSection, Data.SerialStr)
-                if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
-                    MySoftData.DataCacheMap.Delete(Data.SerialStr)
-                }
-                hasRepair := true
-            }
-        }
-    }
-    return hasRepair
-}
-
 SimpleRecordMacroStr(MacroStr) {
     CmdArr := SplitMacro(MacroStr)
     SimpleCmdArr := []
@@ -771,17 +716,17 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
     if (IsSkip)
         paramArr[1] := SubStr(paramArr[1], 3)
-    if (InStr(paramArr[1], "间隔"))
+    if (InStr(paramArr[1], GetLang("间隔")))
         return cmd
-    if (InStr(paramArr[1], "按键"))
+    if (InStr(paramArr[1], GetLang("按键")))
         return cmd
-    if (paramArr[1] == "移动")
+    if (paramArr[1] == GetLang("移动"))
         return cmd
-    if (InStr(paramArr[1], "RMT指令"))
+    if (InStr(paramArr[1], GetLang("RMT指令")))
         return cmd
 
-    if (CopyedMap.Has(paramArr[2])) {
-        paramArr[2] := CopyedMap[paramArr[2]]
+    if (CopyedMap.Has(paramArr[1])) {
+        paramArr[1] := CopyedMap[paramArr[1]]
         return GetCmdByParams(paramArr)
     }
 
@@ -790,11 +735,11 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
         "如果", CompareFile, "如果Pro", CompareProFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
 
     dataFile := DataFileMap[paramArr[1]]
-    Data := GetMacroCMDData(dataFile, paramArr[2])
-    textOnly := RegExReplace(paramArr[2], "\d+")
+    Data := GetMacroCMDData(dataFile, paramArr[1])
+    textOnly := RegExReplace(paramArr[1], "\d+")
     Data.SerialStr := GetCMDSerialStr(textOnly)
-    CopyedMap.Set(paramArr[2], Data.SerialStr)
-    paramArr[2] := Data.SerialStr
+    CopyedMap.Set(paramArr[1], Data.SerialStr)
+    paramArr[1] := Data.SerialStr
 
     if (ObjHasOwnProp(Data, "TrueMacro")) {
         Data.TrueMacro := FullCopyMacro(Data.TrueMacro, CopyedMap)
@@ -935,14 +880,16 @@ IsBootStart() {
     return false
 }
 
-CorrectRemark(Remark) {
+CorrectRemark(CommandStr, Remark) {
     charsToRemove := [",", "，", "`n", "⫶", "_"]
-
     ; 循环删除每个字符
     for char in charsToRemove {
         Remark := StrReplace(Remark, char)
     }
-    return Remark
+    if (Remark != "") {
+        CommandStr .= "_" Remark
+    }
+    return CommandStr
 }
 
 OnTriggerSepcialItemMacro(MacroStr) {

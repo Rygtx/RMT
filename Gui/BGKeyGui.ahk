@@ -753,9 +753,9 @@ class BGKeyGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetCMDSerialStr("BGKey")
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台按键")
         this.Data := this.GetBGKeyData(this.SerialStr)
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
 
         this.FrontCon.Value := this.Data.FrontStr != "" ? this.Data.FrontStr : this.FrontCon.Value
         this.CheckedBox := this.Data.KeyArr
@@ -901,11 +901,10 @@ class BGKeyGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("后台按键"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 

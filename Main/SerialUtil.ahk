@@ -9,12 +9,7 @@ GetSerialStr(CmdStr) {
 
 SetCMDSerial(CMD) {
     paramArr := StrSplit(CMD, "_")
-    if (paramArr.Length == 1)
-        return
-
-    if (SubStr(paramArr[1], 1, 2) == "🚫") {
-        paramArr[1] := StrReplace(paramArr[1], "🚫", "")
-    }
+    paramArr[1] := StrReplace(paramArr[1], "🚫", "")
     IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
     IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
     IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
@@ -22,8 +17,8 @@ SetCMDSerial(CMD) {
     if (IsMouseMove || IsPressKey || IsInterval || IsRMT)
         return
 
-    textOnly := RegExReplace(paramArr[2], "\d+")
-    numbersOnly := RegExReplace(paramArr[2], "\D+")
+    textOnly := RegExReplace(paramArr[1], "\d+")
+    numbersOnly := RegExReplace(paramArr[1], "\D+")
     if (!SerialMap.Has(textOnly)) {
         SerialMap.Set(textOnly, SerialData(textOnly))
     }
