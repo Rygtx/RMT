@@ -256,6 +256,8 @@ class SoftData {
 
         this.GlobalVariMap := Map()     ;UI下拉显示变量
         this.VariableMap := Map()       ;真正的全局变量
+        this.DataFileMap := Map()       ;配置命令对应的文件路径
+        this.DataClassMap := Map()      ;配置对应的数据类型
 
         ;显示指令提示配置
         this.CMDTip := false
@@ -424,7 +426,7 @@ class MMProData {
     }
 }
 
-class FileData {
+class RunData {
     __New() {
         this.SerialStr := ""
         this.RunPath := ""

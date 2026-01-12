@@ -80,7 +80,7 @@ class CompareProGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果Pro")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetCompareProData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.LVCon.Delete()
         loop this.Data.MacroArr.Length {
@@ -242,18 +242,6 @@ class CompareProGui {
         return CommandStr
     }
 
-    GetCompareProData(SerialStr) {
-        saveStr := IniRead(CompareProFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := CompareProData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     GetCondiStrDataArr(condiStr) {
         condiStrArr := StrSplit(condiStr, "⎖")
         VariNameArr := []
@@ -292,10 +280,6 @@ class CompareProGui {
             this.Data.MacroArr.Push(GetLangMacro(this.LVCon.GetText(A_Index, 3), 2))
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, CompareProFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

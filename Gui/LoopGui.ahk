@@ -181,7 +181,7 @@ class LoopGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("循环")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetLoopData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         CountVariableArr := this.VariableObjArr.Clone()
         CountVariableArr.Push(GetLang("无限"))
@@ -191,7 +191,7 @@ class LoopGui {
 
         this.CondiCon.Value := this.Data.CondiType
         this.LogicCon.Value := this.Data.LogicType
-        this.LoopBodyCon.Value := this.Data.LoopBody
+        this.LoopBodyCon.Value := GetLangMacro(this.Data.LoopBody, 1)
 
         VariableArr := this.GetDLVariableArr()
         loop 4 {
@@ -241,7 +241,12 @@ class LoopGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        this.MacroGui.SureBtnAction := (command) => this.LoopBodyCon.Value := command
+        SureAction(command) {
+            command := GetLangMacro(command, 1)
+            this.LoopBodyCon.Value := command
+        }
+
+        this.MacroGui.SureBtnAction := SureAction
         this.MacroGui.ShowGui(this.LoopBodyCon.Value, false)
     }
 
@@ -289,23 +294,11 @@ class LoopGui {
         return CommandStr
     }
 
-    GetLoopData(SerialStr) {
-        saveStr := IniRead(LoopFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := LoopData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveLoopData() {
         this.Data.LoopCount := this.CountCon.Text == GetLang("无限") ? -1 : this.CountCon.Text
         this.Data.CondiType := this.CondiCon.Value
         this.Data.LogicType := this.LogicCon.Value
-        this.Data.LoopBody := this.LoopBodyCon.Value
+        this.Data.LoopBody := GetLangMacro(this.LoopBodyCon.Value, 2)
 
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
@@ -313,10 +306,6 @@ class LoopGui {
             this.Data.CompareTypeArr[A_Index] := this.CompareTypeConArr[A_Index].Value
             this.Data.VariableArr[A_Index] := GetLangKey(this.VariableConArr[A_Index].Text)
         }
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, LoopFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

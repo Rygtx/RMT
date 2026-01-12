@@ -138,7 +138,7 @@ class BGMouseGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台鼠标")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetBGMouseData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.TargetTitleCon.Value := this.Data.TargetTitle != "" ? this.Data.TargetTitle : this.TargetTitleCon.Value
         this.OperateTypeCon.Value := this.Data.OperateType
@@ -259,18 +259,6 @@ class BGMouseGui {
         return CommandStr
     }
 
-    GetBGMouseData(SerialStr) {
-        saveStr := IniRead(BGMouseFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := BGMouseData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveBGMouseData() {
         this.Data.TargetTitle := this.TargetTitleCon.Value
         this.Data.OperateType := this.OperateTypeCon.Value
@@ -281,10 +269,6 @@ class BGMouseGui {
         this.Data.ScrollV := this.ScrollVCon.Value
         this.Data.ScrollH := this.ScrollHCon.Value
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, BGMouseFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

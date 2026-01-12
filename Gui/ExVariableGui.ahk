@@ -226,7 +226,7 @@ class ExVariableGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量提取")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetExVariableData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         if (this.Data.ToggleArr.Length == 4) {
             this.Data.ToggleArr.Push(false)
@@ -452,18 +452,6 @@ class ExVariableGui {
         return CommandStr
     }
 
-    GetExVariableData(SerialStr) {
-        saveStr := IniRead(ExVariableFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := ExVariableData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveExVariableData() {
         this.Data.ExtractStr := this.ExtractStrCon.Value
         this.Data.ExtractType := this.ExtractTypeCon.Value
@@ -486,11 +474,7 @@ class ExVariableGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, ExVariableFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 
     GetReplaceVarText(text) {

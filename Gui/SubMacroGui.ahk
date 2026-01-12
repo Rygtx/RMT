@@ -104,7 +104,7 @@ class SubMacroGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetSubMacroData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.TypeCon.Value := this.Data.MacroType
         this.CallTypeCon.Value := this.Data.CallType
@@ -228,18 +228,6 @@ class SubMacroGui {
         return CommandStr
     }
 
-    GetSubMacroData(SerialStr) {
-        saveStr := IniRead(SubMacroFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := SubMacroData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveSubMacroData() {
         this.Data.MacroType := this.TypeCon.Value
         this.Data.Index := this.DropDownIndexCon.value
@@ -250,10 +238,6 @@ class SubMacroGui {
         SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, SubMacroFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

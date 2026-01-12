@@ -645,13 +645,13 @@ SimpleRecordMacroStr(MacroStr) {
     SimpleCmdArr := []
     loop CmdArr.Length {
         paramArr := SplitCommand(CmdArr[A_Index])
-        isPressKey := paramArr[1] == "按键" && paramArr[3] == "按下"
+        isPressKey := paramArr[1] == GetLang("按键") && paramArr[3] == GetLang("按下")
         if (isPressKey && A_Index + 1 < CmdArr.Length) {
             next1ParamArr := SplitCommand(CmdArr[A_Index + 1])
             next2ParamArr := SplitCommand(CmdArr[A_Index + 2])
-            isMatchFormat := next1ParamArr[1] == "间隔" && next2ParamArr[1] == "按键"
+            isMatchFormat := next1ParamArr[1] == GetLang("间隔") && next2ParamArr[1] == GetLang("按键")
             if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == "松开") {
-                SimpleCmdStr := Format("按键_{}_点击_{}", paramArr[2], next1ParamArr[2])
+                SimpleCmdStr := Format("{}_{}_{}_{}", GetLang("按键"), paramArr[2], GetLang("点击"), next1ParamArr[2])
                 SimpleCmdArr.Push(SimpleCmdStr)
                 A_Index := A_Index + 2
                 continue
@@ -679,7 +679,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
                 hasDiscard := true
             }
             else {
-                if (InStr(cmd, "间隔"))
+                if (InStr(cmd, GetLang("间隔")))
                     continue
 
                 if (CheckIfDiscardCMD(triggerMap, cmd))
@@ -699,7 +699,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 }
 
 CheckIfDiscardCMD(triggerMap, cmd) {
-    if (!InStr(cmd, "按键"))
+    if (!InStr(cmd, GetLang("按键")))
         return false
 
     paramArr := SplitCommand(cmd)
@@ -711,36 +711,35 @@ CheckIfDiscardCMD(triggerMap, cmd) {
     return false
 }
 
-FullCopyCmd(cmd, CopyedMap := Map()) {
-    paramArr := SplitCommand(cmd)
+FullCopyCmd(cmdStr, CopyedMap := Map()) {
+    paramArr := SplitCommand(cmdStr)
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-    if (IsSkip)
-        paramArr[1] := SubStr(paramArr[1], 3)
-    if (InStr(paramArr[1], GetLang("间隔")))
-        return cmd
-    if (InStr(paramArr[1], GetLang("按键")))
-        return cmd
+    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+    if (paramArr[1] == GetLang("间隔"))
+        return cmdStr
+    if (paramArr[1] == GetLang("按键"))
+        return cmdStr
     if (paramArr[1] == GetLang("移动"))
-        return cmd
-    if (InStr(paramArr[1], GetLang("RMT指令")))
-        return cmd
+        return cmdStr
+    if (paramArr[1] == GetLang("RMT指令"))
+        return cmdStr
 
     if (CopyedMap.Has(paramArr[1])) {
         paramArr[1] := CopyedMap[paramArr[1]]
         return GetCmdByParams(paramArr)
     }
 
-    DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
-        "输出", OutputFile, "运行", RunFile, "变量", VariableFile, "变量提取", ExVariableFile, "运算", OperationFile,
-        "如果", CompareFile, "如果Pro", CompareProFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
+    textOnly := GetCmdStr(paramArr[1])
+    cmd := GetLangKey(textOnly)
+    dataFile := MySoftData.DataFileMap[cmd]
+    Data := GetMacroCMDData(paramArr[1])
+    Data.SerialStr := GetCMDSerialStr(cmd)
+    numbersOnly := RegExReplace(Data.SerialStr, "\D+")
+    CommandStr := Format("{}{}", textOnly, numbersOnly)
+    CopyedMap.Set(paramArr[1], CommandStr)
+    paramArr[1] := CommandStr
 
-    dataFile := DataFileMap[paramArr[1]]
-    Data := GetMacroCMDData(dataFile, paramArr[1])
-    textOnly := RegExReplace(paramArr[1], "\d+")
-    Data.SerialStr := GetCMDSerialStr(textOnly)
-    CopyedMap.Set(paramArr[1], Data.SerialStr)
-    paramArr[1] := Data.SerialStr
-
+    ;如果， 搜索， 搜索Pro
     if (ObjHasOwnProp(Data, "TrueMacro")) {
         Data.TrueMacro := FullCopyMacro(Data.TrueMacro, CopyedMap)
     }
@@ -748,8 +747,10 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
     if (ObjHasOwnProp(Data, "FalseMacro")) {
         Data.FalseMacro := FullCopyMacro(Data.FalseMacro, CopyedMap)
     }
-    saveStr := JSON.stringify(Data, 0)
-    IniWrite(saveStr, dataFile, IniSection, Data.SerialStr)
+
+    ;循环， 如果Pro
+
+    SaveMacroCMDData(Data)
     res := IsSkip ? "🚫" GetCmdByParams(paramArr) : GetCmdByParams(paramArr)
     return res
 }

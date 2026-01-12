@@ -50,6 +50,7 @@ class CMDTipGui {
 
         ; 添加文本控件（宽度和高度匹配窗口，自动换行）
         this.ContentCon := MyGui.Add("Edit", Format("x0 y0 w{} h{}", this.Width, this.Height), "")
+        this.ContentCon.Opt("Background" this.BGColor)
 
         ; 显示窗口（固定宽高）
         MyGui.Show(Format("NoActivate  x{} y{} w{} h{}", this.PosX, this.PosY, this.Width, this.Height))

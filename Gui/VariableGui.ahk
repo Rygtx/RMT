@@ -195,7 +195,7 @@ class VariableGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetVariableData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop 4 {
@@ -287,18 +287,6 @@ class VariableGui {
         return CommandStr
     }
 
-    GetVariableData(SerialStr) {
-        saveStr := IniRead(VariableFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := VariableData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveVariableData() {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         loop 4 {
@@ -316,10 +304,6 @@ class VariableGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, VariableFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

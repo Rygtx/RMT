@@ -67,11 +67,11 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsPressKey := InStr(paramArr[1], "按键")
         IsInterval := InStr(paramArr[1], "间隔")
         IsRun := InStr(paramArr[1], "运行")
-        IsIf := InStr(paramArr[1], "如果")
         IsIfPro := InStr(paramArr[1], "如果Pro")
+        IsIf := InStr(paramArr[1], "如果") && !IsIfPro
         IsOutput := InStr(paramArr[1], "输出")
-        IsVariable := InStr(paramArr[1], "变量")
         IsExVariable := InStr(paramArr[1], "变量提取")
+        IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
         IsSubMacro := InStr(paramArr[1], "宏操作")
         IsOperation := InStr(paramArr[1], "运算")
         IsBGMouse := InStr(paramArr[1], "后台鼠标")
@@ -154,7 +154,7 @@ OnSearch(tableItem, cmdStr, index) {
     paramArr := StrSplit(cmdStr, "_")
     IsSearchPro := InStr(paramArr[1], "搜索Pro")
     dataFile := IsSearchPro ? SearchProFile : SearchFile
-    Data := GetMacroCMDData(dataFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     if (Data.SearchCount == -1) {
         isLoopFound := OnSearchOnce(tableItem, Data, index)
         if (!isLoopFound) {
@@ -276,7 +276,7 @@ OnSearchOnce(tableItem, Data, index) {
 
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(RunFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     isMp3 := RegExMatch(Data.RunPath, ".mp3$")
     if (isMp3 && Data.BackPlay) {
@@ -290,7 +290,7 @@ OnRunFile(tableItem, cmd, index) {
 
 OnCompare(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     result := Data.LogicalType == 1 ? true : false
     loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
@@ -353,7 +353,7 @@ OnCompare(tableItem, cmd, index) {
 
 OnComparePro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareProFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     loop Data.VariNameArr.Length {
         NameArr := Data.VariNameArr[A_Index]
@@ -415,7 +415,7 @@ OnComparePro(tableItem, cmd, index) {
 
 OnMMPro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(MMProFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
     loop Data.Count {
@@ -469,7 +469,7 @@ OnMMProOnce(tableItem, index, Data) {
 
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OutputFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == 1) {     ;send
@@ -520,7 +520,7 @@ OnOutput(tableItem, cmd, index) {
 
 OnLoop(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(LoopFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     if (Data.LoopCount == -1) {
         loop {
@@ -616,7 +616,7 @@ GetLoopState(tableItem, cmd, index, Data) {
 OnSubMacro(tableItem, cmd, index) {
     global MySoftData
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(SubMacroFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     macroIndex := Data.MacroType == 1 ? index : Data.Index
     macroTableIndex := Data.MacroType == 1 ? tableItem.Index : Data.MacroType - 1
     macroItem := Data.MacroType == 1 ? tableItem : MySoftData.TableInfo[macroTableIndex]
@@ -664,7 +664,7 @@ OnSubMacro(tableItem, cmd, index) {
 
 OnVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(VariableFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     LocalVariableMap := tableItem.VariableMapArr[index]
     DeleteNameArr := []
     VariableNameArr := []
@@ -708,7 +708,7 @@ OnVariable(tableItem, cmd, index) {
 
 OnExVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(ExVariableFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     count := Data.SearchCount
     interval := Data.SearchInterval
 
@@ -801,7 +801,7 @@ OnExVariableOnce(tableItem, index, Data) {
 
 OnOperation(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OperationFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     loop 4 {
         if (!Data.ToggleArr[A_Index])
             continue
@@ -816,7 +816,7 @@ OnOperation(tableItem, cmd, index) {
 
 OnBGMouse(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGMouseFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     WM_DOWN_ARR := [0x201, 0x207, 0x204]    ;左键，中键，右键
     WM_UP_ARR := [0x202, 0x208, 0x205]    ;左键，中键，右键
@@ -869,7 +869,7 @@ OnBGMouse(tableItem, cmd, index) {
 
 OnBGKey(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGKeyFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
     loop Data.ClickCount {
         WaitIfPaused(tableItem, index)
 
@@ -1421,7 +1421,7 @@ SendJoyAxisKey(key, state, tableItem, index) {
 
 OnTextProcess(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(TextProcessFile, paramArr[1])
+    Data := GetMacroCMDData(paramArr[1])
 
     ; 获取源变量值
     sourceText := ""

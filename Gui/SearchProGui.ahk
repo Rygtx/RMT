@@ -39,8 +39,8 @@ class SearchProGui {
         this.TextTipCon := ""
         this.SearchCountCon := ""
         this.SearchIntervalCon := ""
-        this.FoundCommandStrCon := ""
-        this.UnFoundCommandStrCon := ""
+        this.TrueMacroCon := ""
+        this.FalseMacroCon := ""
         this.SearchTypeCon := ""
         this.MouseActionTypeCon := ""
         this.ClickCountCon := ""
@@ -265,7 +265,7 @@ class SearchProGui {
         btnCon.OnEvent("Click", (*) => this.OnEditFoundMacroBtnClick())
         PosY += 20
         PosX := 10
-        this.FoundCommandStrCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 320, 80), "")
+        this.TrueMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 320, 80), "")
         PosY := TempPosY
         PosX := 360
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
@@ -274,7 +274,7 @@ class SearchProGui {
         btnCon.OnEvent("Click", (*) => this.OnEditUnFoundMacroBtnClick())
         PosY += 20
         PosX := 360
-        this.UnFoundCommandStrCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
+        this.FalseMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
         TempPosY := PosY
         PosY += 90
         PosX := 10
@@ -339,7 +339,7 @@ class SearchProGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索Pro")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetSearchData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
         if (!this.CheckIfDataValid())
             return
         this.RefreshConfigDLArr()
@@ -373,8 +373,8 @@ class SearchProGui {
         this.MouseActionTypeCon.Value := this.Data.MouseActionType
         this.SpeedCon.Value := this.Data.Speed
         this.ClickCountCon.Value := this.Data.ClickCount
-        this.FoundCommandStrCon.Value := this.Data.TrueMacro
-        this.UnFoundCommandStrCon.Value := this.Data.FalseMacro
+        this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
+        this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.ResultToggleCon.Value := this.Data.ResultToggle
         this.ResultSaveNameCon.Delete()
         this.ResultSaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
@@ -397,18 +397,6 @@ class SearchProGui {
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetSearchData(SerialStr) {
-        saveStr := IniRead(SearchProFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := SearchData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     RefreshConfigDLArr() {
@@ -814,13 +802,13 @@ class SearchProGui {
     }
 
     OnSureFoundMacroBtnClick(CommandStr) {
-        this.FoundCommandStr := CommandStr
-        this.FoundCommandStrCon.Value := CommandStr
+        CommandStr := GetLangMacro(CommandStr, 1)
+        this.TrueMacroCon.Value := CommandStr
     }
 
     OnSureUnFoundMacroBtnClick(CommandStr) {
-        this.UnFoundCommandStr := CommandStr
-        this.UnFoundCommandStrCon.Value := CommandStr
+        CommandStr := GetLangMacro(CommandStr, 1)
+        this.FalseMacroCon.Value := CommandStr
     }
 
     OnEditFoundMacroBtnClick() {
@@ -834,7 +822,7 @@ class SearchProGui {
         }
 
         this.MacroGui.SureBtnAction := (command) => this.OnSureFoundMacroBtnClick(command)
-        this.MacroGui.ShowGui(this.FoundCommandStrCon.Value, false)
+        this.MacroGui.ShowGui(this.TrueMacroCon.Value, false)
     }
 
     OnEditUnFoundMacroBtnClick() {
@@ -847,7 +835,7 @@ class SearchProGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
         this.MacroGui.SureBtnAction := (command) => this.OnSureUnFoundMacroBtnClick(command)
-        this.MacroGui.ShowGui(this.UnFoundCommandStrCon.Value, false)
+        this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)
     }
 
     OnChangeType(*) {
@@ -967,8 +955,8 @@ class SearchProGui {
         data.MouseActionType := this.MouseActionTypeCon.Value
         data.ClickCount := this.ClickCountCon.Value
         data.Speed := this.SpeedCon.Value
-        data.TrueMacro := this.FoundCommandStrCon.Value
-        data.FalseMacro := this.UnFoundCommandStrCon.Value
+        data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
+        data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
         data.ResultToggle := this.ResultToggleCon.Value
         data.ResultSaveName := this.ResultSaveNameCon.Text
         data.TrueValue := this.TrueValueCon.Value
@@ -985,10 +973,6 @@ class SearchProGui {
             MySoftData.GlobalVariMap[data.CoordYName] := true
         }
 
-        saveStr := JSON.stringify(data, 0)
-        IniWrite(saveStr, SearchProFile, IniSection, data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(data)
     }
 }

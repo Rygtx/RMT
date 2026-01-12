@@ -148,7 +148,7 @@ class MMProGui {
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("移动Pro")
-        this.Data := this.GetMMProData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
 
         this.RefreshConfigDLArr()
@@ -433,18 +433,6 @@ class MMProGui {
         this.PosVarYCon.Text := mouseY
     }
 
-    GetMMProData(SerialStr) {
-        saveStr := IniRead(MMPROFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := MMProData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveMMProData() {
         this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
         this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
@@ -454,11 +442,6 @@ class MMProGui {
         this.Data.Speed := this.SpeedCon.Value
         this.Data.Count := this.CountCon.Value
         this.Data.Interval := this.IntervalCon.Value
-
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, MMPROFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

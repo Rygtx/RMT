@@ -7,6 +7,9 @@ CompatGetData(LineStr, FilePath) {
 
     SerialStr := SubStr(LineStr, 1, FoundPos - 1)
     SaveStr := SubStr(LineStr, FoundPos + 1)
+    ;部分A_LoopReadLine会因为编码问题错位，校验一下
+    CheckStr := IniRead(FilePath, IniSection, SerialStr, "")
+    SaveStr := StrLen(CheckStr) > StrLen(SaveStr) ? CheckStr : SaveStr
     Data := JSON.parse(SaveStr, , false)
 
     if (SaveStr == "")
@@ -196,7 +199,6 @@ CompatSearchPro(filePath) {
             continue
 
         hasFix := CompatPath(filePath, Data) || hasFix
-
         ;如果有了，那就说明是新版本，不需要兼容处理
         if (!ObjHasOwnProp(Data, "ConfigName")) {
             Data.ConfigName := "默认"

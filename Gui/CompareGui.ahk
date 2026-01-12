@@ -76,7 +76,8 @@ class CompareGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于", "等于", "小于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+            "等于", "小于等于",
             "小于", "字符包含", "变量存在"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
@@ -87,7 +88,8 @@ class CompareGui {
 
         PosX += 400
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 30), GetLang("逻辑关系："))
-        this.LogicalTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 85, PosY - 3, 60), GetLangArr(["且", "或"]))
+        this.LogicalTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 85, PosY - 3, 60), GetLangArr([
+            "且", "或"]))
 
         PosY += 35
         PosX := 15
@@ -98,7 +100,8 @@ class CompareGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于", "等于", "小于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+            "等于", "小于等于",
             "小于", "字符包含", "变量存在"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
@@ -116,7 +119,8 @@ class CompareGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(GetLangArr(["大于", "大于等于", "等于", "小于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(GetLangArr(["大于",
+            "大于等于", "等于", "小于等于",
             "小于", "字符包含", "变量存在"])))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
@@ -134,7 +138,8 @@ class CompareGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于", "等于", "小于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+            "等于", "小于等于",
             "小于", "字符包含", "变量存在"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
@@ -150,7 +155,7 @@ class CompareGui {
 
         PosX += 160
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 20), GetLang("编辑指令"))
-        btnCon.OnEvent("Click", (*) => this.OnEditFoundMacroBtnClick())
+        btnCon.OnEvent("Click", (*) => this.OnTrueBtnClick())
 
         PosY += 20
         PosX := 10
@@ -162,7 +167,7 @@ class CompareGui {
 
         PosX += 160
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 20), GetLang("编辑指令"))
-        btnCon.OnEvent("Click", (*) => this.OnEditUnFoundMacroBtnClick())
+        btnCon.OnEvent("Click", (*) => this.OnFalseBtnClick())
 
         PosY += 20
         PosX := 310
@@ -207,10 +212,10 @@ class CompareGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetCompareData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
-        this.TrueMacroCon.Value := this.Data.TrueMacro
-        this.FalseMacroCon.Value := this.Data.FalseMacro
+        this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
+        this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.SaveToggleCon.Value := this.Data.SaveToggle
         this.SaveNameCon.Delete()
         this.SaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
@@ -290,38 +295,40 @@ class CompareGui {
         this.Gui.Hide()
     }
 
-    OnTrueMacroBtnClick(CommandStr) {
+    OnTrueSure(CommandStr) {
+        CommandStr := GetLangMacro(CommandStr, 1)
         this.TrueMacroCon.Value := CommandStr
     }
 
-    OnFalseMacroBtnClick(CommandStr) {
+    OnFalseSure(CommandStr) {
+        CommandStr := GetLangMacro(CommandStr, 1)
         this.FalseMacroCon.Value := CommandStr
     }
 
-    OnEditFoundMacroBtnClick() {
+    OnTrueBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
-    
+
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        this.MacroGui.SureBtnAction := (command) => this.OnTrueMacroBtnClick(command)
+        this.MacroGui.SureBtnAction := (command) => this.OnTrueSure(command)
         this.MacroGui.ShowGui(this.TrueMacroCon.Value, false)
     }
 
-    OnEditUnFoundMacroBtnClick() {
+    OnFalseBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
             this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
-    
+
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
-        this.MacroGui.SureBtnAction := (command) => this.OnFalseMacroBtnClick(command)
+        this.MacroGui.SureBtnAction := (command) => this.OnFalseSure(command)
         this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)
     }
 
@@ -334,21 +341,9 @@ class CompareGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    GetCompareData(SerialStr) {
-        saveStr := IniRead(CompareFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := CompareData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveCompareData() {
-        this.Data.TrueMacro := this.TrueMacroCon.Value
-        this.Data.FalseMacro := this.FalseMacroCon.Value
+        this.Data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
+        this.Data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
         this.Data.SaveToggle := this.SaveToggleCon.Value
         this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
         this.Data.TrueValue := this.TrueValueCon.Value
@@ -367,10 +362,6 @@ class CompareGui {
             MySoftData.GlobalVariMap[this.Data.SaveName] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, CompareFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

@@ -26,7 +26,7 @@ class CompareProEditItemGui {
 
     MacroEditShowGui(CommandStr, CondiNumber) {
         paramArr := StrSplit(CommandStr, "_")
-        Data := GetMacroCMDData(CompareProFile, paramArr[1])
+        Data := GetMacroCMDData(paramArr[1])
         this.Data := Data
         this.CondiNumber := CondiNumber
         EditType := CondiNumber <= Data.VariNameArr.Length ? 1 : 2
@@ -178,11 +178,11 @@ class CompareProEditItemGui {
             this.ToggleConArr[A_Index].Value := VariNameArr.Length >= A_Index
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(this.VariableObjArr)
-            this.NameConArr[A_Index].Text := VariNameArr.Length >= A_Index ? VariNameArr[A_Index] : "Num" A_Index
+            this.NameConArr[A_Index].Text := VariNameArr.Length >= A_Index ? VariNameArr[A_Index] : "Var" A_Index
             this.CompareTypeConArr[A_Index].Value := CompareTypeArr.Length >= A_Index ? CompareTypeArr[A_Index] : 1
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(this.VariableObjArr)
-            this.VariableConArr[A_Index].Text := VariableArr.Length >= A_Index ? VariableArr[A_Index] : "Num" A_Index
+            this.VariableConArr[A_Index].Text := VariableArr.Length >= A_Index ? VariableArr[A_Index] : "Var" A_Index
         }
 
         isEnabled := EditType == 1

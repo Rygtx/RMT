@@ -754,8 +754,8 @@ class BGKeyGui {
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台按键")
-        this.Data := this.GetBGKeyData(this.SerialStr)
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.FrontCon.Value := this.Data.FrontStr != "" ? this.Data.FrontStr : this.FrontCon.Value
         this.CheckedBox := this.Data.KeyArr
@@ -908,18 +908,6 @@ class BGKeyGui {
         return CommandStr
     }
 
-    GetBGKeyData(SerialStr) {
-        saveStr := IniRead(BGKeyFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := BGKeyData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveBGKeyData() {
         this.Data.FrontStr := this.FrontCon.Value
         this.Data.KeyArr := this.CheckedBox
@@ -928,10 +916,6 @@ class BGKeyGui {
         this.Data.ClickCount := this.KeyTypeCon.Value == 3 ? this.KeyCountCon.Value : 1
         this.Data.ClickInterval := this.PerIntervalCon.Value
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, BGKeyFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

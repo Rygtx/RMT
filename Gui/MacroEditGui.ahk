@@ -632,7 +632,8 @@ class MacroEditGui {
         }
 
         paramsArr := StrSplit(itemText, "_")
-        subGui := this.SubGuiMap[paramsArr[1]]
+        cmd := GetCmdStr(paramsArr[1])
+        subGui := this.SubGuiMap[cmd]
         this.OnOpenSubGui(subGui, 2)
     }
 
@@ -734,7 +735,8 @@ class MacroEditGui {
             case GetLang("编辑"):
             {
                 paramsArr := StrSplit(itemText, "_")
-                subGui := this.SubGuiMap[paramsArr[1]]
+                cmd := GetCmdStr(paramsArr[1])
+                subGui := this.SubGuiMap[cmd]
                 this.OnOpenSubGui(subGui, 2)
             }
             case "Skip":
@@ -829,7 +831,7 @@ class MacroEditGui {
             dataFileMap := Map(GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile, GetLang("如果"),
             CompareFile)
             dataFile := dataFileMap[Cmd]
-            Data := GetMacroCMDData(dataFile, paramArr[1])
+            Data := GetMacroCMDData(paramArr[1])
             TrueMacro := GetLangMacro(Data.TrueMacro, 1)
             FalseMacro := GetLangMacro(Data.FalseMacro, 1)
 
@@ -842,7 +844,7 @@ class MacroEditGui {
             this.TreeAddSubTree(falseRoot, FalseMacro)
         }
         else if (IsLoop) {
-            Data := GetMacroCMDData(LoopFile, paramArr[1])
+            Data := GetMacroCMDData(paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
             countStr := Data.LoopCount == -1 ? GetLang("无限") : Data.LoopCount
             CountRoot := this.MacroTreeViewCon.Add(Format("{}:{}", GetLang("⎖循环次数"), countStr), root, iconStr)
@@ -860,7 +862,7 @@ class MacroEditGui {
             this.TreeAddSubTree(BodyRoot, LoopBody)
         }
         else if (IsIfPro) {
-            Data := GetMacroCMDData(CompareProFile, paramArr[1])
+            Data := GetMacroCMDData(paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("条件"))
             loop Data.VariNameArr.Length {
                 CondiStr := GetLang("条件：") CompareProData.GetCondiStr(Data, A_Index)
@@ -1136,15 +1138,12 @@ class MacroEditGui {
             GetLang("如果"), CompareFile,
             GetLang("如果Pro"), CompareProFile,
             GetLang("循环"), LoopFile
-        )
-
-        ; 获取文件名（没有找到就为空）
-        FileName := fileMap.Has(cmd) ? fileMap[cmd] : ""
-        if (FileName = "")
+        )    
+        if (!fileMap.Has(cmd))
             return
 
         ItemNumber := this.GetItemNumber(nodeItemID)
-        Data := GetMacroCMDData(FileName, paramArr[1])
+        Data := GetMacroCMDData(paramArr[1])
         macroStr := GetLangMacro(macroStr, 2)
         if (cmd == GetLang("循环")) {
             Data.LoopBody := macroStr
@@ -1174,7 +1173,7 @@ class MacroEditGui {
                 Data.FalseMacro := macroStr
         }
 
-        SaveMacroCMDData(FileName, Data)
+        SaveMacroCMDData(Data)
     }
 
     GetItemNumber(nodeItemID) {

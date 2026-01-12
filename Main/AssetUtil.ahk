@@ -260,6 +260,14 @@ CheckIfDrop(Msg, wParam, lParam, hWnd) {
 InitData() {
     InitTableItemState()
     InitJoyAxis()
+    MySoftData.DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
+        "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
+        "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
+        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextProcessFile, "Timing", TimingFile)
+    MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
+        "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
+        "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
+        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextProcessData, "Timing", TimingData)
 }
 
 ;手柄轴未使用时，状态会变为0，而非中间值
@@ -1313,23 +1321,35 @@ GetWinPos() {
     return [xClient, yClient]
 }
 
-GetMacroCMDData(fileName, serialStr) {
+GetMacroCMDData(serialStr) {
     textOnly := RegExReplace(serialStr, "\d+")
     numbersOnly := RegExReplace(serialStr, "\D+")
-    serialStr := Format("{}{}", GetLangKey(textOnly), numbersOnly)
+    cmd := GetLangKey(textOnly)
+    serialStr := Format("{}{}", cmd, numbersOnly)
     if (MySoftData.DataCacheMap.Has(serialStr)) {
         return MySoftData.DataCacheMap[serialStr]
     }
 
-    saveStr := IniRead(fileName, IniSection, serialStr, "")
-    Data := JSON.parse(saveStr, , false)
+    DataFile := MySoftData.DataFileMap[cmd]
+    DataClass := MySoftData.DataClassMap[cmd]
+    saveStr := IniRead(DataFile, IniSection, serialStr, "")
+    if (saveStr == "") {
+        Data := DataClass()
+        Data.SerialStr := SerialStr
+    }
+    else {
+        Data := JSON.parse(saveStr, , false)
+    }
     MySoftData.DataCacheMap.Set(serialStr, Data)
     return Data
 }
 
-SaveMacroCMDData(fileName, Data) {
+SaveMacroCMDData(Data) {
+    cmd := RegExReplace(Data.SerialStr, "\d+")
+    DataFile := MySoftData.DataFileMap[cmd]
+
     saveStr := JSON.stringify(Data, 0)
-    IniWrite(saveStr, fileName, IniSection, Data.SerialStr)
+    IniWrite(saveStr, DataFile, IniSection, Data.SerialStr)
     if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
         MySoftData.DataCacheMap.Delete(Data.SerialStr)
     }
@@ -1610,4 +1630,11 @@ GetItemColorState(ColorValue) {
         return ColorMap[ColorValue]
 
     return 0
+}
+
+GetCmdStr(param) {
+    IsSkip := SubStr(param, 1, 2) == "🚫"
+    param := IsSkip ? SubStr(param, 3) : param
+    textOnly := RegExReplace(param, "\d+")
+    return textOnly
 }

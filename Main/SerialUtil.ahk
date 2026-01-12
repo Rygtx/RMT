@@ -48,6 +48,7 @@ SetSerialByArr(Arr) {
 }
 
 GetCMDSerialStr(Cmd) {
+    Cmd := GetLangKey(Cmd)
     if (!SerialMap.Has(Cmd)) {
         SerialMap.Set(Cmd, SerialData(Cmd))
     }

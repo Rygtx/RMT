@@ -313,7 +313,7 @@ OnRecordAddMacroStr(keyName, isDown) {
     }
 
     span := GetCurMSec() - ToolCheckInfo.RecordLastTime
-    keySymbol := isDown ? "按下" : "松开"
+    keySymbol := isDown ? GetLang("按下") : GetLang("松开")
     ToolCheckInfo.RecordLastTime := GetCurMSec()
     IsJoy := InStr(keyName, "Joy")
     IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton"
@@ -351,7 +351,7 @@ OnFinishRecordMacro() {
     if (ToolCheckInfo.RecordAutoLoosen) {
         for Key, Value in ToolCheckInfo.RecordHoldKeyMap {
             keyName := Key == "," ? GetLang("逗号") : Key
-            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_松开,"
+            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
         }
     }
     macroStr := Trim(ToolCheckInfo.RecordMacroStr, ",")

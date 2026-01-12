@@ -191,7 +191,7 @@ class TextProcessGui {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("文本处理")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this.Data := this.GetTextProcessData(this.SerialStr)
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         ; 初始化文本来源变量
         this.SourceVariableCon.Delete()
@@ -447,18 +447,6 @@ class TextProcessGui {
         return CommandStr
     }
 
-    GetTextProcessData(SerialStr) {
-        saveStr := IniRead(TextProcessFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := TextProcessData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveTextProcessData() {
         this.Data.SourceVariable := this.SourceVariableCon.Text
         this.Data.ProcessType := this.ProcessTypeCon.Value
@@ -482,11 +470,7 @@ class TextProcessGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, TextProcessFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 
     GetReplaceVarText(text) {
