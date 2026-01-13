@@ -1555,12 +1555,12 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
             return
 
         if (tableItem.StartTipSoundArr[itmeIndex] == 2) {
-            PlayTipSound(true)
+            PlayTipSound(1)
             return
         }
 
         if (tableItem.StartTipSoundArr[itmeIndex] == 3 && isFirst) {
-            PlayTipSound(true)
+            PlayTipSound(1)
             return
         }
     }
@@ -1570,33 +1570,23 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
             return
 
         if (tableItem.EndTipSoundArr[itmeIndex] == 2) {
-            PlayTipSound(false)
+            PlayTipSound(2)
             return
         }
 
         if (tableItem.EndTipSoundArr[itmeIndex] == 3 && isLast) {
-            PlayTipSound(false)
+            PlayTipSound(2)
             return
         }
     }
 }
 
-PlayTipSound(isStart) {
-    audioPath := isStart ? StartTipAudio : EndTipAudio
-    audioPath := GetRealPath(audioPath)
+;type 1 开始   2结束
+PlayTipSound(type) {
+    audioPathMap := Map(1, StartTipAudio, 2, EndTipAudio)
+    audioPath := audioPathMap[type]
     playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, audioPath)
     Run(playAudioCmd)
-}
-
-GetRealPath(path) {
-    buf := Buffer(1024)
-    DllCall("GetFullPathName"
-        , "Str", path
-        , "UInt", buf.Size
-        , "Ptr", buf
-        , "Ptr", 0
-    )
-    return StrGet(buf)
 }
 
 GetExVariableActiveLength(Arr) {

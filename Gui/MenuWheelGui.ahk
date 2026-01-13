@@ -23,7 +23,7 @@ class MenuWheelGui {
     ShowGui(MenuIndex) {
         PreviousActiveWindow := WinExist("A")
         if (this.Gui != "") {
-            this.Gui.Show(this.GetGuiShowPos())
+            this.Gui.Show(this.GetGuiShowPos() " NA")
         }
         else {
             this.AddGui()
@@ -111,7 +111,7 @@ class MenuWheelGui {
         this.BtnRegions[8] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("{} w{} h{}", this.GetGuiShowPos(), 340, 260))
+        MyGui.Show(Format("{} w{} h{} NA", this.GetGuiShowPos(), 340, 260))
     }
 
     GetGuiShowPos() {

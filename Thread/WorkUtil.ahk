@@ -102,6 +102,7 @@ InitWorkFilePath() {
     global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
+    global TimingFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimingFile.ini"
     global MacroFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
     global SearchFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchFile.ini"
     global SearchProFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchProFile.ini"
@@ -119,6 +120,16 @@ InitWorkFilePath() {
     global OperationFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\OperationFile.ini"
     global BGMouseFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
     global IniSection := "UserSettings"
+
+    ;利用机制把路径中的\..转换掉
+    loop files, StartTipAudio {
+        StartTipAudio := A_LoopFileFullPath
+        break
+    }
+    loop files, EndTipAudio {
+        EndTipAudio := A_LoopFileFullPath
+        break
+    }
 }
 
 InitWork() {
