@@ -54,7 +54,7 @@ class OperationGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
         PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运算表达式"))
-        PosX += 240
+        PosX += 290
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("保存结果变量"))
 
         PosY += 25
@@ -65,14 +65,14 @@ class OperationGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 415, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 475, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -83,14 +83,14 @@ class OperationGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 415, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(2))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 475, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -101,14 +101,14 @@ class OperationGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 415, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(3))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 475, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -119,14 +119,14 @@ class OperationGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 415, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(4))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 475, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 40
@@ -134,7 +134,7 @@ class OperationGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.Show(Format("w{} h{}", 650, 280))
+        MyGui.Show(Format("w{} h{}", 630, 280))
     }
 
     Init(cmd) {
@@ -147,7 +147,7 @@ class OperationGui {
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(this.VariableObjArr)
+            this.NameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
@@ -193,7 +193,7 @@ class OperationGui {
 
         this.SaveOperationData()
         macroStr := this.GetCommandStr()
-        VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
+        VariableObjArr := GetGuiVariableObjArr(this.VariableObjArr)
         this.OperationSubGui.VariableObjArr := VariableObjArr
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.OperationSubGui.ParentTile := ParentTile "-"

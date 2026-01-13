@@ -895,7 +895,7 @@ class MacroEditGui {
         this.CmdEditType := modeType
         if ObjHasOwnProp(subGui, "VariableObjArr") {
             macroStr := this.GetTreeMacroStr(0)
-            VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
+            VariableObjArr := GetGuiVariableObjArr(this.VariableObjArr)
             subGui.VariableObjArr := VariableObjArr
         }
         if ObjHasOwnProp(subGui, "ParentTile") {

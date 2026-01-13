@@ -802,7 +802,7 @@ OnExVariableOnce(tableItem, index, Data) {
 OnOperation(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    loop 4 {
+    loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
         Name := Data.NameArr[A_Index]

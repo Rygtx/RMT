@@ -1253,6 +1253,8 @@ GetOperationResult(BaseValue, SymbolArr, ValueArr) {
             sum *= Number(ValueArr[index])
         if (Symbol == "/")
             sum /= Number(ValueArr[index])
+        if (Symbol == "%")
+            sum := Mod(sum, Number(ValueArr[index]))
         if (Symbol == "^")
             sum := sum ** Number(ValueArr[index])
         if (Symbol == "..")
@@ -1280,6 +1282,8 @@ GetVariableOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr) {
             sum *= Value
         if (Symbol == "/")
             sum /= Value
+        if (Symbol == "%")
+            sum := Mod(sum, Value)
         if (Symbol == "^")
             sum := sum ** Value
         if (Symbol == "..")

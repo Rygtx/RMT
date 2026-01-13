@@ -186,7 +186,7 @@ class LoopGui {
         CountVariableArr := this.VariableObjArr.Clone()
         CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
-        this.CountCon.Add(CountVariableArr)
+        this.CountCon.Add(RemoveInVariable(CountVariableArr, 2))
         this.CountCon.Text := this.Data.LoopCount == -1 ? GetLang("无限") : this.Data.LoopCount
 
         this.CondiCon.Value := this.Data.CondiType

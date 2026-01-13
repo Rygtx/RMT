@@ -80,18 +80,9 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
     }
 }
 
-GetLocalVar(macroStr) {
-    VariableMap := Map()
-    visitMap := Map()
-    GetMacroStrGlobalVar(macroStr, VariableMap, visitMap)
-    return VariableMap
-}
-
-GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
+GetGuiVariableObjArr(VariableObjArr) {
     ResultArr := []
-    ; ResultMap := GetLocalVar(curMacroStr)   ;忘记有什么用，先屏蔽
     ResultMap := Map()
-    HasLoopCount := false   ;含有指令循环次数变量
     SpecialKeyArr := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
 
     ; 将VariableObjArr中的变量添加到映射中
@@ -109,8 +100,6 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
     ;为了让特殊变量出现在末尾，先删除
     for curKey in SpecialKeyArr {
         if ResultMap.Has(curKey) {
-            if (curKey == GetLang("指令循环次数"))
-                HasLoopCount := true
             ResultMap.Delete(curKey)
         }
     }
@@ -120,8 +109,6 @@ GetGuiVariableObjArr(curMacroStr, VariableObjArr) {
         ResultArr.Push(Key)
     }
 
-    if (HasLoopCount)
-        ResultArr.Push(GetLang("指令循环次数"))
     ResultArr.Push(SpecialKeyArr*)
     return ResultArr
 }
