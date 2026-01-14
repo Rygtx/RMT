@@ -144,7 +144,7 @@ class OperationGui {
         this.Data := GetMacroCMDData(this.SerialStr)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
@@ -239,21 +239,19 @@ class OperationGui {
     }
 
     SaveOperationData() {
-        loop 4 {
+        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        loop this.Data.ToggleArr.Length {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
             this.Data.NameArr[A_Index] := GetLangKey(this.NameConArr[A_Index].Text)
             this.Data.OperationArr[A_Index] := GetLangStr(this.OperationConArr[A_Index].Value, 2)
             this.Data.UpdateNameArr[A_Index] := GetLangKey(this.UpdateNameConArr[A_Index].Text)
         }
 
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
-
         ; 添加全局变量，方便下拉选取
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             if (this.Data.ToggleArr[A_Index])
                 MySoftData.GlobalVariMap[this.Data.UpdateNameArr[A_Index]] := true
         }
-
         SaveMacroCMDData(this.Data)
     }
 }

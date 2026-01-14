@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 #Include ExcelUtil.ahk
 #Include SerialUtil.ahk
+#Include PrecisionUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -1246,7 +1247,7 @@ GetOperationResult(BaseValue, SymbolArr, ValueArr) {
     sum := baseValue
     for index, Symbol in SymbolArr {
         if (Symbol == "+")
-            sum += Number(ValueArr[index])
+            sum := PrecisionAdd(sum, Number(ValueArr[index]))
         if (Symbol == "-")
             sum -= Number(ValueArr[index])
         if (Symbol == "*")
@@ -1275,7 +1276,7 @@ GetVariableOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr) {
             return
 
         if (Symbol == "+")
-            sum += Value
+            sum := PrecisionAdd(sum, Value)
         if (Symbol == "-")
             sum -= Value
         if (Symbol == "*")

@@ -1019,7 +1019,7 @@ OnPressKey(tableItem, cmd, index) {
     keyType := keyTypeMap[paramArr[3]]
     holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
     count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1
-    IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 1000
+    IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 0
 
     loop count {
         WaitIfPaused(tableItem, index)
@@ -1030,7 +1030,7 @@ OnPressKey(tableItem, cmd, index) {
         FloatHold := GetFloatTime(holdTime, MySoftData.HoldFloat)
         FloatInterval := GetFloatTime(IntervalTime, MySoftData.PreIntervalFloat)
         action(paramArr[2], FloatHold, tableItem, index, keyType)
-        if (keyType == 3 && A_Index != count)
+        if (keyType == 3 && A_Index != count && FloatInterval > 0)
             Sleep(FloatInterval)
     }
 }

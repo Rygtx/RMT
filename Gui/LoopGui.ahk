@@ -193,15 +193,14 @@ class LoopGui {
         this.LogicCon.Value := this.Data.LogicType
         this.LoopBodyCon.Value := GetLangMacro(this.Data.LoopBody, 1)
 
-        VariableArr := this.GetDLVariableArr()
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(VariableArr)
+            this.NameConArr[A_Index].Add(this.VariableObjArr)
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(VariableArr)
+            this.VariableConArr[A_Index].Add(this.VariableObjArr)
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
@@ -234,7 +233,7 @@ class LoopGui {
     OnEditMacroBtnClick(*) {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.GetDLVariableArr()
+            this.MacroGui.VariableObjArr := this.VariableObjArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -270,20 +269,6 @@ class LoopGui {
     TriggerMacro() {
         this.SaveLoopData()
         OnTriggerSepcialItemMacro(this.GetCommandStr())
-    }
-
-    GetDLVariableArr() {
-        VariableArr := this.VariableObjArr.Clone()
-        TargetIndex := 1
-        loop VariableArr.Length {
-            if (VariableArr[A_Index] == GetLang("宏循环次数")) {
-                TargetIndex := A_Index
-                break
-            }
-        }
-
-        VariableArr.InsertAt(TargetIndex, GetLang("指令循环次数"))
-        return VariableArr
     }
 
     GetCommandStr() {

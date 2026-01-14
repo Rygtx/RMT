@@ -352,7 +352,7 @@ class SearchProGui {
         this.ImageCon.Move(imagePosX, imagePosY, 80, 80)
         this.HexColorCon.Value := this.Data.SearchColor
         this.TextCon.Delete()
-        this.TextCon.Add(this.VariableObjArr)
+        this.TextCon.Add(RemoveInVariable(this.VariableObjArr))
         this.TextCon.Text := this.Data.SearchText
         this.StartPosXCon.Delete()
         this.StartPosXCon.Add(RemoveInVariable(this.VariableObjArr, 3))

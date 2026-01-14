@@ -208,10 +208,10 @@ class VariableGui {
             this.CopyVariableConArr[A_Index].Add(this.VariableObjArr)
             this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
-            this.MinVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.MinVariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
             this.MinVariableConArr[A_Index].Text := GetLang(this.Data.MinVariableArr[A_Index])
             this.MaxVariableConArr[A_Index].Delete()
-            this.MaxVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.MaxVariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
             this.MaxVariableConArr[A_Index].Text := GetLang(this.Data.MaxVariableArr[A_Index])
         }
     }
