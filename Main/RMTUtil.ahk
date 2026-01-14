@@ -847,8 +847,8 @@ OpenMenuWheel(MenuIndex, isTog) {
     MyMenuWheel.ShowGui(MenuIndex)
 
     ;重新绑定一下，让菜单按钮快捷键不会被输入
-    BindTabHotKey()
     BindMenuHotKey()
+    BindTabHotKey()
     BindSoftHotKey()
 }
 
@@ -864,9 +864,9 @@ CloseMenuWheel() {
         MyMenuWheel.Gui.Hide()
 
         ;重新绑定一下，让菜单按钮快捷键不会被输入
-        BindTabHotKey()
-        BindMenuHotKey()
         BindSoftHotKey()
+        BindMenuHotKey()
+        BindTabHotKey()
     }
 }
 

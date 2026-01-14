@@ -154,9 +154,9 @@ class MenuWheelGui {
 
         macroIndex := (this.MenuIndex - 1) * 8 + index
         TriggerMacroHandler(3, macroIndex)
-        BindTabHotKey()
-        BindMenuHotKey()
         BindSoftHotKey()
+        BindMenuHotKey()
+        BindTabHotKey()
     }
 
     ToggleFunc(state) {
