@@ -541,6 +541,7 @@ OnTriggerKeyDown(tableIndex, itemIndex, *) {
     tableItem := MySoftData.TableInfo[tableIndex]
     key := LTrim(tableItem.TKArr[itemIndex], "~")
     key := StrLower(key)
+    
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
 
@@ -580,8 +581,8 @@ BindSoftHotKey() {
         if (isMenuBtnHotKey && !isOpenMenu)
             continue
 
-        Hotkey(key, actionDown)
-        Hotkey(key " up", actionUp)
+        Hotkey(key, actionDown, "On")
+        Hotkey(key " up", actionUp, "On")
     }
 }
 
@@ -596,7 +597,7 @@ OnBindKeyDown(key, *) {
     key := StrLower(key)
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
-
+    
     Data := MySoftData.TriggerKeyMap[key]
     Data.OnTriggerKeyDown()
 }

@@ -802,16 +802,24 @@ OnExVariableOnce(tableItem, index, Data) {
 OnOperation(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
+    NewNameArr := []
+    NewValueArr := []
     loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
         Name := Data.NameArr[A_Index]
         SymbolArr := Data.SymbolGroups[A_Index]
         ValueArr := Data.ValueGroups[A_Index]
-        Value := GetVariableOperationResult(tableItem, index, Name, SymbolArr, ValueArr)
+        isOk := GetTabOperationResult(tableItem, index, Name, SymbolArr, ValueArr, &res)
 
-        MySetGlobalVariable([Data.UpdateNameArr[A_Index]], [Value], Data.IsIgnoreExist)
+        if (isOk) {
+            MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
+            NewNameArr.Push(Data.UpdateNameArr[A_Index])
+            NewValueArr.Push(res)
+        }
     }
+    if (NewNameArr.Length > 0)
+        MySetGlobalVariable(NewNameArr, NewValueArr, Data.IsIgnoreExist)
 }
 
 OnBGMouse(tableItem, cmd, index) {

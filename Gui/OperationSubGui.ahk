@@ -86,13 +86,13 @@ class OperationSubGui {
         con.OnEvent("Click", (*) => this.OnClickOperatorBtn(".."))
 
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 120, 20), GetLang("假定操作变量值："))
-        this.BaseValueCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX + 120, PosY - 3, 50, 20), "10")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("假定操作变量值："))
+        this.BaseValueCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX + 120, PosY - 3, 50), "10")
 
         PosY += 20
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 120, 20), GetLang("换算后的结果是："))
-        this.BaseResultCon := MyGui.Add("Text", Format("x{} y{} h{}", PosX + 120, PosY, 20), "10")
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("换算后的结果是："))
+        this.BaseResultCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX + 120, PosY, 200), "10")
 
         PosY += 30
         PosX := 10

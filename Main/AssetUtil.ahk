@@ -1243,52 +1243,31 @@ GetRecordTriggerKeyMap() {
     return resultMap
 }
 
-GetOperationResult(BaseValue, SymbolArr, ValueArr) {
-    sum := baseValue
-    for index, Symbol in SymbolArr {
-        if (Symbol == "+")
-            sum := PrecisionAdd(sum, Number(ValueArr[index]))
-        if (Symbol == "-")
-            sum -= Number(ValueArr[index])
-        if (Symbol == "*")
-            sum *= Number(ValueArr[index])
-        if (Symbol == "/")
-            sum /= Number(ValueArr[index])
-        if (Symbol == "%")
-            sum := Mod(sum, Number(ValueArr[index]))
-        if (Symbol == "^")
-            sum := sum ** Number(ValueArr[index])
-        if (Symbol == "..")
-            sum .= ValueArr[index]
-    }
-    return sum
-}
-
-GetVariableOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr) {
-    hasValue := TryGetVariableValue(&sum, tableItem, tableIndex, Name)
+GetTabOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr, &res) {
+    hasValue := TryGetVariableValue(&res, tableItem, tableIndex, Name)
     if (!hasValue)
-        return
+        return false
 
-    for index, Symbol in SymbolArr {
-        Variable := ValueArr[index]
+    RealValueArr := []
+    loop ValueArr.Length {
+        Variable := ValueArr[A_Index]
         hasValue := TryGetVariableValue(&Value, tableItem, tableIndex, Variable)
         if (!hasValue)
-            return
+            return false
+        RealValueArr.Push(Value)
+    }
 
-        if (Symbol == "+")
-            sum := PrecisionAdd(sum, Value)
-        if (Symbol == "-")
-            sum -= Value
-        if (Symbol == "*")
-            sum *= Value
-        if (Symbol == "/")
-            sum /= Value
-        if (Symbol == "%")
-            sum := Mod(sum, Value)
-        if (Symbol == "^")
-            sum := sum ** Value
-        if (Symbol == "..")
-            sum .= Value
+    res := GetOperationResult(res, SymbolArr, RealValueArr)
+    return true
+}
+
+GetOperationResult(BaseValue, SymbolArr, ValueArr) {
+    sum := baseValue
+    OptActionMap := Map("+", PrecisionAdd, "-", PrecisionSub, "*", PrecisionMul, "/", PrecisionDiv, "%", PrecisionMod, 
+                    "^", PrecisionPower, "..", PrecisionJoin)
+    for index, Symbol in SymbolArr {
+        Action := OptActionMap[Symbol]
+        sum := Action(sum, ValueArr[index])
     }
     return sum
 }
