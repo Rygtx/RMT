@@ -579,6 +579,14 @@ class TimingData {
     }
 }
 
+class ArrayData {
+    __New() {
+        this.SerialStr := ""
+        this.IsIgnoreExist := 0
+        this.Name := "Arr"
+    }
+}
+
 class RMTCMDData {
     __New() {
         this.SerialStr := ""

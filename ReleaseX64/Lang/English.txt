@@ -91,7 +91,7 @@ F1:选取当前窗口信息   F2:选取当前窗口位置   F3:选取信息和�
 编辑指令=Edit Inst
 结果假的指令:（可选）=False Action (Optional)
 结果保存到变量中=Save to Var
-变量存在忽略操作=Skip if Var Exists
+如果变量存在则不改变数值=Skip if Var Exists
 真值=True
 假值=False
 结果变量名不规范：变量名不能是纯数字=Var name cannot be only numbers
@@ -514,7 +514,7 @@ RMT默认配置=RMT Default
 新配置名不符合文件目录命名规则，请修改新配置名=New name invalid, modify.
 配置已存在，新增配置失败！！！=Add failed: already exists
 宏操作编辑器=Macro Op Editor
-宏类型:=Type:
+宏类型：=Type:
 当前宏=This Macro
 按键宏=Key
 字串宏=String

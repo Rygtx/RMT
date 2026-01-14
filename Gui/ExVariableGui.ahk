@@ -141,14 +141,14 @@ class ExVariableGui {
 
         PosX := 10
         PosY += 40
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 135), GetLang("结果保存选项:"))
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 145), GetLang("结果保存选项:"))
 
         PosX := 40
         PosY += 20
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
 
         PosX := 30
-        PosY += 25
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("开关      变量名"))
 
         PosX := 20
@@ -213,7 +213,7 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosY += 45
+        PosY += 40
         PosX := 210
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())

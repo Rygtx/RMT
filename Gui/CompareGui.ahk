@@ -178,11 +178,11 @@ class CompareGui {
         MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 320, 110), GetLang("结果保存到变量中"))
 
         PosX := 20
-        PosY += 25
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
+        PosY += 20
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
 
         PosX := 15
-        PosY += 25
+        PosY += 30
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
 
         PosX += 50
