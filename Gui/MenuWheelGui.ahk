@@ -165,7 +165,8 @@ class MenuWheelGui {
             SetTimer(this.DrawAction, 15) ; 60fps
         } else {
             SetTimer(this.DrawAction, 0)
-            LineOverlay.Clear()
+            LineOverlay.BeginFrame()
+            LineOverlay.EndFrame()
         }
     }
 
@@ -173,8 +174,10 @@ class MenuWheelGui {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mx, &my
 
-        LineOverlay.Clear()
+        LineOverlay.BeginFrame()
         LineOverlay.DrawLine(this.CurCenterPosX, this.CurCenterPosY, mx, my)
+        LineOverlay.EndFrame()
+
         isHover := this.CheckMouseHover(mx, my) ; ✅检测悬停
         if (isHover)
             return
