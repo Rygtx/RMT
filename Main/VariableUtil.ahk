@@ -61,7 +61,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
             }
         }
         else if (IsLoop) {
-            VariableMap[GetLang("指令循环次数")] := true
+            VariableMap[GetLang("循环次数")] := true
         }
 
         if (IsIf || IsSearch || IsSearchPro) {
@@ -83,7 +83,7 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
 GetGuiVariableObjArr(VariableObjArr) {
     ResultArr := []
     ResultMap := Map()
-    SpecialKeyArr := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
 
     ; 将VariableObjArr中的变量添加到映射中
     for Value in VariableObjArr {
@@ -115,9 +115,9 @@ GetGuiVariableObjArr(VariableObjArr) {
 
 ;mode 1:移除所有  2：移除坐标变量 3:移除循环计数变量
 RemoveInVariable(VarArr, Mode := 1) {
-    SpecialKeyArr1 := [GetLang("指令循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
     SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialKeyArr3 := [GetLang("指令循环次数"), GetLang("宏循环次数")]
+    SpecialKeyArr3 := [GetLang("循环次数"), GetLang("宏循环次数")]
     SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3)
     SpecialKeyArr := SpecialMap[Mode]
 

@@ -583,7 +583,12 @@ class ArrayData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
+        this.Type := "创建"
         this.Name := "Arr"
+        this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
+        this.MainIndex := 0
+        this.GetIndex := 0
+        this.GetDefault := 0
     }
 }
 

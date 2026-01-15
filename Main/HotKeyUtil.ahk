@@ -5,7 +5,7 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     tableItem.PauseArr[index] := false
     tableItem.ActionCount[index] := 0
     tableItem.VariableMapArr[index]["宏循环次数"] := 1
-    tableItem.VariableMapArr[index]["指令循环次数"] := 0
+    tableItem.VariableMapArr[index]["循环次数"] := 0
     isContinue := tableItem.TKArr.Has(index) && MySoftData.ContinueKeyMap.Has(tableItem.TKArr[index]) && tableItem.LoopCountArr[
         index] == 1
     isLoop := tableItem.LoopCountArr[index] == -1
@@ -524,7 +524,7 @@ OnLoop(tableItem, cmd, index) {
 
     if (Data.LoopCount == -1) {
         loop {
-            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            tableItem.VariableMapArr[index]["循环次数"] := A_Index
             if (!GetLoopState(tableItem, cmd, index, Data))
                 break
 
@@ -542,7 +542,7 @@ OnLoop(tableItem, cmd, index) {
             return
 
         loop Value {
-            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            tableItem.VariableMapArr[index]["循环次数"] := A_Index
             if (!GetLoopState(tableItem, cmd, index, Data))
                 break
 
