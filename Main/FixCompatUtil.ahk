@@ -451,7 +451,7 @@ CompatOperation(filePath) {
         loop 4 {
             if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] != "") {
                 oldExpr := Data.ExpressionArr[A_Index]
-                newExpr := this.ConvertOldVariableFormat(oldExpr)
+                newExpr := ConvertOldVariableFormat(oldExpr)
                 if (newExpr != oldExpr) {
                     Data.ExpressionArr[A_Index] := newExpr
                     curFix := true
