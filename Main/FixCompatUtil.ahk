@@ -422,6 +422,36 @@ CompatOperation(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Operation", "运算")
+    
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+        
+        curFix := false
+        
+        ; 确保ExpressionArr字段存在
+        if (!ObjHasOwnProp(Data, "ExpressionArr")) {
+            Data.ExpressionArr := ["", "", "", ""]
+            curFix := true
+        }
+        
+        ; 迁移旧数据：如果ExpressionArr为空但OperationArr有内容，则将OperationArr复制到ExpressionArr
+        loop 4 {
+            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] == "" 
+                && Data.OperationArr.Has(A_Index) && Data.OperationArr[A_Index] != "") {
+                Data.ExpressionArr[A_Index] := Data.OperationArr[A_Index]
+                curFix := true
+            }
+        }
+        
+        if (curFix) {
+            hasFix := true
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
+    }
+    
     return hasFix
 }
 
