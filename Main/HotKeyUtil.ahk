@@ -807,15 +807,31 @@ OnOperation(tableItem, cmd, index) {
     loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
-        Name := Data.NameArr[A_Index]
+        Name := ""  ; NameArr不再使用，变量从表达式中获取
         SymbolArr := Data.SymbolGroups[A_Index]
         ValueArr := Data.ValueGroups[A_Index]
-        isOk := GetTabOperationResult(tableItem, index, Name, SymbolArr, ValueArr, &res)
 
-        if (isOk) {
+        ; 兼容性检查：如果有表达式，优先使用表达式
+        Expression := ""
+        if (ObjHasOwnProp(Data, "ExpressionArr") && IsObject(Data.ExpressionArr)) {
+            Expression := Data.ExpressionArr.Has(A_Index) ? Data.ExpressionArr[A_Index] : ""
+        }
+
+        ; 如果有表达式且不为空，使用表达式计算
+        if (Expression != "") {
+            res := GetOperationResultFromExpression(Expression, Name, tableItem, index)
             MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
             NewNameArr.Push(Data.UpdateNameArr[A_Index])
             NewValueArr.Push(res)
+        } else {
+            ; 使用旧的SymbolArr/ValueArr方式（向后兼容）
+            isOk := GetTabOperationResult(tableItem, index, Name, SymbolArr, ValueArr, &res)
+
+            if (isOk) {
+                MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
+                NewNameArr.Push(Data.UpdateNameArr[A_Index])
+                NewValueArr.Push(res)
+            }
         }
     }
     if (NewNameArr.Length > 0)
