@@ -1285,6 +1285,11 @@ GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIn
     ; 替换表达式中的变量为实际值
     ProcessedExpr := Expression
 
+    ; 首先处理 {} 变量语法
+    if (tableItem && tableIndex) {
+        ProcessedExpr := GetReplaceVarText(tableItem, tableIndex, ProcessedExpr)
+    }
+
     ; 获取所有变量名（以字母开头的单词）
     VarNames := []
     pos := 1
