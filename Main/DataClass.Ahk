@@ -587,10 +587,21 @@ class ArrayData {
         this.Name := "Arr"
         this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
         this.MainIndex := 0
+        
+        this.ArgsIndex := 1
+        this.ArgsType := "变量或值"
+        this.ArgsName := "Var1"
+        
         this.GetIndex := 1
-        this.GetDefault := 0
+        this.SetIndex := 1
+        this.SetType := "变量或值"
+        this.SetName := "Var1"
+        this.InsertIndex := 1
+        this.InsertType := "变量或值"
+        this.InsertName := "Var1"
+    
         this.SaveType := "变量"
-        this.SaveName := "Arr-1"
+        this.SaveName := "Data"
     }
 }
 
