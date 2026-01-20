@@ -422,37 +422,107 @@ CompatOperation(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Operation", "运算")
-    
+
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
-        
+
         curFix := false
-        
+
         ; 确保ExpressionArr字段存在
         if (!ObjHasOwnProp(Data, "ExpressionArr")) {
             Data.ExpressionArr := ["", "", "", ""]
             curFix := true
         }
-        
+
         ; 迁移旧数据：如果ExpressionArr为空但OperationArr有内容，则将OperationArr复制到ExpressionArr
         loop 4 {
-            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] == "" 
+            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] == ""
                 && Data.OperationArr.Has(A_Index) && Data.OperationArr[A_Index] != "") {
                 Data.ExpressionArr[A_Index] := Data.OperationArr[A_Index]
                 curFix := true
             }
         }
-        
+
+        ; 校准旧格式变量名到新格式{变量名}
+        ; 旧格式：num1, var_name 等
+        ; 新格式：{num1}, {var_name}
+        loop 4 {
+            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] != "") {
+                oldExpr := Data.ExpressionArr[A_Index]
+                newExpr := this.ConvertOldVariableFormat(oldExpr)
+                if (newExpr != oldExpr) {
+                    Data.ExpressionArr[A_Index] := newExpr
+                    curFix := true
+                }
+            }
+        }
+
         if (curFix) {
             hasFix := true
             saveStr := JSON.stringify(Data, 0)
             IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
         }
     }
-    
+
     return hasFix
+}
+
+; 将旧格式变量名转换为新格式{变量名}
+ConvertOldVariableFormat(expr) {
+    ; 匹配独立的变量名（非数字、包含字母/中文/下划线的标识符）
+    ; 不匹配已经包裹在{}中的变量
+    ; 不匹配作为数字一部分的变量名
+    result := expr
+
+    ; 使用正则查找旧格式变量名（不包含运算符、括号、数字前缀等）
+    ; 匹配规则：以字母或中文开头，包含字母、数字、下划线、中文
+    pos := 1
+    loop {
+        ; 匹配：运算符或括号后面跟着的变量名
+        match := RegExMatch(result, "([\+\-\*/%\^\(\)])([a-zA-Z一-龥_][a-zA-Z0-9一-龥_]*)", &m, pos)
+        if (!match) {
+            ; 尝试匹配开头的变量名
+            match := RegExMatch(result, "^([a-zA-Z一-龥_][a-zA-Z0-9一-龥_]*)", &m)
+            if (!match)
+                break
+        }
+
+        ; m[1] 是分隔符（运算符或括号），m[2] 是变量名
+        ; m[0] 是整个匹配内容（分隔符+变量名）
+        if (match > 0) {
+            ; 如果匹配的是完整字符串（没有分隔符），则替换整个
+            if (RegExMatch(m[0], "^[\+\-\*/%\^\(\)]$")) {
+                ; 只有分隔符，跳过
+                pos := match + StrLen(m[0])
+                continue
+            }
+
+            ; 查找变量名部分
+            varName := m[2]
+            if (varName != "") {
+                ; 替换为{变量名}格式
+                if (InStr(m[0], "+") || InStr(m[0], "-") || InStr(m[0], "*") || InStr(m[0], "/")
+                    || InStr(m[0], "%") || InStr(m[0], "^") || InStr(m[0], "(") || InStr(m[0], ")")) {
+                    ; 有分隔符的情况
+                    newPattern := m[1] "{" varName "}"
+                    result := StrReplace(result, m[0], newPattern, , 1, &replaceCount)
+                    pos := match + StrLen(newPattern)
+                } else {
+                    ; 开头的情况（无分隔符）
+                    result := StrReplace(result, varName, "{" varName "}", , 1, &replaceCount)
+                    pos := match + StrLen("{" varName "}")
+                }
+            } else {
+                pos := match + StrLen(m[0])
+            }
+        } else {
+            break
+        }
+    }
+
+    return result
 }
 
 CompatBGMouse(filePath) {

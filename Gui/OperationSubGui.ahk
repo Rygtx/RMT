@@ -140,9 +140,9 @@ class OperationSubGui {
             ; 如果当前表达式不为空且不是运算符，添加一个空格
             currentExpr := this.ExpressionCon.Value
             if (currentExpr != "" && !InStr("+-*/%^().", SubStr(currentExpr, -1))) {
-                this.ExpressionCon.Value := currentExpr VarName
+                this.ExpressionCon.Value := currentExpr "{" VarName "}"
             } else {
-                this.ExpressionCon.Value := currentExpr VarName
+                this.ExpressionCon.Value := currentExpr "{" VarName "}"
             }
             this.UpdateExampleValue()
             this.IsEditMode := true
@@ -172,29 +172,35 @@ class OperationSubGui {
             return
         }
 
-        ; 检查是否包含变量
-        hasVariable := RegExMatch(expr, "[a-zA-Z_]")
+        ; 先校验表达式语法
+        if (!this.CheckExpressionSyntax(expr)) {
+            return
+        }
+
+        ; 检查是否包含变量（使用{...}格式）
+        hasVariable := RegExMatch(expr, "\{[^{}]+\}")
 
         ; 如果有变量，先将其替换为假定值（10）
         if (hasVariable) {
-            ; 获取所有变量名
+            ; 获取所有变量名（{变量名}格式）
             VarNames := []
             pos := 1
             loop {
-                match := RegExMatch(expr, "[a-zA-Z_][a-zA-Z0-9_]*", &VarName, pos)
+                match := RegExMatch(expr, "\{([^{}]+)\}", &varMatch, pos)
                 if (!match)
                     break
+                VarName := varMatch[0]  ; 完整的 {变量名}
                 ; 避免重复添加
                 found := false
                 for v in VarNames {
-                    if (v == VarName[0]) {
+                    if (v == VarName) {
                         found := true
                         break
                     }
                 }
                 if (!found)
-                    VarNames.Push(VarName[0])
-                pos := match + StrLen(VarName[0])
+                    VarNames.Push(VarName)
+                pos := varMatch.Pos + varMatch.Len
             }
 
             ; 替换变量为假定值10
@@ -228,6 +234,48 @@ class OperationSubGui {
         ; 获取表达式
         expression := this.ExpressionCon.Value
 
+        ; 校验表达式语法（仅当表达式不为空且非基础值时）
+        if (expression != "" && expression != this.Name) {
+            ; 先进行基本语法检查
+            if (!this.CheckExpressionSyntax(expression)) {
+                return
+            }
+
+            ; 提取所有变量名（{变量名}格式）
+            VarNames := []
+            pos := 1
+            loop {
+                match := RegExMatch(expression, "\{([a-zA-Z一-龥][a-zA-Z0-9一-龥]*)\}", &VarName, pos)
+                if (!match)
+                    break
+                ; 避免重复添加
+                found := false
+                for v in VarNames {
+                    if (v == VarName[0]) {
+                        found := true
+                        break
+                    }
+                }
+                if (!found)
+                    VarNames.Push(VarName[0])
+                pos := match + StrLen(VarName[0])
+            }
+
+            ; 替换所有变量为假定值10
+            testExpr := expression
+            for VarName in VarNames {
+                testExpr := StrReplace(testExpr, "{" VarName "}", "10")
+            }
+
+            ; 尝试计算测试表达式，校验语法
+            try {
+                EvaluateExpression(testExpr)
+            } catch Error as e {
+                MsgBox(Format(GetLang("表达式语法错误：{}"), e.Message))
+                return
+            }
+        }
+
         ; 如果表达式是空的或只有基础值，使用旧的SymbolArr/ValueArr
         if (expression == "" || expression == this.Name) {
             action := this.SureBtnAction
@@ -259,9 +307,9 @@ class OperationSubGui {
         if (expr == "")
             return
 
-        ; 检查是否包含变量（字母开头的标识符）
-        ; 如果包含字母，则认为是变量
-        HasVariable := RegExMatch(expr, "[a-zA-Z_]")
+        ; 检查是否包含变量（使用{变量名}格式）
+        ; 如果包含{变量名}格式的标识符，则认为是变量
+        HasVariable := RegExMatch(expr, "\{[a-zA-Z一-龥][a-zA-Z0-9一-龥]*\}")
 
         if (HasVariable) {
             this.BaseResultCon.Value := GetLang("表达式中有变量无法进行预算")
@@ -320,5 +368,89 @@ class OperationSubGui {
         }
 
         return this.SymbolArr.Length > 0
+    }
+
+    ; 检查表达式基本语法
+    CheckExpressionSyntax(expr) {
+        errorMsg := ""
+
+        ; ========== 步骤1：单独校验所有{...}变量结构（在删除空格之前）==========
+        varPattern := "\{[^{}]*\}" ; 匹配所有{...}结构（不包含嵌套的{}）
+        if RegExMatch(expr, varPattern, &varMatch, 1) {
+            loop {
+                ; 提取当前匹配的变量整体（如{ var }）
+                varWhole := varMatch[0]
+                ; 提取大括号内的原始内容（去掉首尾{和}）
+                varContentRaw := SubStr(varWhole, 2, -1)
+
+                ; 校验1：变量内容不能为空（包括只有空格的情况）
+                varContentTrim := Trim(varContentRaw)
+                if (varContentTrim = "") {
+                    MsgBox(GetLang("表达式错误：变量内容不能为空"))
+                    return false
+                }
+                ; 校验2：变量内容（去空格后）不能包含{}
+                if InStr(varContentTrim, "{") || InStr(varContentTrim, "}") {
+                    MsgBox(GetLang("表达式错误：变量内容不能包含{}"))
+                    return false
+                }
+                ; 校验3：变量内容不能包含任何空白符（包括空格/制表符等）
+                if RegExMatch(varContentRaw, "\s") {
+                    MsgBox(GetLang("表达式错误：变量内容不能包含空白符"))
+                    return false
+                }
+
+                ; 继续匹配下一个变量（直到无匹配）
+                if !RegExMatch(expr, varPattern, &varMatch, varMatch.Pos + varMatch.Len)
+                    break
+            }
+        }
+
+        ; ========== 步骤2：过滤所有空格，校验数字/运算符/括号 ==========
+        cleanExpr := StrReplace(expr, " ") ; 过滤所有空格（包括大括号内外）
+
+        ; 正则拆解：
+        ; 1. \{[^{}]+\}  → 匹配{包裹的变量（已提前校验，此处仅占位）
+        ; 2. -?\d+\.\d+  → 匹配严格数论小数（5.0、0.5、-3.14）
+        ; 3. -?\d+       → 匹配整数（5、-8、0）
+        ; 4. [+\-*/%^()] → 匹配运算符和括号
+        validPattern := "^(?:\{[^{}]+\}|-?\d+\.\d+|-?\d+|[+\-*/%^()])+$"
+        if !RegExMatch(cleanExpr, validPattern) {
+            MsgBox(GetLang("表达式包含非法字符或格式错误"))
+            return false
+        }
+
+        ; ========== 步骤3：校验括号是否匹配 ==========
+        openCount := 0, closeCount := 0
+        for k, char in StrSplit(cleanExpr) {
+            if char = "("
+                openCount++
+            else if char = ")"
+                closeCount++
+            ; 若右括号数量提前超过左括号，直接判定非法
+            if closeCount > openCount {
+                MsgBox(GetLang("表达式错误：括号不匹配"))
+                return false
+            }
+        }
+        if openCount != closeCount {
+            MsgBox(GetLang("表达式错误：括号不匹配"))
+            return false
+        }
+
+        ; ========== 步骤4：校验表达式首尾是否为非法运算符 ==========
+        firstChar := SubStr(cleanExpr, 1, 1)
+        lastChar := SubStr(cleanExpr, -1)
+        invalidStartEnd := "+*/%^" ; 负号(-)和括号()允许开头/结尾
+        if (InStr(invalidStartEnd, firstChar)) {
+            MsgBox(GetLang("表达式错误：不能以运算符开头"))
+            return false
+        }
+        if (InStr(invalidStartEnd, lastChar)) {
+            MsgBox(GetLang("表达式错误：不能以运算符结尾"))
+            return false
+        }
+
+        return true
     }
 }
