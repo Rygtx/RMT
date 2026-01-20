@@ -92,6 +92,7 @@ F1:选取当前窗口信息   F2:选取当前窗口位置   F3:选取信息和�
 结果假的指令:（可选）=False Action (Optional)
 结果保存到变量中=Save to Var
 如果变量存在则不改变数值=Skip if Var Exists
+如果变量存在则不改变数据=Skip if Array Exists
 真值=True
 假值=False
 结果变量名不规范：变量名不能是纯数字=Var name cannot be only numbers

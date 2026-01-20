@@ -36,6 +36,7 @@ class CompareGui {
 
         this.Init(cmd)
         this.ToggleFunc(true)
+        this.OnRefresh()
     }
 
     AddGui() {
@@ -70,6 +71,7 @@ class CompareGui {
         PosY += 25
         PosX := 15
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
+        con.OnEvent("Click", this.OnRefresh.Bind(this))
         this.ToggleConArr.Push(con)
         con.Value := 1
 
@@ -95,6 +97,7 @@ class CompareGui {
         PosX := 15
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
+        con.OnEvent("Click", this.OnRefresh.Bind(this))
         con.Value := 1
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
@@ -114,6 +117,7 @@ class CompareGui {
         PosX := 15
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
+        con.OnEvent("Click", this.OnRefresh.Bind(this))
         con.Value := 1
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
@@ -133,6 +137,7 @@ class CompareGui {
         PosX := 15
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
+        con.OnEvent("Click", this.OnRefresh.Bind(this))
         con.Value := 1
 
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
@@ -177,29 +182,39 @@ class CompareGui {
         PosX := 10
         MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 320, 110), GetLang("结果保存到变量中"))
 
-        PosX := 20
-        PosY += 20
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
+        PosX := 55
+        PosY += 25
+        this.ResultConArr := []
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 180, 20), GetLang(
+            "如果变量存在则不改变数值"))
+        this.ResultConArr.Push(this.IsIgnoreExistCon)
 
         PosX := 15
-        PosY += 30
+        PosY += 25
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
 
         PosX += 50
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
+        Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
+        this.ResultConArr.Push(Con)
 
         PosX += 110
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
+        Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
+        this.ResultConArr.Push(Con)
 
         PosX += 100
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("假值"))
+        Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("假值"))
+        this.ResultConArr.Push(Con)
 
         PosY += 25
         PosX := 20
         this.SaveToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
+        this.SaveToggleCon.OnEvent("Click", this.OnRefresh.Bind(this))
         this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 100), [])
         this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 145, PosY - 4, 70), 0)
         this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 225, PosY - 4, 70), 0)
+        this.ResultConArr.Push(this.SaveNameCon)
+        this.ResultConArr.Push(this.TrueValueCon)
+        this.ResultConArr.Push(this.FalseValueCon)
 
         PosY -= 30
         PosX := 410
@@ -275,11 +290,20 @@ class CompareGui {
         }
     }
 
-    OnRefresh() {
+    OnRefresh(*) {
         loop 4 {
+            isEnable := this.ToggleConArr[A_Index].Value
+
+            this.NameConArr[A_Index].Enabled := isEnable
+            this.CompareTypeConArr[A_Index].Enabled := isEnable
             OperaTypeValue := this.CompareTypeConArr[A_Index].Value
-            EnableVari := OperaTypeValue != 7
+            EnableVari := OperaTypeValue != 7 && isEnable
             this.VariableConArr[A_Index].Enabled := EnableVari
+        }
+
+        canEditResult := this.SaveToggleCon.Value
+        loop this.ResultConArr.Length {
+            this.ResultConArr[A_Index].Enabled := canEditResult
         }
     }
 
@@ -291,7 +315,7 @@ class CompareGui {
         this.SaveCompareData()
         action := this.SureBtnAction
         action(this.GetCommandStr())
-        ; this.ToggleFunc(false)
+        this.ToggleFunc(false)
         this.Gui.Hide()
     }
 

@@ -33,18 +33,18 @@ class ArrayGui {
 
         PosX += 200
         this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
-            "如果变量存在则不改变数值"))
+            "如果变量存在则不改变数据"))
 
-        PosX := 10
+        PosX := 20
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("类型："))
 
         PosX += 50
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "取值"]))
         this.TypeCon.Value := 1
-        this.TypeCon.OnEvent("Change", (*) => this.OnRefresh())
+        this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
-        PosX += 135
+        PosX += 125
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数组名："))
         PosX += 65
         this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
@@ -69,7 +69,7 @@ class ArrayGui {
             PosX := 10
             PosY := SplitPosY
             this.CreateConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 200), GetLang("创建参数"))
+            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 150), GetLang("创建参数"))
             this.CreateConArr.Push(Con)
 
             PosX := 20
@@ -90,7 +90,7 @@ class ArrayGui {
             PosX := 10
             PosY := SplitPosY
             this.GetConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 200), GetLang("取值参数"))
+            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 150), GetLang("取值参数"))
             this.GetConArr.Push(Con)
 
             PosX := 20
@@ -108,9 +108,28 @@ class ArrayGui {
             this.GetDefaultCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 100), [0])
             this.GetConArr.Push(this.GetDefaultCon)
         }
+        ;结果
+        {
+            PosX := 20
+            PosY := 270
+            this.ResultConArr := []
+            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 550, 50), GetLang("结果："))
+            this.ResultConArr.Push(Con)
+
+            PosX += 50
+            this.SaveTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["变量",
+                "数组"]))
+            this.SaveTypeCon.Value := 1
+            this.SaveTypeCon.OnEvent("Change", this.OnSaveTypeChange.Bind(this))
+            this.ResultConArr.Push(this.SaveTypeCon)
+
+            PosX += 105
+            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.ResultConArr.Push(this.SaveNameCon)
+        }
 
         PosY := 300
-        PosX := 200
+        PosX := 240
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         MyGui.Show(Format("w{} h{}", 580, 350))
@@ -139,9 +158,12 @@ class ArrayGui {
         this.GetDefaultCon.Delete()
         this.GetDefaultCon.Add(RemoveInVariable(this.VariableObjArr, 2))
         this.GetDefaultCon.Text := this.Data.GetDefault
+
+        this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
+        this.SaveNameCon.Text := this.Data.SaveName
     }
 
-    OnRefresh() {
+    OnRefresh(*) {
         IsCreate := this.TypeCon.Text == GetLang("创建")
         IsGet := this.TypeCon.Text == GetLang("取值")
 
@@ -153,6 +175,22 @@ class ArrayGui {
         }
         loop this.GetConArr.Length {
             this.GetConArr[A_Index].Visible := IsGet
+        }
+        loop this.ResultConArr.Length {
+            this.ResultConArr[A_Index].Visible := IsGet
+        }
+    }
+
+    OnSaveTypeChange(*) {
+        if (this.SaveTypeCon.Value == 1) {
+            this.SaveNameCon.Text := this.NameCon.Text
+            if (this.MainIndexCon.Text != 0)
+                this.SaveNameCon.Text .= "-" this.MainIndexCon.Text
+
+            this.SaveNameCon.Text .= "-" this.GetIndexCon.Text
+        }
+        else if (this.SaveTypeCon.Value == 2) {
+            this.SaveNameCon.Text := "NewArr"
         }
     }
 
