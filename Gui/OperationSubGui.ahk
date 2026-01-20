@@ -5,7 +5,6 @@ class OperationSubGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.Index := 0
         this.Name := ""
@@ -26,13 +25,14 @@ class OperationSubGui {
             this.AddGui()
         }
 
+        this.DLVariableArr := GetGuiVarArr()
         this.Index := index
         this.Name := Name
         this.SymbolArr := SymbolArr
         this.ValueArr := ValurArr
 
         this.OperaVariableCon.Delete()
-        this.OperaVariableCon.Add(this.VariableObjArr)
+        this.OperaVariableCon.Add(this.DLVariableArr)
         this.OperaVariableCon.Text := "10"
         if (IsNumber(this.Name)) {
             this.BaseValueCon.Value := this.Name

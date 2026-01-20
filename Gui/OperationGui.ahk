@@ -6,7 +6,6 @@ class OperationGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.Data := ""
         this.OperationSubGui := ""
@@ -41,7 +40,8 @@ class OperationGui {
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX += 220
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang("如果变量存在则不改变数值"))
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
+            "如果变量存在则不改变数值"))
 
         PosX := 10
         PosY += 35
@@ -138,16 +138,17 @@ class OperationGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("运算")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.NameConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
-            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
         }
     }
@@ -188,9 +189,6 @@ class OperationGui {
         }
 
         this.SaveOperationData()
-        macroStr := this.GetCommandStr()
-        VariableObjArr := GetGuiVariableObjArr(this.VariableObjArr)
-        this.OperationSubGui.VariableObjArr := VariableObjArr
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.OperationSubGui.ParentTile := ParentTile "-"
 

@@ -7,7 +7,6 @@ class MMProGui {
         this.Gui := ""
         this.RuleMenu := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.RemarkCon := ""
         this.Data := ""
@@ -148,15 +147,16 @@ class MMProGui {
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("移动Pro")
-        this.Data := GetMacroCMDData(this.SerialStr)
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.RefreshConfigDLArr()
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarXCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarYCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
         this.IsRelativeCon.Value := this.Data.IsRelative

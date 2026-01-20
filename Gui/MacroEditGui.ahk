@@ -30,7 +30,6 @@ class MacroEditGui {
         this.DebugStepNum := 0
         this.ShowSaveBtn := false
         this.SureFocusCon := ""
-        this.VariableObjArr := []
         this.isContextEdit := false
         this.RecordToggleCon := ""
         this.EditModeCon := ""
@@ -904,11 +903,6 @@ class MacroEditGui {
     ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
         this.CmdEditType := modeType
-        if ObjHasOwnProp(subGui, "VariableObjArr") {
-            macroStr := this.GetTreeMacroStr(0)
-            VariableObjArr := GetGuiVariableObjArr(this.VariableObjArr)
-            subGui.VariableObjArr := VariableObjArr
-        }
         if ObjHasOwnProp(subGui, "ParentTile") {
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             subGui.ParentTile := ParentTile "-"

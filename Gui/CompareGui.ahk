@@ -6,7 +6,6 @@ class CompareGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.FocusCon := ""
         this.MacroGui := ""
@@ -228,12 +227,13 @@ class CompareGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.SaveToggleCon.Value := this.Data.SaveToggle
         this.SaveNameCon.Delete()
-        this.SaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.SaveNameCon.Add(RemoveInVariable(this.DLVariableArr))
         this.SaveNameCon.Text := GetLang(this.Data.SaveName)
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
@@ -242,11 +242,11 @@ class CompareGui {
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(this.VariableObjArr)
+            this.NameConArr[A_Index].Add(this.DLVariableArr)
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(this.VariableObjArr)
+            this.VariableConArr[A_Index].Add(this.DLVariableArr)
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
@@ -332,7 +332,7 @@ class CompareGui {
     OnTrueBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -346,7 +346,7 @@ class CompareGui {
     OnFalseBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")

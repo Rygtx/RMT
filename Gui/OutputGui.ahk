@@ -5,7 +5,6 @@ class OutputGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.OutputTypeCon := ""
         this.TextTipCon := ""
@@ -140,17 +139,18 @@ class OutputGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("输出")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Value := this.Data.OutputType
         this.FilePathCon.Value := this.Data.FilePath
         this.VariCon.Delete()
-        this.VariCon.Add(this.VariableObjArr)
+        this.VariCon.Add(this.DLVariableArr)
         this.VariCon.Value := 1
         this.RowVarCon.Delete()
-        this.RowVarCon.Add(this.VariableObjArr)
+        this.RowVarCon.Add(this.DLVariableArr)
         this.ColVarCon.Delete()
-        this.ColVarCon.Add(this.VariableObjArr)
+        this.ColVarCon.Add(this.DLVariableArr)
 
         this.ExcelTypeCon.Value := this.Data.ExcelType
         this.NameOrSerialCon.Value := this.Data.NameOrSerial

@@ -8,7 +8,6 @@ class LoopGui {
         this.SureBtnAction := ""
         this.RemarkCon := ""
         this.MacroGui := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
 
         this.Data := ""
@@ -182,8 +181,9 @@ class LoopGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("循环")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
-        CountVariableArr := this.VariableObjArr.Clone()
+        CountVariableArr := this.DLVariableArr.Clone()
         CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
         this.CountCon.Add(RemoveInVariable(CountVariableArr, 2))
@@ -196,11 +196,11 @@ class LoopGui {
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(this.VariableObjArr)
+            this.NameConArr[A_Index].Add(this.DLVariableArr)
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(this.VariableObjArr)
+            this.VariableConArr[A_Index].Add(this.DLVariableArr)
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
@@ -233,7 +233,7 @@ class LoopGui {
     OnEditMacroBtnClick(*) {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")

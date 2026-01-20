@@ -6,7 +6,6 @@ class SearchGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.PosAction := () => this.RefreshMouseInfo()
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
@@ -208,6 +207,7 @@ class SearchGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
         if (!this.CheckIfDataValid())
             return
 
@@ -428,7 +428,7 @@ class SearchGui {
     OnEditFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -442,7 +442,7 @@ class SearchGui {
     OnEditUnFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")

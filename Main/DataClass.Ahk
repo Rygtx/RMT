@@ -254,6 +254,8 @@ class SoftData {
 
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
 
+        this.GlobalArrMap := Map()      ;UI下拉显示数组
+        this.ArrayMap := Map()          ;真正的全局数组
         this.GlobalVariMap := Map()     ;UI下拉显示变量
         this.VariableMap := Map()       ;真正的全局变量
         this.DataFileMap := Map()       ;配置命令对应的文件路径
@@ -587,19 +589,9 @@ class ArrayData {
         this.Name := "Arr"
         this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
         this.MainIndex := 0
-        
         this.ArgsIndex := 1
         this.ArgsType := "变量或值"
         this.ArgsName := "Var1"
-        
-        this.GetIndex := 1
-        this.SetIndex := 1
-        this.SetType := "变量或值"
-        this.SetName := "Var1"
-        this.InsertIndex := 1
-        this.InsertType := "变量或值"
-        this.InsertName := "Var1"
-    
         this.SaveType := "变量"
         this.SaveName := "Data"
     }

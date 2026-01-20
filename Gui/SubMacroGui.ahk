@@ -5,7 +5,6 @@ class SubMacroGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
 
         this.TypeCon := ""
@@ -105,11 +104,12 @@ class SubMacroGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TypeCon.Value := this.Data.MacroType
         this.CallTypeCon.Value := this.Data.CallType
         this.InsertCountCon.Delete()
-        this.InsertCountCon.Add(RemoveInVariable(this.VariableObjArr, 2))
+        this.InsertCountCon.Add(RemoveInVariable(this.DLVariableArr, 2))
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
         tableIndex := this.Data.MacroType - 1

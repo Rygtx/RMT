@@ -5,7 +5,6 @@ class VariableGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
 
         this.IsIgnoreExistCon := ""
@@ -42,7 +41,8 @@ class VariableGui {
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX += 200
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang("如果变量存在则不改变数值"))
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
+            "如果变量存在则不改变数值"))
         {
             PosX := 10
             PosY += 30
@@ -194,22 +194,23 @@ class VariableGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
             this.OperaTypeConArr[A_Index].Value := this.Data.OperaTypeArr[A_Index]
             this.CopyVariableConArr[A_Index].Delete()
-            this.CopyVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.CopyVariableConArr[A_Index].Add(this.DLVariableArr)
             this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
-            this.MinVariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
+            this.MinVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
             this.MinVariableConArr[A_Index].Text := GetLang(this.Data.MinVariableArr[A_Index])
             this.MaxVariableConArr[A_Index].Delete()
-            this.MaxVariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
+            this.MaxVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
             this.MaxVariableConArr[A_Index].Text := GetLang(this.Data.MaxVariableArr[A_Index])
         }
     }
@@ -254,7 +255,7 @@ class VariableGui {
     }
 
     GetCommandStr() {
-         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
@@ -269,7 +270,8 @@ class VariableGui {
                     }
                     else if (this.OperaTypeConArr[A_Index].Value == 2) {
                         CurVarRemark .= GetLang("随机")
-                        isNumSpan := IsNumber(this.MinVariableConArr[A_Index].Text) && IsNumber(this.MaxVariableConArr[A_Index].Text)
+                        isNumSpan := IsNumber(this.MinVariableConArr[A_Index].Text) && IsNumber(this.MaxVariableConArr[
+                            A_Index].Text)
                         if (isNumSpan)
                             CurVarRemark .= this.MinVariableConArr[A_Index].Text "~" this.MaxVariableConArr[A_Index].Text
                     }

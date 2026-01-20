@@ -919,7 +919,6 @@ HandleOpenArg() {
 }
 
 SetEditData() {
-    VariableMap := Map()
     visitMap := Map()
     loop MySoftData.TabNameArr.Length {
         tableIndex := A_Index
@@ -933,8 +932,7 @@ SetEditData() {
                 continue
 
             macroStr := tableItem.MacroArr[index]
-            GetMacroStrGlobalVar(macroStr, VariableMap, visitMap)
+            SetGlobalData(macroStr, visitMap)
         }
     }
-    MySoftData.GlobalVariMap := VariableMap
 }
