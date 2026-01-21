@@ -8,7 +8,6 @@ class CompareProGui {
         this.SureBtnAction := ""
         this.RemarkCon := ""
         this.MacroGui := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.ItemEditGui := ""
         this.ContextMenu := ""
@@ -81,6 +80,7 @@ class CompareProGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果Pro")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.LVCon.Delete()
         loop this.Data.MacroArr.Length {
@@ -200,7 +200,7 @@ class CompareProGui {
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.ItemEditGui.ParentTile := ParentTile "-"
 
-        this.ItemEditGui.VariableObjArr := this.VariableObjArr
+        this.ItemEditGui.DLVariableArr := this.DLVariableArr
         EditType := this.LVCon.GetText(item, 1) == GetLang("以上都不是") ? 2 : 1
         DataArr := this.GetCondiStrDataArr(this.LVCon.GetText(item, 1))
         logicStr := this.LVCon.GetText(item, 2)

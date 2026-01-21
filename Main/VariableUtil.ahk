@@ -1,15 +1,16 @@
 #Requires AutoHotkey v2.0
 
-GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
+SetGlobalData(macroStr, visitMap) {
     if (macroStr == "")
         return
+    VariableMap := MySoftData.GlobalVariMap
     cmdArr := SplitMacro(macroStr)
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         paramArr[1] := StrReplace(paramArr[1], "🚫", "")
         if (visitMap.Has(paramArr[1]))
             continue
-        SetCMDSerial(cmdArr[A_Index])
+        SetCMDSerialData(cmdArr[A_Index])
         IsExVariable := InStr(paramArr[1], "变量提取")
         IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
         IsTextProcess := InStr(paramArr[1], "文本处理")
@@ -19,8 +20,9 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         IsLoop := InStr(paramArr[1], "循环")
         IsIfPro := InStr(paramArr[1], "如果Pro")
         IsIf := InStr(paramArr[1], "如果") && !IsIfPro
+        IsArray := InStr(paramArr[1], "数组")
         IsVarRelate := IsVariable || IsExVariable || IsTextProcess || IsIf || IsOpera || IsSearch || IsSearchPro
-            || IsLoop || IsIfPro
+            || IsLoop || IsIfPro || IsArray
         if (!IsVarRelate)
             continue
         visitMap[paramArr[1]] := true
@@ -63,32 +65,31 @@ GetMacroStrGlobalVar(macroStr, VariableMap, visitMap) {
         else if (IsLoop) {
             VariableMap[GetLang("循环次数")] := true
         }
+        else if (IsArray) {
+            SetArrayDataNewArr(Data)
+            SetArrayDataNewArr(Data)
+        }
 
         if (IsIf || IsSearch || IsSearchPro) {
-            GetMacroStrGlobalVar(Data.TrueMacro, VariableMap, visitMap)
-            GetMacroStrGlobalVar(Data.FalseMacro, VariableMap, visitMap)
+            SetGlobalData(Data.TrueMacro, visitMap)
+            SetGlobalData(Data.FalseMacro, visitMap)
         }
         else if (IsLoop) {
-            GetMacroStrGlobalVar(Data.LoopBody, VariableMap, visitMap)
+            SetGlobalData(Data.LoopBody, visitMap)
         }
         else if (IsIfPro) {
             for index, value in Data.MacroArr {
-                GetMacroStrGlobalVar(value, VariableMap, visitMap)
+                SetGlobalData(value, visitMap)
             }
-            GetMacroStrGlobalVar(Data.DefaultMacro, VariableMap, visitMap)
+            SetGlobalData(Data.DefaultMacro, visitMap)
         }
     }
 }
 
-GetGuiVariableObjArr(VariableObjArr) {
+GetGuiVarArr() {
     ResultArr := []
     ResultMap := Map()
     SpecialKeyArr := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-
-    ; 将VariableObjArr中的变量添加到映射中
-    for Value in VariableObjArr {
-        ResultMap[Value] := true
-    }
 
     ; 添加全局变量（如果不存在）
     for Key in MySoftData.GlobalVariMap {

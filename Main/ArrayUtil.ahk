@@ -47,7 +47,7 @@ GetArray(Text) {
         LastSplitPos := Pos
         Pos := GetNextSplitPos(Text, LastSplitPos)
     }
-    
+
     if (LastSplitPos == StrLen(Text)) {
         ResArr.Push("")
         return
@@ -124,4 +124,41 @@ GetEscapeValue(Value) {
     Value := StrReplace(Value, "\】", "】")
     Value := StrReplace(Value, "\⎖", "\")
     return Value
+}
+
+GetGuiArrNameArr() {
+    ResultArr := []
+    for Key in MySoftData.GlobalArrMap {
+        ResultArr.Push(Key)
+    }
+    return ResultArr
+}
+
+SetArrayDataNewArr(Data) {
+    NewArrName := ""
+    if (Data.Type == "创建")
+        NewArrName := Data.Name
+    else if (Data.Type == "克隆") {
+        NewArrName := Data.SaveName
+    }
+    else if (Data.Type == "取值" || Data.Type == "移除" || Data.Type == "移除最后") {
+        if (Data.SaveType == "数组")
+            NewArrName := Data.SaveName
+    }
+
+    if (NewArrName != "")
+        MySoftData.GlobalArrMap[NewArrName] := true
+}
+
+GetArrayDataNewVar(Data) {
+    NewVarName := ""
+    if (Data.Type == "包含" || Data.Type == "长度")
+        NewVarName := Data.SaveName
+    else if (Data.Type == "取值" || Data.Type == "移除" || Data.Type == "移除最后") {
+        if (Data.SaveType == "变量")
+            NewVarName := Data.SaveName
+    }
+
+    if (NewVarName != "")
+        MySoftData.GlobalVariMap[NewVarName] := true
 }

@@ -5,7 +5,6 @@ class OperationSubGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.Index := 0
         this.Name := ""
@@ -27,6 +26,7 @@ class OperationSubGui {
             this.AddGui()
         }
 
+        this.DLVariableArr := GetGuiVarArr()
         this.Index := index
         this.Name := Name
         this.SymbolArr := SymbolArr
@@ -34,7 +34,7 @@ class OperationSubGui {
 
         ; 初始化变量列表下拉框
         this.OperaVariableCon.Delete()
-        this.OperaVariableCon.Add(this.VariableObjArr)
+        this.OperaVariableCon.Add(this.DLVariableArr)
         this.OperaVariableCon.Text := "10"
 
         if (IsNumber(this.Name)) {

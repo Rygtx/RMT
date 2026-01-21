@@ -5,7 +5,6 @@ class ArrayGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
     }
 
     ShowGui(cmd) {
@@ -33,21 +32,24 @@ class ArrayGui {
 
         PosX += 200
         this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
-            "如果变量存在则不改变数值"))
+            "如果变量存在则不改变数据"))
 
-        PosX := 10
+        PosX := 20
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("类型："))
 
         PosX += 50
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "取值"]))
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆",
+            "包含",
+            "取值",
+            "赋值", "插入", "追加", "移除", "移除最后", "长度"]))
         this.TypeCon.Value := 1
-        this.TypeCon.OnEvent("Change", (*) => this.OnRefresh())
+        this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
-        PosX += 135
+        PosX += 125
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数组名："))
         PosX += 65
-        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
+        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
 
         PosX += 120
         this.MainIndexConArr := []
@@ -69,11 +71,11 @@ class ArrayGui {
             PosX := 10
             PosY := SplitPosY
             this.CreateConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 200), GetLang("创建参数"))
+            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 70), GetLang("创建参数"))
             this.CreateConArr.Push(Con)
 
             PosX := 20
-            PosY += 25
+            PosY += 30
             Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("初始数据："))
             this.CreateConArr.Push(Con)
             PosX += 75
@@ -85,35 +87,74 @@ class ArrayGui {
             this.CreateConArr.Push(Con)
         }
 
-        ;取值参数
+        ;类型参数
         {
             PosX := 10
             PosY := SplitPosY
-            this.GetConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 200), GetLang("取值参数"))
-            this.GetConArr.Push(Con)
+            this.ArgsConArr := []
+            this.ArgsIndexConArr := []
+            this.ArgsDataConArr := []
+            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 70), GetLang("类型参数"))
+            this.ArgsConArr.Push(Con)
 
             PosX := 20
-            PosY += 25
+            PosY += 30
             Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("索引："))
-            this.GetConArr.Push(Con)
+            this.ArgsConArr.Push(Con)
+            this.ArgsIndexConArr.Push(Con)
             PosX += 50
-            this.GetIndexCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 100), [0])
-            this.GetConArr.Push(this.GetIndexCon)
+            this.ArgsIndexCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 100), [0])
+            this.ArgsConArr.Push(this.ArgsIndexCon)
+            this.ArgsIndexConArr.Push(this.ArgsIndexCon)
 
             PosX += 125
-            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("默认值："))
-            this.GetConArr.Push(Con)
-            PosX += 65
-            this.GetDefaultCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 100), [0])
-            this.GetConArr.Push(this.GetDefaultCon)
+            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数据："))
+            Con.GetPos(&x)
+            Con.OriPosX := x
+            this.ArgsConArr.Push(Con)
+            this.ArgsDataConArr.Push(Con)
+            PosX += 50
+            this.ArgsTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr([
+                "变量或值",
+                "数组"]))
+            this.ArgsTypeCon.GetPos(&x)
+            this.ArgsTypeCon.OriPosX := x
+            this.ArgsTypeCon.OnEvent("Change", this.OnRefreshDataType.Bind(this))
+            this.ArgsConArr.Push(this.ArgsTypeCon)
+            this.ArgsDataConArr.Push(this.ArgsTypeCon)
+
+            PosX += 105
+            this.ArgsNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.ArgsNameCon.GetPos(&x)
+            this.ArgsNameCon.OriPosX := x
+            this.ArgsConArr.Push(this.ArgsNameCon)
+            this.ArgsDataConArr.Push(this.ArgsNameCon)
         }
 
-        PosY := 300
-        PosX := 200
+        ;结果
+        {
+            PosX := 20
+            PosY := 170
+            this.ResultConArr := []
+            Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("结果："))
+            this.ResultConArr.Push(Con)
+
+            PosX += 50
+            this.SaveTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["变量",
+                "数组"]))
+            this.SaveTypeCon.OnEvent("Change", this.OnRefreshDataType.Bind(this))
+            this.ResultConArr.Push(this.SaveTypeCon)
+
+            PosX += 105
+            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.ResultConArr.Push(this.SaveNameCon)
+        }
+
+        PosY := 200
+        PosX := 240
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-        MyGui.Show(Format("w{} h{}", 580, 350))
+        MyGui.Show(Format("w{} h{}", 580, 250))
     }
 
     Init(cmd) {
@@ -121,39 +162,98 @@ class ArrayGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("数组")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
+        this.DLArrayArr := GetGuiArrNameArr()
 
         this.TypeCon.Text := GetLang(this.Data.Type)
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
-        this.NameCon.Delete()
-        ; this.NameCon.Add(RemoveInVariable(this.VariableObjArr, 2))    ;todo这是数组名，不是变量名
-        this.NameCon.Text := this.Data.Name
-        this.MainIndexCon.Delete()
-        this.MainIndexCon.Add(RemoveInVariable(this.VariableObjArr, 2))
-        this.MainIndexCon.Text := this.Data.MainIndex
-
+        SetDLConValue(this.NameCon, this.DLArrayArr, this.Data.Name)
+        SetDLConValue(this.MainIndexCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.MainIndex)
         this.InitArrCon.Text := GetArrayStr(this.Data.InitArr)
 
-        this.GetIndexCon.Delete()
-        this.GetIndexCon.Add(RemoveInVariable(this.VariableObjArr, 2))
-        this.GetIndexCon.Text := this.Data.GetIndex
-        this.GetDefaultCon.Delete()
-        this.GetDefaultCon.Add(RemoveInVariable(this.VariableObjArr, 2))
-        this.GetDefaultCon.Text := this.Data.GetDefault
+        SetDLConValue(this.ArgsIndexCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.ArgsIndex)
+        this.ArgsTypeCon.Text := this.Data.ArgsType
+        this.ArgsNameCon.Text := this.Data.ArgsName
+
+        this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
+        this.SaveNameCon.Text := this.Data.SaveName
     }
 
-    OnRefresh() {
+    OnRefresh(*) {
         IsCreate := this.TypeCon.Text == GetLang("创建")
+        IsClone := this.TypeCon.Text == GetLang("克隆")
+        IsContain := this.TypeCon.Text == GetLang("包含")
         IsGet := this.TypeCon.Text == GetLang("取值")
+        IsSetValue := this.TypeCon.Text == GetLang("赋值")
+        IsInsert := this.TypeCon.Text == GetLang("插入")
+        IsAdd := this.TypeCon.Text == GetLang("追加")
+        IsRemove := this.TypeCon.Text == GetLang("移除")
+        IsRemoveLast := this.TypeCon.Text == GetLang("移除最后")
+        IsLength := this.TypeCon.Text == GetLang("长度")
+        OnlyResVar := IsLength || IsContain
+        OnlyResArr := IsClone
+        OnlyArgsIndex := IsGet || IsRemove
+        OnlyArgsData := IsAdd || IsContain
+        IsShowRusult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain
+        IsShowMainIndex := !IsCreate
+        IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
 
-        loop this.MainIndexConArr.Length {
-            this.MainIndexConArr[A_Index].Visible := IsGet
+        this.IsIgnoreExistCon.Visible := IsCreate || IsClone || IsGet || IsLength || IsRemove || IsRemoveLast ||
+            IsContain
+        this.SetConArrVisible(this.MainIndexConArr, IsShowMainIndex)
+        this.SetConArrVisible(this.ResultConArr, IsShowRusult)
+        this.SetConArrVisible(this.CreateConArr, IsCreate)
+        this.OnRefreshArgs(IsShowArgs, OnlyArgsIndex, OnlyArgsData)
+
+        if (OnlyResVar || OnlyResArr) {
+            this.SaveTypeCon.Value := OnlyResVar ? 1 : 2
+            this.SaveTypeCon.Enabled := false
         }
-        loop this.CreateConArr.Length {
-            this.CreateConArr[A_Index].Visible := IsCreate
+        else {
+            this.SaveTypeCon.Enabled := true
         }
-        loop this.GetConArr.Length {
-            this.GetConArr[A_Index].Visible := IsGet
+        this.OnRefreshDataType()
+    }
+
+    SetConArrVisible(ConArr, isVisible) {
+        loop ConArr.Length {
+            ConArr[A_Index].Visible := isVisible
         }
+    }
+
+    OnRefreshArgs(IsShow, OnlyIndex, OnlyData) {
+        this.SetConArrVisible(this.ArgsConArr, IsShow)
+        if (!IsShow)
+            return
+        if (OnlyIndex) {
+            this.SetConArrVisible(this.ArgsIndexConArr, true)
+            this.SetConArrVisible(this.ArgsDataConArr, false)
+        }
+        else if (OnlyData) {
+            this.SetConArrVisible(this.ArgsIndexConArr, false)
+            this.SetConArrVisible(this.ArgsDataConArr, true)
+            loop this.ArgsDataConArr.Length {
+                Con := this.ArgsDataConArr[A_Index]
+                Con.Move(Con.OriPosX - 175)
+            }
+        }
+        else {
+            this.SetConArrVisible(this.ArgsIndexConArr, true)
+            this.SetConArrVisible(this.ArgsDataConArr, true)
+            loop this.ArgsDataConArr.Length {
+                Con := this.ArgsDataConArr[A_Index]
+                Con.Move(Con.OriPosX)
+            }
+        }
+    }
+
+    OnRefreshDataType(*) {
+        IsArgsVar := this.ArgsTypeCon.Text == GetLang("变量或值")
+        IsResVar := this.SaveTypeCon.Text == GetLang("变量")
+        ArgsArr := IsArgsVar ? this.DLVariableArr : this.DLArrayArr
+        ResArr := IsResVar ? this.DLVariableArr : this.DLArrayArr
+        SetDLConValue(this.ArgsNameCon, ArgsArr, this.ArgsNameCon.Text)
+        SetDLConValue(this.SaveNameCon, RemoveInVariable(ResArr, 1), this.SaveNameCon.Text)
     }
 
     OnClickIndexHelpBtn(*) {
@@ -202,8 +302,17 @@ class ArrayGui {
 
     SaveSubMacroData() {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Name := this.NameCon.Text
         this.Data.InitArr := GetArray(this.InitArrCon.Text)
+        this.Data.MainIndex := GetLangKey(this.MainIndexCon.Text)
+        this.Data.ArgsIndex := GetLangKey(this.ArgsIndexCon.Text)
+        this.Data.ArgsType := GetLangKey(this.ArgsTypeCon.Text)
+        this.Data.ArgsName := GetLangKey(this.ArgsNameCon.Text)
+        this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
+        this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
+        SetArrayDataNewArr(this.Data)
+        GetArrayDataNewVar(this.Data)
         SaveMacroCMDData(this.Data)
     }
 }

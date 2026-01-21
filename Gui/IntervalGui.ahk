@@ -5,7 +5,6 @@ class IntervalGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.TimeVarCon := ""
     }
 
@@ -21,8 +20,9 @@ class IntervalGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
+        this.DLVariableArr := GetGuiVarArr()
         this.TimeVarCon.Delete()
-        this.TimeVarCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.TimeVarCon.Add(RemoveInVariable(this.DLVariableArr))
         this.TimeVarCon.Text := GetLang("空")
         if (cmdArr.Length == 2) {
             this.TimeVarCon.Text := cmdArr[2]

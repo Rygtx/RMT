@@ -8,7 +8,6 @@ class SearchProGui {
         this.Gui := ""
         this.RuleMenu := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.PosAction := () => this.RefreshMouseInfo()
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
@@ -340,6 +339,7 @@ class SearchProGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索Pro")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
         if (!this.CheckIfDataValid())
             return
         this.RefreshConfigDLArr()
@@ -352,16 +352,16 @@ class SearchProGui {
         this.ImageCon.Move(imagePosX, imagePosY, 80, 80)
         this.HexColorCon.Value := this.Data.SearchColor
         this.TextCon.Delete()
-        this.TextCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.TextCon.Add(RemoveInVariable(this.DLVariableArr))
         this.TextCon.Text := this.Data.SearchText
         this.StartPosXCon.Delete()
-        this.StartPosXCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.StartPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.StartPosYCon.Delete()
-        this.StartPosYCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.StartPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.EndPosXCon.Delete()
-        this.EndPosXCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.EndPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.EndPosYCon.Delete()
-        this.EndPosYCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.EndPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.StartPosXCon.Text := this.Data.StartPosX
         this.StartPosYCon.Text := this.Data.StartPosY
         this.EndPosXCon.Text := this.Data.EndPosX
@@ -377,16 +377,16 @@ class SearchProGui {
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.ResultToggleCon.Value := this.Data.ResultToggle
         this.ResultSaveNameCon.Delete()
-        this.ResultSaveNameCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.ResultSaveNameCon.Add(RemoveInVariable(this.DLVariableArr))
         this.ResultSaveNameCon.Text := this.Data.ResultSaveName
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
         this.CoordToogleCon.Value := this.Data.CoordToogle
         this.CoordXNameCon.Delete()
-        this.CoordXNameCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.CoordXNameCon.Add(RemoveInVariable(this.DLVariableArr))
         this.CoordXNameCon.Text := this.Data.CoordXName
         this.CoordYNameCon.Delete()
-        this.CoordYNameCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.CoordYNameCon.Add(RemoveInVariable(this.DLVariableArr))
         this.CoordYNameCon.Text := this.Data.CoordYName
         this.OnChangeType()
     }
@@ -814,7 +814,7 @@ class SearchProGui {
     OnEditFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -828,7 +828,7 @@ class SearchProGui {
     OnEditUnFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")

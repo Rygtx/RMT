@@ -7,7 +7,7 @@ GetSerialStr(CmdStr) {
     return CmdStr CurrentDateTime randomNum
 }
 
-SetCMDSerial(CMD) {
+SetCMDSerialData(CMD) {
     paramArr := StrSplit(CMD, "_")
     paramArr[1] := StrReplace(paramArr[1], "🚫", "")
     IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0

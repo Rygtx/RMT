@@ -1761,3 +1761,8 @@ GetCmdStr(param) {
     return textOnly
 }
 
+SetDLConValue(Con, Arr, Text) {
+    Con.Delete()
+    Con.Add(Arr)
+    Con.Text := Text
+}

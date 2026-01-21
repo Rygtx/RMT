@@ -6,7 +6,6 @@ class ExVariableGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
 
@@ -227,6 +226,7 @@ class ExVariableGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量提取")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         if (this.Data.ToggleArr.Length == 4) {
             this.Data.ToggleArr.Push(false)
@@ -238,7 +238,7 @@ class ExVariableGui {
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
@@ -247,13 +247,13 @@ class ExVariableGui {
         this.OCRTypeCon.Value := this.Data.OCRType
 
         this.StartPosXCon.Delete()
-        this.StartPosXCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.StartPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.StartPosYCon.Delete()
-        this.StartPosYCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.StartPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.EndPosXCon.Delete()
-        this.EndPosXCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.EndPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.EndPosYCon.Delete()
-        this.EndPosYCon.Add(RemoveInVariable(this.VariableObjArr, 3))
+        this.EndPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
         this.StartPosXCon.Text := this.Data.StartPosX
         this.StartPosYCon.Text := this.Data.StartPosY
         this.EndPosXCon.Text := this.Data.EndPosX
