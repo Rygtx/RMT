@@ -153,54 +153,44 @@ class WorkPool {
         StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
         Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
         paramArr := StrSplit(Cmd, "_")
-        isSetVari := StrCompare(paramArr[1], "SetVari", false) == 0
-        isDelVari := StrCompare(paramArr[1], "DelVari", false) == 0
-        isReport := StrCompare(paramArr[1], "Report", false) == 0
-        isRMT := StrCompare(paramArr[1], "RMT指令", false) == 0
-        isItemState := StrCompare(paramArr[1], "ItemState", false) == 0
-        isPauseState := StrCompare(paramArr[1], "PauseState", false) == 0
-        isMsgBox := StrCompare(paramArr[1], "MsgBox", false) == 0
-        isToolTip := StrCompare(paramArr[1], "ToolTip", false) == 0
-        isMacroCount := StrCompare(paramArr[1], "MacroCount", false) == 0
-        if (isSetVari) {
-            NameValueArr := paramArr.Clone()
-            NameValueArr.RemoveAt(1)
-            NameArr := []
-            ValueArr := []
-            loop NameValueArr.Length {
-                NameArr.Push(NameValueArr[A_Index])
-                ValueArr.Push(NameValueArr[A_Index + 1])
-                A_Index += 1
-            }
+        switch paramArr[1] {
 
-            SetGlobalVariable(NameArr, ValueArr, false)
-        }
-        else if (isDelVari) {
-            NameArr := paramArr.Clone()
-            NameArr.RemoveAt(1)
-            DelGlobalVariable(NameArr)
-        }
-        else if (isReport) {
-            CMDStr := SubStr(Cmd, 8)
-            CMDReport(CMDStr)
-        }
-        else if (isRMT) {
-            MyExcuteRMTCMDAction(Cmd)
-        }
-        else if (isItemState) {
-            MySetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
-        }
-        else if (isPauseState) {
-            MySetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
-        }
-        else if (isMsgBox) {
-            MyMsgBoxContent(paramArr[2])
-        }
-        else if (isToolTip) {
-            MyToolTipContent(paramArr[2])
-        }
-        else if (isMacroCount) {
-            MyMacroCount(paramArr[2])
+            case "SetVari":
+                NameArr  := []
+                ValueArr := []
+                i := 2
+                while (i <= paramArr.Length) {
+                    NameArr.Push(paramArr[i])
+                    ValueArr.Push(paramArr[i + 1])
+                    i += 2
+                }
+                SetGlobalVariable(NameArr, ValueArr, false)
+
+            case "DelVari":
+                NameArr := paramArr.Clone()
+                NameArr.RemoveAt(1)
+                DelGlobalVariable(NameArr)
+
+            case "Report":
+                CMDReport(SubStr(Cmd, 8))
+
+            case "RMT指令":
+                MyExcuteRMTCMDAction(Cmd)
+
+            case "ItemState":
+                MySetTableItemState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
+
+            case "PauseState":
+                MySetItemPauseState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
+
+            case "MsgBox":
+                MyMsgBoxContent(paramArr[2])
+
+            case "ToolTip":
+                MyToolTipContent(paramArr[2])
+
+            case "MacroCount":
+                MyMacroCount(paramArr[2])
         }
     }
 }
