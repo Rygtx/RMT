@@ -1,5 +1,8 @@
 #Requires AutoHotkey v2.0
 #Include ExcelUtil.ahk
+#Include SerialUtil.ahk
+#Include PrecisionUtil.ahk
+#Include ArrayUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -152,38 +155,6 @@ SplitMacro(macroStr) {
 }
 
 SplitCommand(macro) {
-    splitIndex := RegExMatch(macro, "(\(.*\))", &match)
-    if (splitIndex == 0) {
-        return [macro, "", ""]
-    }
-    else {
-        macro1 := SubStr(macro, 1, splitIndex - 1)
-        result := [macro1]
-        lastSymbolIndex := 0
-        leftBracket := 0
-        loop parse match[1] {
-            if (A_LoopField == "(") {
-                leftBracket += 1
-                if (leftBracket == 1)
-                    lastSymbolIndex := A_Index
-            }
-
-            if (A_LoopField == ")") {
-                leftBracket -= 1
-                if (leftBracket == 0) {
-                    curMacro := SubStr(match[1], lastSymbolIndex + 1, A_Index - lastSymbolIndex - 1)
-                    result.Push(curMacro)
-                }
-            }
-        }
-        if (result.Length == 2) {
-            result.Push("")
-        }
-        return result
-    }
-}
-
-SplitKeyCommand(macro) {
     realKey := ""
     for key, value in MySoftData.SpecialKeyMap {
         newMacro := StrReplace(macro, key, "flagSymbol")
@@ -207,10 +178,11 @@ SplitKeyCommand(macro) {
 GetCmdByParams(paramArr) {
     result := ""
     for index, value in paramArr {
-        result .= value
-        if (index != paramArr.Length)
-            result .= "_"
+        if (value != "") {
+            result .= value "_"
+        }
     }
+    result := Trim(result, "_")
     return result
 }
 
@@ -290,6 +262,14 @@ CheckIfDrop(Msg, wParam, lParam, hWnd) {
 InitData() {
     InitTableItemState()
     InitJoyAxis()
+    MySoftData.DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
+        "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
+        "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
+        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextProcessFile, "Timing", TimingFile, "数组", ArrayFile)
+    MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
+        "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
+        "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
+        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextProcessData, "Timing", TimingData, "数组", ArrayData)
 }
 
 ;手柄轴未使用时，状态会变为0，而非中间值
@@ -488,6 +468,8 @@ ReadTableItemInfo(index) {
     SetArr(savedStartTipSoundStr, "π", tableItem.StartTipSoundArr)
     SetArr(savedEndTipSoundStr, "π", tableItem.EndTipSoundArr)
     tableItem.FoldInfo := JSON.parse(savedFoldInfoStr, , false)
+    SetSerialByArr(tableItem.SerialArr)
+    SetSerialByArr(tableItem.TimingSerialArr)
     Compat1_0_8F4FlodInfo(tableItem.FoldInfo)
     Compat1_0_9F1TipSound(tableItem)
 
@@ -508,7 +490,6 @@ ReadTableItemInfo(index) {
         }
         tableItem.MacroArr.Push(str)
     }
-    Compat1_0_9F3Interval(tableItem)
 }
 
 SetArr(str, symbol, Arr) {
@@ -539,14 +520,14 @@ SetIntArr(str, symbol, Arr) {
 GetGetTableItemDefaultMacro(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal") {
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     }
     else if (symbol == "String")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Timing")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "SubMacro")
-        return "按键_a_3_100_10_200,间隔_3000"
+        return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Replace")
         return "Left,a"
     return ""
@@ -633,11 +614,11 @@ GetTableItemDefaultInfo(index) {
         savedEndTipSoundStr := "1"
     }
     else if (symbol == "Replace") {
-        savedTKArrStr := "l"
+        savedTKArrStr := "k"
         savedHoldTimeArrStr := "500"
         savedModeArrStr := "1"
         savedForbidArrStr := "1"
-        savedRemarkArrStr := GetLang("将l按键替换成其他按键")
+        savedRemarkArrStr := GetLang("将k按键替换成其他按键")
         savedTriggerTypeStr := "1"
         savedLoopCountStr := "1"
         savedSerialeArrStr := "11"
@@ -710,7 +691,7 @@ GetSavedTableItemInfo(index) {
         HoldTimeArrStr .= tableItem.HoldTimeArr[A_Index]
         RemarkArrStr .= tableItem.RemarkArr[A_Index]
         TriggerTypeArrStr .= tableItem.TriggerTypeArr[A_Index]
-        LoopCountArrStr .= GetItemSaveCountValue(tableItem.Index, A_Index)
+        LoopCountArrStr .= tableItem.LoopCountArr[A_Index]
         SerialArrStr .= tableItem.SerialArr[A_Index]
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
@@ -848,22 +829,6 @@ GetTableSymbol(index) {
     return MySoftData.TabSymbolArr[index]
 }
 
-GetItemSaveCountValue(tableIndex, Index) {
-    itemtable := MySoftData.TableInfo[tableIndex]
-    if (itemtable.LoopCountConArr.Length >= Index) {
-        value := itemtable.LoopCountConArr[Index].Text
-        if (value == GetLang("无限"))
-            return -1
-        if (IsInteger(value)) {
-            if (Integer(value) < 0)
-                return -1
-            else
-                return value
-        }
-    }
-    return 1
-}
-
 GetTimingTableIndex() {
     loop MySoftData.TabNameArr.Length {
         symbol := GetTableSymbol(A_Index)
@@ -880,7 +845,7 @@ CheckIsNormalTable(index) {
     return false
 }
 
-CheckIsMacroTable(index) {
+CheckIsItemTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal")
         return true
@@ -892,20 +857,22 @@ CheckIsMacroTable(index) {
         return true
     if (symbol == "Menu")
         return true
+    if (symbol == "Replace")
+        return true
     return false
 }
 
-CheckIfAddSetTable(index) {
+CheckIsMacroTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal")
         return true
     if (symbol == "String")
         return true
-    if (symbol == "Timing")
-        return true
     if (symbol == "SubMacro")
         return true
-    if (symbol == "Replace")
+    if (symbol == "Timing")
+        return true
+    if (symbol == "Menu")
         return true
     return false
 }
@@ -1277,50 +1244,180 @@ GetRecordTriggerKeyMap() {
     return resultMap
 }
 
+GetTabOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr, &res) {
+    hasValue := TryGetVariableValue(&res, tableItem, tableIndex, Name)
+    if (!hasValue)
+        return false
+
+    RealValueArr := []
+    loop ValueArr.Length {
+        Variable := ValueArr[A_Index]
+        hasValue := TryGetVariableValue(&Value, tableItem, tableIndex, Variable)
+        if (!hasValue)
+            return false
+        RealValueArr.Push(Value)
+    }
+
+    res := GetOperationResult(res, SymbolArr, RealValueArr)
+    return true
+}
+
 GetOperationResult(BaseValue, SymbolArr, ValueArr) {
+    ; 兼容性检查：如果SymbolArr为空或ValueArr为空，直接返回BaseValue
+    if (SymbolArr.Length == 0 || ValueArr.Length == 0)
+        return BaseValue
+
     sum := baseValue
+    OptActionMap := Map("+", PrecisionAdd, "-", PrecisionSub, "*", PrecisionMul, "/", PrecisionDiv, "%", PrecisionMod,
+        "^", PrecisionPower, "..", PrecisionJoin)
     for index, Symbol in SymbolArr {
-        if (Symbol == "+")
-            sum += Number(ValueArr[index])
-        if (Symbol == "-")
-            sum -= Number(ValueArr[index])
-        if (Symbol == "*")
-            sum *= Number(ValueArr[index])
-        if (Symbol == "/")
-            sum /= Number(ValueArr[index])
-        if (Symbol == "^")
-            sum := sum ** Number(ValueArr[index])
-        if (Symbol == "..")
-            sum .= ValueArr[index]
+        Action := OptActionMap[Symbol]
+        sum := Action(sum, ValueArr[index])
     }
     return sum
 }
 
-GetVariableOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr) {
-    hasValue := TryGetVariableValue(&sum, tableItem, tableIndex, Name)
-    if (!hasValue)
-        return
+; 新增：使用表达式解析器计算（支持括号）
+GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIndex := "") {
+    if (Expression == "")
+        return BaseValue
 
-    for index, Symbol in SymbolArr {
-        Variable := ValueArr[index]
-        hasValue := TryGetVariableValue(&Value, tableItem, tableIndex, Variable)
-        if (!hasValue)
-            return
+    ; 替换表达式中的变量为实际值
+    ProcessedExpr := Expression
 
-        if (Symbol == "+")
-            sum += Value
-        if (Symbol == "-")
-            sum -= Value
-        if (Symbol == "*")
-            sum *= Value
-        if (Symbol == "/")
-            sum /= Value
-        if (Symbol == "^")
-            sum := sum ** Value
-        if (Symbol == "..")
-            sum .= Value
+    ; 首先处理 {} 变量语法
+    if (tableItem && tableIndex) {
+        ProcessedExpr := GetReplaceVarText(tableItem, tableIndex, ProcessedExpr)
     }
-    return sum
+
+    ; 获取所有变量名（以字母开头的单词）
+    VarNames := []
+    pos := 1
+    loop {
+        match := RegExMatch(ProcessedExpr, "[a-zA-Z_][a-zA-Z0-9_]*", &VarName, pos)
+        if (!match)
+            break
+        ; 避免重复添加
+        found := false
+        for v in VarNames {
+            if (v == VarName[0]) {
+                found := true
+                break
+            }
+        }
+        if (!found)
+            VarNames.Push(VarName[0])
+        pos := match + StrLen(VarName[0])
+    }
+
+    ; 如果没有变量，直接计算
+    if (!tableItem || !tableIndex || VarNames.Length == 0) {
+        ; 没有上下文或没有变量，尝试直接解析数字表达式
+        try {
+            result := EvaluateExpression(ProcessedExpr)
+            return result
+        } catch {
+            return BaseValue
+        }
+    }
+
+    ; 替换变量为值
+    for VarName in VarNames {
+        if (VarName == "" || IsNumber(VarName))
+            continue
+
+        VarValue := ""
+        if (TryGetVariableValue(&VarValue, tableItem, tableIndex, VarName)) {
+            ProcessedExpr := StrReplace(ProcessedExpr, VarName, VarValue)
+        }
+    }
+
+    ; 计算表达式
+    try {
+        result := EvaluateExpression(ProcessedExpr)
+        return result
+    } catch {
+        ; 解析失败，回退到简单计算
+        return BaseValue
+    }
+}
+
+; 新增：表达式计算器（支持括号运算）
+EvaluateExpression(expr) {
+    ; 预处理：去除空格
+    expr := RegExReplace(expr, "\s+", "")
+
+    ; 如果表达式为空，返回0
+    if (expr == "")
+        return 0
+
+    ; 先处理括号
+    while (InStr(expr, "(")) {
+        expr := ExpandParentheses(expr)
+    }
+
+    ; 处理乘方
+    while (InStr(expr, "^")) {
+        ; 使用正则表达式匹配 乘方运算
+        if (!RegExMatch(expr, "([+-]?\d*\.?\d+)\^([+-]?\d*\.?\d+)", &match))
+            break
+        a := Number(match[1])
+        b := Number(match[2])
+        result := Round(a ** b, 6)
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 处理乘除取余
+    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([*/%])([+-]?\d*\.?\d+)", &match)) {
+        op := match[2]
+        a := Number(match[1])
+        b := Number(match[3])
+        if (op == "*")
+            result := Round(a * b, 6)
+        else if (op == "/")
+            result := Round(a / b, 6)
+        else if (op == "%")
+            result := Round(Mod(a, b), 6)
+        else
+            result := match[0]
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 处理加减
+    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([+\-])([+-]?\d*\.?\d+)", &match)) {
+        op := match[2]
+        a := Number(match[1])
+        b := Number(match[3])
+        if (op == "+")
+            result := Round(a + b, 6)
+        else if (op == "-")
+            result := Round(a - b, 6)
+        else
+            result := match[0]
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 去除末尾的.0（如果是整数）
+    expr := RegExReplace(expr, "\.0+$", "")
+
+    return expr
+}
+
+; 展开括号（递归计算）
+ExpandParentheses(expr) {
+    ; 查找最内层的括号
+    while (RegExMatch(expr, "\(([^\(\)]+)\)", &match)) {
+        inner := match[1]
+        ; 计算括号内的值
+        result := EvaluateExpression(inner)
+        ; 替换回表达式
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+    return expr
 }
 
 StrToHex(str) {
@@ -1356,16 +1453,38 @@ GetWinPos() {
     return [xClient, yClient]
 }
 
-GetMacroCMDData(fileName, serialStr) {
-    global MySoftData
+GetMacroCMDData(serialStr) {
+    textOnly := RegExReplace(serialStr, "\d+")
+    numbersOnly := RegExReplace(serialStr, "\D+")
+    cmd := GetLangKey(textOnly)
+    serialStr := Format("{}{}", cmd, numbersOnly)
     if (MySoftData.DataCacheMap.Has(serialStr)) {
         return MySoftData.DataCacheMap[serialStr]
     }
 
-    saveStr := IniRead(fileName, IniSection, serialStr, "")
-    Data := JSON.parse(saveStr, , false)
+    DataFile := MySoftData.DataFileMap[cmd]
+    DataClass := MySoftData.DataClassMap[cmd]
+    saveStr := IniRead(DataFile, IniSection, serialStr, "")
+    if (saveStr == "") {
+        Data := DataClass()
+        Data.SerialStr := SerialStr
+    }
+    else {
+        Data := JSON.parse(saveStr, , false)
+    }
     MySoftData.DataCacheMap.Set(serialStr, Data)
     return Data
+}
+
+SaveMacroCMDData(Data) {
+    cmd := RegExReplace(Data.SerialStr, "\d+")
+    DataFile := MySoftData.DataFileMap[cmd]
+
+    saveStr := JSON.stringify(Data, 0)
+    IniWrite(saveStr, DataFile, IniSection, Data.SerialStr)
+    if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
+        MySoftData.DataCacheMap.Delete(Data.SerialStr)
+    }
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {
@@ -1419,12 +1538,6 @@ TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
 ShowNoVariableTip(variableName) {
     if (MySoftData.NoVariableTip)
         MsgBox(GetLang("当前环境不存在变量") variableName)
-}
-
-GetSerialStr(CmdStr) {
-    currentDateTime := FormatTime(, "HHmmss")
-    randomNum := Random(0, 9)
-    return CmdStr CurrentDateTime randomNum
 }
 
 GetRandomStr(length) {
@@ -1574,12 +1687,12 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
             return
 
         if (tableItem.StartTipSoundArr[itmeIndex] == 2) {
-            PlayTipSound(true)
+            PlayTipSound(1)
             return
         }
 
         if (tableItem.StartTipSoundArr[itmeIndex] == 3 && isFirst) {
-            PlayTipSound(true)
+            PlayTipSound(1)
             return
         }
     }
@@ -1589,33 +1702,23 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
             return
 
         if (tableItem.EndTipSoundArr[itmeIndex] == 2) {
-            PlayTipSound(false)
+            PlayTipSound(2)
             return
         }
 
         if (tableItem.EndTipSoundArr[itmeIndex] == 3 && isLast) {
-            PlayTipSound(false)
+            PlayTipSound(2)
             return
         }
     }
 }
 
-PlayTipSound(isStart) {
-    audioPath := isStart ? StartTipAudio : EndTipAudio
-    audioPath := GetRealPath(audioPath)
+;type 1 开始   2结束
+PlayTipSound(type) {
+    audioPathMap := Map(1, StartTipAudio, 2, EndTipAudio)
+    audioPath := audioPathMap[type]
     playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, audioPath)
     Run(playAudioCmd)
-}
-
-GetRealPath(path) {
-    buf := Buffer(1024)
-    DllCall("GetFullPathName"
-        , "Str", path
-        , "UInt", buf.Size
-        , "Ptr", buf
-        , "Ptr", 0
-    )
-    return StrGet(buf)
 }
 
 GetExVariableActiveLength(Arr) {
@@ -1643,7 +1746,7 @@ GetItemColorValue(state) {
 
 GetItemColorState(ColorValue) {
     ColorMap := Map("", 0, "Images\Soft\GreenColor.png", 1, "Images\Soft\YellowColor.png", 2,
-        "Images\Soft\RedColor.png",  3)
+        "Images\Soft\RedColor.png", 3)
 
     if (ColorMap.Has(ColorValue))
         return ColorMap[ColorValue]
@@ -1651,3 +1754,15 @@ GetItemColorState(ColorValue) {
     return 0
 }
 
+GetCmdStr(param) {
+    IsSkip := SubStr(param, 1, 2) == "🚫"
+    param := IsSkip ? SubStr(param, 3) : param
+    textOnly := RegExReplace(param, "\d+")
+    return textOnly
+}
+
+SetDLConValue(Con, Arr, Text) {
+    Con.Delete()
+    Con.Add(Arr)
+    Con.Text := Text
+}

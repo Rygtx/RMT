@@ -25,7 +25,7 @@ class TimingGui {
     }
 
     Init(SerialStr) {
-        this.SerialStr := SerialStr != "" ? SerialStr : GetSerialStr("Timing")
+        this.SerialStr := SerialStr != "" ? SerialStr : GetCMDSerialStr("Timing")
         this.Data := this.GetTimingData(this.SerialStr)
 
         this.StartTimeCon.Value := this.Data.StartTime

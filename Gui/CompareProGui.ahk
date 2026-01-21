@@ -8,7 +8,6 @@ class CompareProGui {
         this.SureBtnAction := ""
         this.RemarkCon := ""
         this.MacroGui := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.ItemEditGui := ""
         this.ContextMenu := ""
@@ -78,9 +77,10 @@ class CompareProGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("ComparePro")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetCompareProData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果Pro")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.LVCon.Delete()
         loop this.Data.MacroArr.Length {
@@ -200,7 +200,7 @@ class CompareProGui {
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.ItemEditGui.ParentTile := ParentTile "-"
 
-        this.ItemEditGui.VariableObjArr := this.VariableObjArr
+        this.ItemEditGui.DLVariableArr := this.DLVariableArr
         EditType := this.LVCon.GetText(item, 1) == GetLang("以上都不是") ? 2 : 1
         DataArr := this.GetCondiStrDataArr(this.LVCon.GetText(item, 1))
         logicStr := this.LVCon.GetText(item, 2)
@@ -235,25 +235,11 @@ class CompareProGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("如果Pro"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
-
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetCompareProData(SerialStr) {
-        saveStr := IniRead(CompareProFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := CompareProData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     GetCondiStrDataArr(condiStr) {
@@ -294,10 +280,6 @@ class CompareProGui {
             this.Data.MacroArr.Push(GetLangMacro(this.LVCon.GetText(A_Index, 3), 2))
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, CompareProFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

@@ -8,3 +8,4 @@ build_*
 build-*
 installed
 */build*
+.codebuddy/

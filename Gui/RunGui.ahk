@@ -94,20 +94,19 @@ class RunGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Run")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetRunData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("运行")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.PathTextCon.Value := this.Data.RunPath
         this.BackPlayCon.Value := this.Data.BackPlay
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("运行"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 
@@ -176,26 +175,10 @@ class RunGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    GetRunData(SerialStr) {
-        saveStr := IniRead(RunFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := FileData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveRunData() {
         this.Data.RunPath := this.PathTextCon.Value
         this.Data.BackPlay := this.BackPlayCon.Value
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, RunFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

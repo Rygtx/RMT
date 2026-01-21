@@ -6,14 +6,12 @@ class OperationGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.Data := ""
         this.OperationSubGui := ""
 
         this.IsIgnoreExistCon := ""
         this.ToggleConArr := []
-        this.NameConArr := []
         this.OperationConArr := []
         this.UpdateNameConArr := []
     }
@@ -34,27 +32,22 @@ class OperationGui {
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
-        PosX := 20
+        PosX := 10
         PosY := 10
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 50, 30), GetLang("备注："))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
-        PosX := 10
-        PosY += 30
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 110), GetLang("创建/更新选项："))
-
-        PosX += 115
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
+        PosX += 220
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
+            "如果变量存在则不改变数值"))
 
         PosX := 10
-        PosY += 25
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
         PosX += 50
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
-        PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运算表达式"))
-        PosX += 240
+        PosX += 290
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("保存结果变量"))
 
         PosY += 25
@@ -62,17 +55,14 @@ class OperationGui {
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -80,17 +70,14 @@ class OperationGui {
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(2))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -98,17 +85,14 @@ class OperationGui {
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(3))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 35
@@ -116,17 +100,14 @@ class OperationGui {
         con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ToggleConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 160, PosY - 3, 200), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
         con.Enabled := false
         this.OperationConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 365, PosY - 4, 50), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
         con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(4))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 425, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
         this.UpdateNameConArr.Push(con)
 
         PosY += 40
@@ -134,34 +115,54 @@ class OperationGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.Show(Format("w{} h{}", 650, 280))
+        MyGui.Show(Format("w{} h{}", 500, 270))
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Operation")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetOperationData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("运算")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
+
+        ; 兼容性检查：如果ExpressionArr不存在，初始化为空数组
+        if (!ObjHasOwnProp(this.Data, "ExpressionArr") || !IsObject(this.Data.ExpressionArr)) {
+            this.Data.ExpressionArr := ["", "", "", ""]
+        }
+
+        ; 迁移旧数据：如果ExpressionArr为空但OperationArr有内容，则将OperationArr复制到ExpressionArr
+        loop 4 {
+            if (this.Data.ExpressionArr.Has(A_Index) && this.Data.ExpressionArr[A_Index] == "" 
+                && this.Data.OperationArr.Has(A_Index) && this.Data.OperationArr[A_Index] != "") {
+                this.Data.ExpressionArr[A_Index] := this.Data.OperationArr[A_Index]
+            }
+        }
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
-            this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(this.VariableObjArr)
-            this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
-            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
         }
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("运算"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
+        if (Remark == "") {
+            Remark := GetLang("更新")
+            loop 4 {
+                if (this.ToggleConArr[A_Index].Value) {
+                    Remark .= this.UpdateNameConArr[A_Index].Text "&"
+                }
+            }
+            Remark := RTrim(Remark, "&")
         }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 
@@ -170,30 +171,31 @@ class OperationGui {
         con.Value := command
         this.Data.SymbolGroups[index] := SymbolArr
         this.Data.ValueGroups[index] := ValueArr
+
+        ; 保存表达式
+        if (this.OperationSubGui && this.OperationSubGui.ExpressionCon) {
+            expression := this.OperationSubGui.ExpressionCon.Value
+            this.Data.ExpressionArr[index] := expression
+        }
     }
 
     OnEditVariableBtnClick(index) {
         if (this.OperationSubGui == "") {
             this.OperationSubGui := OperationSubGui()
         }
-        Name := this.NameConArr[index].Text
-        if (Name == "" || Name == "空") {
-            MsgBox(GetLang("选择/输入1不可为空"))
-            return
-        }
 
         this.SaveOperationData()
-        macroStr := this.GetCommandStr()
-        VariableObjArr := GetGuiVariableObjArr(macroStr, this.VariableObjArr)
-        this.OperationSubGui.VariableObjArr := VariableObjArr
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.OperationSubGui.ParentTile := ParentTile "-"
 
         SymbolArr := this.Data.SymbolGroups[index]
         ValueArr := this.Data.ValueGroups[index]
+        Expression := this.Data.ExpressionArr.Has(index) ? this.Data.ExpressionArr[index] : ""
         this.OperationSubGui.SureBtnAction := (index, command, SymbolArr, ValueArr) => this.OnSureOperationBtnClick(
             index, command, SymbolArr, ValueArr)
-        this.OperationSubGui.ShowGui(index, Name, this.OperationConArr[index].Value, SymbolArr, ValueArr)
+
+        ; 将表达式作为参数传递给ShowGui，Name为空表示没有预先选择的变量
+        this.OperationSubGui.ShowGui(index, "", this.OperationConArr[index].Value, SymbolArr, ValueArr, Expression)
     }
 
     OnClickSureBtn() {
@@ -218,44 +220,39 @@ class OperationGui {
                     MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能为空"), A_Index))
                     return false
                 }
+
+                if (InStr(this.UpdateNameConArr[A_Index].Text, "_")) {
+                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能包含下划线"), A_Index))
+                    return false
+                }
             }
         }
 
         return true
     }
 
-    GetOperationData(SerialStr) {
-        saveStr := IniRead(OperationFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := OperationData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveOperationData() {
-        loop 4 {
+        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        loop this.Data.ToggleArr.Length {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.NameArr[A_Index] := GetLangKey(this.NameConArr[A_Index].Text)
+            this.Data.NameArr[A_Index] := ""  ; NameArr不再使用，变量从表达式中获取
             this.Data.OperationArr[A_Index] := GetLangStr(this.OperationConArr[A_Index].Value, 2)
             this.Data.UpdateNameArr[A_Index] := GetLangKey(this.UpdateNameConArr[A_Index].Text)
         }
 
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        ; 确保ExpressionArr存在且有4个元素
+        if (!ObjHasOwnProp(this.Data, "ExpressionArr") || !IsObject(this.Data.ExpressionArr)) {
+            this.Data.ExpressionArr := ["", "", "", ""]
+        }
+        while (this.Data.ExpressionArr.Length < 4) {
+            this.Data.ExpressionArr.Push("")
+        }
 
         ; 添加全局变量，方便下拉选取
-        loop 4 {
+        loop this.Data.ToggleArr.Length {
             if (this.Data.ToggleArr[A_Index])
                 MySoftData.GlobalVariMap[this.Data.UpdateNameArr[A_Index]] := true
         }
-
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, OperationFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

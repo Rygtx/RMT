@@ -753,9 +753,9 @@ class BGKeyGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("BGKey")
-        this.Data := this.GetBGKeyData(this.SerialStr)
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台按键")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
 
         this.FrontCon.Value := this.Data.FrontStr != "" ? this.Data.FrontStr : this.FrontCon.Value
         this.CheckedBox := this.Data.KeyArr
@@ -901,24 +901,11 @@ class BGKeyGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("后台按键"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetBGKeyData(SerialStr) {
-        saveStr := IniRead(BGKeyFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := BGKeyData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveBGKeyData() {
@@ -929,10 +916,6 @@ class BGKeyGui {
         this.Data.ClickCount := this.KeyTypeCon.Value == 3 ? this.KeyCountCon.Value : 1
         this.Data.ClickInterval := this.PerIntervalCon.Value
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, BGKeyFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

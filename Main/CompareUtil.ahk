@@ -74,27 +74,3 @@ ProcessNumberValue(Value) {
     ; 处理整数前导零
     return Integer(RegExReplace(Cleaned, "^0+(\d)", "$1"))
 }
-
-CompareExtractOperAndNum(expression) {
-    ; 初始化两个数组
-    operators := []
-    numbers := []
-
-    ; 定义支持的运算符
-    symbolMap := Map("+", 1, "-", 1, "*", 1, "/", 1, "^", 1)
-
-    ; 遍历表达式，逐个字符检查是否为运算符
-    for i, char in StrSplit(expression) {
-        if (symbolMap.Has(char)) {
-            operators.Push(char)
-        }
-    }
-
-    while (RegExMatch(expression, "\d+\.?\d*", &match)) {
-        numbers.Push(match[0])
-        ; 从表达式中移除已匹配的部分
-        expression := RegExReplace(expression, match[0], "", , 1)
-    }
-
-    return { operators: operators, numbers: numbers }
-}

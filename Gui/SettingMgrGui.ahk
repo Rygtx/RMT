@@ -193,6 +193,8 @@ class SettingMgrGui {
         hasWork := this.OnRepairSetting(SettingDir)
         if (hasWork) {
             MsgBox("已校对")
+            IniWrite(true, IniFile, IniSection, "IsReload")
+            Reload()
         }
         else {
             tipStr := (
@@ -388,14 +390,21 @@ class SettingMgrGui {
     OnRepairSetting(SettringDir) {
         SplitPath SettringDir, &fileName, , &fileExt, &fileNameNoExt
         hasWork := false
-        hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchFile.ini", 1) || hasWork
-        hasWork := RepairPath(fileNameNoExt, SettringDir "\SearchProFile.ini", 1) || hasWork
-        hasWork := Compat1_0_8F7MMPro(SettringDir "\MMProFile.ini") || hasWork
-        hasWork := Compat1_0_9F1MacroInsert(SettringDir "\SubMacroFile.ini") || hasWork
-        hasWork := Compat1_0_9F4Search(SettringDir "\SearchProFile.ini") || hasWork
-        hasWork := Compat1_0_9F4SearchAutoSelect(SettringDir "\SearchProFile.ini") || hasWork
-        hasWork := Compat1_0_9F4MMPro(SettringDir "\MMProFile.ini") || hasWork
-        hasWork := Compat1_0_9F4MMProAutoSelect(SettringDir "\MMProFile.ini") || hasWork
+        hasWork := CompatCMD(SettringDir "\MacroFile.ini") || hasWork
+        hasWork := CompatSearch(SettringDir "\SearchFile.ini") || hasWork
+        hasWork := CompatSearchPro(SettringDir "\SearchProFile.ini") || hasWork
+        hasWork := CompatMMPro(SettringDir "\MMProFile.ini") || hasWork
+        hasWork := CompatOutput(SettringDir "\OutputFile.ini") || hasWork
+        hasWork := CompatRun(SettringDir "\RunFile.ini") || hasWork
+        hasWork := CompatLoop(SettringDir "\LoopFile.ini") || hasWork
+        hasWork := CompatSubMacro(SettringDir "\SubMacroFile.ini") || hasWork
+        hasWork := CompatVariable(SettringDir "\VariableFile.ini") || hasWork
+        hasWork := CompatExVariable(SettringDir "\ExVariableFile.ini") || hasWork
+        hasWork := CompatCompare(SettringDir "\CompareFile.ini") || hasWork
+        hasWork := CompatComparePro(SettringDir "\CompareProFile.ini") || hasWork
+        hasWork := CompatOperation(SettringDir "\OperationFile.ini") || hasWork
+        hasWork := CompatBGMouse(SettringDir "\BGMouseFile.ini") || hasWork
+        hasWork := CompatBGKey(SettringDir "\BGKeyFile.ini") || hasWork
         return hasWork
     }
 

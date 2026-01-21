@@ -5,7 +5,6 @@ class OutputGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.OutputTypeCon := ""
         this.TextTipCon := ""
@@ -137,20 +136,21 @@ class OutputGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Output")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetOutputData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("输出")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Value := this.Data.OutputType
         this.FilePathCon.Value := this.Data.FilePath
         this.VariCon.Delete()
-        this.VariCon.Add(this.VariableObjArr)
+        this.VariCon.Add(this.DLVariableArr)
         this.VariCon.Value := 1
         this.RowVarCon.Delete()
-        this.RowVarCon.Add(this.VariableObjArr)
+        this.RowVarCon.Add(this.DLVariableArr)
         this.ColVarCon.Delete()
-        this.ColVarCon.Add(this.VariableObjArr)
+        this.ColVarCon.Add(this.DLVariableArr)
 
         this.ExcelTypeCon.Value := this.Data.ExcelType
         this.NameOrSerialCon.Value := this.Data.NameOrSerial
@@ -228,24 +228,11 @@ class OutputGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("输出"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetOutputData(SerialStr) {
-        saveStr := IniRead(OutputFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := OutputData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveOutputData() {
@@ -257,10 +244,6 @@ class OutputGui {
         this.Data.RowVar := this.RowVarCon.Text
         this.Data.ColVar := this.ColVarCon.Text
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, OutputFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

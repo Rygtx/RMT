@@ -11,6 +11,8 @@ OnSaveSetting(*) {
         MyWorkPool.Clear()
 
     loop MySoftData.TabNameArr.Length {
+        tableItem := MySoftData.TableInfo[A_Index]
+        RecycleTabItem(tableItem)
         SaveTableItemInfo(A_Index)
     }
 
@@ -119,14 +121,13 @@ OnTabValueChanged(*) {
 
 SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.SerialArr, indexA, indexB)
-    SwapArrValue(tableItem.RemarkConArr, indexA, indexB, 2)
-    SwapArrValue(tableItem.TKConArr, indexA, indexB, 3)
+    SwapArrValue(tableItem.RemarkArr, indexA, indexB)
     SwapArrValue(tableItem.TKArr, indexA, indexB)
-    SwapArrValue(tableItem.TriggerTypeConArr, indexA, indexB, 2)
+    SwapArrValue(tableItem.TriggerTypeArr, indexA, indexB)
     SwapArrValue(tableItem.HoldTimeArr, indexA, indexB)
     SwapArrValue(tableItem.MacroArr, indexA, indexB)
-    SwapArrValue(tableItem.LoopCountConArr, indexA, indexB, 3)
-    SwapArrValue(tableItem.ForbidConArr, indexA, indexB, 2)
+    SwapArrValue(tableItem.LoopCountArr, indexA, indexB)
+    SwapArrValue(tableItem.ForbidArr, indexA, indexB)
 }
 
 SwapArrValue(Arr, indexA, indexB, valueType := 1) {
@@ -257,6 +258,7 @@ InitFilePath() {
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\Audio\End.wav"
+    global ArrayFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ArrayFile.ini"
     global MacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
     global SearchFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchFile.ini"
     global SearchProFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchProFile.ini"
@@ -267,7 +269,6 @@ InitFilePath() {
     global TimingFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TimingFile.ini"
     global RunFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\RunFile.ini"
     global OutputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OutputFile.ini"
-    global StopFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\StopFile.ini"
     global VariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
     global TextProcessFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"
@@ -302,10 +303,6 @@ SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         return
 
     loop RealNameArr.Length {
-        if (Type(RealValueArr[A_Index]) == "String") {
-            RealValueArr[A_Index] := Trim(RealValueArr[A_Index], "`n")
-            RealValueArr[A_Index] := Trim(RealValueArr[A_Index])
-        }
         NameValueCMDStr .= Format("_{}_{}", RealNameArr[A_Index], RealValueArr[A_Index])
         MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
     }
@@ -644,69 +641,18 @@ SelectArea() {
     action(x1, y1, x2, y2)
 }
 
-;DataType 1:SearchData
-RepairPath(SettingName, FilePath, DataType) {
-    SymbolArr := ["Search"]
-    Symbol := SymbolArr[DataType]
-    if (!FileExist(FilePath))
-        return false
-
-    hasRepair := false
-    loop read, FilePath {
-        LineStr := A_LoopReadLine
-        if (SubStr(LineStr, 1, StrLen(Symbol)) != Symbol)
-            continue
-
-        SerialStr := SubStr(LineStr, 1, StrLen(Symbol) + 7)
-        saveStr := IniRead(FilePath, IniSection, SerialStr, "")
-        Data := JSON.parse(saveStr, , false)
-
-        if (Data == "")
-            continue
-
-        if (DataType == 1) {
-            if (!ObjHasOwnProp(Data, "SearchImagePath") || Data.SearchImagePath == "")
-                continue
-            StartPos := InStr(Data.SearchImagePath, "Setting", 1)
-            SubPath := SubStr(Data.SearchImagePath, StartPos)
-            NewPath1 := A_WorkingDir "\" SubPath
-
-            FileNameArr := StrSplit(NewPath1, "\")
-            NewPath2 := ""
-            for index, value in FileNameArr {
-                if (value == "Setting" && index + 2 <= FileNameArr.Length && FileNameArr[index + 2] == "Images") {
-                    FileNameArr[index + 1] := SettingName
-                }
-                NewPath2 .= value "\"
-            }
-
-            NewPath := RTrim(NewPath2, "\")
-            if (FileExist(NewPath)) {
-                Data.SearchImagePath := NewPath
-                saveStr := JSON.stringify(Data, 0)
-                IniWrite(saveStr, FilePath, IniSection, Data.SerialStr)
-                if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
-                    MySoftData.DataCacheMap.Delete(Data.SerialStr)
-                }
-                hasRepair := true
-            }
-        }
-    }
-    return hasRepair
-}
-
 SimpleRecordMacroStr(MacroStr) {
     CmdArr := SplitMacro(MacroStr)
     SimpleCmdArr := []
     loop CmdArr.Length {
-        paramArr := SplitKeyCommand(CmdArr[A_Index])
-        isPressKey := paramArr[1] == "按键" && paramArr[3] == 1
+        paramArr := SplitCommand(CmdArr[A_Index])
+        isPressKey := paramArr[1] == GetLang("按键") && paramArr[3] == GetLang("按下")
         if (isPressKey && A_Index + 1 < CmdArr.Length) {
-            next1ParamArr := SplitKeyCommand(CmdArr[A_Index + 1])
-            next2ParamArr := SplitKeyCommand(CmdArr[A_Index + 2])
-            isMatchFormat := next1ParamArr[1] == "间隔" && next2ParamArr[1] == "按键"
-            if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == 2) {
-                SimpleCmdStr := Format("按键_{}_3_{}", paramArr[2], next1ParamArr[2])
+            next1ParamArr := SplitCommand(CmdArr[A_Index + 1])
+            next2ParamArr := SplitCommand(CmdArr[A_Index + 2])
+            isMatchFormat := next1ParamArr[1] == GetLang("间隔") && next2ParamArr[1] == GetLang("按键")
+            if (isMatchFormat && paramArr[2] == next2ParamArr[2] && next2ParamArr[3] == "松开") {
+                SimpleCmdStr := Format("{}_{}_{}_{}", GetLang("按键"), paramArr[2], GetLang("点击"), next1ParamArr[2])
                 SimpleCmdArr.Push(SimpleCmdStr)
                 A_Index := A_Index + 2
                 continue
@@ -734,7 +680,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
                 hasDiscard := true
             }
             else {
-                if (InStr(cmd, "间隔"))
+                if (InStr(cmd, GetLang("间隔")))
                     continue
 
                 if (CheckIfDiscardCMD(triggerMap, cmd))
@@ -754,10 +700,10 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 }
 
 CheckIfDiscardCMD(triggerMap, cmd) {
-    if (!InStr(cmd, "按键"))
+    if (!InStr(cmd, GetLang("按键")))
         return false
 
-    paramArr := SplitKeyCommand(cmd)
+    paramArr := SplitCommand(cmd)
     if (triggerMap.Has(paramArr[2]) && triggerMap[paramArr[2]] < 2) {
         triggerMap[paramArr[2]] += 1
         return true
@@ -766,35 +712,35 @@ CheckIfDiscardCMD(triggerMap, cmd) {
     return false
 }
 
-FullCopyCmd(cmd, CopyedMap := Map()) {
-    paramArr := SplitKeyCommand(cmd)
-    IsSkip := SubStr(paramArr[1], 1 2) == "🚫"
-    if (IsSkip)
-        paramArr[1] := SubStr(paramArr[1], 3)
-    if (InStr(paramArr[1], "间隔"))
-        return cmd
-    if (InStr(paramArr[1], "按键"))
-        return cmd
-    if (paramArr[1] == "移动")
-        return cmd
-    if (InStr(paramArr[1], "RMT指令"))
-        return cmd
+FullCopyCmd(cmdStr, CopyedMap := Map()) {
+    paramArr := SplitCommand(cmdStr)
+    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+    if (paramArr[1] == GetLang("间隔"))
+        return cmdStr
+    if (paramArr[1] == GetLang("按键"))
+        return cmdStr
+    if (paramArr[1] == GetLang("移动"))
+        return cmdStr
+    if (paramArr[1] == GetLang("RMT指令"))
+        return cmdStr
 
-    if (CopyedMap.Has(paramArr[2])) {
-        paramArr[2] := CopyedMap[paramArr[2]]
+    if (CopyedMap.Has(paramArr[1])) {
+        paramArr[1] := CopyedMap[paramArr[1]]
         return GetCmdByParams(paramArr)
     }
 
-    DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
-        "输出", OutputFile, "运行", RunFile, "变量", VariableFile, "变量提取", ExVariableFile, "运算", OperationFile,
-        "如果", CompareFile, "宏操作", SubMacroFile, "后台鼠标", BGMouseFile)
+    textOnly := GetCmdStr(paramArr[1])
+    cmd := GetLangKey(textOnly)
+    dataFile := MySoftData.DataFileMap[cmd]
+    Data := GetMacroCMDData(paramArr[1])
+    Data.SerialStr := GetCMDSerialStr(cmd)
+    numbersOnly := RegExReplace(Data.SerialStr, "\D+")
+    CommandStr := Format("{}{}", textOnly, numbersOnly)
+    CopyedMap.Set(paramArr[1], CommandStr)
+    paramArr[1] := CommandStr
 
-    dataFile := DataFileMap[paramArr[1]]
-    Data := GetMacroCMDData(dataFile, paramArr[2])
-    Data.SerialStr := SubStr(Data.SerialStr, 1, StrLen(Data.SerialStr) - 7) GetRandomStr(7)
-    CopyedMap.Set(paramArr[2], Data.SerialStr)
-    paramArr[2] := Data.SerialStr
-
+    ;如果， 搜索， 搜索Pro
     if (ObjHasOwnProp(Data, "TrueMacro")) {
         Data.TrueMacro := FullCopyMacro(Data.TrueMacro, CopyedMap)
     }
@@ -802,8 +748,10 @@ FullCopyCmd(cmd, CopyedMap := Map()) {
     if (ObjHasOwnProp(Data, "FalseMacro")) {
         Data.FalseMacro := FullCopyMacro(Data.FalseMacro, CopyedMap)
     }
-    saveStr := JSON.stringify(Data, 0)
-    IniWrite(saveStr, dataFile, IniSection, Data.SerialStr)
+
+    ;循环， 如果Pro
+
+    SaveMacroCMDData(Data)
     res := IsSkip ? "🚫" GetCmdByParams(paramArr) : GetCmdByParams(paramArr)
     return res
 }
@@ -883,7 +831,6 @@ FormatIntegerWithCommas(num) {
 }
 
 CheckIfMenuBtnHotKey(key) {
-    key := Trim(key, "~")
     if (IsNumber(key)) {
         return Integer(key) >= 1 && Integer(key) <= 8
     }
@@ -901,8 +848,8 @@ OpenMenuWheel(MenuIndex, isTog) {
     MyMenuWheel.ShowGui(MenuIndex)
 
     ;重新绑定一下，让菜单按钮快捷键不会被输入
-    BindTabHotKey()
     BindMenuHotKey()
+    BindTabHotKey()
     BindSoftHotKey()
 }
 
@@ -918,9 +865,9 @@ CloseMenuWheel() {
         MyMenuWheel.Gui.Hide()
 
         ;重新绑定一下，让菜单按钮快捷键不会被输入
-        BindTabHotKey()
-        BindMenuHotKey()
         BindSoftHotKey()
+        BindMenuHotKey()
+        BindTabHotKey()
     }
 }
 
@@ -935,14 +882,16 @@ IsBootStart() {
     return false
 }
 
-CorrectRemark(Remark) {
+CorrectRemark(CommandStr, Remark) {
     charsToRemove := [",", "，", "`n", "⫶", "_"]
-
     ; 循环删除每个字符
     for char in charsToRemove {
         Remark := StrReplace(Remark, char)
     }
-    return Remark
+    if (Remark != "") {
+        CommandStr .= "_" Remark
+    }
+    return CommandStr
 }
 
 OnTriggerSepcialItemMacro(MacroStr) {
@@ -954,4 +903,36 @@ OnTriggerSepcialItemMacro(MacroStr) {
     tableItem.ColorStateArr[1] := 1
     OnTriggerMacroOnce(tableItem, MacroStr, 1)
     tableItem.ColorStateArr[1] := 0 ;默认状态
+}
+
+HandleOpenArg() {
+    if (A_Args.Length <= 0)
+        return
+
+    loop A_Args.Length {
+        arg := A_Args[A_Index]
+        if (arg == "-min") {
+            MySoftData.IsMinStart := true
+            continue
+        }
+    }
+}
+
+SetEditData() {
+    visitMap := Map()
+    loop MySoftData.TabNameArr.Length {
+        tableIndex := A_Index
+        tableItem := MySoftData.TableInfo[tableIndex]
+        isMacro := CheckIsMacroTable(tableIndex)
+        if (!isMacro)
+            continue
+
+        for index, value in tableItem.ModeArr {
+            if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+                continue
+
+            macroStr := tableItem.MacroArr[index]
+            SetGlobalData(macroStr, visitMap)
+        }
+    }
 }

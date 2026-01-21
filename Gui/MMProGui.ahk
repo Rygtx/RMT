@@ -5,8 +5,8 @@ class MMProGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
+        this.RuleMenu := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
         this.RemarkCon := ""
         this.Data := ""
@@ -79,11 +79,13 @@ class MMProGui {
         this.ConfigDLCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 220), [])
         this.ConfigDLCon.OnEvent("Change", (*) => this.OnChangeConfig())
         PosX += 230
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "+")
-        con.OnEvent("Click", (*) => this.OnAddConfig())
-        PosX += 30
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "-")
-        con.OnEvent("Click", (*) => this.OnRemoveConfig())
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 4, 50, 30), GetLang("编辑"))
+        con.OnEvent("Click", this.OnEditScreenRule.Bind(this))
+        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "+")
+        ; con.OnEvent("Click", (*) => this.OnAddConfig())
+        ; PosX += 30
+        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "-")
+        ; con.OnEvent("Click", (*) => this.OnRemoveConfig())
 
         PosY += 35
         PosX := 10
@@ -144,16 +146,17 @@ class MMProGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("MMPro")
-        this.Data := this.GetMMProData(this.SerialStr)
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("移动Pro")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.RefreshConfigDLArr()
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarXCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarYCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
         this.IsRelativeCon.Value := this.Data.IsRelative
@@ -185,11 +188,10 @@ class MMProGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("移动Pro"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 
@@ -206,6 +208,50 @@ class MMProGui {
         this.ConfigDLCon.Delete()
         this.ConfigDLCon.Add(this.ConfigDLArr)
         this.ConfigDLCon.Text := this.Data.ConfigName
+    }
+
+    OnEditScreenRule(con, *) {
+        if (this.RuleMenu == "") {
+            this.ContextMenu := Menu()
+            this.ContextMenu.Add(GetLang("修改"), (*) => this.OnRuleMenuHandler(GetLang("修改")))
+            this.ContextMenu.Add(GetLang("增加"), (*) => this.OnRuleMenuHandler(GetLang("增加")))
+            this.ContextMenu.Add(GetLang("删除"), (*) => this.OnRuleMenuHandler(GetLang("删除")))
+        }
+        con.GetPos(&x, &y)
+        this.ContextMenu.Show(x, y)
+    }
+
+    OnRuleMenuHandler(Str) {
+        if (Str == GetLang("修改")) {
+            if (!ObjHasOwnProp(this, "WinRuleGui")) {
+                this.WinRuleGui := WinRuleGui()
+            }
+            SureAction(width, height, remark) {
+                ConfigName := Format("{}*{}", width, height)
+                if (remark != "")
+                    ConfigName := Format("{}*{}_{}", width, height, remark)
+                if (ConfigName == this.Data.ConfigName)
+                    return
+                loop this.ConfigDLArr.Length {
+                    if (this.ConfigDLArr[A_Index] == ConfigName) {
+                        MsgBox(Format("{} 配置已存在，修改失败", ConfigName))
+                        return
+                    }
+                }
+
+                this.Data.ConfigName := ConfigName
+                this.RefreshConfigDLArr()
+                saveStr := JSON.stringify(this.Data, 0)
+                IniWrite(saveStr, SearchProFile, IniSection, this.Data.SerialStr)
+                MsgBox(GetLang("修改成功"))
+            }
+            this.WinRuleGui.SureAction := SureAction
+            this.WinRuleGui.ShowGui()
+        }
+        else if (Str == GetLang("增加"))
+            this.OnAddConfig()
+        else if (Str == GetLang("删除"))
+            this.OnRemoveConfig()
     }
 
     OnAddConfig() {
@@ -320,12 +366,15 @@ class MMProGui {
     }
 
     ToggleFunc(state) {
+        MacroAction := (*) => this.TriggerMacro()
         if (state) {
             SetTimer this.PosAction, 100
+            Hotkey("!l", MacroAction, "On")
             Hotkey("F1", (*) => this.SureMMPro(), "On")
         }
         else {
             SetTimer this.PosAction, 0
+            Hotkey("!l", MacroAction, "Off")
             Hotkey("F1", (*) => this.SureMMPro(), "Off")
         }
     }
@@ -360,7 +409,8 @@ class MMProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", "1.左键拖拽改变位置", "2.上下左右方向键微调位置", "3.左键双击或回车键关闭取色器，同时确定点位信息")
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
+        ))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
@@ -383,18 +433,6 @@ class MMProGui {
         this.PosVarYCon.Text := mouseY
     }
 
-    GetMMProData(SerialStr) {
-        saveStr := IniRead(MMPROFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := MMProData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
-    }
-
     SaveMMProData() {
         this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
         this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
@@ -404,11 +442,6 @@ class MMProGui {
         this.Data.Speed := this.SpeedCon.Value
         this.Data.Count := this.CountCon.Value
         this.Data.Interval := this.IntervalCon.Value
-
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, MMPROFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

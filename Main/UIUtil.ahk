@@ -2,7 +2,7 @@
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv1.0.9"
+    MyGui.Title := "RMTv1.1F2"
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
     isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
@@ -34,6 +34,11 @@ OnOpen() {
     uptimeMs := DllCall("GetTickCount64", "Int64")
     if (uptimeMs <= 120 * 1000 && IsBootStart() && !MySoftData.IsReload)
         return
+
+    if (MySoftData.IsMinStart) {
+        MySoftData.IsMinStart := false
+        return
+    }
 
     RefreshGui()
 }
@@ -774,7 +779,7 @@ AddHelpUI(index) {
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
-    GetLang("2. 严禁用于违法用途，包括但不限于:游戏作弊、未经授权的系统访问或数据篡改"))
+    GetLang("2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。"))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
@@ -790,7 +795,7 @@ AddHelpUI(index) {
     posY += 25
     posX := MySoftData.TabPosX + 15
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 50),
-    GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利"))
+    GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。"))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
@@ -876,7 +881,7 @@ AddHelpUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30),
-    '<a href="https://qm.qq.com/q/DgpDumEPzq">[1群]837661891</a>、<a href="https://qm.qq.com/q/uZszuxabPW">[2群]1050141694</a>、<a href="https://pd.qq.com/s/5wyjvj7zw">QQ频道</a>、<a href="https://discord.gg/m8ewvgtzat">Discord</a>'
+    '<a href="https://qm.qq.com/q/DgpDumEPzq">837661891</a>、<a href="https://pd.qq.com/s/5wyjvj7zw">QQ频道</a>、<a href="https://github.com/zclucas/RMT/discussions">GitHub 论坛</a>、<a href="https://discord.gg/m8ewvgtzat">Discord</a>'
     )
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
@@ -892,8 +897,9 @@ AddHelpUI(index) {
     str1 := Format('<a href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">{}</a>', GetLang("bug文档"))
     str2 := Format('<a href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">{}</a>', GetLang("需求文档"))
     str3 := Format('<a href="https://docs.qq.com/sheet/DVVNwWHJEd3NOWXhR?tab=BB08J2">{}</a>', GetLang("使用备注"))
+    str4 := GetLang("（仅交流群成员有编辑权限）")
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30),
-    Format("{}、{}、{}", str1, str2, str3))
+    Format("{}、{}、{}{}", str1, str2, str3, str4))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
@@ -967,7 +973,9 @@ AddRewardUI(index) {
 ; 系统托盘优化
 CustomTrayMenu() {
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
+    A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Delete("&Pause Script")
+    A_TrayMenu.Delete("&Suspend Hotkeys")
     A_TrayMenu.ClickCount := 1
     A_TrayMenu.Default := GetLang("显示窗口")
     TraySetIcon(, , true)

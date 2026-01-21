@@ -5,7 +5,6 @@ class TextProcessGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
 
         this.ToggleConArr := []
@@ -107,14 +106,14 @@ class TextProcessGui {
 
         PosX := 10
         PosY += 40
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 135), GetLang("结果保存选项:"))
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 145), GetLang("结果保存选项:"))
 
         PosX := 40
         PosY += 20
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
 
         PosX := 30
-        PosY += 25
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("开关      变量名"))
 
         PosX := 20
@@ -184,24 +183,25 @@ class TextProcessGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.Gui.Hide())
-        MyGui.Show(Format("w{} h{}", 535, 400))
+        MyGui.Show(Format("w{} h{}", 535, 410))
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("TextProcess")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetTextProcessData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("文本处理")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         ; 初始化文本来源变量
         this.SourceVariableCon.Delete()
-        this.SourceVariableCon.Add(RemoveInVariable(this.VariableObjArr, 2))
+        this.SourceVariableCon.Add(RemoveInVariable(this.DLVariableArr, 2))
         this.SourceVariableCon.Text := this.Data.SourceVariable
 
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr, 2))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
@@ -440,24 +440,11 @@ class TextProcessGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("文本处理"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetTextProcessData(SerialStr) {
-        saveStr := IniRead(TextProcessFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := TextProcessData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveTextProcessData() {
@@ -483,11 +470,7 @@ class TextProcessGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, TextProcessFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 
     GetReplaceVarText(text) {

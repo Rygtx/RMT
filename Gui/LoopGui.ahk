@@ -8,7 +8,6 @@ class LoopGui {
         this.SureBtnAction := ""
         this.RemarkCon := ""
         this.MacroGui := ""
-        this.VariableObjArr := []
         this.FocusCon := ""
 
         this.Data := ""
@@ -179,29 +178,29 @@ class LoopGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Loop")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetLoopData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("循环")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
-        CountVariableArr := this.VariableObjArr.Clone()
+        CountVariableArr := this.DLVariableArr.Clone()
         CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
-        this.CountCon.Add(CountVariableArr)
+        this.CountCon.Add(RemoveInVariable(CountVariableArr, 2))
         this.CountCon.Text := this.Data.LoopCount == -1 ? GetLang("无限") : this.Data.LoopCount
 
         this.CondiCon.Value := this.Data.CondiType
         this.LogicCon.Value := this.Data.LogicType
-        this.LoopBodyCon.Value := this.Data.LoopBody
+        this.LoopBodyCon.Value := GetLangMacro(this.Data.LoopBody, 1)
 
-        VariableArr := this.GetDLVariableArr()
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.NameConArr[A_Index].Delete()
-            this.NameConArr[A_Index].Add(VariableArr)
+            this.NameConArr[A_Index].Add(this.DLVariableArr)
             this.NameConArr[A_Index].Text := GetLang(this.Data.NameArr[A_Index])
             this.CompareTypeConArr[A_Index].Value := this.Data.CompareTypeArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(VariableArr)
+            this.VariableConArr[A_Index].Add(this.DLVariableArr)
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
         }
     }
@@ -234,14 +233,19 @@ class LoopGui {
     OnEditMacroBtnClick(*) {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.GetDLVariableArr()
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        this.MacroGui.SureBtnAction := (command) => this.LoopBodyCon.Value := command
+        SureAction(command) {
+            command := GetLangMacro(command, 1)
+            this.LoopBodyCon.Value := command
+        }
+
+        this.MacroGui.SureBtnAction := SureAction
         this.MacroGui.ShowGui(this.LoopBodyCon.Value, false)
     }
 
@@ -267,47 +271,19 @@ class LoopGui {
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
 
-    GetDLVariableArr() {
-        VariableArr := this.VariableObjArr.Clone()
-        TargetIndex := 1
-        loop VariableArr.Length {
-            if (VariableArr[A_Index] == GetLang("宏循环次数")) {
-                TargetIndex := A_Index
-                break
-            }
-        }
-
-        VariableArr.InsertAt(TargetIndex, GetLang("指令循环次数"))
-        return VariableArr
-    }
-
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("循环"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
-
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetLoopData(SerialStr) {
-        saveStr := IniRead(LoopFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := LoopData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveLoopData() {
         this.Data.LoopCount := this.CountCon.Text == GetLang("无限") ? -1 : this.CountCon.Text
         this.Data.CondiType := this.CondiCon.Value
         this.Data.LogicType := this.LogicCon.Value
-        this.Data.LoopBody := this.LoopBodyCon.Value
+        this.Data.LoopBody := GetLangMacro(this.LoopBodyCon.Value, 2)
 
         loop 4 {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
@@ -315,10 +291,6 @@ class LoopGui {
             this.Data.CompareTypeArr[A_Index] := this.CompareTypeConArr[A_Index].Value
             this.Data.VariableArr[A_Index] := GetLangKey(this.VariableConArr[A_Index].Text)
         }
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, LoopFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

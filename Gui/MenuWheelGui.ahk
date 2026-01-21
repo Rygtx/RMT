@@ -23,7 +23,7 @@ class MenuWheelGui {
     ShowGui(MenuIndex) {
         PreviousActiveWindow := WinExist("A")
         if (this.Gui != "") {
-            this.Gui.Show(this.GetGuiShowPos())
+            this.Gui.Show(this.GetGuiShowPos() " NA")
         }
         else {
             this.AddGui()
@@ -111,7 +111,7 @@ class MenuWheelGui {
         this.BtnRegions[8] := { X: PosX, Y: PosY, W: 80, H: 30 } ; ✅记录区域
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("{} w{} h{}", this.GetGuiShowPos(), 340, 260))
+        MyGui.Show(Format("{} w{} h{} NA", this.GetGuiShowPos(), 340, 260))
     }
 
     GetGuiShowPos() {
@@ -154,9 +154,9 @@ class MenuWheelGui {
 
         macroIndex := (this.MenuIndex - 1) * 8 + index
         TriggerMacroHandler(3, macroIndex)
-        BindTabHotKey()
-        BindMenuHotKey()
         BindSoftHotKey()
+        BindMenuHotKey()
+        BindTabHotKey()
     }
 
     ToggleFunc(state) {
@@ -165,7 +165,8 @@ class MenuWheelGui {
             SetTimer(this.DrawAction, 15) ; 60fps
         } else {
             SetTimer(this.DrawAction, 0)
-            LineOverlay.Clear()
+            LineOverlay.BeginFrame()
+            LineOverlay.EndFrame()
         }
     }
 
@@ -173,8 +174,10 @@ class MenuWheelGui {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mx, &my
 
-        LineOverlay.Clear()
+        LineOverlay.BeginFrame()
         LineOverlay.DrawLine(this.CurCenterPosX, this.CurCenterPosY, mx, my)
+        LineOverlay.EndFrame()
+
         isHover := this.CheckMouseHover(mx, my) ; ✅检测悬停
         if (isHover)
             return

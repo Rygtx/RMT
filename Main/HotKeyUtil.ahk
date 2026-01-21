@@ -5,7 +5,7 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     tableItem.PauseArr[index] := false
     tableItem.ActionCount[index] := 0
     tableItem.VariableMapArr[index]["宏循环次数"] := 1
-    tableItem.VariableMapArr[index]["指令循环次数"] := 0
+    tableItem.VariableMapArr[index]["循环次数"] := 0
     isContinue := tableItem.TKArr.Has(index) && MySoftData.ContinueKeyMap.Has(tableItem.TKArr[index]) && tableItem.LoopCountArr[
         index] == 1
     isLoop := tableItem.LoopCountArr[index] == -1
@@ -60,31 +60,28 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             continue
-        IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
-        IsSearch := StrCompare(paramArr[1], "搜索", false) == 0
-        IsSearchPro := StrCompare(paramArr[1], "搜索Pro", false) == 0
-        IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
-        IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
-        IsRun := StrCompare(paramArr[1], "运行", false) == 0
-        IsIf := StrCompare(paramArr[1], "如果", false) == 0
-        IsIfPro := StrCompare(paramArr[1], "如果Pro", false) == 0
-        IsMMPro := StrCompare(paramArr[1], "移动Pro", false) == 0
-        IsOutput := StrCompare(paramArr[1], "输出", false) == 0
-        IsVariable := StrCompare(paramArr[1], "变量", false) == 0
-        IsExVariable := StrCompare(paramArr[1], "变量提取", false) == 0
-        IsSubMacro := StrCompare(paramArr[1], "宏操作", false) == 0
-        IsOperation := StrCompare(paramArr[1], "运算", false) == 0
-        IsBGMouse := StrCompare(paramArr[1], "后台鼠标", false) == 0
-        IsBGKey := StrCompare(paramArr[1], "后台按键", false) == 0
-        IsRMT := StrCompare(paramArr[1], "RMT指令", false) == 0
-        IsLoop := StrCompare(paramArr[1], "循环", false) == 0
-        IsTextProcess := StrCompare(paramArr[1], "文本处理", false) == 0
+        IsMMPro := InStr(paramArr[1], "移动Pro")
+        IsMM := InStr(paramArr[1], "移动") && !IsMMPro
+        IsSearchPro := InStr(paramArr[1], "搜索Pro")
+        IsSearch := InStr(paramArr[1], "搜索") && !IsSearchPro
+        IsPressKey := InStr(paramArr[1], "按键")
+        IsInterval := InStr(paramArr[1], "间隔")
+        IsRun := InStr(paramArr[1], "运行")
+        IsIfPro := InStr(paramArr[1], "如果Pro")
+        IsIf := InStr(paramArr[1], "如果") && !IsIfPro
+        IsOutput := InStr(paramArr[1], "输出")
+        IsExVariable := InStr(paramArr[1], "变量提取")
+        IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
+        IsSubMacro := InStr(paramArr[1], "宏操作")
+        IsOperation := InStr(paramArr[1], "运算")
+        IsBGMouse := InStr(paramArr[1], "后台鼠标")
+        IsBGKey := InStr(paramArr[1], "后台按键")
+        IsRMT := InStr(paramArr[1], "RMT指令")
+        IsLoop := InStr(paramArr[1], "循环")
+        IsTextProcess := InStr(paramArr[1], "文本处理")
 
         if (MySoftData.CMDTip) {
-            NoRemark := IsMouseMove || IsPressKey || IsInterval || IsRMT
-            hasRemark := !NoRemark && paramArr.Length > 2
-            tipStr := hasRemark ? paramArr[1] "_" paramArr[3] : cmdArr[A_Index]
-            MyCMDReportAciton(tipStr)
+            MyCMDReportAciton(cmdArr[A_Index])
         }
 
         if (IsInterval) {
@@ -99,7 +96,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
                 cmdArr.InsertAt(A_Index + 1, cmdArr[A_Index])
             }
         }
-        else if (IsMouseMove) {
+        else if (IsMM) {
             OnMouseMove(tableItem, cmdArr[A_Index], index)
         }
         else if (IsMMPro) {
@@ -153,10 +150,11 @@ OnTriggerMacroOnce(tableItem, macro, index) {
     }
 }
 
-OnSearch(tableItem, cmd, index) {
-    paramArr := StrSplit(cmd, "_")
-    dataFile := StrCompare(paramArr[1], "搜索", false) == 0 ? SearchFile : SearchProFile
-    Data := GetMacroCMDData(dataFile, paramArr[2])
+OnSearch(tableItem, cmdStr, index) {
+    paramArr := StrSplit(cmdStr, "_")
+    IsSearchPro := InStr(paramArr[1], "搜索Pro")
+    dataFile := IsSearchPro ? SearchProFile : SearchFile
+    Data := GetMacroCMDData(paramArr[1])
     if (Data.SearchCount == -1) {
         isLoopFound := OnSearchOnce(tableItem, Data, index)
         if (!isLoopFound) {
@@ -200,11 +198,12 @@ FindImage(targetPath, searchX, searchY, searchW, searchH, matchThreshold, x, y) 
 }
 
 OnSearchOnce(tableItem, Data, index) {
-    X1 := Integer(Data.StartPosX)
-    Y1 := Integer(Data.StartPosY)
-    X2 := Integer(Data.EndPosX)
-    Y2 := Integer(Data.EndPosY)
-    VariableMap := tableItem.VariableMapArr[index]
+    HasX1 := TryGetVariableValue(&X1, tableItem, index, Data.StartPosX)
+    HasY1 := TryGetVariableValue(&Y1, tableItem, index, Data.StartPosY)
+    HasX2 := TryGetVariableValue(&X2, tableItem, index, Data.EndPosX)
+    HasY2 := TryGetVariableValue(&Y2, tableItem, index, Data.EndPosY)
+    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+        return
 
     CoordMode("Pixel", "Screen")
     if (Data.SearchType == 1) {
@@ -277,7 +276,7 @@ OnSearchOnce(tableItem, Data, index) {
 
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(RunFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
 
     isMp3 := RegExMatch(Data.RunPath, ".mp3$")
     if (isMp3 && Data.BackPlay) {
@@ -291,10 +290,9 @@ OnRunFile(tableItem, cmd, index) {
 
 OnCompare(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareFile, paramArr[2])
-    VariableMap := tableItem.VariableMapArr[index]
+    Data := GetMacroCMDData(paramArr[1])
     result := Data.LogicalType == 1 ? true : false
-    loop 4 {
+    loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
 
@@ -355,7 +353,7 @@ OnCompare(tableItem, cmd, index) {
 
 OnComparePro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(CompareProFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
 
     loop Data.VariNameArr.Length {
         NameArr := Data.VariNameArr[A_Index]
@@ -417,7 +415,7 @@ OnComparePro(tableItem, cmd, index) {
 
 OnMMPro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(MMProFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
     loop Data.Count {
@@ -471,7 +469,7 @@ OnMMProOnce(tableItem, index, Data) {
 
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OutputFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == 1) {     ;send
@@ -522,11 +520,11 @@ OnOutput(tableItem, cmd, index) {
 
 OnLoop(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(LoopFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
 
     if (Data.LoopCount == -1) {
         loop {
-            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            tableItem.VariableMapArr[index]["循环次数"] := A_Index
             if (!GetLoopState(tableItem, cmd, index, Data))
                 break
 
@@ -544,7 +542,7 @@ OnLoop(tableItem, cmd, index) {
             return
 
         loop Value {
-            tableItem.VariableMapArr[index]["指令循环次数"] := A_Index
+            tableItem.VariableMapArr[index]["循环次数"] := A_Index
             if (!GetLoopState(tableItem, cmd, index, Data))
                 break
 
@@ -618,7 +616,7 @@ GetLoopState(tableItem, cmd, index, Data) {
 OnSubMacro(tableItem, cmd, index) {
     global MySoftData
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(SubMacroFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
     macroIndex := Data.MacroType == 1 ? index : Data.Index
     macroTableIndex := Data.MacroType == 1 ? tableItem.Index : Data.MacroType - 1
     macroItem := Data.MacroType == 1 ? tableItem : MySoftData.TableInfo[macroTableIndex]
@@ -666,7 +664,7 @@ OnSubMacro(tableItem, cmd, index) {
 
 OnVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(VariableFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
     LocalVariableMap := tableItem.VariableMapArr[index]
     DeleteNameArr := []
     VariableNameArr := []
@@ -710,7 +708,7 @@ OnVariable(tableItem, cmd, index) {
 
 OnExVariable(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(ExVariableFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
     count := Data.SearchCount
     interval := Data.SearchInterval
 
@@ -748,10 +746,12 @@ OnExVariable(tableItem, cmd, index) {
 }
 
 OnExVariableOnce(tableItem, index, Data) {
-    X1 := Data.StartPosX
-    Y1 := Data.StartPosY
-    X2 := Data.EndPosX
-    Y2 := Data.EndPosY
+    HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
+    HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
+    HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
+    HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+        return
 
     if (Data.ExtractType == 1) {
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
@@ -768,10 +768,11 @@ OnExVariableOnce(tableItem, index, Data) {
 
     isOk := false
     allText := ""
-    for _, value in TextObjs {
-        allText .= value.text "`n"
+    for index, value in TextObjs {
+        allText .= value.text
+        if (index < TextObjs.Length)
+            allText .= "`n"
     }
-    allText := Trim(allText)
     ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
@@ -800,26 +801,50 @@ OnExVariableOnce(tableItem, index, Data) {
 
 OnOperation(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(OperationFile, paramArr[2])
-    loop 4 {
+    Data := GetMacroCMDData(paramArr[1])
+    NewNameArr := []
+    NewValueArr := []
+    loop Data.ToggleArr.Length {
         if (!Data.ToggleArr[A_Index])
             continue
-        Name := Data.NameArr[A_Index]
+        Name := ""  ; NameArr不再使用，变量从表达式中获取
         SymbolArr := Data.SymbolGroups[A_Index]
         ValueArr := Data.ValueGroups[A_Index]
-        Value := GetVariableOperationResult(tableItem, index, Name, SymbolArr, ValueArr)
 
-        MySetGlobalVariable([Data.UpdateNameArr[A_Index]], [Value], Data.IsIgnoreExist)
+        ; 兼容性检查：如果有表达式，优先使用表达式
+        Expression := ""
+        if (ObjHasOwnProp(Data, "ExpressionArr") && IsObject(Data.ExpressionArr)) {
+            Expression := Data.ExpressionArr.Has(A_Index) ? Data.ExpressionArr[A_Index] : ""
+        }
+
+        ; 如果有表达式且不为空，使用表达式计算
+        if (Expression != "") {
+            res := GetOperationResultFromExpression(Expression, Name, tableItem, index)
+            MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
+            NewNameArr.Push(Data.UpdateNameArr[A_Index])
+            NewValueArr.Push(res)
+        } else {
+            ; 使用旧的SymbolArr/ValueArr方式（向后兼容）
+            isOk := GetTabOperationResult(tableItem, index, Name, SymbolArr, ValueArr, &res)
+
+            if (isOk) {
+                MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
+                NewNameArr.Push(Data.UpdateNameArr[A_Index])
+                NewValueArr.Push(res)
+            }
+        }
     }
+    if (NewNameArr.Length > 0)
+        MySetGlobalVariable(NewNameArr, NewValueArr, Data.IsIgnoreExist)
 }
 
 OnBGMouse(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGMouseFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
 
-    WM_DOWN_ARR := [0x201, 0x204, 0x207]    ;左键，中键，右键
-    WM_UP_ARR := [0x202, 0x205, 0x208]    ;左键，中键，右键
-    WM_DCLICK_ARR := [0x203, 0x206, 0x209]    ;左键，中键，右键
+    WM_DOWN_ARR := [0x201, 0x207, 0x204]    ;左键，中键，右键
+    WM_UP_ARR := [0x202, 0x208, 0x205]    ;左键，中键，右键
+    WM_DCLICK_ARR := [0x203, 0x209, 0x206]    ;左键，中键，右键
     hasPosVarX := TryGetVariableValue(&PosX, tableItem, index, Data.PosVarX)
     hasPosVarY := TryGetVariableValue(&PosY, tableItem, index, Data.PosVarY)
     if (!hasPosVarX || !hasPosVarY) {
@@ -868,7 +893,7 @@ OnBGMouse(tableItem, cmd, index) {
 
 OnBGKey(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(BGKeyFile, paramArr[2])
+    Data := GetMacroCMDData(paramArr[1])
     loop Data.ClickCount {
         WaitIfPaused(tableItem, index)
 
@@ -1006,18 +1031,19 @@ OnInterval(tableItem, cmd, index) {
 }
 
 OnPressKey(tableItem, cmd, index) {
-    paramArr := SplitKeyCommand(cmd)
+    paramArr := SplitCommand(cmd)
     isJoyKey := SubStr(paramArr[2], 1, 3) == "Joy"
     isJoyAxis := StrCompare(SubStr(paramArr[2], 1, 7), "JoyAxis", false) == 0
     actionMap := Map(1, SendNormalKeyClick, 2, SendGameModeKeyClick, 3, SendLogicKeyClick)
+    keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
     action := actionMap[Integer(tableItem.ModeArr[index])]
     action := isJoyKey ? SendJoyBtnClick : action
     action := isJoyAxis ? SendJoyAxisClick : action
 
-    keyType := Integer(paramArr[3])
+    keyType := keyTypeMap[paramArr[3]]
     holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
     count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1
-    IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 1000
+    IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 0
 
     loop count {
         WaitIfPaused(tableItem, index)
@@ -1028,7 +1054,7 @@ OnPressKey(tableItem, cmd, index) {
         FloatHold := GetFloatTime(holdTime, MySoftData.HoldFloat)
         FloatInterval := GetFloatTime(IntervalTime, MySoftData.PreIntervalFloat)
         action(paramArr[2], FloatHold, tableItem, index, keyType)
-        if (keyType == 3 && A_Index != count)
+        if (keyType == 3 && A_Index != count && FloatInterval > 0)
             Sleep(FloatInterval)
     }
 }
@@ -1419,21 +1445,21 @@ SendJoyAxisKey(key, state, tableItem, index) {
 
 OnTextProcess(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    Data := GetMacroCMDData(TextProcessFile, paramArr[2])
-    
+    Data := GetMacroCMDData(paramArr[1])
+
     ; 获取源变量值
     sourceText := ""
     if (!TryGetVariableValue(&sourceText, tableItem, index, Data.SourceVariable, false)) {
         return
     }
-    
+
     if (sourceText == "") {
         return
     }
-    
+
     NameArr := []
     ValueArr := []
-    
+
     ; 处理文本
     switch Data.ProcessType {
         case 1: ; 文本分割
@@ -1446,43 +1472,44 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 2: ; 文本替换
-            processedText := ProcessTextReplace(sourceText, Data.SearchText, Data.ReplaceText, Data.CaseSensitive, Data.UseRegex)
+            processedText := ProcessTextReplace(sourceText, Data.SearchText, Data.ReplaceText, Data.CaseSensitive, Data
+                .UseRegex)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 3: ; 数字提取
             extractedText := ExtractDigits(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 4: ; 字母提取
             extractedText := ExtractAlphabets(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 5: ; 中文提取
             extractedText := ExtractChineseChars(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-            
+
         case 6: ; 去空格处理
             processedText := ProcessWhitespace(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 7: ; 大小写转换
             processedText := ProcessCaseConversion(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 8: ; URL编解码
             processedText := ProcessURLEncode(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 9: ; Base64编解码
             processedText := ProcessBase64(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 10: ; 文本统计
             statsText := GetTextStatistics(sourceText, Data.SplitParam)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, statsText)
-            
+
         case 11: ; 固定长度分割
             length := Data.SplitParam ? Integer(Data.SplitParam) : 10
             maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
@@ -1495,7 +1522,7 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 12: ; 多字符分割
             delimiters := Data.SplitParam ? Data.SplitParam : ",|;"
             maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
@@ -1508,30 +1535,30 @@ OnTextProcess(tableItem, cmd, index) {
                     partIndex++
                 }
             }
-            
+
         case 13: ; 行过滤
             filteredText := FilterLines(sourceText, Data.SearchText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, filteredText)
-            
+
         case 14: ; 去重处理
             processedText := RemoveDuplicates(sourceText)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 15: ; 排序处理
             processedText := SortText(sourceText, Data.ReverseProcess)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-            
+
         case 16: ; 随机文本
             length := Data.SplitParam ? Integer(Data.SplitParam) : 10
             randomText := GenerateRandomText(length)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, randomText)
-            
+
         case 17: ; 日期时间
             format := Data.SplitParam ? Data.SplitParam : "yyyy-MM-dd HH:mm:ss"
             dateTimeText := GetDateTime(format)
             SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, dateTimeText)
     }
-    
+
     ; 将结果保存到变量
     if (NameArr.Length > 0) {
         loop NameArr.Length {
@@ -1539,4 +1566,3 @@ OnTextProcess(tableItem, cmd, index) {
         }
     }
 }
-

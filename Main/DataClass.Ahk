@@ -14,14 +14,6 @@ class TableItem {
         this.StartTipSoundArr := [] ;开始提示音 1.无   2.触发提示  3.循环首次提示
         this.EndTipSoundArr := [] ;结束提示音 1.无   2.结束提示  3.循环结束提示
 
-        this.ColorConArr := []
-        this.IndexConArr := []
-        this.RemarkConArr := []
-        this.TKConArr := []
-        this.TriggerTypeConArr := []
-        this.LoopCountConArr := []
-        this.ForbidConArr := []
-
         this.HoldKeyArr := []       ;记录当前按下的按键，以便结束时松开
         this.KilledArr := []        ;标记结束状态
         this.PauseArr := []         ;暂停
@@ -239,6 +231,8 @@ class SoftData {
         this.TabPosY := 0               ;Tab位置Y
         this.TableInfo := []            ;TableItem所有信息，每个宏的所有信息
 
+        this.IsMinStart := false        ;最小化启动
+
         ;Tab所有页签
         this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
         ;Tab页签对应的英文
@@ -260,8 +254,12 @@ class SoftData {
 
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
 
+        this.GlobalArrMap := Map()      ;UI下拉显示数组
+        this.ArrayMap := Map()          ;真正的全局数组
         this.GlobalVariMap := Map()     ;UI下拉显示变量
         this.VariableMap := Map()       ;真正的全局变量
+        this.DataFileMap := Map()       ;配置命令对应的文件路径
+        this.DataClassMap := Map()      ;配置对应的数据类型
 
         ;显示指令提示配置
         this.CMDTip := false
@@ -276,8 +274,9 @@ class SoftData {
         this.CMDFontColor := "000000"
 
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
-            "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
+        ; this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
+        ;     "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
+        this.SoftHotKeyArr := ["1", "2", "3", "4", "5", "6", "7", "8"]      ;测试时候启动
 
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围
@@ -366,9 +365,9 @@ class CompareData {
     __New() {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.TrueMacro := ""
         this.FalseMacro := ""
         this.SaveToggle := 0
@@ -381,7 +380,7 @@ class CompareData {
 
 class CompareProData {
     __New() {
-        this.VariNameArr := [["Num1"], ["Num2"]]
+        this.VariNameArr := [["Var1"], ["Var2"]]
         this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
         this.VariableArr := [[1], [2]]
         this.LogicTypeArr := [1, 2]
@@ -429,7 +428,7 @@ class MMProData {
     }
 }
 
-class FileData {
+class RunData {
     __New() {
         this.SerialStr := ""
         this.RunPath := ""
@@ -468,9 +467,9 @@ class LoopData {
         this.CondiType := 1     ;条件类型 1：无 2：退出条件 3：继续条件
         this.LogicType := 1     ;逻辑关系  1：且    2：或
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.LoopBody := ""     ;循环体
     }
 
@@ -507,7 +506,7 @@ class VariableData {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.OperaTypeArr := [1, 1, 1, 1]   ;1赋值 2随机 3字符 4删除
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CopyVariableArr := ["1", "0", "0", "0"]
         this.MinVariableArr := ["0", "0", "0", "0"]
         this.MaxVariableArr := ["10", "10", "10", "10"]
@@ -519,7 +518,7 @@ class ExVariableData {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0, 0, 0]
-        this.VariableArr := ["Num1", "Num2", "Num3", "Num4", "Num5", "Num6"]
+        this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
         this.ExtractStr := ""
         this.ExtractType := 1
         this.OCRType := 1
@@ -537,11 +536,12 @@ class OperationData {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.OperationArr := ["", "", "", ""]
-        this.UpdateNameArr := ["Num1", "Num2", "Num3", "Num4"]
+        this.UpdateNameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.SymbolGroups := [[], [], [], []]  ;操作符号
         this.ValueGroups := [[], [], [], []]     ;运算对象
+        this.ExpressionArr := ["", "", "", ""]    ;完整表达式字符串（用于支持括号和整体编辑）
     }
 }
 
@@ -579,6 +579,22 @@ class TimingData {
         this.Type := 1  ;1单次 2每小时 3每天 4每周 5每月 6自定义
         this.CustomInterval := "10"
         this.NextTriggerTime := ""
+    }
+}
+
+class ArrayData {
+    __New() {
+        this.SerialStr := ""
+        this.IsIgnoreExist := 0
+        this.Type := "创建"
+        this.Name := "Arr"
+        this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
+        this.MainIndex := 0
+        this.ArgsIndex := 1
+        this.ArgsType := "变量或值"
+        this.ArgsName := "Var1"
+        this.SaveType := "变量"
+        this.SaveName := "Data"
     }
 }
 
@@ -658,5 +674,21 @@ class MouseWinData {
             return false
 
         return true
+    }
+}
+
+class SerialData {
+    __New(Str) {
+        this.Str := Str
+        this.NumMap := Map()
+        this.CurNum := 1
+    }
+
+    Refresh() {
+        if (this.NumMap.Has(this.CurNum)) {
+            this.NumMap.Delete(this.CurNum)
+            this.CurNum++
+            this.Refresh()
+        }
     }
 }

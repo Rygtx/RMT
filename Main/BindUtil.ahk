@@ -10,9 +10,9 @@ BindKey() {
     BindShortcut(ToolCheckInfo.FreePasteHotKey, OnToolFreePaste)
     BindShortcut(ToolCheckInfo.ToolRecordMacroHotKey, OnHotToolRecordMacro)
     InitTriggerKeyMap()
-    BindTabHotKey()
-    BindMenuHotKey()
     BindSoftHotKey()
+    BindMenuHotKey()
+    BindTabHotKey()
     OnExit(OnExitSoft)
 }
 
@@ -46,10 +46,12 @@ OnSuspendHotkey(*) {
     if (MySoftData.IsSuspend) {
         OnKillAllMacro()
         SetTimer(TimingChecker, 0)
+        A_TrayMenu.Check(GetLang("休眠"))
         TraySetIcon("Images\Soft\IcoPause.ico")
     }
     else {
         TimingCheck()
+        A_TrayMenu.Uncheck(GetLang("休眠"))
         TraySetIcon("Images\Soft\rabit.ico")
     }
 
@@ -311,7 +313,7 @@ OnRecordAddMacroStr(keyName, isDown) {
     }
 
     span := GetCurMSec() - ToolCheckInfo.RecordLastTime
-    keySymbol := isDown ? 1 : 2
+    keySymbol := isDown ? GetLang("按下") : GetLang("松开")
     ToolCheckInfo.RecordLastTime := GetCurMSec()
     IsJoy := InStr(keyName, "Joy")
     IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton"
@@ -349,7 +351,7 @@ OnFinishRecordMacro() {
     if (ToolCheckInfo.RecordAutoLoosen) {
         for Key, Value in ToolCheckInfo.RecordHoldKeyMap {
             keyName := Key == "," ? GetLang("逗号") : Key
-            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_2,"
+            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
         }
     }
     macroStr := Trim(ToolCheckInfo.RecordMacroStr, ",")
@@ -454,7 +456,7 @@ BindTabHotKey() {
                 if (actionArr[2] != "")
                     Hotkey(key " up", actionArr[2])
             }
-
+    
             if (frontInfo != "") {
                 HotIfWinActive
             }
@@ -539,6 +541,7 @@ OnTriggerKeyDown(tableIndex, itemIndex, *) {
     tableItem := MySoftData.TableInfo[tableIndex]
     key := LTrim(tableItem.TKArr[itemIndex], "~")
     key := StrLower(key)
+    
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
 
@@ -560,15 +563,26 @@ OnTriggerKeyUp(tableIndex, itemIndex, *) {
 
 BindSoftHotKey() {
     for index, value in MySoftData.SoftHotKeyArr {
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(value)
-        isForbid := isMenuBtnHotKey && MySoftData.CurMenuWheelIndex == -1 ;菜单按钮快捷键，没打开菜单忽略
+        mapKey := Trim(value, "~")
+        mapKey := StrLower(mapKey)
+        isMenuBtnHotKey := CheckIfMenuBtnHotKey(mapKey)
+        isOpenMenu := MySoftData.CurMenuWheelIndex != -1
+        IsOnlySoftHotkey := MySoftData.TriggerKeyMap[mapKey].IsOnlySoftHotkey()
 
         key := "$*" value
         actionDown := OnBindKeyDown.Bind(value)
         actionUp := OnBindKeyUp.Bind(value)
-        Symbol := isForbid ? "Off" : "On"
-        Hotkey(key, actionDown, Symbol)
-        Hotkey(key " up", actionUp, Symbol)
+
+        if (isMenuBtnHotKey && !isOpenMenu && IsOnlySoftHotkey) {
+            Hotkey(key, actionDown, "Off")
+            Hotkey(key " up", actionUp, "Off")
+        }
+
+        if (isMenuBtnHotKey && !isOpenMenu)
+            continue
+
+        Hotkey(key, actionDown, "On")
+        Hotkey(key " up", actionUp, "On")
     }
 }
 
@@ -583,7 +597,7 @@ OnBindKeyDown(key, *) {
     key := StrLower(key)
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
-
+    
     Data := MySoftData.TriggerKeyMap[key]
     Data.OnTriggerKeyDown()
 }

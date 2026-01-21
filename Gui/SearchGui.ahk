@@ -6,7 +6,6 @@ class SearchGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.PosAction := () => this.RefreshMouseInfo()
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
@@ -29,8 +28,8 @@ class SearchGui {
         this.HexColorCon := ""
         this.HexColorTipCon := ""
         this.TextCon := ""
-        this.FoundCommandStrCon := ""
-        this.UnFoundCommandStrCon := ""
+        this.TrueMacroCon := ""
+        this.FalseMacroCon := ""
         this.SearchTypeCon := ""
         this.MouseActionTypeCon := ""
         this.MacroGui := ""
@@ -120,27 +119,27 @@ class SearchGui {
         PosY += 30
         PosX := 10
         SplitPosY := PosY
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标X："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
+        PosX += 80
         this.StartPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
-        PosX := 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标Y："))
-        PosX += 75
+        PosX := 155
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
+        PosX += 80
         this.StartPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         PosY += 30
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标X："))
-        PosX += 75
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
+        PosX += 80
         this.EndPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
-        PosX := 150
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标Y："))
-        PosX += 75
+        PosX := 155
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
+        PosX += 80
         this.EndPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
         PosY += 30
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("鼠标动作："))
-        PosX += 75
-        this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 150),
+        PosX += 80
+        this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 155),
         GetLangArr(["无动作",
             "移动至目标", "移动至目标点击1次", "移动至目标点击2次"]))
         this.MouseActionTypeCon.Value := 1
@@ -148,7 +147,7 @@ class SearchGui {
         PosY += 35
         PosX := 10
         this.ColorTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索颜色："))
-        PosX += 75
+        PosX += 80
         this.HexColorCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 120), "FFFFFF")
         PosX += 130
         this.HexColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
@@ -184,7 +183,7 @@ class SearchGui {
         btnCon.OnEvent("Click", (*) => this.OnEditFoundMacroBtnClick())
         PosY += 20
         PosX := 10
-        this.FoundCommandStrCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
+        this.TrueMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
         PosY := TempPosY
         PosX := 330
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
@@ -193,7 +192,7 @@ class SearchGui {
         btnCon.OnEvent("Click", (*) => this.OnEditUnFoundMacroBtnClick())
         PosY += 20
         PosX := 330
-        this.UnFoundCommandStrCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
+        this.FalseMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
         TempPosY := PosY
         PosY += 90
         PosX := 270
@@ -205,9 +204,10 @@ class SearchGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Search")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetCompareData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
         if (!this.CheckIfDataValid())
             return
 
@@ -222,30 +222,17 @@ class SearchGui {
         this.EndPosXCon.Value := this.Data.EndPosX
         this.EndPosYCon.Value := this.Data.EndPosY
         this.MouseActionTypeCon.Value := this.Data.MouseActionType
-        this.FoundCommandStrCon.Value := this.Data.TrueMacro
-        this.UnFoundCommandStrCon.Value := this.Data.FalseMacro
+        this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
+        this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.OnChangeSearchType()
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("搜索"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetCompareData(SerialStr) {
-        saveStr := IniRead(SearchFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := SearchData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     CheckIfDataValid() {
@@ -412,7 +399,8 @@ class SearchGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", "1.左键拖拽改变位置", "2.上下左右方向键微调位置", "3.左键双击或回车键关闭取色器，同时确定点位信息")
+        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
+        ))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
@@ -428,19 +416,19 @@ class SearchGui {
     }
 
     OnSureFoundMacroBtnClick(CommandStr) {
-        this.FoundCommandStr := CommandStr
-        this.FoundCommandStrCon.Value := CommandStr
+        CommandStr := GetLangMacro(CommandStr, 1)
+        this.TrueMacroCon.Value := CommandStr
     }
 
     OnSureUnFoundMacroBtnClick(CommandStr) {
-        this.UnFoundCommandStr := CommandStr
-        this.UnFoundCommandStrCon.Value := CommandStr
+        CommandStr := GetLangMacro(CommandStr, 1)
+        this.FalseMacroCon.Value := CommandStr
     }
 
     OnEditFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -448,20 +436,20 @@ class SearchGui {
         }
 
         this.MacroGui.SureBtnAction := (command) => this.OnSureFoundMacroBtnClick(command)
-        this.MacroGui.ShowGui(this.FoundCommandStrCon.Value, false)
+        this.MacroGui.ShowGui(this.TrueMacroCon.Value, false)
     }
 
     OnEditUnFoundMacroBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.VariableObjArr := this.VariableObjArr
+            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.MousePosCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
         this.MacroGui.SureBtnAction := (command) => this.OnSureUnFoundMacroBtnClick(command)
-        this.MacroGui.ShowGui(this.UnFoundCommandStrCon.Value, false)
+        this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)
     }
 
     OnChangeSearchType() {
@@ -543,12 +531,8 @@ class SearchGui {
         data.EndPosX := this.EndPosXCon.Value
         data.EndPosY := this.EndPosYCon.Value
         data.MouseActionType := this.MouseActionTypeCon.Value
-        data.TrueMacro := this.FoundCommandStrCon.Value
-        data.FalseMacro := this.UnFoundCommandStrCon.Value
-        saveStr := JSON.stringify(data, 0)
-        IniWrite(saveStr, SearchFile, IniSection, data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
+        data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
+        SaveMacroCMDData(data)
     }
 }

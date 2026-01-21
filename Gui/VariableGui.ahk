@@ -5,7 +5,6 @@ class VariableGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
 
         this.IsIgnoreExistCon := ""
@@ -41,13 +40,12 @@ class VariableGui {
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
-        PosX := 20
-        PosY += 30
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
-
+        PosX += 200
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
+            "如果变量存在则不改变数值"))
         {
             PosX := 10
-            PosY += 25
+            PosY += 30
             MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 660, 180), GetLang("变量："))
 
             PosX := 11
@@ -76,7 +74,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -104,7 +102,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -132,7 +130,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -161,7 +159,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -188,30 +186,31 @@ class VariableGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.Show(Format("w{} h{}", 680, 320))
+        MyGui.Show(Format("w{} h{}", 680, 300))
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("Variable")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetVariableData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
             this.OperaTypeConArr[A_Index].Value := this.Data.OperaTypeArr[A_Index]
             this.CopyVariableConArr[A_Index].Delete()
-            this.CopyVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.CopyVariableConArr[A_Index].Add(this.DLVariableArr)
             this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
-            this.MinVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.MinVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
             this.MinVariableConArr[A_Index].Text := GetLang(this.Data.MinVariableArr[A_Index])
             this.MaxVariableConArr[A_Index].Delete()
-            this.MaxVariableConArr[A_Index].Add(this.VariableObjArr)
+            this.MaxVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
             this.MaxVariableConArr[A_Index].Text := GetLang(this.Data.MaxVariableArr[A_Index])
         }
     }
@@ -250,31 +249,42 @@ class VariableGui {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能包含下划线"), A_Index))
                     return false
                 }
-
             }
         }
         return true
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", "变量", this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
+        if (Remark == "") {
+            loop 4 {
+                if (this.ToggleConArr[A_Index].Value) {
+                    CurVarRemark := this.VariableConArr[A_Index].Text
+                    if (this.OperaTypeConArr[A_Index].Value == 1) {
+                        if (IsNumber(this.CopyVariableConArr[A_Index].Text)) {
+                            CurVarRemark .= "=" this.CopyVariableConArr[A_Index].Text
+                        }
+                    }
+                    else if (this.OperaTypeConArr[A_Index].Value == 2) {
+                        CurVarRemark .= GetLang("随机")
+                        isNumSpan := IsNumber(this.MinVariableConArr[A_Index].Text) && IsNumber(this.MaxVariableConArr[
+                            A_Index].Text)
+                        if (isNumSpan)
+                            CurVarRemark .= this.MinVariableConArr[A_Index].Text "~" this.MaxVariableConArr[A_Index].Text
+                    }
+                    else if (this.OperaTypeConArr[A_Index].Value == 4) {
+                        CurVarRemark .= GetLang("删除")
+                    }
+                    Remark .= CurVarRemark "&"
+                }
+            }
+            Remark := RTrim(Remark, "&")
         }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
-    }
-
-    GetVariableData(SerialStr) {
-        saveStr := IniRead(VariableFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := VariableData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveVariableData() {
@@ -294,10 +304,6 @@ class VariableGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, VariableFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

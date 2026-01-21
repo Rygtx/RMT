@@ -76,6 +76,13 @@ class VariableListenGui {
     }
 
     OnClose(*) {
+        if (MySoftData.MacroEditGui.Gui != "") {
+            style := WinGetStyle(MySoftData.MacroEditGui.Gui)
+            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+            if (isVisible) {
+                MySoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
+            }
+        }
         IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
     }
 

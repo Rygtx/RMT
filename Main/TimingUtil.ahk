@@ -29,7 +29,7 @@ CheckIfHasTiming(&tableIndex) {
         if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
             continue
 
-        Data := GetMacroCMDData(TimingFile, tableItem.TimingSerialArr[index])
+        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
         if (Data == "" || ObjOwnPropCount(Data) == 0)
             continue
 
@@ -46,7 +46,7 @@ SetTimingNextTime(tableItem) {
         if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
             continue
 
-        Data := GetMacroCMDData(TimingFile, tableItem.TimingSerialArr[index])
+        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
         CurTime := FormatTime(A_Now, "yyyyMMddHHmm")
         if (Data == "" || ObjOwnPropCount(Data) == 0)
             continue
@@ -101,7 +101,7 @@ TimingChecker() {
         if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
             continue
 
-        Data := GetMacroCMDData(TimingFile, tableItem.TimingSerialArr[index])
+        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
         CurTime := FormatTime(A_Now, "yyyyMMddHHmm")
         if (Data == "" || ObjOwnPropCount(Data) == 0)
             continue
@@ -165,7 +165,7 @@ HandleOnSoftStart(tableItem) {
         if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
             continue
 
-        Data := GetMacroCMDData(TimingFile, tableItem.TimingSerialArr[index])
+        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
         if (Data.Type != 6)
             return
         TriggerMacroHandler(tableItem.Index, index)

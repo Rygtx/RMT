@@ -5,7 +5,6 @@ class SubMacroGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
 
         this.TypeCon := ""
@@ -51,7 +50,7 @@ class SubMacroGui {
 
         PosX := 10
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏类型:"))
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏类型："))
 
         PosX += 70
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["当前宏", "按键宏",
@@ -64,7 +63,7 @@ class SubMacroGui {
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏序号："))
 
         PosX += 65
-        this.DropDownIndexCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 5, 185), [])
+        this.DropDownIndexCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R8", PosX, PosY - 5, 185), [])
 
         PosX := 10
         PosY += 40
@@ -102,22 +101,23 @@ class SubMacroGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("SubMacro")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetSubMacroData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TypeCon.Value := this.Data.MacroType
         this.CallTypeCon.Value := this.Data.CallType
         this.InsertCountCon.Delete()
-        this.InsertCountCon.Add(RemoveInVariable(this.VariableObjArr, 2))
+        this.InsertCountCon.Add(RemoveInVariable(this.DLVariableArr, 2))
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
         tableIndex := this.Data.MacroType - 1
 
         if (this.Data.MacroType != 1) {
             DropDownArr := []
-            for index, Con in MySoftData.TableInfo[tableIndex].RemarkConArr {
-                DropDownArr.Push(A_Index ". " Con.Value)
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
             }
             this.DropDownIndexCon.Delete()
             this.DropDownIndexCon.Add(DropDownArr)
@@ -159,8 +159,8 @@ class SubMacroGui {
             lastIndex := Max(1, this.DropDownIndexCon.Value)
             tableIndex := this.TypeCon.Value - 1
             DropDownArr := []
-            for index, Con in MySoftData.TableInfo[tableIndex].RemarkConArr {
-                DropDownArr.Push(A_Index ". " Con.Value)
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
             }
             this.DropDownIndexCon.Delete()
             this.DropDownIndexCon.Add(DropDownArr)
@@ -211,24 +211,21 @@ class SubMacroGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("宏操作"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        Remark := this.RemarkCon.Value
+        if (Remark == "") {
+            OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
+            IntervarlStr := MySoftData.Lang == "中文" ? "" : " "
+            MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+            OperStr := OperTipArr[this.CallTypeCon.Value]
+            TypeStr := MacroTypeArr[this.TypeCon.Value]
+            SerialStr := this.TypeCon.Value == 1 ? "" : this.DropDownIndexCon.value
+            Remark := OperStr IntervarlStr TypeStr SerialStr
         }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
-    }
-
-    GetSubMacroData(SerialStr) {
-        saveStr := IniRead(SubMacroFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := SubMacroData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveSubMacroData() {
@@ -241,10 +238,6 @@ class SubMacroGui {
         SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, SubMacroFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

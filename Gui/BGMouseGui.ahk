@@ -5,7 +5,6 @@ class BGMouseGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.RefreshInfoAction := () => this.RefreshInfo()
 
@@ -136,19 +135,20 @@ class BGMouseGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("BGMouse")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetBGMouseData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台鼠标")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         this.TargetTitleCon.Value := this.Data.TargetTitle != "" ? this.Data.TargetTitle : this.TargetTitleCon.Value
         this.OperateTypeCon.Value := this.Data.OperateType
         this.MouseTypeCon.Value := this.Data.MouseType
         this.ClickTimeCon.Value := this.Data.ClickTime
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarXCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(RemoveInVariable(this.VariableObjArr))
+        this.PosVarYCon.Add(RemoveInVariable(this.DLVariableArr))
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ScrollVCon.Value := this.Data.ScrollV
         this.ScrollHCon.Value := this.Data.ScrollH
@@ -252,24 +252,11 @@ class BGMouseGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("后台鼠标"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetBGMouseData(SerialStr) {
-        saveStr := IniRead(BGMouseFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := BGMouseData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveBGMouseData() {
@@ -282,10 +269,6 @@ class BGMouseGui {
         this.Data.ScrollV := this.ScrollVCon.Value
         this.Data.ScrollH := this.ScrollHCon.Value
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, BGMouseFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 }

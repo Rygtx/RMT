@@ -33,34 +33,30 @@ OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
     StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
     Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
     paramArr := StrSplit(cmd, "_")
-    isSetVari := StrCompare(paramArr[1], "SetVari", false) == 0
-    isDelVari := StrCompare(paramArr[1], "DelVari", false) == 0
-    isCMDTip := StrCompare(paramArr[1], "CMDTip", false) == 0
-    isPauseState := StrCompare(paramArr[1], "PauseState", false) == 0
-    if (isSetVari) {
-        NameValueArr := paramArr.Clone()
-        NameValueArr.RemoveAt(1)
-        NameArr := []
-        ValueArr := []
-        loop NameValueArr.Length {
-            NameArr.Push(NameValueArr[A_Index])
-            ValueArr.Push(NameValueArr[A_Index + 1])
-            A_Index += 1
-        }
+    switch paramArr[1] {
 
-        OnWorkSetGlobalVariable(NameArr, ValueArr)
-    }
-    else if (isDelVari) {
-        NameArr := paramArr.Clone()
-        NameArr.RemoveAt(1)
-        OnWorkDelGlobalVariable(NameArr)
-    }
-    else if (isCMDTip) {
-        MySoftData.CMDTip := paramArr[2]
-    }
-    else if (isPauseState) {
-        tableItem := MySoftData.TableInfo[paramArr[2]]
-        tableItem.PauseArr[paramArr[3]] := paramArr[4]
+        case "SetVari":
+            NameArr  := []
+            ValueArr := []
+            i := 2
+            while (i <= paramArr.Length) {
+                NameArr.Push(paramArr[i])
+                ValueArr.Push(paramArr[i + 1])
+                i += 2
+            }
+            OnWorkSetGlobalVariable(NameArr, ValueArr)
+
+        case "DelVari":
+            NameArr := paramArr.Clone()
+            NameArr.RemoveAt(1)
+            OnWorkDelGlobalVariable(NameArr)
+
+        case "CMDTip":
+            MySoftData.CMDTip := paramArr[2]
+
+        case "PauseState":
+            tableItem := MySoftData.TableInfo[paramArr[2]]
+            tableItem.PauseArr[paramArr[3]] := paramArr[4]
     }
 }
 
@@ -102,6 +98,8 @@ InitWorkFilePath() {
     global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
+    global ArrayFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ArrayFile.ini"
+    global TimingFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimingFile.ini"
     global MacroFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
     global SearchFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchFile.ini"
     global SearchProFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchProFile.ini"
@@ -111,7 +109,6 @@ InitWorkFilePath() {
     global BGKeyFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGKeyFile.ini"
     global RunFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\RunFile.ini"
     global OutputFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\OutputFile.ini"
-    global StopFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\StopFile.ini"
     global VariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
     global TextProcessFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"
@@ -120,6 +117,16 @@ InitWorkFilePath() {
     global OperationFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\OperationFile.ini"
     global BGMouseFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
     global IniSection := "UserSettings"
+
+    ;利用机制把路径中的\..转换掉
+    loop files, StartTipAudio {
+        StartTipAudio := A_LoopFileFullPath
+        break
+    }
+    loop files, EndTipAudio {
+        EndTipAudio := A_LoopFileFullPath
+        break
+    }
 }
 
 InitWork() {

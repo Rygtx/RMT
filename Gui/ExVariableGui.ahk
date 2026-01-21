@@ -6,7 +6,6 @@ class ExVariableGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.VariableObjArr := []
         this.RemarkCon := ""
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
 
@@ -89,7 +88,7 @@ class ExVariableGui {
 
         PosX := 10
         PosY += 30
-        con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 95), GetLang("屏幕提取选项:"))
+        con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 95), GetLang("屏幕提取选项:"))
 
         PosX := 20
         PosY += 25
@@ -102,17 +101,17 @@ class ExVariableGui {
         this.OCROptConArr.Push(this.OCRTypeCon)
 
         PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标X："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
         this.OCROptConArr.Push(con)
-        PosX += 75
-        this.StartPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        PosX += 80
+        this.StartPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
         this.OCROptConArr.Push(this.StartPosXCon)
 
-        PosX += 110
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("起始坐标Y："))
+        PosX += 105
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
         this.OCROptConArr.Push(con)
-        PosX += 75
-        this.StartPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        PosX += 80
+        this.StartPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
         this.OCROptConArr.Push(this.StartPosYCon)
 
         PosX := 20
@@ -126,29 +125,29 @@ class ExVariableGui {
         this.OCROptConArr.Push(this.SelectToggleCon)
 
         PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标X："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
         this.OCROptConArr.Push(con)
-        PosX += 75
-        this.EndPosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        PosX += 80
+        this.EndPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
         this.OCROptConArr.Push(this.EndPosXCon)
 
-        PosX += 110
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("终止坐标Y："))
+        PosX += 105
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
         this.OCROptConArr.Push(con)
-        PosX += 75
-        this.EndPosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        PosX += 80
+        this.EndPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
         this.OCROptConArr.Push(this.EndPosYCon)
 
         PosX := 10
         PosY += 40
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 135), GetLang("结果保存选项:"))
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 145), GetLang("结果保存选项:"))
 
         PosX := 40
         PosY += 20
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量存在忽略操作"))
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
 
         PosX := 30
-        PosY += 25
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("开关      变量名"))
 
         PosX := 20
@@ -162,7 +161,7 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosX += 130
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "2.")
         PosX += 20
         con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
@@ -172,7 +171,7 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosX += 130
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "3.")
         PosX += 20
         con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
@@ -193,7 +192,7 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosX += 130
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "5.")
         PosX += 20
         con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
@@ -203,7 +202,7 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosX += 130
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "6.")
         PosX += 20
         con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
@@ -213,20 +212,21 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosY +=45
+        PosY += 40
         PosX := 210
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 535, 405))
+        MyGui.Show(Format("w{} h{}", 560, 405))
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.SerialStr := cmdArr.Length >= 2 ? cmdArr[2] : GetSerialStr("ExVariable")
-        this.RemarkCon.Value := cmdArr.Length >= 3 ? cmdArr[3] : ""
-        this.Data := this.GetExVariableData(this.SerialStr)
+        this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量提取")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.Data := GetMacroCMDData(this.SerialStr)
+        this.DLVariableArr := GetGuiVarArr()
 
         if (this.Data.ToggleArr.Length == 4) {
             this.Data.ToggleArr.Push(false)
@@ -238,17 +238,26 @@ class ExVariableGui {
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.VariableObjArr))
+            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.ExtractStrCon.Value := this.Data.ExtractStr
         this.ExtractTypeCon.Value := this.Data.ExtractType
         this.OCRTypeCon.Value := this.Data.OCRType
-        this.StartPosXCon.Value := this.Data.StartPosX
-        this.StartPosYCon.Value := this.Data.StartPosY
-        this.EndPosXCon.Value := this.Data.EndPosX
-        this.EndPosYCon.Value := this.Data.EndPosY
+
+        this.StartPosXCon.Delete()
+        this.StartPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosYCon.Delete()
+        this.StartPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosXCon.Delete()
+        this.EndPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosYCon.Delete()
+        this.EndPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosXCon.Text := this.Data.StartPosX
+        this.StartPosYCon.Text := this.Data.StartPosY
+        this.EndPosXCon.Text := this.Data.EndPosX
+        this.EndPosYCon.Text := this.Data.EndPosY
         this.SearchCountCon.Delete()
         this.SearchCountCon.Add([GetLang("无限")])
         this.SearchCountCon.Text := this.Data.SearchCount == -1 ? GetLang("无限") : this.Data.SearchCount
@@ -314,10 +323,10 @@ class ExVariableGui {
 
     OnSetSearchArea(x1, y1, x2, y2) {
         this.SelectToggleCon.Value := 0
-        this.StartPosXCon.Value := x1
-        this.StartPosYCon.Value := y1
-        this.EndPosXCon.Value := x2
-        this.EndPosYCon.Value := y2
+        this.StartPosXCon.Text := x1
+        this.StartPosYCon.Text := y1
+        this.EndPosXCon.Text := x2
+        this.EndPosYCon.Text := y2
     }
 
     CheckIfValid() {
@@ -334,6 +343,11 @@ class ExVariableGui {
             if (this.ToggleConArr[A_Index].Value) {
                 if (IsNumber(this.VariableConArr[A_Index].Text)) {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能是纯数字"), A_Index))
+                    return false
+                }
+
+                if (InStr(this.VariableConArr[A_Index].Text, "_")) {
+                    MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能包含下划线"), A_Index))
                     return false
                 }
             }
@@ -370,10 +384,14 @@ class ExVariableGui {
     }
 
     TestExVariable(Data) {
-        X1 := Data.StartPosX
-        Y1 := Data.StartPosY
-        X2 := Data.EndPosX
-        Y2 := Data.EndPosY
+        tableItem := MySoftData.SpecialTableItem
+        HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+        if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+            return
+
         if (Data.ExtractType == 1) {
             TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
             TextObjs := TextObjs == "" ? [] : TextObjs
@@ -427,34 +445,21 @@ class ExVariableGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("变量提取"), this.Data.SerialStr)
-        Remark := CorrectRemark(this.RemarkCon.Value)
-        if (Remark != "") {
-            CommandStr .= "_" Remark
-        }
+        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
+        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
-    }
-
-    GetExVariableData(SerialStr) {
-        saveStr := IniRead(ExVariableFile, IniSection, SerialStr, "")
-        if (!saveStr) {
-            data := ExVariableData()
-            data.SerialStr := SerialStr
-            return data
-        }
-
-        data := JSON.parse(saveStr, , false)
-        return data
     }
 
     SaveExVariableData() {
         this.Data.ExtractStr := this.ExtractStrCon.Value
         this.Data.ExtractType := this.ExtractTypeCon.Value
         this.Data.OCRType := this.OCRTypeCon.Value
-        this.Data.StartPosX := this.StartPosXCon.Value
-        this.Data.StartPosY := this.StartPosYCon.Value
-        this.Data.EndPosX := this.EndPosXCon.Value
-        this.Data.EndPosY := this.EndPosYCon.Value
+        this.Data.StartPosX := this.StartPosXCon.Text
+        this.Data.StartPosY := this.StartPosYCon.Text
+        this.Data.EndPosX := this.EndPosXCon.Text
+        this.Data.EndPosY := this.EndPosYCon.Text
         this.Data.SearchCount := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
         this.Data.SearchInterval := this.SearchIntervalCon.Value
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
@@ -469,11 +474,7 @@ class ExVariableGui {
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
 
-        saveStr := JSON.stringify(this.Data, 0)
-        IniWrite(saveStr, ExVariableFile, IniSection, this.Data.SerialStr)
-        if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-            MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-        }
+        SaveMacroCMDData(this.Data)
     }
 
     GetReplaceVarText(text) {
