@@ -1278,9 +1278,9 @@ GetOperationResult(BaseValue, SymbolArr, ValueArr) {
 }
 
 ; 新增：使用表达式解析器计算（支持括号）
-GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIndex := "") {
+GetOperationResultFromExpression(Expression, tableItem, tableIndex, &Res) {
     if (Expression == "")
-        return BaseValue
+        return false
 
     ; 替换表达式中的变量为实际值
     ProcessedExpr := Expression
@@ -1314,10 +1314,10 @@ GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIn
     if (!tableItem || !tableIndex || VarNames.Length == 0) {
         ; 没有上下文或没有变量，尝试直接解析数字表达式
         try {
-            result := EvaluateExpression(ProcessedExpr)
-            return result
+            Res := EvaluateExpression(ProcessedExpr)
+            return true
         } catch {
-            return BaseValue
+            return false
         }
     }
 
@@ -1334,11 +1334,11 @@ GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIn
 
     ; 计算表达式
     try {
-        result := EvaluateExpression(ProcessedExpr)
-        return result
+        Res := EvaluateExpression(ProcessedExpr)
+        return true
     } catch {
         ; 解析失败，回退到简单计算
-        return BaseValue
+        return false
     }
 }
 
