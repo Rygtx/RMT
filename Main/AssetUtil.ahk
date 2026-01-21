@@ -1342,7 +1342,7 @@ GetOperationResultFromExpression(Expression, tableItem, tableIndex, &Res) {
     }
 }
 
-; 新增：表达式计算器（支持括号运算）
+; 新增：表达式计算器（支持括号运算）- 使用词法分析+递归下降解析
 EvaluateExpression(expr) {
     ; 预处理：去除空格
     expr := RegExReplace(expr, "\s+", "")
@@ -1351,73 +1351,166 @@ EvaluateExpression(expr) {
     if (expr == "")
         return 0
 
-    ; 先处理括号
-    while (InStr(expr, "(")) {
-        expr := ExpandParentheses(expr)
+    ; 预处理：处理负数的运算优先级问题
+    ; 情况1: 表达式开头的负号，如 -2^2 -> (-2)^2
+    if (SubStr(expr, 1, 1) == "-") {
+        ; 找到负号后面的数字部分
+        if (RegExMatch(expr, "^-(\d+\.?\d*)", &match)) {
+            expr := "(-" match[1] ")" SubStr(expr, StrLen(match[0]) + 1)
+        }
     }
+    ; 情况2: 左括号后面的负号，如 (-5)^2 -> ((-5))^2，但不处理运算符后的负号（如 10-5）
+    ; 使用正则匹配 ( -数字，其中左括号和负号之间只有可能的空格
+    expr := RegExReplace(expr, "\(\s*-(\d+\.?\d*)", "((-$1)")
 
-    ; 处理乘方
-    while (InStr(expr, "^")) {
-        ; 使用正则表达式匹配 乘方运算
-        if (!RegExMatch(expr, "([+-]?\d*\.?\d+)\^([+-]?\d*\.?\d+)", &match))
-            break
-        a := Number(match[1])
-        b := Number(match[2])
-        result := Round(a ** b, 6)
-        replaceCount := 1
-        expr := StrReplace(expr, match[0], result, , &replaceCount)
-    }
+    ; 词法分析：将表达式分解成token
+    tokens := Tokenize(expr)
+    if (tokens.Length == 0)
+        return 0
 
-    ; 处理乘除取余
-    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([*/%])([+-]?\d*\.?\d+)", &match)) {
-        op := match[2]
-        a := Number(match[1])
-        b := Number(match[3])
-        if (op == "*")
-            result := Round(a * b, 6)
-        else if (op == "/")
-            result := Round(a / b, 6)
-        else if (op == "%")
-            result := Round(Mod(a, b), 6)
-        else
-            result := match[0]
-        replaceCount := 1
-        expr := StrReplace(expr, match[0], result, , &replaceCount)
-    }
-
-    ; 处理加减
-    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([+\-])([+-]?\d*\.?\d+)", &match)) {
-        op := match[2]
-        a := Number(match[1])
-        b := Number(match[3])
-        if (op == "+")
-            result := Round(a + b, 6)
-        else if (op == "-")
-            result := Round(a - b, 6)
-        else
-            result := match[0]
-        replaceCount := 1
-        expr := StrReplace(expr, match[0], result, , &replaceCount)
-    }
+    ; 递归下降解析
+    pos := 1
+    result := ParseAddSub(tokens, &pos)
 
     ; 去除末尾的.0（如果是整数）
-    expr := RegExReplace(expr, "\.0+$", "")
+    if (IsNumber(result)) {
+        ; 检查是否为整数（即小数部分全为0）
+        if (result == Integer(result)) {
+            resultStr := Integer(result)
+        } else {
+            resultStr := result
+        }
+    } else {
+        resultStr := result
+    }
 
-    return expr
+    return resultStr
 }
 
-; 展开括号（递归计算）
-ExpandParentheses(expr) {
-    ; 查找最内层的括号
-    while (RegExMatch(expr, "\(([^\(\)]+)\)", &match)) {
-        inner := match[1]
-        ; 计算括号内的值
-        result := EvaluateExpression(inner)
-        ; 替换回表达式
-        replaceCount := 1
-        expr := StrReplace(expr, match[0], result, , &replaceCount)
+; 词法分析：将表达式分解成token
+Tokenize(expr) {
+    tokens := []
+    pos := 1
+    len := StrLen(expr)
+
+    while (pos <= len) {
+        ; 跳过空格（预处理后应该没有，但保险起见）
+        char := SubStr(expr, pos, 1)
+        if (char == " ") {
+            pos++
+            continue
+        }
+
+        ; 识别数字（整数或小数）
+        if (RegExMatch(char, "\d")) {
+            numStr := ""
+            while (pos <= len && RegExMatch(SubStr(expr, pos, 1), "[\d\.]")) {
+                numStr .= SubStr(expr, pos, 1)
+                pos++
+            }
+            tokens.Push(numStr)
+            continue
+        }
+
+        ; 识别运算符和括号
+        if (InStr("+-*/%^()", char)) {
+            tokens.Push(char)
+            pos++
+            continue
+        }
+
+        ; 未知字符，跳过
+        pos++
     }
-    return expr
+
+    return tokens
+}
+
+; 解析加减（最低优先级）
+ParseAddSub(tokens, &pos) {
+    value := ParseMulDiv(tokens, &pos)
+
+    while (pos <= tokens.Length && InStr("+-", tokens[pos])) {
+        op := tokens[pos]
+        pos++
+        next := ParseMulDiv(tokens, &pos)
+
+        if (op == "+")
+            value := Round(value + next, 6)
+        else
+            value := Round(value - next, 6)
+    }
+
+    return value
+}
+
+; 解析乘除模（中等优先级）
+ParseMulDiv(tokens, &pos) {
+    value := ParsePower(tokens, &pos)
+
+    while (pos <= tokens.Length && InStr("*/%", tokens[pos])) {
+        op := tokens[pos]
+        pos++
+        next := ParsePower(tokens, &pos)
+
+        if (op == "*")
+            value := Round(value * next, 6)
+        else if (op == "/")
+            value := Round(value / next, 6)
+        else if (op == "%")
+            value := Round(Mod(value, next), 6)
+    }
+
+    return value
+}
+
+; 解析乘方（高优先级）
+ParsePower(tokens, &pos) {
+    value := ParseAtom(tokens, &pos)
+
+    if (pos <= tokens.Length && tokens[pos] == "^") {
+        pos++
+        next := ParsePower(tokens, &pos)  ; 右结合
+        value := Round(value ** next, 6)
+    }
+
+    return value
+}
+
+; 解析原子（数字或括号表达式）
+ParseAtom(tokens, &pos) {
+    if (pos > tokens.Length)
+        return 0
+
+    token := tokens[pos]
+
+    ; 如果是数字
+    if (RegExMatch(token, "^[\d\.]+$")) {
+        pos++
+        return Number(token)
+    }
+
+    ; 如果是左括号
+    if (token == "(") {
+        pos++  ; 跳过 '('
+        value := ParseAddSub(tokens, &pos)  ; 递归解析括号内表达式
+        if (pos <= tokens.Length && tokens[pos] == ")")
+            pos++  ; 跳过 ')'
+        return value
+    }
+
+    ; 处理带符号的数字（负数、正数）
+    ; 注意：这里只在括号内或表达式的独立位置才会处理符号
+    if (token == "+" || token == "-") {
+        sign := token == "+" ? 1 : -1
+        pos++
+        value := ParseAtom(tokens, &pos)  ; 递归获取数字或括号表达式
+        return sign * value
+    }
+
+    ; 未知token，跳过
+    pos++
+    return 0
 }
 
 StrToHex(str) {

@@ -310,13 +310,68 @@ class OperationSubGui {
         ; ========== 步骤4：校验表达式首尾是否为非法运算符 ==========
         firstChar := SubStr(cleanExpr, 1, 1)
         lastChar := SubStr(cleanExpr, -1)
-        invalidStartEnd := "+*/%^" ; 负号(-)和括号()允许开头/结尾
-        if (InStr(invalidStartEnd, firstChar)) {
+        invalidStart := "+*/%^" ; 负号(-)和括号(允许开头
+        invalidEnd := "+-*/%^" ; 所有运算符和括号(都不允许结尾
+        if (InStr(invalidStart, firstChar)) {
             MsgBox(GetLang("表达式错误：不能以运算符开头"))
             return false
         }
-        if (InStr(invalidStartEnd, lastChar)) {
+        if (InStr(invalidEnd, lastChar)) {
             MsgBox(GetLang("表达式错误：不能以运算符结尾"))
+            return false
+        }
+
+        ; ========== 步骤5：校验连续运算符（允许+-、--作为负数，不允许其他连续）==========
+        ; 匹配连续的运算符（2个或更多），排除 +-、-+、--（负数的情况）
+        ; 但也要排除变量后的情况：{var}+5 这种不校验
+        exprWithoutVar := RegExReplace(cleanExpr, "\{[^{}]+\}", "") ; 去掉变量后再检查
+        if RegExMatch(exprWithoutVar, "[+\-*/%^]{2,}", &opMatch) {
+            matched := opMatch[0]
+            ; 允许 +-、-+、--（负数或正数前缀）
+            if (matched != "+-" && matched != "-+" && matched != "--") {
+                MsgBox(GetLang("表达式错误：存在连续运算符") matched)
+                return false
+            }
+        }
+
+        ; ========== 步骤6：校验空括号 ==========
+        if RegExMatch(cleanExpr, "\(\)") {
+            MsgBox(GetLang("表达式错误：空括号"))
+            return false
+        }
+
+        ; ========== 步骤7：校验括号内为空或仅有运算符 ==========
+        ; 检查括号内是否为空或仅有空格/运算符
+        if RegExMatch(cleanExpr, "\([+\-*/%^]*\)", &emptyParenMatch) {
+            if (emptyParenMatch[0] != "()") {
+                MsgBox(GetLang("表达式错误：括号内内容无效"))
+                return false
+            }
+        }
+
+        ; ========== 步骤8：校验除零风险 ==========
+        ; 检查 /0 或 /(表达式) 的情况
+        if RegExMatch(cleanExpr, "/0(?![\d.])") {
+            MsgBox(GetLang("表达式错误：除数不能为零"))
+            return false
+        }
+        ; 检查 /(数字) 且数字为0的情况（简单检测）
+        if RegExMatch(cleanExpr, "/\(([^()]*)\)", &divParen) {
+            parenContent := divParen[1]
+            ; 如果括号内是明确的0
+            if (parenContent == "0" || parenContent == "+0" || parenContent == "-0") {
+                MsgBox(GetLang("表达式错误：除数不能为零"))
+                return false
+            }
+        }
+
+        ; ========== 步骤9：校验乘方运算符周围的负数 ==========
+        ; 负数的非整数次方（如(-2)^0.5）会导致NaN错误，不支持
+        ; 匹配 (-数字)^(小数) 的情况，但排除 .0、.00 等整数形式
+        ; 正则解释：\( + (-数字) + \) + \^ + (数字开头) + \. + (非零数字 + 任意数字)
+        ; 这样 (-2)^3.0 不会匹配，但 (-2)^0.5 会匹配
+        if RegExMatch(cleanExpr, "\(-[^)]*\)\^\d*\.[1-9]\d*") {
+            MsgBox(GetLang("表达式错误：不支持负数的非整数次方运算"))
             return false
         }
 
