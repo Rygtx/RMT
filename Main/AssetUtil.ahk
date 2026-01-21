@@ -1263,6 +1263,10 @@ GetTabOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr, &res) {
 }
 
 GetOperationResult(BaseValue, SymbolArr, ValueArr) {
+    ; 兼容性检查：如果SymbolArr为空或ValueArr为空，直接返回BaseValue
+    if (SymbolArr.Length == 0 || ValueArr.Length == 0)
+        return BaseValue
+
     sum := baseValue
     OptActionMap := Map("+", PrecisionAdd, "-", PrecisionSub, "*", PrecisionMul, "/", PrecisionDiv, "%", PrecisionMod,
         "^", PrecisionPower, "..", PrecisionJoin)
@@ -1271,6 +1275,149 @@ GetOperationResult(BaseValue, SymbolArr, ValueArr) {
         sum := Action(sum, ValueArr[index])
     }
     return sum
+}
+
+; 新增：使用表达式解析器计算（支持括号）
+GetOperationResultFromExpression(Expression, BaseValue, tableItem := "", tableIndex := "") {
+    if (Expression == "")
+        return BaseValue
+
+    ; 替换表达式中的变量为实际值
+    ProcessedExpr := Expression
+
+    ; 首先处理 {} 变量语法
+    if (tableItem && tableIndex) {
+        ProcessedExpr := GetReplaceVarText(tableItem, tableIndex, ProcessedExpr)
+    }
+
+    ; 获取所有变量名（以字母开头的单词）
+    VarNames := []
+    pos := 1
+    loop {
+        match := RegExMatch(ProcessedExpr, "[a-zA-Z_][a-zA-Z0-9_]*", &VarName, pos)
+        if (!match)
+            break
+        ; 避免重复添加
+        found := false
+        for v in VarNames {
+            if (v == VarName[0]) {
+                found := true
+                break
+            }
+        }
+        if (!found)
+            VarNames.Push(VarName[0])
+        pos := match + StrLen(VarName[0])
+    }
+
+    ; 如果没有变量，直接计算
+    if (!tableItem || !tableIndex || VarNames.Length == 0) {
+        ; 没有上下文或没有变量，尝试直接解析数字表达式
+        try {
+            result := EvaluateExpression(ProcessedExpr)
+            return result
+        } catch {
+            return BaseValue
+        }
+    }
+
+    ; 替换变量为值
+    for VarName in VarNames {
+        if (VarName == "" || IsNumber(VarName))
+            continue
+
+        VarValue := ""
+        if (TryGetVariableValue(&VarValue, tableItem, tableIndex, VarName)) {
+            ProcessedExpr := StrReplace(ProcessedExpr, VarName, VarValue)
+        }
+    }
+
+    ; 计算表达式
+    try {
+        result := EvaluateExpression(ProcessedExpr)
+        return result
+    } catch {
+        ; 解析失败，回退到简单计算
+        return BaseValue
+    }
+}
+
+; 新增：表达式计算器（支持括号运算）
+EvaluateExpression(expr) {
+    ; 预处理：去除空格
+    expr := RegExReplace(expr, "\s+", "")
+
+    ; 如果表达式为空，返回0
+    if (expr == "")
+        return 0
+
+    ; 先处理括号
+    while (InStr(expr, "(")) {
+        expr := ExpandParentheses(expr)
+    }
+
+    ; 处理乘方
+    while (InStr(expr, "^")) {
+        ; 使用正则表达式匹配 乘方运算
+        if (!RegExMatch(expr, "([+-]?\d*\.?\d+)\^([+-]?\d*\.?\d+)", &match))
+            break
+        a := Number(match[1])
+        b := Number(match[2])
+        result := Round(a ** b, 6)
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 处理乘除取余
+    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([*/%])([+-]?\d*\.?\d+)", &match)) {
+        op := match[2]
+        a := Number(match[1])
+        b := Number(match[3])
+        if (op == "*")
+            result := Round(a * b, 6)
+        else if (op == "/")
+            result := Round(a / b, 6)
+        else if (op == "%")
+            result := Round(Mod(a, b), 6)
+        else
+            result := match[0]
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 处理加减
+    while (RegExMatch(expr, "([+-]?\d*\.?\d+)([+\-])([+-]?\d*\.?\d+)", &match)) {
+        op := match[2]
+        a := Number(match[1])
+        b := Number(match[3])
+        if (op == "+")
+            result := Round(a + b, 6)
+        else if (op == "-")
+            result := Round(a - b, 6)
+        else
+            result := match[0]
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+
+    ; 去除末尾的.0（如果是整数）
+    expr := RegExReplace(expr, "\.0+$", "")
+
+    return expr
+}
+
+; 展开括号（递归计算）
+ExpandParentheses(expr) {
+    ; 查找最内层的括号
+    while (RegExMatch(expr, "\(([^\(\)]+)\)", &match)) {
+        inner := match[1]
+        ; 计算括号内的值
+        result := EvaluateExpression(inner)
+        ; 替换回表达式
+        replaceCount := 1
+        expr := StrReplace(expr, match[0], result, , &replaceCount)
+    }
+    return expr
 }
 
 StrToHex(str) {

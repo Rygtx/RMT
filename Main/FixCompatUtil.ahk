@@ -422,7 +422,88 @@ CompatOperation(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Operation", "运算")
+    
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+        
+        curFix := false
+        
+        ; 确保ExpressionArr字段存在
+        if (!ObjHasOwnProp(Data, "ExpressionArr")) {
+            Data.ExpressionArr := ["", "", "", ""]
+            curFix := true
+        }
+        
+        ; 迁移旧数据：如果ExpressionArr为空但OperationArr有内容，则将OperationArr复制到ExpressionArr
+        loop 4 {
+            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] == "" 
+                && Data.OperationArr.Has(A_Index) && Data.OperationArr[A_Index] != "") {
+                Data.ExpressionArr[A_Index] := Data.OperationArr[A_Index]
+                curFix := true
+            }
+        }
+
+        ; 校准旧格式变量名到新格式{变量名}
+        ; 旧格式：num1, var_name 等
+        ; 新格式：{num1}, {var_name}
+        loop 4 {
+            if (Data.ExpressionArr.Has(A_Index) && Data.ExpressionArr[A_Index] != "") {
+                oldExpr := Data.ExpressionArr[A_Index]
+                newExpr := ConvertOldVariableFormat(oldExpr)
+                if (newExpr != oldExpr) {
+                    Data.ExpressionArr[A_Index] := newExpr
+                    curFix := true
+                }
+            }
+        }
+        
+        if (curFix) {
+            hasFix := true
+            saveStr := JSON.stringify(Data, 0)
+            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
+        }
+    }
+    
     return hasFix
+}
+
+; 将旧格式变量名转换为新格式{变量名}
+ConvertOldVariableFormat(expression) {
+    if (expression = "" || Type(expression) != "String")
+        return expression
+
+    ; 这个正则表达式查找任何潜在的变量名（以字母/中文/_开头，后跟字母/数字/中文/_）
+    ; 它也会找到已经用{}包裹的变量
+    NeedleRegEx := "(\{([a-zA-Z一-龥_][a-zA-Z0-9一-龥_]*)\})|([a-zA-Z一-龥_][a-zA-Z0-9一-龥_]*)"
+    
+    newExpression := ""
+    lastPos := 1
+    
+    while (pos := RegExMatch(expression, NeedleRegEx, &match, lastPos)) {
+        ; 附加最后一个匹配和当前匹配之间的文本
+        newExpression .= SubStr(expression, lastPos, pos - lastPos)
+        
+        ; match[0] 是完整的匹配
+        ; 如果 match[1] 存在，它是一个 {var} 匹配，所以它已经是新格式
+        ; 如果 match[3] 存在，它是一个 var 匹配，所以需要转换
+        
+        if (match[1] != "") {
+            ; 已经是新格式，如 {var}，所以直接附加
+            newExpression .= match[0]
+        } else if (match[3] != "") {
+            ; 旧格式，如 var，所以用 {} 包裹它
+            newExpression .= "{" . match[0] . "}"
+        }
+        
+        lastPos := pos + StrLen(match[0])
+    }
+    
+    ; 附加最后一个匹配后的剩余字符串
+    newExpression .= SubStr(expression, lastPos)
+    
+    return newExpression
 }
 
 CompatBGMouse(filePath) {
