@@ -25,7 +25,7 @@ class OperationSubGui {
         ; 初始化变量列表下拉框
         this.OperaVariableCon.Delete()
         this.OperaVariableCon.Add(this.DLVariableArr)
-        this.OperaVariableCon.Text := "10"
+        this.OperaVariableCon.Text := this.DLVariableArr[1]
         this.ExpressionCon.Value := ExpressStr
         this.FocusCon.Focus()
     }

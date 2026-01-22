@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 #Include ExcelUtil.ahk
 #Include SerialUtil.ahk
-#Include PrecisionUtil.ahk
+#Include ExpressUtil.ahk
 #Include ArrayUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
@@ -1244,275 +1244,6 @@ GetRecordTriggerKeyMap() {
     return resultMap
 }
 
-GetTabOperationResult(tableItem, tableIndex, Name, SymbolArr, ValueArr, &res) {
-    hasValue := TryGetVariableValue(&res, tableItem, tableIndex, Name)
-    if (!hasValue)
-        return false
-
-    RealValueArr := []
-    loop ValueArr.Length {
-        Variable := ValueArr[A_Index]
-        hasValue := TryGetVariableValue(&Value, tableItem, tableIndex, Variable)
-        if (!hasValue)
-            return false
-        RealValueArr.Push(Value)
-    }
-
-    res := GetOperationResult(res, SymbolArr, RealValueArr)
-    return true
-}
-
-GetOperationResult(BaseValue, SymbolArr, ValueArr) {
-    ; 兼容性检查：如果SymbolArr为空或ValueArr为空，直接返回BaseValue
-    if (SymbolArr.Length == 0 || ValueArr.Length == 0)
-        return BaseValue
-
-    sum := baseValue
-    OptActionMap := Map("+", PrecisionAdd, "-", PrecisionSub, "*", PrecisionMul, "/", PrecisionDiv, "%", PrecisionMod,
-        "^", PrecisionPower, "..", PrecisionJoin)
-    for index, Symbol in SymbolArr {
-        Action := OptActionMap[Symbol]
-        sum := Action(sum, ValueArr[index])
-    }
-    return sum
-}
-
-; 新增：使用表达式解析器计算（支持括号）
-GetOperationResultFromExpression(Expression, tableItem, tableIndex, &Res) {
-    if (Expression == "")
-        return false
-
-    ; 替换表达式中的变量为实际值
-    ProcessedExpr := Expression
-
-    ; 首先处理 {} 变量语法
-    if (tableItem && tableIndex) {
-        ProcessedExpr := GetReplaceVarText(tableItem, tableIndex, ProcessedExpr)
-    }
-
-    ; 获取所有变量名（以字母开头的单词）
-    VarNames := []
-    pos := 1
-    loop {
-        match := RegExMatch(ProcessedExpr, "[a-zA-Z_][a-zA-Z0-9_]*", &VarName, pos)
-        if (!match)
-            break
-        ; 避免重复添加
-        found := false
-        for v in VarNames {
-            if (v == VarName[0]) {
-                found := true
-                break
-            }
-        }
-        if (!found)
-            VarNames.Push(VarName[0])
-        pos := match + StrLen(VarName[0])
-    }
-
-    ; 如果没有变量，直接计算
-    if (!tableItem || !tableIndex || VarNames.Length == 0) {
-        ; 没有上下文或没有变量，尝试直接解析数字表达式
-        try {
-            Res := EvaluateExpression(ProcessedExpr)
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    ; 替换变量为值
-    for VarName in VarNames {
-        if (VarName == "" || IsNumber(VarName))
-            continue
-
-        VarValue := ""
-        if (TryGetVariableValue(&VarValue, tableItem, tableIndex, VarName)) {
-            ProcessedExpr := StrReplace(ProcessedExpr, VarName, VarValue)
-        }
-    }
-
-    ; 计算表达式
-    try {
-        Res := EvaluateExpression(ProcessedExpr)
-        return true
-    } catch {
-        ; 解析失败，回退到简单计算
-        return false
-    }
-}
-
-; 新增：表达式计算器（支持括号运算）- 使用词法分析+递归下降解析
-EvaluateExpression(expr) {
-    ; 预处理：去除空格
-    expr := RegExReplace(expr, "\s+", "")
-
-    ; 如果表达式为空，返回0
-    if (expr == "")
-        return 0
-
-    ; 预处理：处理负数的运算优先级问题
-    ; 情况1: 表达式开头的负号，如 -2^2 -> (-2)^2
-    if (SubStr(expr, 1, 1) == "-") {
-        ; 找到负号后面的数字部分
-        if (RegExMatch(expr, "^-(\d+\.?\d*)", &match)) {
-            expr := "(-" match[1] ")" SubStr(expr, StrLen(match[0]) + 1)
-        }
-    }
-    ; 情况2: 左括号后面的负号，如 (-5)^2 -> ((-5))^2，但不处理运算符后的负号（如 10-5）
-    ; 使用正则匹配 ( -数字，其中左括号和负号之间只有可能的空格
-    expr := RegExReplace(expr, "\(\s*-(\d+\.?\d*)", "((-$1)")
-
-    ; 词法分析：将表达式分解成token
-    tokens := Tokenize(expr)
-    if (tokens.Length == 0)
-        return 0
-
-    ; 递归下降解析
-    pos := 1
-    result := ParseAddSub(tokens, &pos)
-
-    ; 去除末尾的.0（如果是整数）
-    if (IsNumber(result)) {
-        ; 检查是否为整数（即小数部分全为0）
-        if (result == Integer(result)) {
-            resultStr := Integer(result)
-        } else {
-            resultStr := result
-        }
-    } else {
-        resultStr := result
-    }
-
-    return resultStr
-}
-
-; 词法分析：将表达式分解成token
-Tokenize(expr) {
-    tokens := []
-    pos := 1
-    len := StrLen(expr)
-
-    while (pos <= len) {
-        ; 跳过空格（预处理后应该没有，但保险起见）
-        char := SubStr(expr, pos, 1)
-        if (char == " ") {
-            pos++
-            continue
-        }
-
-        ; 识别数字（整数或小数）
-        if (RegExMatch(char, "\d")) {
-            numStr := ""
-            while (pos <= len && RegExMatch(SubStr(expr, pos, 1), "[\d\.]")) {
-                numStr .= SubStr(expr, pos, 1)
-                pos++
-            }
-            tokens.Push(numStr)
-            continue
-        }
-
-        ; 识别运算符和括号
-        if (InStr("+-*/%^()", char)) {
-            tokens.Push(char)
-            pos++
-            continue
-        }
-
-        ; 未知字符，跳过
-        pos++
-    }
-
-    return tokens
-}
-
-; 解析加减（最低优先级）
-ParseAddSub(tokens, &pos) {
-    value := ParseMulDiv(tokens, &pos)
-
-    while (pos <= tokens.Length && InStr("+-", tokens[pos])) {
-        op := tokens[pos]
-        pos++
-        next := ParseMulDiv(tokens, &pos)
-
-        if (op == "+")
-            value := Round(value + next, 6)
-        else
-            value := Round(value - next, 6)
-    }
-
-    return value
-}
-
-; 解析乘除模（中等优先级）
-ParseMulDiv(tokens, &pos) {
-    value := ParsePower(tokens, &pos)
-
-    while (pos <= tokens.Length && InStr("*/%", tokens[pos])) {
-        op := tokens[pos]
-        pos++
-        next := ParsePower(tokens, &pos)
-
-        if (op == "*")
-            value := Round(value * next, 6)
-        else if (op == "/")
-            value := Round(value / next, 6)
-        else if (op == "%")
-            value := Round(Mod(value, next), 6)
-    }
-
-    return value
-}
-
-; 解析乘方（高优先级）
-ParsePower(tokens, &pos) {
-    value := ParseAtom(tokens, &pos)
-
-    if (pos <= tokens.Length && tokens[pos] == "^") {
-        pos++
-        next := ParsePower(tokens, &pos)  ; 右结合
-        value := Round(value ** next, 6)
-    }
-
-    return value
-}
-
-; 解析原子（数字或括号表达式）
-ParseAtom(tokens, &pos) {
-    if (pos > tokens.Length)
-        return 0
-
-    token := tokens[pos]
-
-    ; 如果是数字
-    if (RegExMatch(token, "^[\d\.]+$")) {
-        pos++
-        return Number(token)
-    }
-
-    ; 如果是左括号
-    if (token == "(") {
-        pos++  ; 跳过 '('
-        value := ParseAddSub(tokens, &pos)  ; 递归解析括号内表达式
-        if (pos <= tokens.Length && tokens[pos] == ")")
-            pos++  ; 跳过 ')'
-        return value
-    }
-
-    ; 处理带符号的数字（负数、正数）
-    ; 注意：这里只在括号内或表达式的独立位置才会处理符号
-    if (token == "+" || token == "-") {
-        sign := token == "+" ? 1 : -1
-        pos++
-        value := ParseAtom(tokens, &pos)  ; 递归获取数字或括号表达式
-        return sign * value
-    }
-
-    ; 未知token，跳过
-    pos++
-    return 0
-}
-
 StrToHex(str) {
     hex := ""
     loop parse str {
@@ -1580,7 +1311,7 @@ SaveMacroCMDData(Data) {
     }
 }
 
-GetReplaceVarText(tableItem, tableIndex, text) {
+GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
     matches := []  ; 初始化空数组
     pos := 1  ; 从字符串开头开始搜索
 
@@ -1589,13 +1320,15 @@ GetReplaceVarText(tableItem, tableIndex, text) {
         pos += match.Len  ; 移动到匹配结束位置，继续搜索
     }
 
-    Content := text
+    ResText := text
     for index, value in matches {
         hasValue := TryGetVariableValue(&variValue, tableItem, tableIndex, value, false)
-        if (hasValue)
-            Content := StrReplace(Content, "{" value "}", variValue)
+        if (!hasValue)
+            return false
+    
+        ResText := StrReplace(ResText, "{" value "}", variValue)
     }
-    return Content
+    return ResText
 }
 
 TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {

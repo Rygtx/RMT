@@ -470,7 +470,9 @@ OnMMProOnce(tableItem, index, Data) {
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    Content := GetReplaceVarText(tableItem, index, Data.Text)
+    isOk := GetReplaceVarText(tableItem, index, Data.Text, &Content)
+    if (!isOk)
+        return
 
     if (Data.OutputType == 1) {     ;send
         SendText(Content)
@@ -773,7 +775,10 @@ OnExVariableOnce(tableItem, index, Data) {
         if (index < TextObjs.Length)
             allText .= "`n"
     }
-    ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
+    isSucces := GetReplaceVarText(tableItem, index, Data.ExtractStr, &ExtractStr)
+    if (!isSucces)
+        return false
+
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
         VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
@@ -808,7 +813,7 @@ OnOperation(tableItem, cmd, index) {
         if (!Data.ToggleArr[A_Index] || Data.ExpressionArr[A_Index] == "")
             continue
 
-        isOk := GetOperationResultFromExpression(Data.ExpressionArr[A_Index], tableItem, index, &Res)
+        isOk := GetExpressionResult(Data.ExpressionArr[A_Index], tableItem, index, &Res)
         if (!isOk)
             continue
     
