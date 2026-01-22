@@ -28,18 +28,6 @@ EvaluateExpression(expr) {
     if (expr == "")
         return 0
 
-    ; 预处理：处理负数的运算优先级问题
-    ; 情况1: 表达式开头的负号，如 -2^2 -> (-2)^2
-    if (SubStr(expr, 1, 1) == "-") {
-        ; 找到负号后面的数字部分
-        if (RegExMatch(expr, "^-(\d+\.?\d*)", &match)) {
-            expr := "(-" match[1] ")" SubStr(expr, StrLen(match[0]) + 1)
-        }
-    }
-    ; 情况2: 左括号后面的负号，如 (-5)^2 -> ((-5))^2，但不处理运算符后的负号（如 10-5）
-    ; 使用正则匹配 ( -数字，其中左括号和负号之间只有可能的空格
-    expr := RegExReplace(expr, "\(\s*-(\d+\.?\d*)", "((-$1)")
-
     ; 词法分析：将表达式分解成token
     tokens := Tokenize(expr)
     if (tokens.Length == 0)
