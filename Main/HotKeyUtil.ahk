@@ -79,6 +79,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsRMT := InStr(paramArr[1], "RMT指令")
         IsLoop := InStr(paramArr[1], "循环")
         IsTextProcess := InStr(paramArr[1], "文本处理")
+        IsArray := InStr(paramArr[1], "数组")
 
         if (MySoftData.CMDTip) {
             MyCMDReportAciton(cmdArr[A_Index])
@@ -146,6 +147,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         }
         else if (IsTextProcess) {
             OnTextProcess(tableItem, cmdArr[A_Index], index)
+        }
+        else if (IsArray) {
+            OnArray(tableItem, cmdArr[A_Index], index)
         }
     }
 }
@@ -816,7 +820,7 @@ OnOperation(tableItem, cmd, index) {
         isOk := GetExpressionResult(Data.ExpressionArr[A_Index], tableItem, index, &Res)
         if (!isOk)
             continue
-    
+
         MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
         NewNameArr.Push(Data.UpdateNameArr[A_Index])
         NewValueArr.Push(res)
@@ -1551,5 +1555,14 @@ OnTextProcess(tableItem, cmd, index) {
         loop NameArr.Length {
             MySetGlobalVariable([NameArr[A_Index]], [ValueArr[A_Index]], false)
         }
+    }
+}
+
+OnArray(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    if (Data.Type == "创建") {
+        NewArr := Data.InitArr
     }
 }

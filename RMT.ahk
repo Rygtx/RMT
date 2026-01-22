@@ -84,6 +84,7 @@ global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
 global MySubMacroStopAction := SubMacroStopAction
 global MyTriggerSubMacro := TriggerMacroHandler
+global MySetGlobalArray := SetGlobalArr
 global MySetGlobalVariable := SetGlobalVariable
 global MyDelGlobalVariable := DelGlobalVariable
 global MyCMDReportAciton := CMDReport
