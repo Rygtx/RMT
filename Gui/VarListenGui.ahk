@@ -1,8 +1,10 @@
 #Requires AutoHotkey v2.0
+#Include VarModifyGui.ahk
 
 class VarListenGui {
     __new() {
         this.Gui := ""
+        this.ModifyGui := VarModifyGui()
         this.TopCon := ""
         this.LVCon := ""
     }
@@ -55,7 +57,7 @@ class VarListenGui {
         ;key前面加一个空格，确保排在后面
         for key, value in MySoftData.ArrayMap {
             if !LVKeys.Has(key) {
-                this.LVCon.Add(,"ε" key, GetLang("数组"), GetArrayStr(value))
+                this.LVCon.Add(, "ε" key, GetLang("数组"), GetArrayStr(value))
             }
         }
         this.LVCon.Opt("+Redraw")
@@ -107,19 +109,27 @@ class VarListenGui {
     }
 
     OnDoubleClick(LV, RowNumber, *) {
-        varName := this.LVCon.GetText(RowNumber, 1)
-        curValue := this.LVCon.GetText(RowNumber, 2)
-        Title := Format("{}:{}      {}:{}", GetLang("变量名"), varName, GetLang("变量值"), curValue)
-        Title .= "`n" GetLang("请输入新的变量值：")
-        newValue := InputBox(Title, "修改", "w300 h110")
+        isArray := SubStr(this.LVCon.GetText(RowNumber, 1), 1, 1) == "ε"
+        varName := LTrim(this.LVCon.GetText(RowNumber, 1), "ε")
+        curValue := this.LVCon.GetText(RowNumber, 3)
+        SureAction := this.OnModifySureAction.Bind(this, isArray)
+        this.ModifyGui.ParentHwnd := this.Gui.Hwnd
+        this.ModifyGui.SureAction := SureAction
+        this.ModifyGui.ShowGui(varName, curValue)
+    }
 
-        ; 检查用户是否取消输入
-        if newValue.Result = "Cancel"
-            return
-        if (newValue.Value == "") {
-            DelGlobalVariable([varName])
-            return
+    OnModifySureAction(isArray, Name, Value) {
+        if (isArray) {
+            if (Value == "")
+                DelGlobalVariable([Name])   ;todo
+            else
+                SetGlobalArray(Name, GetArray(Value), false)
         }
-        SetGlobalVariable([varName], [newValue.Value], false)
+        else {
+            if (Value == "")
+                DelGlobalVariable([Name])
+            else
+                SetGlobalVariable([Name], [Value], false)
+        }
     }
 }
