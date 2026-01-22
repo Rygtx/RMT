@@ -6,7 +6,7 @@ class RMTCMDGui {
         this.Gui := ""
         this.SureBtnAction := ""
         this.CmdCategories := Map(
-            GetLang("圖像"), [
+            GetLang("图像"), [
                 GetLang("截图"),
                 GetLang("截图提取文本"),
                 GetLang("自由贴")
