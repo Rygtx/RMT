@@ -5,7 +5,9 @@ class RMTCMDGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.CmdCategories := Map(
+        this.CategoriesArr := [GetLang("图像"), GetLang("调试"), GetLang("输入控制"), GetLang("菜单宏"), GetLang("宏控制"), GetLang(
+            "软件自身"), GetLang("窗口")]
+        this.CategoriesMap := Map(
             GetLang("图像"), [
                 GetLang("截图"),
                 GetLang("截图提取文本"),
@@ -41,28 +43,6 @@ class RMTCMDGui {
                 GetLang("不透明度")
             ]
         )
-
-        this.CmdStrArr := this.BuildCmdDDLArray(this.CmdCategories)
-        this.OperTypeCon := ""
-        this.LastValidValue := 0
-
-        this.MenuRelateArrCon := []
-        this.MenuDLCon := ""
-        this.TransparencyRelateArrCon := []
-        this.TransparencyDLCon := ""
-    }
-
-    ; 构建 操作类型 DropDownList 数组
-    BuildCmdDDLArray(categories) {
-        arr := []
-        for title, items in categories {
-            arr.Push("[ " title " ]")
-            for _, cmd in items
-                arr.Push(cmd)
-            arr.Push("────────────")
-        }
-        arr.Pop()
-        return arr
     }
 
     ShowGui(cmd) {
@@ -74,22 +54,21 @@ class RMTCMDGui {
         }
 
         this.Init(cmd)
-        this.OnChangeType()
+        this.OnCmdChange()
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         cmdStr := cmdArr.Length >= 2 ? cmdArr[2] : GetLang("截图")
+        Category := this.GetCategoriesByCmdStr(cmdStr)
         menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 3 ? cmdArr[3] : 1
+        TransparencyValue := cmdStr == GetLang("不透明度") && cmdArr.Length >= 3 ? cmdArr[3] "%" : "80%"
+        CmdStrArr := this.CategoriesMap[Category]
 
-        ; 设置 OperTypeCon 当前值
-        for i, text in this.CmdStrArr {
-            if (text == cmdStr) {
-                this.OperTypeCon.Value := i
-                this.LastValidValue := i
-                break
-            }
-        }
+        this.CategoryCon.Text := Category
+        this.CmdTypeCon.Delete()
+        this.CmdTypeCon.Add(CmdStrArr)
+        this.CmdTypeCon.Text := cmdStr
 
         FoldInfo := MySoftData.TableInfo[3].FoldInfo
         this.MenuDLCon.Delete()
@@ -99,6 +78,8 @@ class RMTCMDGui {
         }
         this.MenuDLCon.Add(DropDownArr)
         this.MenuDLCon.Value := menuDLIndex
+
+        this.TransparencyDLCon.Text := TransparencyValue
     }
 
     AddGui() {
@@ -108,17 +89,29 @@ class RMTCMDGui {
 
         PosX := 15
         PosY := 15
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("操作类型："))
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("类别："))
         PosX += 80
-        this.OperTypeCon := MyGui.Add(
+        this.CategoryCon := MyGui.Add(
             "DropDownList",
             Format("x{} y{} w160 R16", PosX, PosY - 3),
-            this.CmdStrArr
+            this.CategoriesArr
         )
-        this.OperTypeCon.OnEvent("Change", this.OnChangeType.Bind(this))
+        this.CategoryCon.OnEvent("Change", this.OnTypeChane.Bind(this))
 
         PosX := 15
         PosY += 40
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("指令："))
+        PosX += 80
+        this.CmdTypeCon := MyGui.Add("DropDownList",
+            Format("x{} y{} w160 R16", PosX, PosY - 3), [])
+        this.CmdTypeCon.OnEvent("Change", this.OnCmdChange.Bind(this))
+
+        PosY += 40
+        SplitPosY := PosY
+
+        PosX := 15
+        PosY := SplitPosY
+        this.MenuRelateArrCon := []
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("菜单序号："))
         this.MenuRelateArrCon.Push(con)
 
@@ -127,7 +120,8 @@ class RMTCMDGui {
         this.MenuRelateArrCon.Push(this.MenuDLCon)
 
         PosX := 15
-        PosY += 40
+        PosY := SplitPosY
+        this.TransparencyRelateArrCon := []
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("不透明度："))
         this.TransparencyRelateArrCon.Push(con)
 
@@ -135,7 +129,7 @@ class RMTCMDGui {
         this.TransparencyDLCon := MyGui.Add(
             "DropDownList",
             Format("x{} y{} w{} R6", PosX, PosY - 5, 160),
-            ["100%", "90%", "80%", "70%", "60%","50%", "40%"]
+            ["100%", "90%", "80%", "70%", "60%", "50%", "40%", "30%"]
         )
         this.TransparencyDLCon.Value := 1
         this.TransparencyRelateArrCon.Push(this.TransparencyDLCon)
@@ -144,27 +138,28 @@ class RMTCMDGui {
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show("w300 h200")
+        MyGui.Show("w300 h190")
+    }
+
+    OnTypeChane(*) {
+        Category := this.CategoryCon.Text
+        CmdStrArr := this.CategoriesMap[Category]
+
+        this.CmdTypeCon.Delete()
+        this.CmdTypeCon.Add(CmdStrArr)
+        this.CmdTypeCon.Value := 1
+        this.OnCmdChange()
     }
 
     ; 操作类型 DropDownList Change 处理
-    OnChangeType(*) {
-        text := this.OperTypeCon.Text
+    OnCmdChange(*) {
+        CmdStr := this.CmdTypeCon.Text
 
-        ; 分类标题 or 分割线，禁止选择
-        if (text ~= "^\[.*\]$" || text ~= "^─+$") {
-            if (this.LastValidValue)
-                this.OperTypeCon.Value := this.LastValidValue
-            return
-        }
-
-        this.LastValidValue := this.OperTypeCon.Value
-
-        IsShowMenuDL := text == GetLang("显示菜单")
+        IsShowMenuDL := CmdStr == GetLang("显示菜单")
+        IsShowTransparencyDL := CmdStr == GetLang("不透明度")
         for _, con in this.MenuRelateArrCon
             con.Visible := IsShowMenuDL
 
-        IsShowTransparencyDL := text == GetLang("不透明度")
         for _, con in this.TransparencyRelateArrCon
             con.Visible := IsShowTransparencyDL
     }
@@ -179,7 +174,7 @@ class RMTCMDGui {
     }
 
     CheckIfValid() {
-        if (this.OperTypeCon.Text == GetLang("禁用键鼠")) {
+        if (this.CmdTypeCon.Text == GetLang("禁用键鼠")) {
             tipStr := (
                 Format("{}`n{}`n{}`n{}`n{}", GetLang("此操作将 立即禁用键盘和鼠标输入，您将无法通过键鼠操作计算机！"), GetLang("重要须知："), GetLang(
                     "- 以管理员身份运行本软件，否则该指令无效。"), GetLang("- 务必后续执行 *启用键鼠*，否则输入设备将保持禁用状态！"), GetLang("是否确认禁用？"))
@@ -188,7 +183,7 @@ class RMTCMDGui {
                 return false
         }
 
-        if (this.OperTypeCon.Text == GetLang("启用键鼠")) {
+        if (this.CmdTypeCon.Text == GetLang("启用键鼠")) {
             MsgBox(
                 GetLang("- 必须 以管理员身份运行本软件，否则该指令无效。"),
                 GetLang("启用键鼠（需管理员权限）")
@@ -198,13 +193,25 @@ class RMTCMDGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("RMT指令"), this.OperTypeCon.Text)
-        if (this.OperTypeCon.Text == GetLang("显示菜单")) {
+        CommandStr := Format("{}_{}", GetLang("RMT指令"), this.CmdTypeCon.Text)
+        if (this.CmdTypeCon.Text == GetLang("显示菜单")) {
             CommandStr .= "_" this.MenuDLCon.Value
         }
-        else if (this.OperTypeCon.Text == GetLang("不透明度")) {
+        else if (this.CmdTypeCon.Text == GetLang("不透明度")) {
             CommandStr .= "_" StrReplace(this.TransparencyDLCon.Text, "%")
         }
         return CommandStr
+    }
+
+    GetCategoriesByCmdStr(CmdStr) {
+        for Key in this.CategoriesMap {
+            CmdStrArr := this.CategoriesMap[Key]
+            loop CmdStrArr.Length {
+                if (CmdStrArr[A_Index] == CmdStr)
+                    return Key
+            }
+        }
+
+        return GetLang("图像")
     }
 }
