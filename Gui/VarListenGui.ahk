@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 
-class VariableListenGui {
+class VarListenGui {
     __new() {
         this.Gui := ""
         this.TopCon := ""
@@ -33,11 +33,13 @@ class VariableListenGui {
         LVKeys := Map()
         loop count {
             row := count - A_Index + 1
-            key := this.LVCon.GetText(row, 1)
-            value := this.LVCon.GetText(row, 2)
-            if !MySoftData.VariableMap.Has(key)
+            key := LTrim(this.LVCon.GetText(row, 1), "ε")
+            value := this.LVCon.GetText(row, 3)
+            if (!MySoftData.VariableMap.Has(key) && !MySoftData.ArrayMap.Has(key))
                 this.LVCon.Delete(row)
-            else if (String(MySoftData.VariableMap[key]) != value)
+            else if (MySoftData.VariableMap.Has(key) && String(MySoftData.VariableMap[key]) != value)
+                this.LVCon.Delete(row)
+            else if (MySoftData.ArrayMap.Has(key) && GetArrayStr(MySoftData.ArrayMap[key]) != value)
                 this.LVCon.Delete(row)
             else
                 LVKeys[key] := True
@@ -46,7 +48,14 @@ class VariableListenGui {
         ; 3) 添加 Map 中有但 LV 没有的项
         for key, value in MySoftData.VariableMap {
             if !LVKeys.Has(key) {
-                this.LVCon.Add(, key, value)
+                this.LVCon.Add(, key, GetLang("值"), value)
+            }
+        }
+
+        ;key前面加一个空格，确保排在后面
+        for key, value in MySoftData.ArrayMap {
+            if !LVKeys.Has(key) {
+                this.LVCon.Add(,"ε" key, GetLang("数组"), GetArrayStr(value))
             }
         }
         this.LVCon.Opt("+Redraw")
@@ -65,10 +74,11 @@ class VariableListenGui {
         PosX := 10
         PosY += 30
         this.LVCon := MyGui.Add("ListView", Format("x{} y{} w350 h250 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr([
-            "变量名", "变量值"]))
+            "变量名", "类型", "值"]))
         ; 设置列宽（单位：px）
-        this.LVCon.ModifyCol(1, 120) ; 第一列宽度
-        this.LVCon.ModifyCol(2, 205) ; 自动填充剩余宽度
+        this.LVCon.ModifyCol(1, 100) ; 第一列宽度
+        this.LVCon.ModifyCol(2, 50) ; 第一列宽度
+        this.LVCon.ModifyCol(3, 205) ; 自动填充剩余宽度
         this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
 
         MyGui.OnEvent("Close", this.OnClose.Bind(this))
@@ -76,7 +86,7 @@ class VariableListenGui {
     }
 
     OnClose(*) {
-        if (MySoftData.MacroEditGui.Gui != "") {
+        if (MySoftData.MacroEditGui != "" && MySoftData.MacroEditGui.Gui != "") {
             style := WinGetStyle(MySoftData.MacroEditGui.Gui)
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (isVisible) {

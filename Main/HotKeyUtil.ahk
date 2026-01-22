@@ -1563,6 +1563,6 @@ OnArray(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     if (Data.Type == "创建") {
-        NewArr := Data.InitArr
+        MySetGlobalArray(Data.Name, Data.InitArr, Data.IsIgnoreExist)
     }
 }

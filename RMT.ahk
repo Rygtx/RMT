@@ -21,7 +21,7 @@
 #Include Gui\TargetGui.ahk
 #Include Gui\ColorPanelGui.ahk
 #Include Gui\ToolRecordSettingGui.ahk
-#Include Gui\VariableListenGui.ahk
+#Include Gui\VarListenGui.ahk
 #Include Gui\CMDTipGui.ahk
 #Include Gui\FrontInfoGui.ahk
 #Include Gui\CMDTipSettingGui.ahk
@@ -66,7 +66,7 @@ global MyTriggerKeyGui := TriggerKeyGui()
 global MyTriggerStrGui := TriggerStrGui()
 global MyEditHotkeyGui := EditHotkeyGui()
 global MyMacroSettingGui := MacroSettingGui()
-global MyVarListenGui := VariableListenGui()
+global MyVarListenGui := VarListenGui()
 global MyMacroGui := MacroEditGui()
 global MyMenuWheel := MenuWheelGui()
 global MyReplaceKeyGui := ReplaceKeyGui()
@@ -84,7 +84,7 @@ global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
 global MySubMacroStopAction := SubMacroStopAction
 global MyTriggerSubMacro := TriggerMacroHandler
-global MySetGlobalArray := SetGlobalArr
+global MySetGlobalArray := SetGlobalArray
 global MySetGlobalVariable := SetGlobalVariable
 global MyDelGlobalVariable := DelGlobalVariable
 global MyCMDReportAciton := CMDReport

@@ -41,6 +41,7 @@ global MyEnglishOcr := RapidOcr(A_ScriptDir "\..", 2)
 global MyPToken := Gdip_Startup()
 global MySubMacroStopAction := WorkSubMacroStopAction
 global MyTriggerSubMacro := WorkTriggerSubMacro
+global MySetGlobalArray := WorkSetGlobalArray
 global MySetGlobalVariable := WorkSetGlobalVariable
 global MyDelGlobalVariable := WorkDelGlobalVariable
 global MyCMDReportAciton := WorkCMDReport

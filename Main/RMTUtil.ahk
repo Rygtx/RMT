@@ -285,7 +285,7 @@ SubMacroStopAction(tableIndex, itemIndex) {
     MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
 }
 
-SetGlobalArr(Name, Value, ignoreExist) {
+SetGlobalArray(Name, Value, ignoreExist) {
     if (ignoreExist && MySoftData.ArrayMap.Has(Name))
         return
 

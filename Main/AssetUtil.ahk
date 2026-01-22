@@ -1325,7 +1325,7 @@ GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
         hasValue := TryGetVariableValue(&variValue, tableItem, tableIndex, value, false)
         if (!hasValue)
             return false
-    
+
         ResText := StrReplace(ResText, "{" value "}", variValue)
     }
     return ResText
@@ -1591,4 +1591,15 @@ SetDLConValue(Con, Arr, Text) {
     Con.Delete()
     Con.Add(Arr)
     Con.Text := Text
+}
+
+GetNameAndValueByParamArr(&NameArr, &ValueArr, ParamArr) {
+    NameArr := []
+    ValueArr := []
+    i := 2
+    while (i <= paramArr.Length) {
+        NameArr.Push(paramArr[i])
+        ValueArr.Push(paramArr[i + 1])
+        i += 2
+    }
 }
