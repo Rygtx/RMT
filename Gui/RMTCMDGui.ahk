@@ -5,8 +5,8 @@ class RMTCMDGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.CategoriesArr := [GetLang("图文"), GetLang("调试"), GetLang("输入控制"), GetLang("菜单宏"), GetLang("宏控制"), GetLang(
-            "软件自身"), GetLang("窗口")]
+        this.CategoriesArr := [GetLang("图文"), GetLang("调试"), GetLang("输入控制"), GetLang("宏控制"), GetLang("软件自身"),
+         GetLang("窗口")]
         this.CategoriesMap := Map(
             GetLang("图文"), [
                 GetLang("截图"),
@@ -23,11 +23,9 @@ class RMTCMDGui {
                 GetLang("启用键鼠"),
                 GetLang("禁用键鼠")
             ],
-            GetLang("菜单宏"), [
-                GetLang("显示菜单"),
-                GetLang("关闭菜单")
-            ],
             GetLang("宏控制"), [
+                GetLang("显示菜单"),
+                GetLang("关闭菜单"),
                 GetLang("暂停所有宏"),
                 GetLang("恢复所有宏"),
                 GetLang("终止所有宏")
