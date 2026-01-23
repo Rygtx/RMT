@@ -5,10 +5,10 @@ class RMTCMDGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.CategoriesArr := [GetLang("图像"), GetLang("调试"), GetLang("输入控制"), GetLang("菜单宏"), GetLang("宏控制"), GetLang(
+        this.CategoriesArr := [GetLang("图文"), GetLang("调试"), GetLang("输入控制"), GetLang("菜单宏"), GetLang("宏控制"), GetLang(
             "软件自身"), GetLang("窗口")]
         this.CategoriesMap := Map(
-            GetLang("图像"), [
+            GetLang("图文"), [
                 GetLang("截图"),
                 GetLang("截图提取文本"),
                 GetLang("自由贴")
@@ -211,6 +211,6 @@ class RMTCMDGui {
             }
         }
 
-        return GetLang("图像")
+        return GetLang("图文")
     }
 }
