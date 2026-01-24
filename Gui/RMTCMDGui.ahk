@@ -5,10 +5,10 @@ class RMTCMDGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.CategoriesArr := [GetLang("图像"), GetLang("调试"), GetLang("输入控制"), GetLang("菜单宏"), GetLang("宏控制"), GetLang(
-            "软件自身"), GetLang("窗口")]
+        this.CategoriesArr := [GetLang("图文"), GetLang("调试"), GetLang("输入控制"), GetLang("宏控制"), GetLang("软件自身"),
+         GetLang("窗口")]
         this.CategoriesMap := Map(
-            GetLang("图像"), [
+            GetLang("图文"), [
                 GetLang("截图"),
                 GetLang("截图提取文本"),
                 GetLang("自由贴")
@@ -23,11 +23,9 @@ class RMTCMDGui {
                 GetLang("启用键鼠"),
                 GetLang("禁用键鼠")
             ],
-            GetLang("菜单宏"), [
-                GetLang("显示菜单"),
-                GetLang("关闭菜单")
-            ],
             GetLang("宏控制"), [
+                GetLang("显示菜单"),
+                GetLang("关闭菜单"),
                 GetLang("暂停所有宏"),
                 GetLang("恢复所有宏"),
                 GetLang("终止所有宏")
@@ -38,9 +36,8 @@ class RMTCMDGui {
                 GetLang("重载")
             ],
             GetLang("窗口"), [
-                ;GetLang("是否鼠标穿透"),
                 GetLang("置顶或取消"),
-                GetLang("不透明度")
+                GetLang("透明度")
             ]
         )
     }
@@ -62,7 +59,7 @@ class RMTCMDGui {
         cmdStr := cmdArr.Length >= 2 ? cmdArr[2] : GetLang("截图")
         Category := this.GetCategoriesByCmdStr(cmdStr)
         menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 3 ? cmdArr[3] : 1
-        TransparencyValue := cmdStr == GetLang("不透明度") && cmdArr.Length >= 3 ? cmdArr[3] "%" : "80%"
+        TransparencyValue := cmdStr == GetLang("透明度") && cmdArr.Length >= 3 ? cmdArr[3] "%" : "20%"
         CmdStrArr := this.CategoriesMap[Category]
 
         this.CategoryCon.Text := Category
@@ -122,14 +119,14 @@ class RMTCMDGui {
         PosX := 15
         PosY := SplitPosY
         this.TransparencyRelateArrCon := []
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("不透明度："))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("透明度："))
         this.TransparencyRelateArrCon.Push(con)
 
         PosX += 80
         this.TransparencyDLCon := MyGui.Add(
             "DropDownList",
             Format("x{} y{} w{} R6", PosX, PosY - 5, 160),
-            ["100%", "90%", "80%", "70%", "60%", "50%", "40%", "30%"]
+            ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%"]
         )
         this.TransparencyDLCon.Value := 1
         this.TransparencyRelateArrCon.Push(this.TransparencyDLCon)
@@ -156,7 +153,7 @@ class RMTCMDGui {
         CmdStr := this.CmdTypeCon.Text
 
         IsShowMenuDL := CmdStr == GetLang("显示菜单")
-        IsShowTransparencyDL := CmdStr == GetLang("不透明度")
+        IsShowTransparencyDL := CmdStr == GetLang("透明度")
         for _, con in this.MenuRelateArrCon
             con.Visible := IsShowMenuDL
 
@@ -197,7 +194,7 @@ class RMTCMDGui {
         if (this.CmdTypeCon.Text == GetLang("显示菜单")) {
             CommandStr .= "_" this.MenuDLCon.Value
         }
-        else if (this.CmdTypeCon.Text == GetLang("不透明度")) {
+        else if (this.CmdTypeCon.Text == GetLang("透明度")) {
             CommandStr .= "_" StrReplace(this.TransparencyDLCon.Text, "%")
         }
         return CommandStr
@@ -212,6 +209,6 @@ class RMTCMDGui {
             }
         }
 
-        return GetLang("图像")
+        return GetLang("图文")
     }
 }
