@@ -196,3 +196,78 @@ SetArrayDataNewVar(Data) {
     if (NewVarName != "")
         MySoftData.GlobalVariMap[NewVarName] := true
 }
+
+CheckArrayIfContain(Data, tableItem, index) {
+    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
+        return
+
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+
+    if (Data.ArgsType == "变量或值") {
+        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        if (!isHas)
+            return
+
+        Res := 0
+        loop SourceArr.Length {
+            if (SourceArr[A_Index] == Value) {
+                Res := 1
+                break
+            }
+
+        }
+        MySetGlobalVariable([Data.SaveName], [Res], false)
+    }
+    else if (Data.ArgsType == "数组") {
+        if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
+            if (MySoftData.NoVariableTip)
+                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+            return
+        }
+
+        Res := 0
+        ArgsStr := GetArrayStr(MySoftData.ArrayMap[Data.ArgsName])
+        loop SourceArr.Length {
+            if (IsObject(SourceArr[A_Index])) {
+                if (GetArrayStr(SourceArr[A_Index]) == ArgsStr) {
+                    Res := 1
+                    break
+                }
+            }
+        }
+        MySetGlobalVariable([Data.SaveName], [Res], false)
+    }
+}
+
+GetArrayIndexValue(Data, tableItem, index) {
+    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
+        return
+
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+
+    isHas := TryGetVariableValue(&GetIndex, tableItem, index, Data.ArgsIndex, true)
+    if (!isHas)
+        return
+
+    if (SourceArr.Length < GetIndex) {
+        if (MySoftData.NoVariableTip) {
+            TryGetVariableValue(&SubIndex, tableItem, index, Data.MainIndex, false)
+            tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
+            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
+            str1 := SubIndex == 0 ? tip1 : tip2
+            str2 := Format("无法获取第{}的值", GetIndex)
+            MsgBox(str1 "`n" str2)
+        }
+        return ""
+    }
+    Value := SourceArr[GetIndex]
+
+    if (Data.SaveType == "变量")
+        MySetGlobalVariable([Data.SaveName], [Value], false)
+    else if (Data.SaveType == "数组")
+        MySetGlobalArray(Data.SaveName, Value)
+}

@@ -1576,5 +1576,9 @@ OnArray(tableItem, cmd, index) {
                 return
 
             MyCloneGlobalArray(SourceArr, Data.SaveName)
+        case "包含":
+            CheckArrayIfContain(Data, tableItem, index)
+        case "取值":
+            GetArrayIndexValue(Data, tableItem, index)
     }
 }
