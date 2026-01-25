@@ -312,7 +312,7 @@ class ArrayGui {
         this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
         this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
         SetArrayDataNewArr(this.Data)
-        GetArrayDataNewVar(this.Data)
+        SetArrayDataNewVar(this.Data)
         SaveMacroCMDData(this.Data)
     }
 }

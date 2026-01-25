@@ -41,7 +41,6 @@ global MyEnglishOcr := RapidOcr(A_ScriptDir "\..", 2)
 global MyPToken := Gdip_Startup()
 global MySubMacroStopAction := WorkSubMacroStopAction
 global MyTriggerSubMacro := WorkTriggerSubMacro
-global MySetGlobalArray := WorkSetGlobalArray
 global MySetGlobalVariable := WorkSetGlobalVariable
 global MyDelGlobalVariable := WorkDelGlobalVariable
 global MyCMDReportAciton := WorkCMDReport
@@ -51,6 +50,9 @@ global MySetItemPauseState := WorkSetItemPauseState
 global MyMsgBoxContent := WorkMsgBoxContent
 global MyToolTipContent := WorkToolTipContent
 global MyMacroCount := WorkMacroCount
+;数组相关
+global MySetGlobalArray := WorkSetGlobalArray
+global MyCloneGlobalArray := WorkCloneGlobalArray
 WorkOpenCVLoadDll()
 
 ; 注册消息

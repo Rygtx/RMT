@@ -1561,8 +1561,20 @@ OnTextProcess(tableItem, cmd, index) {
 OnArray(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
+    ;用中文方便拓展，数值类型不好拓展
+    switch Data.Type {
+        case "创建":
+            if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
+                return
+            MySetGlobalArray(Data.Name, Data.InitArr)
+        case "克隆":
+            if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
+                return
 
-    if (Data.Type == "创建") {
-        MySetGlobalArray(Data.Name, Data.InitArr, Data.IsIgnoreExist)
+            SourceArr := GetCmdArray(Data, tableItem, index, true)
+            if (SourceArr == "")
+                return
+
+            MyCloneGlobalArray(SourceArr, Data.SaveName)
     }
 }

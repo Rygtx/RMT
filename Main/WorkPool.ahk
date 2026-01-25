@@ -176,7 +176,9 @@ class WorkPool {
             case "MacroCount":
                 MacroCount(paramArr[2])
             case "SetArray": 
-                SetGlobalArray(paramArr[2], GetArray(paramArr[3]), false)
+                SetGlobalArray(paramArr[2], GetArray(paramArr[3]))
+            case "CloneArray":
+                CloneGlobalArray(GetArray(paramArr[2]), paramArr[3])
         }       
     }
 }

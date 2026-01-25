@@ -123,7 +123,7 @@ class VarListenGui {
             if (Value == "")
                 DelGlobalVariable([Name])   ;todo
             else
-                SetGlobalArray(Name, GetArray(Value), false)
+                SetGlobalArray(Name, GetArray(Value))
         }
         else {
             if (Value == "")

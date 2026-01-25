@@ -285,12 +285,22 @@ SubMacroStopAction(tableIndex, itemIndex) {
     MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
 }
 
-SetGlobalArray(Name, Value, ignoreExist) {
-    if (ignoreExist && MySoftData.ArrayMap.Has(Name))
-        return
-
+SetGlobalArray(Name, Value) {
     CMDStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
     MySoftData.ArrayMap[Name] := Value
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+CloneGlobalArray(SourceArr, NewArrName) {
+    CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
+    MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {

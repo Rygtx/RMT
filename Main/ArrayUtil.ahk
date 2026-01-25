@@ -134,6 +134,40 @@ GetGuiArrNameArr() {
     return ResultArr
 }
 
+GetCmdArray(Data, tableItem, index, variTip := true) {
+    if (!MySoftData.ArrayMap.Has(Data.Name)) {
+        if (variTip && MySoftData.NoVariableTip)
+            MsgBox(GetLang("当前环境不存在数组") Data.Name)
+        return ""
+    }
+
+    ResArr := MySoftData.ArrayMap[Data.Name]
+    if (Data.MainIndex != 0) {
+        isHas := TryGetVariableValue(&Value, tableItem, index, Data.MainIndex, variTip)
+        if (!isHas)
+            return ""
+
+        if (ResArr.Length < Value) {
+            if (variTip && MySoftData.NoVariableTip) {
+                str1 := Format(GetLang("数组：{}  长度：{}"), Data.Name, ResArr.Length)
+                str2 := Format("无法获取第{}的值", Value)
+                MsgBox(str1 "`n" str2)
+            }
+            return ""
+        }
+        ResArr := ResArr[Value]
+    }
+
+    if (Data.MainIndex != 0 && !IsObject(ResArr)) {
+        if (variTip && MySoftData.NoVariableTip) {
+            str1 := Format(GetLang("数组：{}  第{}个值不是数组"), Data.Name, Value)
+            MsgBox(str1)
+        }
+        return ""
+    }
+    return ResArr
+}
+
 SetArrayDataNewArr(Data) {
     NewArrName := ""
     if (Data.Type == "创建")
@@ -150,7 +184,7 @@ SetArrayDataNewArr(Data) {
         MySoftData.GlobalArrMap[NewArrName] := true
 }
 
-GetArrayDataNewVar(Data) {
+SetArrayDataNewVar(Data) {
     NewVarName := ""
     if (Data.Type == "包含" || Data.Type == "长度")
         NewVarName := Data.SaveName

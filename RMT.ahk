@@ -84,7 +84,6 @@ global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
 global MySubMacroStopAction := SubMacroStopAction
 global MyTriggerSubMacro := TriggerMacroHandler
-global MySetGlobalArray := SetGlobalArray
 global MySetGlobalVariable := SetGlobalVariable
 global MyDelGlobalVariable := DelGlobalVariable
 global MyCMDReportAciton := CMDReport
@@ -94,6 +93,9 @@ global MySetItemPauseState := SetItemPauseState
 global MyMsgBoxContent := MsgBoxContent
 global MyToolTipContent := ToolTipContent
 global MyMacroCount := MacroCount
+;数组相关
+global MySetGlobalArray := SetGlobalArray
+global MyCloneGlobalArray := CloneGlobalArray
 
 InitFilePath()          ;初始化文件路径
 LoadCurMacroSetting()   ;加载当前配置宏

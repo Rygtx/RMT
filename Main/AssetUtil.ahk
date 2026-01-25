@@ -1332,6 +1332,7 @@ GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
 }
 
 TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
+
     if (IsNumber(variableName)) {
         Value := Number(variableName)
         return true

@@ -132,6 +132,10 @@
                 Name := paramArr[2]
                 Value := GetArray(paramArr[3])
                 MySoftData.ArrayMap[Name] := Value
+            case "CloneArray":
+                SourceArr := GetArray(paramArr[2])
+                NewArrName := paramArr[3]
+                MySoftData.ArrayMap[NewArrName] := SourceArr
         }
     }
 
@@ -146,12 +150,15 @@
 
 ;变量数据相关函数
 {
-    WorkSetGlobalArray(Name, Value, ignoreExist) {
-        if (ignoreExist && MySoftData.ArrayMap.Has(Name))
-            return
-
+    WorkSetGlobalArray(Name, Value) {
         MySoftData.ArrayMap[Name] := Value
         CmdStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
+        MsgSendHandler(CmdStr)
+    }
+
+    WorkCloneGlobalArray(SourceArr, NewArrName) {
+        MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
+        CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
         MsgSendHandler(CmdStr)
     }
 
