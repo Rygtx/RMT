@@ -311,6 +311,49 @@ CloneGlobalArray(SourceArr, NewArrName) {
     }
 }
 
+DeleteGlobalArray(ArrName) {
+    CMDStr := Format("DeleteArray_{}", ArrName)
+    MySoftData.ArrayMap.Delete(ArrName)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+    ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+    CMDStr := Format("ModifyArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr[Index] := Value
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+    ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+    CMDStr := Format("InsertArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr.InsertAt(Index, Value)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
 SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
     RealNameArr := NameArr.Clone()
     RealValueArr := ValueArr.Clone()

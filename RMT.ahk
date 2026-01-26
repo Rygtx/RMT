@@ -96,6 +96,9 @@ global MyMacroCount := MacroCount
 ;数组相关
 global MySetGlobalArray := SetGlobalArray
 global MyCloneGlobalArray := CloneGlobalArray
+global MyDeleteGlobalArray := DeleteGlobalArray
+global MyModifyGlobalArray := ModifyGlobalArray
+global MyInsertGlobalArray := InsertGlobalArray
 
 InitFilePath()          ;初始化文件路径
 LoadCurMacroSetting()   ;加载当前配置宏

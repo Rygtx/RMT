@@ -136,6 +136,23 @@
                 SourceArr := GetArray(paramArr[2])
                 NewArrName := paramArr[3]
                 MySoftData.ArrayMap[NewArrName] := SourceArr
+            case "DeleteArray":
+                if (MySoftData.ArrayMap.Has(paramArr[2]))
+                    MySoftData.ArrayMap.Delete(paramArr[2])
+            case "ModifyArray":
+                ArrName := paramArr[2]
+                MainIndex := paramArr[3]
+                Index := paramArr[4]
+                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
+                SourceArr[Index] := Value
+            case "InsertArray":
+                ArrName := paramArr[2]
+                MainIndex := paramArr[3]
+                Index := paramArr[4]
+                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
+                SourceArr.InsertAt(Index, Value)
         }
     }
 
@@ -159,6 +176,29 @@
     WorkCloneGlobalArray(SourceArr, NewArrName) {
         MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
         CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
+        MsgSendHandler(CmdStr)
+    }
+
+    WorkDeleteGlobalArray(ArrName) {
+        if (MySoftData.ArrayMap.Has(ArrName))
+            MySoftData.ArrayMap.Delete(ArrName)
+        CMDStr := Format("DeleteArray_{}", ArrName)
+        MsgSendHandler(CmdStr)
+    }
+
+    WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+        CMDStr := Format("ModifyArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr[Index] := Value
+        MsgSendHandler(CmdStr)
+    }
+
+    WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+        CMDStr := Format("InsertArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.InsertAt(Index, Value)
         MsgSendHandler(CmdStr)
     }
 

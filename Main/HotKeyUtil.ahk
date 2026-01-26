@@ -1576,9 +1576,16 @@ OnArray(tableItem, cmd, index) {
                 return
 
             MyCloneGlobalArray(SourceArr, Data.SaveName)
+        case "删除":
+            if (MySoftData.ArrayMap.Has(Data.Name))
+                MyDeleteGlobalArray(Data.Name)
         case "包含":
             CheckArrayIfContain(Data, tableItem, index)
         case "取值":
             GetArrayIndexValue(Data, tableItem, index)
+        case "赋值":
+            ModifyArrayIndexValue(Data, tableItem, index)
+        case "插入":
+            InsertArrayIndexValue(Data, tableItem, index)
     }
 }

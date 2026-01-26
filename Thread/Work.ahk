@@ -53,6 +53,9 @@ global MyMacroCount := WorkMacroCount
 ;数组相关
 global MySetGlobalArray := WorkSetGlobalArray
 global MyCloneGlobalArray := WorkCloneGlobalArray
+global MyDeleteGlobalArray := WorkDeleteGlobalArray
+global MyModifyGlobalArray := WorkModifyGlobalArray
+global MyInsertGlobalArray := WorkInsertGlobalArray
 WorkOpenCVLoadDll()
 
 ; 注册消息

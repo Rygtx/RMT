@@ -166,19 +166,25 @@ class WorkPool {
             case "RMT指令":
                 ExcuteRMTCMDAction(Cmd)
             case "ItemState":
-                SetTableItemState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
+                SetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
             case "PauseState":
-                SetItemPauseState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
+                SetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
             case "MsgBox":
                 MsgBoxContent(paramArr[2])
             case "ToolTip":
                 ToolTipContent(paramArr[2])
             case "MacroCount":
                 MacroCount(paramArr[2])
-            case "SetArray": 
+            case "SetArray":
                 SetGlobalArray(paramArr[2], GetArray(paramArr[3]))
             case "CloneArray":
                 CloneGlobalArray(GetArray(paramArr[2]), paramArr[3])
-        }       
+            case "DeleteArray":
+                DeleteGlobalArray(paramArr[2])
+            case "ModifyArray":
+                ModifyGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
+            case "InsertArray":
+                InsertGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6]) 
+        }
     }
 }
