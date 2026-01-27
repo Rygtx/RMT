@@ -40,10 +40,7 @@ class ArrayGui {
 
         PosX += 50
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆",
-            "删除",
-            "包含",
-            "取值",
-            "赋值", "插入", "追加", "移除", "移除最后", "长度"]))
+            "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度"]))
         this.TypeCon.Value := 1
         this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
@@ -173,7 +170,7 @@ class ArrayGui {
         this.InitArrCon.Text := GetArrayStr(this.Data.InitArr)
 
         SetDLConValue(this.ArgsIndexCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.ArgsIndex)
-        this.ArgsTypeCon.Text := this.Data.ArgsType
+        this.ArgsTypeCon.Text := GetLang(this.Data.ArgsType)
         this.ArgsNameCon.Text := this.Data.ArgsName
 
         this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
@@ -259,23 +256,23 @@ class ArrayGui {
     }
 
     OnClickIndexHelpBtn(*) {
-        str1 := "数组支持二维，该参数可控制数组或子数组进行调度"
-        str2 := '一维数组时，保持默认值0即可'
-        str3 := "0. 数组本身"
-        str4 := 'N. 对应索引的子数组'
+        str1 := GetLang("数组支持二维，该参数可控制数组或子数组进行调度")
+        str2 := GetLang("一维数组时，保持默认值0即可")
+        str3 := GetLang("0. 数组本身")
+        str4 := GetLang("N. 对应索引的子数组")
         MsgBox(Format("{}`n{}`n{}`n{}", str1, str2, str3, str4))
     }
 
     OnClickInitHelpBtn(*) {
-        str1 := "1. 逗号分割数据"
-        str2 := "案例数据：1,2,文本,4"
-        str3 := '数组-1=1、数组-2=2、数组-3="文本"、数组-4=4'
-        str4 := "2. 中括号表示数组数据"
-        str5 := '案例数据：1,"文本",[2, 5, 7],8'
-        str6 := '数组-1=1、数组-2="文本"、数组-3=2, 5, 7、数组-4=8'
-        str7 := "3. 数据中使用\符号，表示原本的功能"
-        str8 := "案例数据1,我的\,世界,\[若梦兔\],4"
-        str9 := '数组-1=1、数组-2="我的,世界"、数组-3="[若梦兔]"、数组-4=4'
+        str1 := GetLang("1. 逗号分割数据")
+        str2 := GetLang("案例数据：1,2,文本,4")
+        str3 := GetLang('数组-1→1、数组-2→2、数组-3→"文本"、数组-4→4')
+        str4 := GetLang("2. 中括号表示数组数据")
+        str5 := GetLang('案例数据：1,"文本",[2, 5, 7],8')
+        str6 := GetLang('数组-1→1、数组-2→"文本"、数组-3→2, 5, 7、数组-4→8')
+        str7 := GetLang("3. 数据中使用\符号，表示原本的功能")
+        str8 := GetLang("案例数据1,我的\,世界,\[若梦兔\],4")
+        str9 := GetLang('数组-1→1、数组-2→"我的,世界"、数组-3→"[若梦兔]"、数组-4→4')
         MsgBox(Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9))
     }
 
@@ -302,48 +299,50 @@ class ArrayGui {
         if (Remark == "") {
             switch this.Data.Type {
                 case "创建":
-                    Remark := Format("创建{}", this.Data.Name)
+                    Remark := Format(GetLang("创建{}"), this.Data.Name)
                 case "克隆":
-                    Remark := Format("克隆{}到{}", this.Data.Name, this.Data.SaveName)
+                    Remark := Format(GetLang("克隆{}到{}"), this.Data.Name, this.Data.SaveName)
                 case "删除":
-                    Remark := Format("删除{}", this.Data.Name)
+                    Remark := Format(GetLang("删除{}"), this.Data.Name)
                 case "包含":
-                    tip1 := Format("{}包含数据{}", this.Data.Name, this.Data.ArgsName)
-                    tip2 := Format("{}-{}包含数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
+                    tip1 := Format(GetLang("{}包含数据{}"), this.Data.Name, this.Data.ArgsName)
+                    tip2 := Format(GetLang("{}-{}包含数据{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "取值":
-                    tip1 := Format("取值{}-{}到{}", this.Data.Name, this.Data.ArgsIndex, this.Data.SaveName)
-                    tip2 := Format("取值{}-{}-{}到{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
-                        .SaveName)
+                    tip1 := Format(GetLang("取值{}-{}到{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.SaveName)
+                    tip2 := Format(GetLang("取值{}-{}-{}到{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
+                    this.Data
+                    .SaveName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "赋值":
-                    tip1 := Format("{}-{}赋值为{}", this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
-                    tip2 := Format("{}-{}-{}赋值为{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
-                        .ArgsName)
+                    tip1 := Format(GetLang("{}-{}赋值为{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
+                    tip2 := Format(GetLang("{}-{}-{}赋值为{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
+                    this.Data
+                    .ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "插入":
-                    tip1 := Format("{}-{}插入数据{}", this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
-                    tip2 := Format("{}-{}-{}插入数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
-                        .ArgsName)
+                    tip1 := Format(GetLang("{}-{}插入数据{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
+                    tip2 := Format(GetLang("{}-{}-{}插入数据{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
+                    this.Data
+                    .ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "追加":
-                    tip1 := Format("{}追加数据{}", this.Data.Name, this.Data.ArgsName)
-                    tip2 := Format("{}-{}追加数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
+                    tip1 := Format(GetLang("{}追加数据{}"), this.Data.Name, this.Data.ArgsName)
+                    tip2 := Format(GetLang("{}-{}追加数据{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "移除":
-                    tip1 := Format("移除{}-{}", this.Data.Name, this.Data.ArgsIndex)
-                    tip2 := Format("移除{}-{}-{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex)
+                    tip1 := Format(GetLang("移除{}-{}"), this.Data.Name, this.Data.ArgsIndex)
+                    tip2 := Format(GetLang("移除{}-{}-{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "移除最后":
-                    tip1 := Format("移除{}-最后数据", this.Data.Name)
-                    tip2 := Format("移除{}-{}最后数据", this.Data.Name, this.Data.MainIndex)
+                    tip1 := Format(GetLang("移除{}-最后数据"), this.Data.Name)
+                    tip2 := Format(GetLang("移除{}-{}最后数据"), this.Data.Name, this.Data.MainIndex)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "长度":
-                    tip1 := Format("{}长度", this.Data.Name)
-                    tip2 := Format("{}-{}长度", this.Data.Name, this.Data.MainIndex)
+                    tip1 := Format(GetLang("{}长度"), this.Data.Name)
+                    tip2 := Format(GetLang("{}-{}长度"), this.Data.Name, this.Data.MainIndex)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
             }
-
         }
         CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
