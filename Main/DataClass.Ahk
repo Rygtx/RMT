@@ -601,7 +601,7 @@ class RMTCMDData {
     }
 }
 
-class TextProcessData {
+class TextOpsData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0

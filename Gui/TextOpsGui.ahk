@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 
-class TextProcessGui {
+class TextOpsGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
@@ -19,7 +19,7 @@ class TextProcessGui {
         this.ResultActionCon := ""
         this.SplitParamCon := ""
         this.MaxSplitCountCon := ""
-        this.Data := TextProcessData()
+        this.Data := TextOpsData()
     }
 
     ShowGui(cmd) {

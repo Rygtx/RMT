@@ -18,7 +18,7 @@
 #Include LoopGui.ahk
 #Include CompareProGui.ahk
 #Include CompareProEditItemGui.ahk
-#Include TextProcessGui.ahk
+#Include TextOpsGui.ahk
 #Include ArrayGui.ahk
 
 class MacroEditGui {
@@ -119,9 +119,9 @@ class MacroEditGui {
         this.ExVariableGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
         this.SubGuiMap.Set(GetLang("变量提取"), this.ExVariableGui)
 
-        this.TextProcessGui := TextProcessGui()
-        this.TextProcessGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
-        this.SubGuiMap.Set(GetLang("文本处理"), this.TextProcessGui)
+        this.TextOpsGui := TextOpsGui()
+        this.TextOpsGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
+        this.SubGuiMap.Set(GetLang("文本处理"), this.TextOpsGui)
 
         this.ArrayGui := ArrayGui()
         this.ArrayGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
@@ -183,7 +183,7 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\LoopCount.png")
             IL_Add(ImageListID, "Images\Soft\Condition.png")
             IL_Add(ImageListID, "Images\Soft\LoopBody.png")
-            IL_Add(ImageListID, "Images\Soft\TextProcess.png")      ;todo 还没正式化
+            IL_Add(ImageListID, "Images\Soft\TextOps.png")      ;todo 还没正式化
             IL_Add(ImageListID, "Images\Soft\Array.png")            ;todo 还没正式化
         }
 
@@ -305,7 +305,7 @@ class MacroEditGui {
         PosY += 40
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文本处理"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextProcessGui))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextOpsGui))
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("数组"))
