@@ -584,7 +584,7 @@ class ArrayData {
         this.IsIgnoreExist := 0
         this.Type := "创建"
         this.Name := "Arr"
-        this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
+        this.InitArr := [1, 2, 3, 4, 5, 6, 7, 8, 9]
         this.MainIndex := 0
         this.ArgsIndex := 1
         this.ArgsType := "变量或值"

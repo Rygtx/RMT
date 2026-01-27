@@ -39,7 +39,8 @@ class ArrayGui {
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("类型："))
 
         PosX += 50
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆", "删除",
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆",
+            "删除",
             "包含",
             "取值",
             "赋值", "插入", "追加", "移除", "移除最后", "长度"]))
@@ -297,7 +298,54 @@ class ArrayGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
+        Remark := this.RemarkCon.Value
+        if (Remark == "") {
+            switch this.Data.Type {
+                case "创建":
+                    Remark := Format("创建{}", this.Data.Name)
+                case "克隆":
+                    Remark := Format("克隆{}到{}", this.Data.Name, this.Data.SaveName)
+                case "删除":
+                    Remark := Format("删除{}", this.Data.Name)
+                case "包含":
+                    tip1 := Format("{}包含数据{}", this.Data.Name, this.Data.ArgsName)
+                    tip2 := Format("{}-{}包含数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "取值":
+                    tip1 := Format("取值{}-{}到{}", this.Data.Name, this.Data.ArgsIndex, this.Data.SaveName)
+                    tip2 := Format("取值{}-{}-{}到{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
+                        .SaveName)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "赋值":
+                    tip1 := Format("{}-{}赋值为{}", this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
+                    tip2 := Format("{}-{}-{}赋值为{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
+                        .ArgsName)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "插入":
+                    tip1 := Format("{}-{}插入数据{}", this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
+                    tip2 := Format("{}-{}-{}插入数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data
+                        .ArgsName)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "追加":
+                    tip1 := Format("{}追加数据{}", this.Data.Name, this.Data.ArgsName)
+                    tip2 := Format("{}-{}追加数据{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsName)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "移除":
+                    tip1 := Format("移除{}-{}", this.Data.Name, this.Data.ArgsIndex)
+                    tip2 := Format("移除{}-{}-{}", this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "移除最后":
+                    tip1 := Format("移除{}-最后数据", this.Data.Name)
+                    tip2 := Format("移除{}-{}最后数据", this.Data.Name, this.Data.MainIndex)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+                case "长度":
+                    tip1 := Format("{}长度", this.Data.Name)
+                    tip2 := Format("{}-{}长度", this.Data.Name, this.Data.MainIndex)
+                    Remark := this.Data.MainIndex == 0 ? tip1 : tip2
+            }
+
+        }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 

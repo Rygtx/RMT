@@ -186,8 +186,6 @@
     }
 
     WorkDeleteGlobalArray(ArrName) {
-        if (MySoftData.ArrayMap.Has(ArrName))
-            MySoftData.ArrayMap.Delete(ArrName)
         CMDStr := Format("DeleteArray_{}", ArrName)
         MsgSendHandler(CmdStr)
     }
@@ -195,23 +193,17 @@
     WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
         CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-        SourceArr[Index] := Value
         MsgSendHandler(CmdStr)
     }
 
     WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
         CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-        SourceArr.InsertAt(Index, Value)
         MsgSendHandler(CmdStr)
     }
 
     WorkRemoveAtGlobalArray(ArrName, MainIndex, Index) {
         CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
-        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-        SourceArr.RemoveAt(Index)
         MsgSendHandler(CmdStr)
     }
 

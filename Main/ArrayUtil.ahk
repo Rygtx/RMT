@@ -352,7 +352,7 @@ ArrayPushValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
-    PushIndex := SourceArr.Length
+    PushIndex := SourceArr.Length + 1
     TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (Data.ArgsType == "变量或值") {
         isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
