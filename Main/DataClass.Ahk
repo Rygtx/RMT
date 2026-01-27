@@ -536,11 +536,7 @@ class OperationData {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
-        this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.OperationArr := ["", "", "", ""]
         this.UpdateNameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.SymbolGroups := [[], [], [], []]  ;操作符号
-        this.ValueGroups := [[], [], [], []]     ;运算对象
         this.ExpressionArr := ["", "", "", ""]    ;完整表达式字符串（用于支持括号和整体编辑）
     }
 }

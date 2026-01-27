@@ -67,7 +67,7 @@ SetGlobalData(macroStr, visitMap) {
         }
         else if (IsArray) {
             SetArrayDataNewArr(Data)
-            SetArrayDataNewArr(Data)
+            SetArrayDataNewVar(Data)
         }
 
         if (IsIf || IsSearch || IsSearchPro) {

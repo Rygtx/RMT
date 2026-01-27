@@ -79,6 +79,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsRMT := InStr(paramArr[1], "RMT指令")
         IsLoop := InStr(paramArr[1], "循环")
         IsTextProcess := InStr(paramArr[1], "文本处理")
+        IsArray := InStr(paramArr[1], "数组")
 
         if (MySoftData.CMDTip) {
             MyCMDReportAciton(cmdArr[A_Index])
@@ -146,6 +147,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         }
         else if (IsTextProcess) {
             OnTextProcess(tableItem, cmdArr[A_Index], index)
+        }
+        else if (IsArray) {
+            OnArray(tableItem, cmdArr[A_Index], index)
         }
     }
 }
@@ -470,7 +474,9 @@ OnMMProOnce(tableItem, index, Data) {
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    Content := GetReplaceVarText(tableItem, index, Data.Text)
+    isOk := GetReplaceVarText(tableItem, index, Data.Text, &Content)
+    if (!isOk)
+        return
 
     if (Data.OutputType == 1) {     ;send
         SendText(Content)
@@ -773,7 +779,10 @@ OnExVariableOnce(tableItem, index, Data) {
         if (index < TextObjs.Length)
             allText .= "`n"
     }
-    ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
+    isSucces := GetReplaceVarText(tableItem, index, Data.ExtractStr, &ExtractStr)
+    if (!isSucces)
+        return false
+
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
         VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
@@ -805,34 +814,16 @@ OnOperation(tableItem, cmd, index) {
     NewNameArr := []
     NewValueArr := []
     loop Data.ToggleArr.Length {
-        if (!Data.ToggleArr[A_Index])
+        if (!Data.ToggleArr[A_Index] || Data.ExpressionArr[A_Index] == "")
             continue
-        Name := ""  ; NameArr不再使用，变量从表达式中获取
-        SymbolArr := Data.SymbolGroups[A_Index]
-        ValueArr := Data.ValueGroups[A_Index]
 
-        ; 兼容性检查：如果有表达式，优先使用表达式
-        Expression := ""
-        if (ObjHasOwnProp(Data, "ExpressionArr") && IsObject(Data.ExpressionArr)) {
-            Expression := Data.ExpressionArr.Has(A_Index) ? Data.ExpressionArr[A_Index] : ""
-        }
+        isOk := GetExpressionResult(Data.ExpressionArr[A_Index], tableItem, index, &Res)
+        if (!isOk)
+            continue
 
-        ; 如果有表达式且不为空，使用表达式计算
-        if (Expression != "") {
-            res := GetOperationResultFromExpression(Expression, Name, tableItem, index)
-            MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
-            NewNameArr.Push(Data.UpdateNameArr[A_Index])
-            NewValueArr.Push(res)
-        } else {
-            ; 使用旧的SymbolArr/ValueArr方式（向后兼容）
-            isOk := GetTabOperationResult(tableItem, index, Name, SymbolArr, ValueArr, &res)
-
-            if (isOk) {
-                MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
-                NewNameArr.Push(Data.UpdateNameArr[A_Index])
-                NewValueArr.Push(res)
-            }
-        }
+        MySoftData.VariableMap[Data.UpdateNameArr[A_Index]] := res
+        NewNameArr.Push(Data.UpdateNameArr[A_Index])
+        NewValueArr.Push(res)
     }
     if (NewNameArr.Length > 0)
         MySetGlobalVariable(NewNameArr, NewValueArr, Data.IsIgnoreExist)
@@ -1564,5 +1555,45 @@ OnTextProcess(tableItem, cmd, index) {
         loop NameArr.Length {
             MySetGlobalVariable([NameArr[A_Index]], [ValueArr[A_Index]], false)
         }
+    }
+}
+
+OnArray(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+    ;用中文方便拓展，数值类型不好拓展
+    switch Data.Type {
+        case "创建":
+            if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
+                return
+            MySetGlobalArray(Data.Name, Data.InitArr)
+        case "克隆":
+            if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
+                return
+
+            SourceArr := GetCmdArray(Data, tableItem, index, true)
+            if (SourceArr == "")
+                return
+
+            MyCloneGlobalArray(SourceArr, Data.SaveName)
+        case "删除":
+            if (MySoftData.ArrayMap.Has(Data.Name))
+                MyDeleteGlobalArray(Data.Name)
+        case "包含":
+            ArrayCheckIfContain(Data, tableItem, index)
+        case "取值":
+            ArrayGetIndexValue(Data, tableItem, index)
+        case "赋值":
+            ArrayModifyIndexValue(Data, tableItem, index)
+        case "插入":
+            ArrayInsertIndexValue(Data, tableItem, index)
+        case "追加":
+            ArrayPushValue(Data, tableItem, index)
+        case "移除":
+            ArrayRemoveAtIndex(Data, tableItem, index)
+        case "移除最后":
+            ArrayPopValue(Data, tableItem, index)
+        case "长度":
+            ArrayGetLength(Data, tableItem, index)
     }
 }

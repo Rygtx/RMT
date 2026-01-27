@@ -12,7 +12,7 @@ class OperationGui {
 
         this.IsIgnoreExistCon := ""
         this.ToggleConArr := []
-        this.OperationConArr := []
+        this.ExprConArr := []
         this.UpdateNameConArr := []
     }
 
@@ -49,73 +49,35 @@ class OperationGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运算表达式"))
         PosX += 290
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("保存结果变量"))
+        PosY -= 10
 
-        PosY += 25
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
+        loop 4 {
+            PosY += 35
+            PosX := 15
+            con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
+            this.ToggleConArr.Push(con)
 
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
-        con.Enabled := false
-        this.OperationConArr.Push(con)
+            PosX += 35
+            con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 300), "")
+            con.Enabled := false
+            this.ExprConArr.Push(con)
 
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
-        con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
+            PosX += 305
+            con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX, PosY - 4, 50), GetLang("编辑"))
+            con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
-        this.UpdateNameConArr.Push(con)
+            PosX += 55
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 120), [])
+            this.UpdateNameConArr.Push(con)
 
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
-        con.Enabled := false
-        this.OperationConArr.Push(con)
-
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
-        con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(2))
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
-        this.UpdateNameConArr.Push(con)
-
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
-        con.Enabled := false
-        this.OperationConArr.Push(con)
-
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
-        con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(3))
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
-        this.UpdateNameConArr.Push(con)
-
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 35, PosY - 3, 250), "")
-        con.Enabled := false
-        this.OperationConArr.Push(con)
-
-        con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX + 290, PosY - 4, 50), GetLang("编辑"))
-        con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(4))
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 350, PosY - 3, 120), [])
-        this.UpdateNameConArr.Push(con)
+        }
 
         PosY += 40
-        PosX := 250
+        PosX := 225
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.Show(Format("w{} h{}", 500, 270))
+        MyGui.Show(Format("w{} h{}", 550, 270))
     }
 
     Init(cmd) {
@@ -125,23 +87,10 @@ class OperationGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
 
-        ; 兼容性检查：如果ExpressionArr不存在，初始化为空数组
-        if (!ObjHasOwnProp(this.Data, "ExpressionArr") || !IsObject(this.Data.ExpressionArr)) {
-            this.Data.ExpressionArr := ["", "", "", ""]
-        }
-
-        ; 迁移旧数据：如果ExpressionArr为空但OperationArr有内容，则将OperationArr复制到ExpressionArr
-        loop 4 {
-            if (this.Data.ExpressionArr.Has(A_Index) && this.Data.ExpressionArr[A_Index] == "" 
-                && this.Data.OperationArr.Has(A_Index) && this.Data.OperationArr[A_Index] != "") {
-                this.Data.ExpressionArr[A_Index] := this.Data.OperationArr[A_Index]
-            }
-        }
-
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
-            this.OperationConArr[A_Index].Value := GetLangStr(this.Data.OperationArr[A_Index], 1)
+            this.ExprConArr[A_Index].Value := GetLangStr(this.Data.ExpressionArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
             this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
             this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
@@ -166,36 +115,23 @@ class OperationGui {
         return CommandStr
     }
 
-    OnSureOperationBtnClick(index, command, SymbolArr, ValueArr) {
-        con := this.OperationConArr[index]
-        con.Value := command
-        this.Data.SymbolGroups[index] := SymbolArr
-        this.Data.ValueGroups[index] := ValueArr
-
-        ; 保存表达式
-        if (this.OperationSubGui && this.OperationSubGui.ExpressionCon) {
-            expression := this.OperationSubGui.ExpressionCon.Value
-            this.Data.ExpressionArr[index] := expression
-        }
-    }
-
-    OnEditVariableBtnClick(index) {
+    OnEditVariableBtnClick(Index) {
         if (this.OperationSubGui == "") {
             this.OperationSubGui := OperationSubGui()
         }
 
-        this.SaveOperationData()
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.OperationSubGui.ParentTile := ParentTile "-"
 
-        SymbolArr := this.Data.SymbolGroups[index]
-        ValueArr := this.Data.ValueGroups[index]
-        Expression := this.Data.ExpressionArr.Has(index) ? this.Data.ExpressionArr[index] : ""
-        this.OperationSubGui.SureBtnAction := (index, command, SymbolArr, ValueArr) => this.OnSureOperationBtnClick(
-            index, command, SymbolArr, ValueArr)
+        this.OperationSubGui.SureBtnAction := (Index, ExpressStr) => this.OnSureOperationBtnClick(
+            Index, ExpressStr)
 
         ; 将表达式作为参数传递给ShowGui，Name为空表示没有预先选择的变量
-        this.OperationSubGui.ShowGui(index, "", this.OperationConArr[index].Value, SymbolArr, ValueArr, Expression)
+        this.OperationSubGui.ShowGui(Index, this.ExprConArr[Index].Value)
+    }
+
+    OnSureOperationBtnClick(Index, ExpressStr) {
+        this.ExprConArr[Index].Text := ExpressStr
     }
 
     OnClickSureBtn() {
@@ -235,17 +171,8 @@ class OperationGui {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         loop this.Data.ToggleArr.Length {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.NameArr[A_Index] := ""  ; NameArr不再使用，变量从表达式中获取
-            this.Data.OperationArr[A_Index] := GetLangStr(this.OperationConArr[A_Index].Value, 2)
+            this.Data.ExpressionArr[A_Index] := GetLangStr(this.ExprConArr[A_Index].Value, 2)
             this.Data.UpdateNameArr[A_Index] := GetLangKey(this.UpdateNameConArr[A_Index].Text)
-        }
-
-        ; 确保ExpressionArr存在且有4个元素
-        if (!ObjHasOwnProp(this.Data, "ExpressionArr") || !IsObject(this.Data.ExpressionArr)) {
-            this.Data.ExpressionArr := ["", "", "", ""]
-        }
-        while (this.Data.ExpressionArr.Length < 4) {
-            this.Data.ExpressionArr.Push("")
         }
 
         ; 添加全局变量，方便下拉选取

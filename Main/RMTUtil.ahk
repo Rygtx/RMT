@@ -285,6 +285,89 @@ SubMacroStopAction(tableIndex, itemIndex) {
     MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
 }
 
+SetGlobalArray(Name, Value) {
+    CMDStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
+    MySoftData.ArrayMap[Name] := Value
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+CloneGlobalArray(SourceArr, NewArrName) {
+    CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
+    MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+DeleteGlobalArray(ArrName) {
+    CMDStr := Format("DeleteArray_{}", ArrName)
+    MySoftData.ArrayMap.Delete(ArrName)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+    ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+    CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr[Index] := Value
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+    ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
+    CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr.InsertAt(Index, Value)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
+RemoveAtGlobalArray(ArrName, MainIndex, Index) {
+    CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr.RemoveAt(Index)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
 SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
     RealNameArr := NameArr.Clone()
     RealValueArr := ValueArr.Clone()
@@ -446,81 +529,69 @@ ToolTipTimer() {
 
 ExcuteRMTCMDAction(Cmd) {
     paramArr := StrSplit(Cmd, "_")
-    cmdStr := paramArr[2]
-    if (cmdStr == "截图") {
-        OnToolScreenShot()
-    }
-    else if (cmdStr == "截图提取文本") {
-        OnToolTextFilterScreenShot()
-    }
-    else if (cmdStr == "自由贴") {
-        OnToolFreePaste()
-    }
-    else if (cmdStr == "开启指令显示") {
-        MySoftData.CMDTipCtrl.Value := true
-        MySoftData.CMDTip := true
-        SetCMDTipValue(true)
-        MyCMDTipGui.ShowGui("开启指令显示")
-    }
-    else if (cmdStr == "关闭指令显示") {
-        MySoftData.CMDTipCtrl.Value := false
-        MySoftData.CMDTip := false
-        SetCMDTipValue(false)
-        if (!IsObject(MyCMDTipGui.Gui))
-            return
+    switch paramArr[2] {
+        case "截图":
+            OnToolScreenShot()
+        case "截图提取文本":
+            OnToolTextFilterScreenShot()
+        case "自由贴":
+            OnToolFreePaste()
+        case "开启指令显示":
+            MySoftData.CMDTipCtrl.Value := true
+            MySoftData.CMDTip := true
+            SetCMDTipValue(true)
+            MyCMDTipGui.ShowGui("开启指令显示")
+        case "关闭指令显示":
+            MySoftData.CMDTipCtrl.Value := false
+            MySoftData.CMDTip := false
+            SetCMDTipValue(false)
+            if (!IsObject(MyCMDTipGui.Gui))
+                return
 
-        try {
-            style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
-            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-            if (isVisible)
-                MyCMDTipGui.Gui.Hide()
-        }
-    }
-    else if (cmdStr == "开启变量监视") {
-        RefreshListenVarGui(true)
-    }
-    else if (cmdStr == "关闭变量监视") {
-        if (!IsObject(MyVarListenGui.Gui))
-            return
-
-        try {
-            style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
-            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-            if (isVisible) {
-                MyVarListenGui.Gui.Hide()
-                IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
+            try {
+                style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
+                isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+                if (isVisible)
+                    MyCMDTipGui.Gui.Hide()
             }
-        }
-    }
-    else if (cmdStr == "显示菜单") {
-        OpenMenuWheel(paramArr[3], false)
-    }
-    else if (cmdStr == "关闭菜单") {
-        CloseMenuWheel()
-    }
-    else if (cmdStr == "启用键鼠") {
-        BlockInput false
-    }
-    else if (cmdStr == "禁用键鼠") {
-        BlockInput true
-    }
-    else if (cmdStr == "休眠") {
-        OnSuspendHotkey()
-    }
-    else if (cmdStr == "暂停所有宏") {
-        SetPauseState(true)
-    }
-    else if (cmdStr == "恢复所有宏") {
-        SetPauseState(false)
-    }
-    else if (cmdStr == "终止所有宏") {
-        OnKillAllMacro()
-    }
-    else if (cmdStr == "重载") {
-        MenuReload()
-    }
-    else if (cmdStr == "关闭软件") {
-        ExitApp()
+        case "开启变量监视":
+            RefreshListenVarGui(true)
+        case "关闭变量监视":
+            if (!IsObject(MyVarListenGui.Gui))
+                return
+
+            try {
+                style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
+                isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+                if (isVisible) {
+                    MyVarListenGui.Gui.Hide()
+                    IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
+                }
+            }
+        case "显示菜单":
+            OpenMenuWheel(paramArr[3], false)
+        case "关闭菜单":
+            CloseMenuWheel()
+        case "启用键鼠":
+            BlockInput false
+        case "禁用键鼠":
+            BlockInput true
+        case "置顶或取消":
+            WinSetAlwaysOnTop -1, "A"
+        case "透明度":
+            WinSetTransparent Round(255 * (100 - paramArr[3]) / 100), "A"
+        case "休眠":
+            OnSuspendHotkey()
+        case "暂停所有宏":
+            SetPauseState(true)
+        case "恢复所有宏":
+            SetPauseState(false)
+        case "终止所有宏":
+            OnKillAllMacro()
+        case "重载":
+            MenuReload()
+        case "关闭软件":
+            ExitApp()
     }
 }
 

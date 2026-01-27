@@ -154,43 +154,39 @@ class WorkPool {
         Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
         paramArr := StrSplit(Cmd, "_")
         switch paramArr[1] {
-
             case "SetVari":
-                NameArr  := []
-                ValueArr := []
-                i := 2
-                while (i <= paramArr.Length) {
-                    NameArr.Push(paramArr[i])
-                    ValueArr.Push(paramArr[i + 1])
-                    i += 2
-                }
+                GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)
                 SetGlobalVariable(NameArr, ValueArr, false)
-
             case "DelVari":
                 NameArr := paramArr.Clone()
                 NameArr.RemoveAt(1)
                 DelGlobalVariable(NameArr)
-
             case "Report":
                 CMDReport(SubStr(Cmd, 8))
-
             case "RMT指令":
-                MyExcuteRMTCMDAction(Cmd)
-
+                ExcuteRMTCMDAction(Cmd)
             case "ItemState":
-                MySetTableItemState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
-
+                SetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
             case "PauseState":
-                MySetItemPauseState(paramArr[2],Integer(paramArr[3]),Integer(paramArr[4]))
-
+                SetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
             case "MsgBox":
-                MyMsgBoxContent(paramArr[2])
-
+                MsgBoxContent(paramArr[2])
             case "ToolTip":
-                MyToolTipContent(paramArr[2])
-
+                ToolTipContent(paramArr[2])
             case "MacroCount":
-                MyMacroCount(paramArr[2])
+                MacroCount(paramArr[2])
+            case "SetArray":
+                SetGlobalArray(paramArr[2], GetArray(paramArr[3]))
+            case "CloneArray":
+                CloneGlobalArray(GetArray(paramArr[2]), paramArr[3])
+            case "DeleteArray":
+                DeleteGlobalArray(paramArr[2])
+            case "ModifyArray":
+                ModifyGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
+            case "InsertArray":
+                InsertGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
+            case "RemoveAtArray":
+                RemoveAtGlobalArray(paramArr[2], paramArr[3], paramArr[4])
         }
     }
 }

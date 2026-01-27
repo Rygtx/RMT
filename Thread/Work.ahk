@@ -50,6 +50,13 @@ global MySetItemPauseState := WorkSetItemPauseState
 global MyMsgBoxContent := WorkMsgBoxContent
 global MyToolTipContent := WorkToolTipContent
 global MyMacroCount := WorkMacroCount
+;数组相关
+global MySetGlobalArray := WorkSetGlobalArray
+global MyCloneGlobalArray := WorkCloneGlobalArray
+global MyDeleteGlobalArray := WorkDeleteGlobalArray
+global MyModifyGlobalArray := WorkModifyGlobalArray
+global MyInsertGlobalArray := WorkInsertGlobalArray
+global MyRemoveAtGlobalArray := WorkRemoveAtGlobalArray
 WorkOpenCVLoadDll()
 
 ; 注册消息
