@@ -113,3 +113,5 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
+;ww
