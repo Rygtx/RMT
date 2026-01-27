@@ -288,6 +288,10 @@ class ArrayGui {
     }
 
     CheckIfValid() {
+        if (IsNumber(this.SaveNameCon.Text)) {
+            MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
+            return false
+        }
         return true
     }
 
