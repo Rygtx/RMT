@@ -121,7 +121,7 @@ class VarListenGui {
     OnModifySureAction(isArray, Name, Value) {
         if (isArray) {
             if (Value == "")
-                DelGlobalVariable([Name])   ;todo
+                DeleteGlobalArray(Name)
             else
                 SetGlobalArray(Name, GetArray(Value))
         }
