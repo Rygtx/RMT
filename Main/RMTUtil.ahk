@@ -354,6 +354,20 @@ InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     }
 }
 
+RemoveAtGlobalArray(ArrName, MainIndex, Index) {
+    CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
+    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+    SourceArr.RemoveAt(Index)
+    MyVarListenGui.Refresh()
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (IsMuti) {
+        loop MyWorkPool.maxSize {
+            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        }
+    }
+}
+
 SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
     RealNameArr := NameArr.Clone()
     RealValueArr := ValueArr.Clone()

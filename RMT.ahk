@@ -99,6 +99,7 @@ global MyCloneGlobalArray := CloneGlobalArray
 global MyDeleteGlobalArray := DeleteGlobalArray
 global MyModifyGlobalArray := ModifyGlobalArray
 global MyInsertGlobalArray := InsertGlobalArray
+global MyRemoveAtGlobalArray := RemoveAtGlobalArray
 
 InitFilePath()          ;初始化文件路径
 LoadCurMacroSetting()   ;加载当前配置宏

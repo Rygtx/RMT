@@ -56,6 +56,7 @@ global MyCloneGlobalArray := WorkCloneGlobalArray
 global MyDeleteGlobalArray := WorkDeleteGlobalArray
 global MyModifyGlobalArray := WorkModifyGlobalArray
 global MyInsertGlobalArray := WorkInsertGlobalArray
+global MyRemoveAtGlobalArray := WorkRemoveAtGlobalArray
 WorkOpenCVLoadDll()
 
 ; 注册消息

@@ -864,3 +864,4 @@ RMT默认初始化配置=RMT Default Setting
 数组：{}  子数组{}  长度：{}=Array {} → Sub-array{} Length: {}
 无法修改第{}的值=Unable to modify value at {}.
 无法在第{}位置插入数据=Unable to insert data at {}.
+无法移除末尾的数据=Unable to remove the last item.

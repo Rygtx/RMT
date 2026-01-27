@@ -197,7 +197,7 @@ SetArrayDataNewVar(Data) {
         MySoftData.GlobalVariMap[NewVarName] := true
 }
 
-CheckArrayIfContain(Data, tableItem, index) {
+ArrayCheckIfContain(Data, tableItem, index) {
     if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
         return
 
@@ -216,9 +216,7 @@ CheckArrayIfContain(Data, tableItem, index) {
                 Res := 1
                 break
             }
-
         }
-        MySetGlobalVariable([Data.SaveName], [Res], false)
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
@@ -237,11 +235,11 @@ CheckArrayIfContain(Data, tableItem, index) {
                 }
             }
         }
-        MySetGlobalVariable([Data.SaveName], [Res], false)
     }
+    MySetGlobalVariable([Data.SaveName], [Res], Data.IsIgnoreExist)
 }
 
-GetArrayIndexValue(Data, tableItem, index) {
+ArrayGetIndexValue(Data, tableItem, index) {
     if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
         return
 
@@ -249,16 +247,16 @@ GetArrayIndexValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     isHas := TryGetVariableValue(&GetIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
     if (SourceArr.Length < GetIndex) {
         if (MySoftData.NoVariableTip) {
-            TryGetVariableValue(&SubIndex, tableItem, index, Data.MainIndex, false)
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
-            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
-            str1 := SubIndex == 0 ? tip1 : tip2
+            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
+            str1 := MainIndex == 0 ? tip1 : tip2
             str2 := Format("无法获取第{}的值", GetIndex)
             MsgBox(str1 "`n" str2)
         }
@@ -267,33 +265,32 @@ GetArrayIndexValue(Data, tableItem, index) {
     Value := SourceArr[GetIndex]
 
     if (Data.SaveType == "变量")
-        MySetGlobalVariable([Data.SaveName], [Value], false)
+        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
     else if (Data.SaveType == "数组")
         MySetGlobalArray(Data.SaveName, Value)
 }
 
-ModifyArrayIndexValue(Data, tableItem, index) {
+ArrayModifyIndexValue(Data, tableItem, index) {
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")
         return
 
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     isHas := TryGetVariableValue(&SetIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
     if (SourceArr.Length < SetIndex) {
         if (MySoftData.NoVariableTip) {
-            TryGetVariableValue(&SubIndex, tableItem, index, Data.MainIndex, false)
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
-            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
-            str1 := SubIndex == 0 ? tip1 : tip2
+            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
+            str1 := MainIndex == 0 ? tip1 : tip2
             str2 := Format("无法修改第{}的值", SetIndex)
             MsgBox(str1 "`n" str2)
         }
         return ""
     }
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (Data.ArgsType == "变量或值") {
         isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
@@ -311,33 +308,33 @@ ModifyArrayIndexValue(Data, tableItem, index) {
     }
 }
 
-InsertArrayIndexValue(Data, tableItem, index) {
+ArrayInsertIndexValue(Data, tableItem, index) {
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")
         return
 
-    isHas := TryGetVariableValue(&SetIndex, tableItem, index, Data.ArgsIndex, true)
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    isHas := TryGetVariableValue(&InsertIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
-    if (SourceArr.Length < SetIndex) {
+    if (SourceArr.Length < InsertIndex) {
         if (MySoftData.NoVariableTip) {
             TryGetVariableValue(&SubIndex, tableItem, index, Data.MainIndex, false)
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
             str1 := SubIndex == 0 ? tip1 : tip2
-            str2 := Format("无法在第{}位置插入数据", SetIndex)
+            str2 := Format("无法在第{}位置插入数据", InsertIndex)
             MsgBox(str1 "`n" str2)
         }
         return ""
     }
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (Data.ArgsType == "变量或值") {
         isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
             return
-        MyInsertGlobalArray(Data.Name, MainIndex, SetIndex, 0, Value)
+        MyInsertGlobalArray(Data.Name, MainIndex, InsertIndex, 0, Value)
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
@@ -346,6 +343,99 @@ InsertArrayIndexValue(Data, tableItem, index) {
             return
         }
         Value := MySoftData.ArrayMap[Data.ArgsName]
-        MyInsertGlobalArray(Data.Name, MainIndex, SetIndex, 1, Value)
+        MyInsertGlobalArray(Data.Name, MainIndex, InsertIndex, 1, Value)
     }
+}
+
+ArrayPushValue(Data, tableItem, index) {
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+
+    PushIndex := SourceArr.Length
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    if (Data.ArgsType == "变量或值") {
+        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        if (!isHas)
+            return
+        MyInsertGlobalArray(Data.Name, MainIndex, PushIndex, 0, Value)
+    }
+    else if (Data.ArgsType == "数组") {
+        if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
+            if (MySoftData.NoVariableTip)
+                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+            return
+        }
+        Value := MySoftData.ArrayMap[Data.ArgsName]
+        MyInsertGlobalArray(Data.Name, MainIndex, PushIndex, 1, Value)
+    }
+}
+
+ArrayRemoveAtIndex(Data, tableItem, index) {
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+
+    isHas := TryGetVariableValue(&RemoveIndex, tableItem, index, Data.ArgsIndex, true)
+    if (!isHas)
+        return
+
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    if (SourceArr.Length < RemoveIndex) {
+        if (MySoftData.NoVariableTip) {
+            tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
+            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
+            str1 := MainIndex == 0 ? tip1 : tip2
+            str2 := Format("无法移除第{}位置的数据", RemoveIndex)
+            MsgBox(str1 "`n" str2)
+        }
+        return
+    }
+    Value := SourceArr[RemoveIndex]
+    MyRemoveAtGlobalArray(Data.Name, MainIndex, RemoveIndex)
+
+    if (Data.SaveType == "变量")
+        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
+    else if (Data.SaveType == "数组") {
+        if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
+            return
+        MySetGlobalArray(Data.SaveName, Value)
+    }
+}
+
+ArrayPopValue(Data, tableItem, index) {
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+    if (SourceArr.Length == 0) {
+        if (MySoftData.NoVariableTip) {
+            tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
+            tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
+            str1 := MainIndex == 0 ? tip1 : tip2
+            str2 := Format("无法移除末尾的数据")
+            MsgBox(str1 "`n" str2)
+        }
+        return
+    }
+
+    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    Value := SourceArr[SourceArr.Length]
+    MyRemoveAtGlobalArray(Data.Name, MainIndex, SourceArr.Length)
+
+    if (Data.SaveType == "变量")
+        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
+    else if (Data.SaveType == "数组") {
+        if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
+            return
+        MySetGlobalArray(Data.SaveName, Value)
+    }
+}
+
+ArrayGetLength(Data, tableItem, index) {
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+
+    Value := SourceArr.Length
+    MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
 }

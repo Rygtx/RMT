@@ -184,7 +184,9 @@ class WorkPool {
             case "ModifyArray":
                 ModifyGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
             case "InsertArray":
-                InsertGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6]) 
+                InsertGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
+            case "RemoveAtArray":
+                RemoveAtGlobalArray(paramArr[2], paramArr[3], paramArr[4])
         }
     }
 }

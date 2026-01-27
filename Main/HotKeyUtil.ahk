@@ -1580,12 +1580,20 @@ OnArray(tableItem, cmd, index) {
             if (MySoftData.ArrayMap.Has(Data.Name))
                 MyDeleteGlobalArray(Data.Name)
         case "包含":
-            CheckArrayIfContain(Data, tableItem, index)
+            ArrayCheckIfContain(Data, tableItem, index)
         case "取值":
-            GetArrayIndexValue(Data, tableItem, index)
+            ArrayGetIndexValue(Data, tableItem, index)
         case "赋值":
-            ModifyArrayIndexValue(Data, tableItem, index)
+            ArrayModifyIndexValue(Data, tableItem, index)
         case "插入":
-            InsertArrayIndexValue(Data, tableItem, index)
+            ArrayInsertIndexValue(Data, tableItem, index)
+        case "追加":
+            ArrayPushValue(Data, tableItem, index)
+        case "移除":
+            ArrayRemoveAtIndex(Data, tableItem, index)
+        case "移除最后":
+            ArrayPopValue(Data, tableItem, index)
+        case "长度":
+            ArrayGetLength(Data, tableItem, index)
     }
 }

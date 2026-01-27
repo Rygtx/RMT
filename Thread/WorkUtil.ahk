@@ -153,6 +153,12 @@
                 SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
                 Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
                 SourceArr.InsertAt(Index, Value)
+            case "RemoveAtArray":
+                ArrName := paramArr[2]
+                MainIndex := paramArr[3]
+                Index := paramArr[4]
+                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                SourceArr.RemoveAt(Index)
         }
     }
 
@@ -199,6 +205,13 @@
         CMDStr := Format("InsertArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
         SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
         SourceArr.InsertAt(Index, Value)
+        MsgSendHandler(CmdStr)
+    }
+
+    WorkRemoveAtGlobalArray(ArrName, MainIndex, Index) {
+        CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.RemoveAt(Index)
         MsgSendHandler(CmdStr)
     }
 
