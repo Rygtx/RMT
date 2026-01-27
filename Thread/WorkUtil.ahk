@@ -194,7 +194,7 @@
 
     WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("ModifyArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+        CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
         SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
         SourceArr[Index] := Value
         MsgSendHandler(CmdStr)
@@ -202,7 +202,7 @@
 
     WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("InsertArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+        CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
         SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
         SourceArr.InsertAt(Index, Value)
         MsgSendHandler(CmdStr)

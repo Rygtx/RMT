@@ -326,7 +326,7 @@ DeleteGlobalArray(ArrName) {
 
 ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-    CMDStr := Format("ModifyArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr[Index] := Value
     MyVarListenGui.Refresh()
@@ -341,7 +341,7 @@ ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
 
 InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-    CMDStr := Format("InsertArray_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr.InsertAt(Index, Value)
     MyVarListenGui.Refresh()
