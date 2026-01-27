@@ -66,7 +66,7 @@ class TextOpsGui {
         PosX += 75
         TypeArr := GetLangArr(["文本分割", "定长分割", "文本替换", "数字提取", "字母提取", "中文提取", "去空格处理", "大小写转换", "文本统计"])
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), TypeArr)
-        this.TypeCon.OnEvent("Change", (*) => this.OnTypeChange())
+        this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
         PosX := 275
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("文本来源:"))
@@ -91,14 +91,19 @@ class TextOpsGui {
 
         PosY += 35
         PosX := 20
-        this.SearchConTip := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("查找文本:"))
+        this.ReplaceConArr := []
+        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("查找文本:"))
+        this.ReplaceConArr.Push(Con)
         PosX += 75
         this.SearchCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+        this.ReplaceConArr.Push(this.SearchCon)
 
         PosX := 275
-        this.ReplaceConTip := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("替换文本:"))
+        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("替换文本:"))
+        this.ReplaceConArr.Push(Con)
         PosX += 75
         this.ReplaceCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+        this.ReplaceConArr.Push(this.ReplaceCon)
 
         ;结果
         {
@@ -170,17 +175,29 @@ class TextOpsGui {
         IsUpLow := this.TypeCon.Text == GetLang("大小写转换")
         IsStatistics := this.TypeCon.Text == GetLang("文本统计")
 
-        
-
         ArgsDLArr := []
-        if (this.ArgsTypeMap.Has(this.TypeCon.Text))
-            ArgsDLArr := this.ArgsTypeMap[this.TypeCon.Text]
         this.ArgsTypeCon.Delete()
-        this.ArgsTypeCon.Add(ArgsDLArr)
-        loop ArgsDLArr.Length {
-            if (ArgsDLArr[A_Index] == GetLang(this.Data.ArgsType)) {
-                this.ArgsTypeCon.Text := GetLang(this.Data.ArgsType)
+        if (this.ArgsTypeMap.Has(this.TypeCon.Text)) {
+            ArgsDLArr := this.ArgsTypeMap[this.TypeCon.Text]
+            this.ArgsTypeCon.Add(ArgsDLArr)
+            this.ArgsTypeCon.Value := 1
+
+            loop ArgsDLArr.Length {
+                if (ArgsDLArr[A_Index] == GetLang(this.Data.ArgsType)) {
+                    this.ArgsTypeCon.Text := GetLang(this.Data.ArgsType)
+                    break
+                }
             }
+        }
+
+        ShowArgsType := IsUpLow || IsSpace || IsStatistics
+        ShowArgsName := IsSplit || IsLenSplit
+        this.ArgsTypeConTip.Enabled := ShowArgsType
+        this.ArgsTypeCon.Enabled := ShowArgsType
+        this.ArgsNameConTip.Enabled := ShowArgsName
+        this.ArgsNameCon.Enabled := ShowArgsName
+        loop this.ReplaceConArr.Length {
+            this.ReplaceConArr[A_Index].Enabled := IsReplace
         }
 
         OnlyResVar := IsReplace || IsSpace || IsUpLow || IsStatistics
