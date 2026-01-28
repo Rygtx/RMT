@@ -78,7 +78,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsBGKey := InStr(paramArr[1], "后台按键")
         IsRMT := InStr(paramArr[1], "RMT指令")
         IsLoop := InStr(paramArr[1], "循环")
-        IsTextProcess := InStr(paramArr[1], "文本处理")
+        IsTextOps := InStr(paramArr[1], "文本处理")
         IsArray := InStr(paramArr[1], "数组")
 
         if (MySoftData.CMDTip) {
@@ -145,8 +145,8 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         else if (IsLoop) {
             OnLoop(tableItem, cmdArr[A_Index], index)
         }
-        else if (IsTextProcess) {
-            OnTextProcess(tableItem, cmdArr[A_Index], index)
+        else if (IsTextOps) {
+            OnTextOps(tableItem, cmdArr[A_Index], index)
         }
         else if (IsArray) {
             OnArray(tableItem, cmdArr[A_Index], index)
@@ -1434,129 +1434,27 @@ SendJoyAxisKey(key, state, tableItem, index) {
     }
 }
 
-OnTextProcess(tableItem, cmd, index) {
+OnTextOps(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
+    SourceText := TextGetSource(Data, tableItem, index)
 
-    ; 获取源变量值
-    sourceText := ""
-    if (!TryGetVariableValue(&sourceText, tableItem, index, Data.SourceVariable, false)) {
-        return
-    }
-
-    if (sourceText == "") {
-        return
-    }
-
-    NameArr := []
-    ValueArr := []
-
-    ; 处理文本
-    switch Data.ProcessType {
-        case 1: ; 文本分割
-            parts := ProcessTextSplitWithParams(sourceText, Data)
-            partIndex := 1
-            loop Data.ToggleArr.Length {
-                if (Data.ToggleArr[A_Index] && partIndex <= parts.Length) {
-                    NameArr.Push(Data.VariableArr[A_Index])
-                    ValueArr.Push(parts[partIndex])
-                    partIndex++
-                }
-            }
-
-        case 2: ; 文本替换
-            processedText := ProcessTextReplace(sourceText, Data.SearchText, Data.ReplaceText, Data.CaseSensitive, Data
-                .UseRegex)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 3: ; 数字提取
-            extractedText := ExtractDigits(sourceText)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-
-        case 4: ; 字母提取
-            extractedText := ExtractAlphabets(sourceText)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-
-        case 5: ; 中文提取
-            extractedText := ExtractChineseChars(sourceText)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, extractedText)
-
-        case 6: ; 去空格处理
-            processedText := ProcessWhitespace(sourceText, Data.SplitParam)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 7: ; 大小写转换
-            processedText := ProcessCaseConversion(sourceText, Data.SplitParam)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 8: ; URL编解码
-            processedText := ProcessURLEncode(sourceText, Data.SplitParam)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 9: ; Base64编解码
-            processedText := ProcessBase64(sourceText, Data.SplitParam)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 10: ; 文本统计
-            statsText := GetTextStatistics(sourceText, Data.SplitParam)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, statsText)
-
-        case 11: ; 固定长度分割
-            length := Data.SplitParam ? Integer(Data.SplitParam) : 10
-            maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
-            parts := SplitByLength(sourceText, length, maxCount)
-            partIndex := 1
-            loop 4 {
-                if (Data.ToggleArr[A_Index] && partIndex <= parts.Length) {
-                    NameArr.Push(Data.VariableArr[A_Index])
-                    ValueArr.Push(parts[partIndex])
-                    partIndex++
-                }
-            }
-
-        case 12: ; 多字符分割
-            delimiters := Data.SplitParam ? Data.SplitParam : ",|;"
-            maxCount := Data.MaxSplitCount ? Integer(Data.MaxSplitCount) : 0
-            parts := SplitByMultipleDelimiters(sourceText, delimiters, maxCount)
-            partIndex := 1
-            loop 4 {
-                if (Data.ToggleArr[A_Index] && partIndex <= parts.Length) {
-                    NameArr.Push(Data.VariableArr[A_Index])
-                    ValueArr.Push(parts[partIndex])
-                    partIndex++
-                }
-            }
-
-        case 13: ; 行过滤
-            filteredText := FilterLines(sourceText, Data.SearchText)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, filteredText)
-
-        case 14: ; 去重处理
-            processedText := RemoveDuplicates(sourceText)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 15: ; 排序处理
-            processedText := SortText(sourceText, Data.ReverseProcess)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, processedText)
-
-        case 16: ; 随机文本
-            length := Data.SplitParam ? Integer(Data.SplitParam) : 10
-            randomText := GenerateRandomText(length)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, randomText)
-
-        case 17: ; 日期时间
-            format := Data.SplitParam ? Data.SplitParam : "yyyy-MM-dd HH:mm:ss"
-            dateTimeText := GetDateTime(format)
-            SaveSingleResultMacro(Data, tableItem, index, &NameArr, &ValueArr, dateTimeText)
-    }
-
-    ; 将结果保存到变量
-    if (NameArr.Length > 0) {
-        loop NameArr.Length {
-            MySetGlobalVariable([NameArr[A_Index]], [ValueArr[A_Index]], false)
-        }
+    switch Data.Type {
+        case "文本分割":
+            TextOpsSplit(Data, tableItem, index)
+        case "文本替换":
+            TextOpsReplace(Data, tableItem, index)
+        case "内容提取":
+            TextOpsEx(Data, tableItem, index)
+        case "去除空格":
+            TextOpsTrimSpace(Data, tableItem, index)
+        case "大小写转换": 
+            TextOpsUpOrLow(Data, tableItem, index)
+        case "文本统计": 
+            TextOpsStatistics(Data, tableItem, index)
     }
 }
+
 
 OnArray(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")

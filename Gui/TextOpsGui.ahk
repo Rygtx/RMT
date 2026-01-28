@@ -8,22 +8,30 @@ class TextOpsGui {
         this.RemarkCon := ""
 
         this.ArgsTypeMap := Map(
-            GetLang("去空格处理"), [
-                GetLang("去除前后空格"),
-                GetLang("去除全部空格"),
-                GetLang("去除多余空格")
+            GetLang("去除空格"), [
+                GetLang("去除所有空格"),
+                GetLang("去除前空白字符"),
+                GetLang("去除后空白字符"),
+                GetLang("去除所有空白字符")
             ],
             GetLang("大小写转换"), [
                 GetLang("全部大写"),
                 GetLang("全部小写"),
                 GetLang("首字母大写"),
-                GetLang("标题格式"),
             ],
             GetLang("文本统计"), [
                 GetLang("字符数"),
                 GetLang("单词数"),
                 GetLang("行数"),
-                GetLang("完整统计"),
+            ],
+            GetLang("内容提取"), [
+                GetLang("数字提取"),
+                GetLang("字母提取"),
+                GetLang("中文提取"),
+            ],
+            GetLang("内容分割"), [
+                GetLang("文本分割"),
+                GetLang("定长分割"),
             ])
     }
 
@@ -64,7 +72,7 @@ class TextOpsGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("处理类型:"))
         PosX += 75
-        TypeArr := GetLangArr(["文本分割", "定长分割", "文本替换", "数字提取", "字母提取", "中文提取", "去空格处理", "大小写转换", "文本统计"])
+        TypeArr := GetLangArr(["内容分割", "文本替换", "内容提取", "去除空格", "大小写转换", "文本统计"])
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), TypeArr)
         this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
@@ -95,14 +103,14 @@ class TextOpsGui {
         Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("查找文本:"))
         this.ReplaceConArr.Push(Con)
         PosX += 75
-        this.SearchCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+        this.SearchCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 150), [])
         this.ReplaceConArr.Push(this.SearchCon)
 
         PosX := 275
         Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("替换文本:"))
         this.ReplaceConArr.Push(Con)
         PosX += 75
-        this.ReplaceCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+        this.ReplaceCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 150), [])
         this.ReplaceConArr.Push(this.ReplaceCon)
 
         ;结果
@@ -156,8 +164,8 @@ class TextOpsGui {
         SetDLConValue(this.NameCon, this.SimpleDLVariableArr, this.Data.Name)
         SetDLConValue(this.ArgsNameCon, this.DLVariableArr, this.Data.ArgsName)
 
-        this.SearchCon.Text := this.Data.Search
-        this.ReplaceCon.Text := this.Data.Replace
+        SetDLConValue(this.SearchCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Search)
+        SetDLConValue(this.ReplaceCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Replace)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
@@ -165,13 +173,10 @@ class TextOpsGui {
     }
 
     OnRefresh(*) {
-        IsSplit := this.TypeCon.Text == GetLang("文本分割")
-        IsLenSplit := this.TypeCon.Text == GetLang("定长分割")
+        IsSplit := this.TypeCon.Text == GetLang("内容分割")
         IsReplace := this.TypeCon.Text == GetLang("文本替换")
-        IsGetNum := this.TypeCon.Text == GetLang("数字提取")
-        IsGetLetter := this.TypeCon.Text == GetLang("字母提取")
-        IsGetCh := this.TypeCon.Text == GetLang("中文提取")
-        IsSpace := this.TypeCon.Text == GetLang("去空格处理")
+        IsGetEx := this.TypeCon.Text == GetLang("内容提取")
+        IsSpace := this.TypeCon.Text == GetLang("去除空格")
         IsUpLow := this.TypeCon.Text == GetLang("大小写转换")
         IsStatistics := this.TypeCon.Text == GetLang("文本统计")
 
@@ -191,7 +196,7 @@ class TextOpsGui {
         }
 
         ShowArgsType := IsUpLow || IsSpace || IsStatistics
-        ShowArgsName := IsSplit || IsLenSplit
+        ShowArgsName := IsSplit
         this.ArgsTypeConTip.Enabled := ShowArgsType
         this.ArgsTypeCon.Enabled := ShowArgsType
         this.ArgsNameConTip.Enabled := ShowArgsName
@@ -201,7 +206,7 @@ class TextOpsGui {
         }
 
         OnlyResVar := IsReplace || IsSpace || IsUpLow || IsStatistics
-        OnlyResArr := IsSplit || IsLenSplit || IsGetNum || IsGetLetter || IsGetCh
+        OnlyResArr := IsSplit || IsGetEx
         this.SaveTypeCon.Value := OnlyResVar ? 1 : 2
         this.OnRefreshDataType()
     }
@@ -257,8 +262,8 @@ class TextOpsGui {
         this.Data.Name := this.NameCon.Text
         this.Data.ArgsType := GetLangKey(this.ArgsTypeCon.Text)
         this.Data.ArgsName := GetLangKey(this.ArgsNameCon.Text)
-        this.Data.Search := this.SearchCon.Text
-        this.Data.Replace := this.ReplaceCon.Text
+        this.Data.Search := GetLangKey(this.SearchCon.Text)
+        this.Data.Replace := GetLangKey(this.ReplaceCon.Text)
         this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
         this.Data.SaveName := this.SaveNameCon.Text
 

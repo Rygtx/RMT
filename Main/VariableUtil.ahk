@@ -13,7 +13,7 @@ SetGlobalData(macroStr, visitMap) {
         SetCMDSerialData(cmdArr[A_Index])
         IsExVariable := InStr(paramArr[1], "变量提取")
         IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
-        IsTextProcess := InStr(paramArr[1], "文本处理")
+        IsTextOps := InStr(paramArr[1], "文本处理")
         IsOpera := InStr(paramArr[1], "运算")
         IsSearchPro := InStr(paramArr[1], "搜索Pro")
         IsSearch := InStr(paramArr[1], "搜索") && !IsSearchPro
@@ -21,7 +21,7 @@ SetGlobalData(macroStr, visitMap) {
         IsIfPro := InStr(paramArr[1], "如果Pro")
         IsIf := InStr(paramArr[1], "如果") && !IsIfPro
         IsArray := InStr(paramArr[1], "数组")
-        IsVarRelate := IsVariable || IsExVariable || IsTextProcess || IsIf || IsOpera || IsSearch || IsSearchPro
+        IsVarRelate := IsVariable || IsExVariable || IsTextOps || IsIf || IsOpera || IsSearch || IsSearchPro
             || IsLoop || IsIfPro || IsArray
         if (!IsVarRelate)
             continue
@@ -35,7 +35,7 @@ SetGlobalData(macroStr, visitMap) {
                     VariableMap[Data.VariableArr[A_Index]] := true
             }
         }
-        else if (IsTextProcess) {
+        else if (IsTextOps) {
             loop Data.ToggleArr.Length {
                 if (Data.ToggleArr[A_Index])
                     VariableMap[Data.VariableArr[A_Index]] := true
