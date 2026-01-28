@@ -1442,19 +1442,18 @@ OnTextOps(tableItem, cmd, index) {
     switch Data.Type {
         case "文本分割":
             TextOpsSplit(Data, tableItem, index)
-        case "文本替换":
-            TextOpsReplace(Data, tableItem, index)
         case "内容提取":
             TextOpsEx(Data, tableItem, index)
+        case "文本替换":
+            TextOpsReplace(Data, tableItem, index)
         case "去除空格":
             TextOpsTrimSpace(Data, tableItem, index)
-        case "大小写转换": 
+        case "大小写转换":
             TextOpsUpOrLow(Data, tableItem, index)
-        case "文本统计": 
+        case "文本统计":
             TextOpsStatistics(Data, tableItem, index)
     }
 }
-
 
 OnArray(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")

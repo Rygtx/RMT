@@ -72,7 +72,7 @@ class TextOpsGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("处理类型:"))
         PosX += 75
-        TypeArr := GetLangArr(["内容分割", "文本替换", "内容提取", "去除空格", "大小写转换", "文本统计"])
+        TypeArr := GetLangArr(["内容分割", "内容提取", "文本替换", "去除空格", "大小写转换", "文本统计"])
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), TypeArr)
         this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
