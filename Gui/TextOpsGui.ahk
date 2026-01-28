@@ -229,6 +229,20 @@ class TextOpsGui {
     }
 
     CheckIfValid() {
+        if (this.TypeCon.Text == GetLang("文本替换")) {
+            if (this.SearchCon.Text == "" || this.ReplaceCon.Text == "") {
+                MsgBox(GetLang("搜索文本和替换文本不能为空"))
+                return false
+            }
+        }
+
+        if (this.TypeCon.Text == GetLang("内容分割")) {
+            if (this.ArgsNameCon.Text == "") {
+                MsgBox(GetLang("类型参数不能为空"))
+                return false
+            }
+        }
+
         if (IsNumber(this.SaveNameCon.Text)) {
             MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
             return false
