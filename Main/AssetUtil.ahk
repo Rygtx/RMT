@@ -838,6 +838,17 @@ GetTimingTableIndex() {
     return ""
 }
 
+GetTableIndex(SymbolOrName) {
+    loop MySoftData.TabNameArr.Length {
+        if (SymbolOrName == MySoftData.TabNameArr[A_Index])
+            return A_Index
+
+        if (SymbolOrName == MySoftData.TabSymbolArr[A_Index])
+            return A_Index
+    }
+    return 0
+}
+
 CheckIsNormalTable(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "Normal")

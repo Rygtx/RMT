@@ -316,7 +316,8 @@ CompatSubMacro(FilePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-
+    FixTypeMap := Map("1", "当前宏", "2", "按键宏", "3", "字串宏", "4", "菜单宏", "5", "定时宏", "6", "宏")
+    FixCallTypeMap := Map("1", "插入到当前宏", "2", "触发", "3", "暂停", "4", "取消暂停", "5", "终止")
     hasFix := CompatSerial(filePath, "SubMacro", "宏操作")
     loop read, FilePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
@@ -328,6 +329,16 @@ CompatSubMacro(FilePath) {
         if (!ObjHasOwnProp(Data, "InsertCount")) {
             curFix := true
             Data.InsertCount := 1
+        }
+
+        if (IsInteger(Data.MacroType) && FixTypeMap.Has(String(Data.MacroType))) {
+            curFix := true
+            Data.MacroType := FixTypeMap[String(Data.MacroType)]
+        }
+
+        if (IsInteger(Data.CallType) && FixCallTypeMap.Has(String(Data.CallType))) {
+            curFix := true
+            Data.CallType := FixCallTypeMap[String(Data.CallType)]
         }
 
         if (curFix) {

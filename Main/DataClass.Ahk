@@ -384,8 +384,8 @@ class CompareProData {
         this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
         this.VariableArr := [[1], [2]]
         this.LogicTypeArr := [1, 2]
-        this.MacroArr := ["按键_a_3_100", "按键_b_3_100"]
-        this.DefaultMacro := "按键_c_3_100"
+        this.MacroArr := ["按键_a_点击_100", "按键_b_点击_100"]
+        this.DefaultMacro := "按键_c_点击_100"
     }
 
     ;用于逻辑树展示
@@ -452,11 +452,11 @@ class OutputData {
 class SubMacroData {
     __New() {
         this.SerialStr := ""
-        this.MacroType := 1
-        this.CallType := 1
+        this.MacroType := "按键宏"
+        this.CallType := "触发"
         this.InsertCount := 1
         this.Index := 1
-        this.MacroSerial := "009973"
+        this.MacroSerial := "-1"
     }
 }
 

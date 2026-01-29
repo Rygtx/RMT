@@ -623,13 +623,12 @@ OnSubMacro(tableItem, cmd, index) {
     global MySoftData
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    macroIndex := Data.MacroType == 1 ? index : Data.Index
-    macroTableIndex := Data.MacroType == 1 ? tableItem.Index : Data.MacroType - 1
-    macroItem := Data.MacroType == 1 ? tableItem : MySoftData.TableInfo[macroTableIndex]
+    macroIndex := Data.MacroType == "当前宏" ? index : Data.Index
+    macroTableIndex := Data.MacroType == "当前宏" ? tableItem.Index : Data.MacroType - 1
+    macroItem := Data.MacroType == "当前宏" ? tableItem : MySoftData.TableInfo[macroTableIndex]
 
-    redirect := Data.MacroType != 1 && (macroItem.SerialArr.Length < Data.Index || macroItem.SerialArr[Data.Index] !=
-        Data.MacroSerial)
-    if (redirect) {
+    IsAbnormal := macroItem.SerialArr.Length < Data.Index || macroItem.SerialArr[Data.Index] != Data.MacroSerial
+    if (Data.MacroType != "当前宏" && IsAbnormal) {
         loop macroItem.ModeArr.Length {
             if (Data.MacroSerial == macroItem.SerialArr[A_Index]) {
                 macroIndex := A_Index
@@ -638,26 +637,28 @@ OnSubMacro(tableItem, cmd, index) {
         }
     }
 
-    if (Data.CallType == 1) {   ;插入
+    if (Data.CallType == "插入到当前宏") {   ;插入
         macro := macroItem.MacroArr[macroIndex]
-        resultMacro := macro
-        loop Data.InsertCount {
-            if (A_Index == 1)
-                continue
-            resultMacro .= "," macro
+        resultMacro := ""
+        isHas := TryGetVariableValue(&Count, tableItem, index, Data.InsertCount, true)
+        if (isHas) {
+            loop Count {
+                resultMacro .= macro ","
+            }
         }
+        resultMacro := Trim(resultMacro, ",")
         return SplitMacro(resultMacro)
     }
-    else if (Data.CallType == 2) {  ;触发
+    else if (Data.CallType == "触发") {  ;触发
         MyTriggerSubMacro(macroTableIndex, macroIndex)
     }
-    else if (Data.CallType == 3) {  ;暂停
+    else if (Data.CallType == "暂停") {  ;暂停
         MySetItemPauseState(macroTableIndex, macroIndex, 1)
     }
-    else if (Data.CallType == 4) {  ;取消暂停
+    else if (Data.CallType == "取消暂停") {  ;取消暂停
         MySetItemPauseState(macroTableIndex, macroIndex, 0)
     }
-    else if (Data.CallType == 5) {  ;终止
+    else if (Data.CallType == "终止") {  ;终止
         isWork := macroItem.IsWorkIndexArr[macroIndex]
         if (isWork || MySoftData.isWork) {
             MySubMacroStopAction(macroTableIndex, macroIndex)

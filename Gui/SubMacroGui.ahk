@@ -6,12 +6,6 @@ class SubMacroGui {
         this.Gui := ""
         this.SureBtnAction := ""
         this.RemarkCon := ""
-
-        this.TypeCon := ""
-        this.DropDownIndexCon := ""
-        this.CallTypeCon := ""
-        this.InsertCountCon := ""
-        this.Data := ""
     }
 
     ShowGui(cmd) {
@@ -71,8 +65,7 @@ class SubMacroGui {
 
         PosX += 70
         this.CallTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["插入到当前宏",
-            "触发", "暂停",
-            "取消暂停", "终止"]))
+            "触发", "暂停", "取消暂停", "终止"]))
         this.CallTypeCon.Value := 1
         this.CallTypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
@@ -106,15 +99,15 @@ class SubMacroGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
 
-        this.TypeCon.Value := this.Data.MacroType
-        this.CallTypeCon.Value := this.Data.CallType
+        this.TypeCon.Text := GetLang(this.Data.MacroType)
+        this.CallTypeCon.Text := GetLang(this.Data.CallType)
         this.InsertCountCon.Delete()
         this.InsertCountCon.Add(RemoveInVariable(this.DLVariableArr, 2))
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
-        tableIndex := this.Data.MacroType - 1
-
-        if (this.Data.MacroType != 1) {
+        tableIndex := GetTableIndex(this.Data.MacroType)
+        this.DropDownIndexCon.Delete()
+        if (this.Data.MacroType != "当前宏") {
             DropDownArr := []
             for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
                 DropDownArr.Push(A_Index ". " Remark)
@@ -124,12 +117,9 @@ class SubMacroGui {
             if (DropDownArr.Length >= this.Data.Index)
                 this.DropDownIndexCon.Value := this.Data.Index
         }
-        else {
-            this.DropDownIndexCon.Delete()
-        }
 
         ;尝试修正序号
-        if (this.Data.MacroType != 1) {
+        if (this.Data.MacroType != "当前宏") {
             SerialArr := MySoftData.TableInfo[tableIndex].SerialArr
             if (SerialArr.Length < this.Data.Index || SerialArr[this.Data.Index] != this.Data.MacroSerial) {
                 loop SerialArr.Length {
@@ -153,11 +143,11 @@ class SubMacroGui {
     }
 
     OnRefresh() {
-        EnableIndex := this.TypeCon.Value != 1  ;类型是1的时候，不能选择序号
+        EnableIndex := this.TypeCon.Text != GetLang("当前宏")  ;类型是1的时候，不能选择序号
         this.DropDownIndexCon.Enabled := EnableIndex
         if (EnableIndex) {
             lastIndex := Max(1, this.DropDownIndexCon.Value)
-            tableIndex := this.TypeCon.Value - 1
+            tableIndex := GetTableIndex(GetLangKey(this.TypeCon.Text))
             DropDownArr := []
             for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
                 DropDownArr.Push(A_Index ". " Remark)
@@ -191,7 +181,7 @@ class SubMacroGui {
     }
 
     CheckIfValid() {
-        tableIndex := this.TypeCon.Value - 1
+        tableIndex := GetTableIndex(GetLangKey(this.TypeCon.Text))
         SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
 
         if (SerialArr != "") {
@@ -199,7 +189,6 @@ class SubMacroGui {
                 MsgBox(GetLang("配置无效，序号不正确"))
                 return false
             }
-
         }
 
         return true
@@ -229,12 +218,12 @@ class SubMacroGui {
     }
 
     SaveSubMacroData() {
-        this.Data.MacroType := this.TypeCon.Value
+        this.Data.MacroType := GetLangKey(this.TypeCon.Text)
         this.Data.Index := this.DropDownIndexCon.value
-        this.Data.CallType := this.CallTypeCon.Value
+        this.Data.CallType := GetLangKey(this.CallTypeCon.Text)
         this.Data.InsertCount := GetLangKey(this.InsertCountCon.Text)
 
-        tableIndex := this.TypeCon.Value - 1
+        tableIndex := GetTableIndex(this.Data.MacroType)
         SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
 
