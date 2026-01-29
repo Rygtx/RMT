@@ -605,7 +605,7 @@ class TextOpsData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
-        this.Type := "内容分割" ; 1: 文本分割 2: 文本替换
+        this.Type := "文本分割" ; 1: 文本分割 2: 文本替换
         this.Name := "TextVar" ; 文本来源变量名
         this.ArgsType := "全部大写" ;参数类型
         this.ArgsName := ","        ;参数变量名或文本

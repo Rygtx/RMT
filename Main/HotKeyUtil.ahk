@@ -1437,12 +1437,11 @@ SendJoyAxisKey(key, state, tableItem, index) {
 OnTextOps(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    SourceText := TextGetSource(Data, tableItem, index)
 
     switch Data.Type {
         case "文本分割":
             TextOpsSplit(Data, tableItem, index)
-        case "内容提取":
+        case "文本提取":
             TextOpsEx(Data, tableItem, index)
         case "文本替换":
             TextOpsReplace(Data, tableItem, index)

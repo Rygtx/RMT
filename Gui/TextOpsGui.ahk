@@ -9,9 +9,9 @@ class TextOpsGui {
 
         this.ArgsTypeMap := Map(
             GetLang("去除空格"), [
-                GetLang("去除所有空格"),
                 GetLang("去除前空白字符"),
                 GetLang("去除后空白字符"),
+                GetLang("去除前后空白字符"),
                 GetLang("去除所有空白字符")
             ],
             GetLang("大小写转换"), [
@@ -24,13 +24,13 @@ class TextOpsGui {
                 GetLang("单词数"),
                 GetLang("行数"),
             ],
-            GetLang("内容提取"), [
+            GetLang("文本提取"), [
                 GetLang("数字提取"),
                 GetLang("字母提取"),
                 GetLang("中文提取"),
             ],
-            GetLang("内容分割"), [
-                GetLang("文本分割"),
+            GetLang("文本分割"), [
+                GetLang("内容分割"),
                 GetLang("定长分割"),
             ])
     }
@@ -72,7 +72,7 @@ class TextOpsGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("处理类型:"))
         PosX += 75
-        TypeArr := GetLangArr(["内容分割", "内容提取", "文本替换", "去除空格", "大小写转换", "文本统计"])
+        TypeArr := GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计"])
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), TypeArr)
         this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
@@ -173,9 +173,9 @@ class TextOpsGui {
     }
 
     OnRefresh(*) {
-        IsSplit := this.TypeCon.Text == GetLang("内容分割")
+        IsSplit := this.TypeCon.Text == GetLang("文本分割")
         IsReplace := this.TypeCon.Text == GetLang("文本替换")
-        IsGetEx := this.TypeCon.Text == GetLang("内容提取")
+        IsGetEx := this.TypeCon.Text == GetLang("文本提取")
         IsSpace := this.TypeCon.Text == GetLang("去除空格")
         IsUpLow := this.TypeCon.Text == GetLang("大小写转换")
         IsStatistics := this.TypeCon.Text == GetLang("文本统计")
@@ -195,7 +195,7 @@ class TextOpsGui {
             }
         }
 
-        ShowArgsType := IsUpLow || IsSpace || IsStatistics
+        ShowArgsType := IsSplit || IsGetEx || IsUpLow || IsSpace || IsStatistics
         ShowArgsName := IsSplit
         this.ArgsTypeConTip.Enabled := ShowArgsType
         this.ArgsTypeCon.Enabled := ShowArgsType
@@ -236,7 +236,7 @@ class TextOpsGui {
             }
         }
 
-        if (this.TypeCon.Text == GetLang("内容分割")) {
+        if (this.TypeCon.Text == GetLang("文本分割")) {
             if (this.ArgsNameCon.Text == "") {
                 MsgBox(GetLang("类型参数不能为空"))
                 return false
@@ -253,13 +253,19 @@ class TextOpsGui {
     TriggerMacro() {
         this.SaveTextOpsData()
         CommandStr := this.GetCommandStr()
-        tableItem := MySoftData.SpecialTableItem
-        tableItem.KilledArr[1] := false
-        tableItem.PauseArr[1] := 0
-        tableItem.ActionCount[1] := 0
-        tableItem.VariableMapArr[1] := Map()
-        tableItem.index := 1
+        OnTriggerSepcialItemMacro(CommandStr)
 
+        Res := ""
+        if (this.Data.SaveType == "变量" && MySoftData.VariableMap.Has(this.Data.SaveName))
+            Res := MySoftData.VariableMap[this.Data.SaveName]
+        if (this.Data.SaveType == "数组" && MySoftData.ArrayMap.Has(this.Data.SaveName))
+            Res := GetArrayStr(MySoftData.ArrayMap[this.Data.SaveName])
+
+        if (Res != "") {
+            tip1 := Format(GetLang("变量：{}"), this.Data.SaveName)
+            tip2 := Format(GetLang("值：{}"), Res)
+            MsgBox(tip1 "`n" tip2)
+        }
     }
 
     GetCommandStr() {

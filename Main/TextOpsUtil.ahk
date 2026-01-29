@@ -11,7 +11,7 @@ TextOpsSplit(Data, tableItem, index) {
     IsHas := TryGetVariableValue(&SplitArgs, tableItem, index, Data.ArgsName, false)
     SplitArgs := IsHas ? SplitArgs : Data.ArgsName
 
-    if (Data.ArgsType == "文本分割")
+    if (Data.ArgsType == "内容分割")
         ResArr := StrSplit(SourceText, SplitArgs)
     else if (Data.ArgsType == "定长分割") {
         if (!IsInteger(SplitArgs) || SplitArgs == 0) {
@@ -55,17 +55,17 @@ TextOpsEx(Data, tableItem, index) {
 TextOpsTrimSpace(Data, tableItem, index) {
     SourceText := TextGetSource(Data, tableItem, index)
 
-    if (Data.ArgsType == "去除所有空格") {
-        Res := Trim(SourceText, " ")
-    }
-    else if (Data.ArgsType == "去除前空白字符") {
+    if (Data.ArgsType == "去除前空白字符") {
         Res := LTrim(SourceText)
     }
     else if (Data.ArgsType == "去除后空白字符") {
         Res := RTrim(SourceText)
     }
+    else if (Data.ArgsType == "去除前后空白字符") {
+        Res := Trim(SourceText)
+    }
     else if (Data.ArgsType == "去除所有空白字符") {
-        Res := RegExReplace(SourceText, "\s+", " ")
+        Res := RegExReplace(SourceText, "\s+", "")
     }
     MySetGlobalVariable([Data.SaveName], [Res], Data.IsIgnoreExist)
 }
