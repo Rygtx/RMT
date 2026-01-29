@@ -624,7 +624,7 @@ OnSubMacro(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
     macroIndex := Data.MacroType == "当前宏" ? index : Data.Index
-    macroTableIndex := Data.MacroType == "当前宏" ? tableItem.Index : Data.MacroType - 1
+    macroTableIndex := Data.MacroType == "当前宏" ? tableItem.Index : GetTableIndex(Data.MacroType)
     macroItem := Data.MacroType == "当前宏" ? tableItem : MySoftData.TableInfo[macroTableIndex]
 
     IsAbnormal := macroItem.SerialArr.Length < Data.Index || macroItem.SerialArr[Data.Index] != Data.MacroSerial
