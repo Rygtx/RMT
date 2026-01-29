@@ -40,7 +40,7 @@ class ArrayGui {
 
         PosX += 50
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆",
-            "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度"]))
+            "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"]))
         this.TypeCon.Value := 1
         this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
 
@@ -188,12 +188,13 @@ class ArrayGui {
         IsAdd := this.TypeCon.Text == GetLang("追加")
         IsRemove := this.TypeCon.Text == GetLang("移除")
         IsRemoveLast := this.TypeCon.Text == GetLang("移除最后")
+        IsReverse := this.TypeCon.Text == GetLang("反转")
         IsLength := this.TypeCon.Text == GetLang("长度")
         OnlyResVar := IsLength || IsContain
-        OnlyResArr := IsClone
+        OnlyResArr := IsClone || IsReverse
         OnlyArgsIndex := IsGet || IsRemove
         OnlyArgsData := IsAdd || IsContain
-        IsShowRusult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain
+        IsShowRusult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain || IsReverse
         IsShowMainIndex := !IsCreate && !IsDelete
         IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
 

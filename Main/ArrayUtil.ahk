@@ -431,6 +431,22 @@ ArrayPopValue(Data, tableItem, index) {
     }
 }
 
+ArrayReverse(Data, tableItem, index) {
+    SourceArr := GetCmdArray(Data, tableItem, index, true)
+    if (SourceArr == "")
+        return
+    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
+        return
+
+    ResArr := []
+    loop SourceArr.Length {
+        Value := SourceArr[SourceArr.Length - A_Index + 1]
+        ResArr.Push(Value)
+    }
+    
+    MySetGlobalArray(Data.SaveName, ResArr)
+}
+
 ArrayGetLength(Data, tableItem, index) {
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")

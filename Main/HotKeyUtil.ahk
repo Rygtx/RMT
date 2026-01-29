@@ -1489,6 +1489,8 @@ OnArray(tableItem, cmd, index) {
             ArrayRemoveAtIndex(Data, tableItem, index)
         case "移除最后":
             ArrayPopValue(Data, tableItem, index)
+        case "反转":
+            ArrayReverse(Data, tableItem, index)
         case "长度":
             ArrayGetLength(Data, tableItem, index)
     }
