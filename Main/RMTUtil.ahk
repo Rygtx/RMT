@@ -201,7 +201,7 @@ InitFilePath() {
         str2 := GetLang("原始来源：RMT(若梦兔) 软件导出")
         str3 := GetLang("说明：仅限非商业用途，转载请注明来源并保持相同协议")
         Str := Format("{}`n{}`n{}", str1, str2, str3)
-        FileAppend(Str, filePath, "UTF-8")
+        FileAppend(Str, filePath, "UTF-16")
     }
 
     if (!DirExist(A_WorkingDir "\Images")) {
@@ -271,7 +271,7 @@ InitFilePath() {
     global OutputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OutputFile.ini"
     global VariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\VariableFile.ini"
     global ExVariableFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ExVariableFile.ini"
-    global TextProcessFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TextProcessFile.ini"
+    global TextOpsFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\TextOpsFile.ini"
     global SubMacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SubMacroFile.ini"
     global LoopFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\LoopFile.ini"
     global OperationFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OperationFile.ini"

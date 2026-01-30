@@ -274,9 +274,9 @@ class SoftData {
         this.CMDFontColor := "000000"
 
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
-        ; this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
-        ;     "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
-        this.SoftHotKeyArr := ["1", "2", "3", "4", "5", "6", "7", "8"]      ;测试时候启动
+        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
+            "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
+        ; this.SoftHotKeyArr := ["1", "2", "3", "4", "5", "6", "7", "8"]      ;测试时候启动
 
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围
@@ -384,8 +384,8 @@ class CompareProData {
         this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
         this.VariableArr := [[1], [2]]
         this.LogicTypeArr := [1, 2]
-        this.MacroArr := ["按键_a_3_100", "按键_b_3_100"]
-        this.DefaultMacro := "按键_c_3_100"
+        this.MacroArr := ["按键_a_点击_100", "按键_b_点击_100"]
+        this.DefaultMacro := "按键_c_点击_100"
     }
 
     ;用于逻辑树展示
@@ -452,11 +452,11 @@ class OutputData {
 class SubMacroData {
     __New() {
         this.SerialStr := ""
-        this.MacroType := 1
-        this.CallType := 1
+        this.MacroType := "按键宏"
+        this.CallType := "触发"
         this.InsertCount := 1
         this.Index := 1
-        this.MacroSerial := "009973"
+        this.MacroSerial := "-1"
     }
 }
 
@@ -584,7 +584,7 @@ class ArrayData {
         this.IsIgnoreExist := 0
         this.Type := "创建"
         this.Name := "Arr"
-        this.InitArr := [1, 2, 3, 4, "文本,内容", 5, 6, 7, 8, 9]
+        this.InitArr := [1, 2, 3, 4, 5, 6, 7, 8, 9]
         this.MainIndex := 0
         this.ArgsIndex := 1
         this.ArgsType := "变量或值"
@@ -601,26 +601,18 @@ class RMTCMDData {
     }
 }
 
-class TextProcessData {
+class TextOpsData {
     __New() {
         this.SerialStr := ""
         this.IsIgnoreExist := 0
-        this.ToggleArr := [1, 0, 0, 0, 0, 0]
-        this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
-        this.SourceVariable := "" ; 文本来源变量名
-        this.ProcessType := 1 ; 1: 文本分割 2: 文本替换
-        this.SplitDelimiter := "," ; 分割符号
-        this.SearchText := "" ; 查找文本
-        this.ReplaceText := "" ; 替换文本
-        this.CaseSensitive := 0 ; 大小写敏感
-        this.UseRegex := 0 ; 使用正则表达式
-        this.ReverseProcess := 0 ; 反向处理
-        this.ResultAction := 1 ; 结果处理方式: 1=覆盖, 2=追加, 3=前置
-        this.SplitParam := "" ; 分割参数
-        this.MaxSplitCount := 0 ; 最大分割数
-        this.CaseType := 1 ; 大小写转换类型
-        this.EncodeType := 1 ; 编码类型
-        this.StatType := 1 ; 统计类型
+        this.Type := "文本分割" ; 1: 文本分割 2: 文本替换
+        this.Name := "TextVar" ; 文本来源变量名
+        this.ArgsType := "全部大写" ;参数类型
+        this.ArgsName := ","        ;参数变量名或文本
+        this.Search := "" ; 查找文本
+        this.Replace := "" ; 替换文本
+        this.SaveType := "变量"     ;保存类型  变量或数组
+        this.SaveName := "Data"     ;保存的变量名或数组名
     }
 }
 
