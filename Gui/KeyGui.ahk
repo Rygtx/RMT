@@ -89,6 +89,10 @@ class KeyGui {
     ;按钮点击回调
     OnSureBtnClick() {
         this.UpdateCommandStr()
+        valid := this.CheckIfValid()
+        if (!valid)
+            return
+    
         action := this.SureBtnAction
         action(this.CommandStr)
         this.ToggleFunc(false)

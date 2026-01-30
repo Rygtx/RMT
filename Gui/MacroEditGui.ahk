@@ -589,9 +589,9 @@ class MacroEditGui {
             return
 
         if (key == "f5")
-            MyMacroGui.MenuHandler(GetLang("运行(F5)"))
+            this.MenuHandler(GetLang("运行(F5)"))
         if (key == "f6")
-            MyMacroGui.MenuHandler(GetLang("单步运行(F6)"))
+            this.MenuHandler(GetLang("单步运行(F6)"))
         if (key == "delete" || key == "numpaddot") {
             try {
                 focusedHwnd := DllCall("GetFocus", "Ptr")
@@ -611,7 +611,7 @@ class MacroEditGui {
             return
 
         itemText := this.MacroTreeViewCon.GetText(item)
-        if (itemText == "" || SubStr(itemText, 1, 1) == "⎖" || SubStr(itemText, 1, 2) == "🚫")
+        if (itemText == "" || SubStr(itemText, 1, 1) == "⎖")
             return
 
         this.CurItemID := item
@@ -689,6 +689,7 @@ class MacroEditGui {
             case GetLang("运行(F5)"):
             {
                 MacroStr := this.GetMacroStr()
+                MacroStr := GetLangMacro(macroStr, 2)
                 MyCMDTipGui.Clear()
                 OnTriggerSepcialItemMacro(MacroStr)
                 MsgBox(GetLang("调试运行结束"), "", "Owner" this.Gui.Hwnd)
@@ -705,6 +706,7 @@ class MacroEditGui {
                     MyCMDTipGui.Clear()
 
                 MacroStr := this.GetMacroStr()
+                MacroStr := GetLangMacro(MacroStr, 2)
                 cmdArr := SplitMacro(MacroStr)
                 if (cmdArr.Length >= this.DebugStepNum) {
                     CurCMD := cmdArr[this.DebugStepNum]
@@ -909,7 +911,9 @@ class MacroEditGui {
         }
 
         if (modeType == 2) {
-            CommandStr := this.MacroTreeViewCon.GetText(this.CurItemID)
+            ItemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+            IsSkip := SubStr(ItemText, 1, 2) == "🚫"
+            CommandStr := IsSkip ? SubStr(ItemText, 3) : ItemText
             subGui.ShowGui(CommandStr)
             return
         }
@@ -1025,13 +1029,18 @@ class MacroEditGui {
         NodeItemID := this.CurItemID
         RealItemID := ParentID
         macroStr := ""
-        if (itemText != GetLang("真") && itemText != GetLang("假") && itemText != GetLang("循环体") && SubStr(itemText,
-            1, 2
-        ) != GetLang("条件")) {
+        isTrueOrFalse := itemText == GetLang("真") || itemText == GetLang("假")
+        isLoopBody := itemText == GetLang("循环体")
+        isCondi := SubStr(itemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
+        if (!(isTrueOrFalse || isLoopBody || isCondi)) {
             this.MacroTreeViewCon.Delete(this.CurItemID)
-            macroStr := this.GetTreeMacroStr(ParentID)
             NodeItemID := ParentID
-            RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
+            RealItemID := this.MacroTreeViewCon.GetParent(NodeItemID)
+            macroStr := this.GetTreeMacroStr(NodeItemID)
+
+            NodeItemText := this.MacroTreeViewCon.GetText(NodeItemID)
+            isCondi := SubStr(NodeItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
+            macroStr := macroStr == "" && isCondi ? " " : macroStr
         }
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, NodeItemID)
@@ -1167,8 +1176,9 @@ class MacroEditGui {
                     Data.LogicTypeArr.RemoveAt(ItemNumber)
                     Data.MacroArr.RemoveAt(ItemNumber)
                 }
-                else
-                    Data.MacroArr[ItemNumber] := macroStr
+                else {
+                    Data.MacroArr[ItemNumber] := Trim(macroStr)
+                }
             }
         }
         else {

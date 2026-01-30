@@ -27,7 +27,7 @@ SetCMDSerialData(CMD) {
         Data.NumMap.Set(Integer(numbersOnly), true)
     }
     catch as e {
-        MsgBox(GetLang("解包失败: ") e.Message, GetLang("错误"), 0x10)
+        MsgBox(GetLang("初始化失败: ") e.Message, GetLang("错误"), 0x10)
     }
 
     Data.Refresh()
@@ -54,6 +54,10 @@ GetCMDSerialStr(Cmd) {
     }
     Data := SerialMap[Cmd]
     SerialStr := Format("{}{}", Cmd, Data.CurNum)
+    if (MySoftData.DataFileMap.Has(Cmd)) {
+        DataFile := MySoftData.DataFileMap[Cmd]
+        IniDelete(DataFile, IniSection, SerialStr)
+    }
     Data.NumMap.Set(Data.CurNum, true)
     Data.Refresh()
     return SerialStr

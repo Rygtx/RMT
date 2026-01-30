@@ -201,7 +201,7 @@ InitFilePath() {
         str2 := GetLang("原始来源：RMT(若梦兔) 软件导出")
         str3 := GetLang("说明：仅限非商业用途，转载请注明来源并保持相同协议")
         Str := Format("{}`n{}`n{}", str1, str2, str3)
-        FileAppend(Str, filePath, "UTF-8")
+        FileAppend(Str, filePath, "UTF-16")
     }
 
     if (!DirExist(A_WorkingDir "\Images")) {
