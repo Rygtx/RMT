@@ -6,14 +6,26 @@ CompatGetData(LineStr, FilePath) {
         return ""
 
     SerialStr := SubStr(LineStr, 1, FoundPos - 1)
+    if (SerialStr == "宏操作1028037")
+        aa := 1
+
+    if (SerialStr == "宏操作1026571")
+        aa := 1
     SaveStr := SubStr(LineStr, FoundPos + 1)
     ;部分A_LoopReadLine会因为编码问题错位，校验一下
     CheckStr := IniRead(FilePath, IniSection, SerialStr, "")
-    SaveStr := StrLen(CheckStr) > StrLen(SaveStr) ? CheckStr : SaveStr
-    Data := JSON.parse(SaveStr, , false)
-
-    if (SaveStr == "")
+    if (SaveStr == "" && CheckStr == "")
         return ""
+
+    try {
+        Data := JSON.parse(SaveStr, , false)
+    }
+    catch as e {
+        ;部分A_LoopReadLine会因为编码问题错位，校验一下
+        SaveStr := CheckStr
+        Data := JSON.parse(SaveStr, , false)
+    }
+
     FirstChar := SubStr(SaveStr, 1, 1)
     LastChar := SubStr(SaveStr, -1, 1)
     if (FirstChar != "{" || LastChar != "}")
@@ -323,6 +335,12 @@ CompatSubMacro(FilePath) {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
+
+        if (Data.SerialStr == "宏操作1028037")
+            aa := 1
+
+        if (Data.SerialStr == "宏操作1026571")
+            aa := 1
 
         curFix := false
         ;宏插入可以指定次数
