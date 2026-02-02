@@ -139,17 +139,17 @@ AddSliderUI() {
 AddOperBtnUI() {
     MyGui := MySoftData.MyGui
     posY := 10
-    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 95), GetLang("当前配置"))
+    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 110), GetLang("当前配置"))
 
     ; 当前配置
     posY += 25
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", 15, posY, 100, 40), MySoftData.CurSettingName)
-    posY += 30
+    con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", 15, posY, 100, 45), MySoftData.CurSettingName)
+    posY += 45
     con := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("配置管理"))
     con.OnEvent("Click", (*) => MySettingMgrGui.ShowGui())
 
-    posY += 50
-    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 465), GetLang("全局操作"))
+    posY += 45
+    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 455), GetLang("全局操作"))
 
     posY += 25
     ; 休眠

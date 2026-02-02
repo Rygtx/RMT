@@ -786,7 +786,9 @@ CheckIfDiscardCMD(triggerMap, cmd) {
 FullCopyCmd(cmdStr, CopyedMap := Map()) {
     paramArr := SplitCommand(cmdStr)
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+    IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
     paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+    paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
     if (paramArr[1] == GetLang("间隔"))
         return cmdStr
     if (paramArr[1] == GetLang("按键"))

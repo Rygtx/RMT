@@ -906,3 +906,7 @@ N. 对应索引的子数组=N. Sub-array at index N
 定长分割=Fixed-length Split
 类型参数:=Type:
 反转=Reverse
+调试起点=Debug Start
+取消调试起点=Clear Debug Start
+调试起点不能跳过=Debug start cannot be skipped.
+跳过指令不可设置为调试起点=Debug start cannot be skipped.

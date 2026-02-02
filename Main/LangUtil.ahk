@@ -2,13 +2,13 @@
 LangKeyMap := Map()
 
 ;指令相关的key
-LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显示", "关闭指令显示", "显示菜单", "关闭菜单", "启用键鼠", "禁用键鼠", 
-    "休眠", "暂停所有宏", "恢复所有宏", "终止所有宏", "重载", "关闭软件", "间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", 
-    "输出", "运行", "循环", "宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键", 
-    "循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y", "按下", "松开", "点击", "创建", "克隆", "删除", "包含", 
-    "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度", "变量或值", "数组", "文本分割", "文本提取", "文本替换", "去除空格", 
+LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显示", "关闭指令显示", "显示菜单", "关闭菜单", "启用键鼠", "禁用键鼠",
+    "休眠", "暂停所有宏", "恢复所有宏", "终止所有宏", "重载", "关闭软件", "间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro",
+    "输出", "运行", "循环", "宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键",
+    "循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y", "按下", "松开", "点击", "创建", "克隆", "删除", "包含",
+    "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度", "变量或值", "数组", "文本分割", "文本提取", "文本替换", "去除空格",
     "大小写转换", "文本统计", "去除前空白字符", "去除后空白字符", "去除前后空白字符", "去除所有空白字符", "全部大写", "全部小写",
-    "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏", 
+    "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏",
     "菜单宏", "定时宏", "宏", "插入到当前宏", "触发", "暂停", "取消暂停", "终止"]
 LangValueMap := Map()   ;部分文本需要反向映射
 
@@ -147,7 +147,9 @@ GetLangCmd(Cmd, Mode) {
     paramArr := SplitCommand(Cmd)
     action := Mode == 1 ? GetLang : GetLangKey
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+    IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
     paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+    paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
 
     IsMM := paramArr[1] == "移动" || paramArr[1] == GetLang("移动")
     IsPressKey := paramArr[1] == "按键" || paramArr[1] == GetLang("按键")
@@ -155,12 +157,14 @@ GetLangCmd(Cmd, Mode) {
     IsRMT := paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")
     if (IsMM || IsPressKey || IsInterval || IsRMT) {
         paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
+        paramArr[1] := IsDebug ? "⭐" action(paramArr[1]) : action(paramArr[1])
     }
     else {
         textOnly := RegExReplace(paramArr[1], "\d+")
         numbersOnly := RegExReplace(paramArr[1], "\D+")
         SkipStr := IsSkip ? "🚫" : ""
-        paramArr[1] := Format("{}{}{}", SkipStr, action(textOnly), numbersOnly)
+        DebugStr := IsDebug ? "⭐" : ""
+        paramArr[1] := Format("{}{}{}{}", DebugStr, SkipStr, action(textOnly), numbersOnly)
     }
 
     if (IsRMT) {

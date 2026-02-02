@@ -520,6 +520,8 @@ class MacroEditGui {
             this.ContextMenu.Add(GetLang("编辑"), (*) => this.ContentMenuHandler(GetLang("编辑")))
             this.ContextMenu.IsSkip := true
             this.ContextMenu.Add(GetLang("跳过指令"), (*) => this.ContentMenuHandler("Skip"))
+            this.ContextMenu.IsDebug := true
+            this.ContextMenu.Add(GetLang("调试起点"), (*) => this.ContentMenuHandler("Debug"))
             this.ContextMenu.Add(GetLang("指令上移"), (*) => this.ContentMenuHandler(GetLang("指令上移")))
             this.ContextMenu.Add(GetLang("指令下移"), (*) => this.ContentMenuHandler(GetLang("指令下移")))
 
@@ -561,10 +563,10 @@ class MacroEditGui {
         this.CurItemID := item
         this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
         itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+        isCondi := SubStr(itemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
         if (itemText == "" || SubStr(itemText, 1, 1) == "⎖")
             return
-        else if (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || SubStr(itemText,
-            1, 2) == GetLang("条件")) {
+        else if (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi) {
             this.BranchContextMenu.Show(x, y)
         }
         else {
@@ -573,6 +575,13 @@ class MacroEditGui {
             if (CurSkipMenuText != SkipMenuText) {
                 this.ContextMenu.Rename(CurSkipMenuText, SkipMenuText)
                 this.ContextMenu.IsSkip := !this.ContextMenu.IsSkip
+            }
+
+            CurDebugMenuText := this.ContextMenu.IsDebug ? GetLang("调试起点") : GetLang("取消调试起点")
+            DebugMenuText := SubStr(itemText, 1, 1) == "⭐" ? GetLang("取消调试起点") : GetLang("调试起点")
+            if (CurDebugMenuText != DebugMenuText) {
+                this.ContextMenu.Rename(CurDebugMenuText, DebugMenuText)
+                this.ContextMenu.IsDebug := !this.ContextMenu.IsDebug
             }
 
             this.ContextMenu.Show(x, y)
@@ -690,6 +699,8 @@ class MacroEditGui {
             {
                 MacroStr := this.GetMacroStr()
                 MacroStr := GetLangMacro(macroStr, 2)
+                ResArr := StrSplit(MacroStr, "⭐", 2)
+                MacroStr := ResArr.Length > 1 ? ResArr[2] : MacroStr
                 MyCMDTipGui.Clear()
                 OnTriggerSepcialItemMacro(MacroStr)
                 MsgBox(GetLang("调试运行结束"), "", "Owner" this.Gui.Hwnd)
@@ -753,10 +764,22 @@ class MacroEditGui {
             }
             case "Skip":
             {
+                if (SubStr(itemText, 1, 1) == "⭐") {
+                    MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                    return
+                }
                 IsToSkip := SubStr(itemText, 1, 2) != "🚫"
                 CommandStr := IsToSkip ? "🚫" itemText : SubStr(itemText, 3)
                 this.OnModifyCmd(CommandStr)
             }
+            case "Debug":
+                if (SubStr(itemText, 1, 2) == "🚫") {
+                    MsgBox(GetLang("跳过指令不可设置为调试起点"), "", "Owner" this.Gui.Hwnd)
+                    return
+                }
+                IsToDebug := SubStr(itemText, 1, 1) != "⭐"
+                CommandStr := IsToDebug ? "⭐" itemText : SubStr(itemText, 2)
+                this.OnModifyCmd(CommandStr)
             case GetLang("指令上移"):
             {
                 this.OnPreMoveCmd()
@@ -819,12 +842,14 @@ class MacroEditGui {
     TreeAddBranch(root, cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
         IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+        IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
         IsSearchPro := InStr(paramArr[1], GetLang("搜索Pro"))
         IsSearch := InStr(paramArr[1], GetLang("搜索")) && !IsSearchPro
         IsIfPro := InStr(paramArr[1], GetLang("如果Pro"))
         IsIf := InStr(paramArr[1], GetLang("如果")) && !IsIfPro
         IsLoop := InStr(paramArr[1], GetLang("循环"))
-        Cmd := RegExReplace(paramArr[1], "\d+")
+        Cmd := GetCmdStr(paramArr[1])
+        SerialStr := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
         if (IsSkip)
             return
         if (!IsSearch && !IsSearchPro && !IsIf && !IsLoop && !IsIfPro)
@@ -839,11 +864,8 @@ class MacroEditGui {
                 return
         }
 
+        Data := GetMacroCMDData(SerialStr)
         if (IsIf || IsSearch || IsSearchPro) {
-            dataFileMap := Map(GetLang("搜索"), SearchFile, GetLang("搜索Pro"), SearchProFile, GetLang("如果"),
-            CompareFile)
-            dataFile := dataFileMap[Cmd]
-            Data := GetMacroCMDData(paramArr[1])
             TrueMacro := GetLangMacro(Data.TrueMacro, 1)
             FalseMacro := GetLangMacro(Data.FalseMacro, 1)
 
@@ -856,7 +878,6 @@ class MacroEditGui {
             this.TreeAddSubTree(falseRoot, FalseMacro)
         }
         else if (IsLoop) {
-            Data := GetMacroCMDData(paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
             countStr := Data.LoopCount == -1 ? GetLang("无限") : Data.LoopCount
             CountRoot := this.MacroTreeViewCon.Add(Format("{}:{}", GetLang("⎖循环次数"), countStr), root, iconStr)
@@ -874,7 +895,6 @@ class MacroEditGui {
             this.TreeAddSubTree(BodyRoot, LoopBody)
         }
         else if (IsIfPro) {
-            Data := GetMacroCMDData(paramArr[1])
             iconStr := this.GetCmdIconStr(GetLang("条件"))
             loop Data.VariNameArr.Length {
                 CondiStr := GetLang("条件：") CompareProData.GetCondiStr(Data, A_Index)
@@ -913,7 +933,10 @@ class MacroEditGui {
         if (modeType == 2) {
             ItemText := this.MacroTreeViewCon.GetText(this.CurItemID)
             IsSkip := SubStr(ItemText, 1, 2) == "🚫"
+            IsDebug := SubStr(ItemText, 1, 1) == "⭐"
             CommandStr := IsSkip ? SubStr(ItemText, 3) : ItemText
+            CommandStr := IsDebug ? SubStr(ItemText, 2) : CommandStr
+
             subGui.ShowGui(CommandStr)
             return
         }
@@ -1133,6 +1156,9 @@ class MacroEditGui {
         paramArr := StrSplit(cmdStr, "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             paramArr[1] := SubStr(paramArr[1], 3)
+
+        if (SubStr(paramArr[1], 1, 1) == "⭐")
+            paramArr[1] := SubStr(paramArr[1], 2)
 
         textOnly := RegExReplace(paramArr[1], "\d+")
         if (this.IconMap.Has(textOnly)) {
