@@ -6,24 +6,32 @@ CompatGetData(LineStr, FilePath) {
         return ""
 
     SerialStr := SubStr(LineStr, 1, FoundPos - 1)
-    if (SerialStr == "宏操作1028037")
-        aa := 1
-
-    if (SerialStr == "宏操作1026571")
-        aa := 1
-    SaveStr := SubStr(LineStr, FoundPos + 1)
-    ;部分A_LoopReadLine会因为编码问题错位，校验一下
-    CheckStr := IniRead(FilePath, IniSection, SerialStr, "")
-    if (SaveStr == "" && CheckStr == "")
+    CurLineStr := SubStr(LineStr, FoundPos + 1)
+    CheckStr := IniRead(FilePath, IniSection, SerialStr, "")    ;部分A_LoopReadLine会因为编码问题错位，校验一下
+    if (CurLineStr == "" && CheckStr == "")
         return ""
 
+    CurData := Object()
+    CheckData := Object()
     try {
-        Data := JSON.parse(SaveStr, , false)
+        CurData := JSON.parse(CurLineStr, , false)
     }
-    catch as e {
-        ;部分A_LoopReadLine会因为编码问题错位，校验一下
+
+    try {
+        CheckData := JSON.parse(CheckStr, , false)
+    }
+
+    SaveStr := CurLineStr
+    Data := CurData
+    CurDataPropCount := ObjOwnPropCount(CurData)
+    CheckDataPropCount := ObjOwnPropCount(CheckData)
+    if (CurDataPropCount < CheckDataPropCount) {
         SaveStr := CheckStr
-        Data := JSON.parse(SaveStr, , false)
+        Data := CheckData
+    }
+    else if (CurDataPropCount == CheckDataPropCount && StrLen(CurLineStr) > StrLen(CheckStr)) {
+        SaveStr := CheckStr
+        Data := CheckData
     }
 
     FirstChar := SubStr(SaveStr, 1, 1)
@@ -155,8 +163,8 @@ CompatCMD(filePath) {
         symbol := GetTableSymbol(A_Index)
         loop {
             MacroLabel := symbol "MacroArr" A_Index
-            MacroStr := IniRead(filePath, IniSection, MacroLabel, "")
-            if (MacroStr == "")
+            MacroStr := IniRead(filePath, IniSection, MacroLabel, "🚫🚫⎖⎖⎖")
+            if (MacroStr == "🚫🚫⎖⎖⎖")
                 break
 
             MacroStr := CompatMacro(MacroStr, &isFix)

@@ -36,10 +36,10 @@ SetGlobalData(macroStr, visitMap) {
             }
         }
         else if (IsTextOps) {
-            loop Data.ToggleArr.Length {
-                if (Data.ToggleArr[A_Index])
-                    VariableMap[Data.VariableArr[A_Index]] := true
-            }
+            if (Data.SaveType == "变量")
+                VariableMap[Data.SaveName] := true
+            if (Data.SaveType == "数组")
+                MySoftData.GlobalArrMap[Data.SaveName] := true
         }
         else if (IsIf) {
             if (Data.SaveToggle) {
