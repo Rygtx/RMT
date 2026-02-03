@@ -189,6 +189,7 @@ class MacroEditGui {
 
         MySoftData.RecordToggleCon := this.RecordMacroCon
         MySoftData.MacroEditGui := this
+        this.DebugStepNum := 0
         this.InitGuiMenu()
         this.Init(CommandStr, ShowSaveBtn)
     }
@@ -656,8 +657,8 @@ class MacroEditGui {
         this.OnOpenSubGui(subGui, 2)
     }
 
-    MenuHandler(cmdStr, *) {
-        switch cmdStr {
+    MenuHandler(cmdNextStr, *) {
+        switch cmdNextStr {
             case GetLang("变量监视"):
             {
                 if (MyVarListenGui.Gui != "") {
@@ -712,26 +713,31 @@ class MacroEditGui {
                     return
                 }
 
-                this.DebugStepNum++
-                if (this.DebugStepNum == 1)
+                if (this.DebugItemID == 0) {
                     MyCMDTipGui.Clear()
-
-                MacroStr := this.GetMacroStr()
-                MacroStr := GetLangMacro(MacroStr, 2)
-                cmdArr := SplitMacro(MacroStr)
-                if (cmdArr.Length >= this.DebugStepNum) {
-                    CurCMD := cmdArr[this.DebugStepNum]
                     this.DebugItemID := this.MacroTreeViewCon.GetNext(this.DebugItemID)
-                    this.MacroTreeViewCon.Modify(this.DebugItemID, "Select")
-                    OnTriggerSepcialItemMacro(CurCMD)
                 }
-
-                if (this.DebugStepNum >= cmdArr.Length) {
-                    MsgBox(GetLang("单步运行结束"), "", "Owner" this.Gui.Hwnd)
-                    this.DebugStepNum := 0
-                    this.DebugItemID := 0
-                    return
+                CurCMD := this.MacroTreeViewCon.GetText(this.DebugItemID)
+                CurCMD := StrReplace(CurCMD, "⭐", "")
+                CurLangCMD := GetLangMacro(CurCMD, 2)
+                OnTriggerSepcialItemMacro(CurLangCMD)
+                this.MacroTreeViewCon.Modify(this.DebugItemID, , CurCMD)
+                loop {
+                    if (this.DebugItemID == this.LastItemID) {
+                        this.DebugItemID := 0
+                        MsgBox(GetLang("单步运行结束"), "", "Owner" this.Gui.Hwnd)
+                        return
+                    }
+                    this.DebugItemID := this.MacroTreeViewCon.GetNext(this.DebugItemID)
+                    cmdNextStr := this.MacroTreeViewCon.GetText(this.DebugItemID)
+                    if (SubStr(cmdNextStr, 1, 2) == "🚫") {
+                        continue
+                    }
+                    break
                 }
+                cmdNextStr := StrReplace(cmdNextStr, "⭐", "")
+                cmdNextStr := "⭐" cmdNextStr
+                this.MacroTreeViewCon.Modify(this.DebugItemID, , cmdNextStr)
             }
             case GetLang("终止"):
             {
@@ -779,6 +785,7 @@ class MacroEditGui {
                 }
                 IsToDebug := SubStr(itemText, 1, 1) != "⭐"
                 CommandStr := IsToDebug ? "⭐" itemText : SubStr(itemText, 2)
+                this.DebugItemID := this.CurItemID
                 this.OnModifyCmd(CommandStr)
             case GetLang("指令上移"):
             {
@@ -817,11 +824,16 @@ class MacroEditGui {
         this.MacroTreeViewCon.Opt("-Redraw")
         this.MacroTreeViewCon.Delete()
         this.LastItemID := 0
+        isSetDebug := false
         for cmdStr in cmdArr {
             iconStr := this.GetCmdIconStr(cmdStr)
             root := this.MacroTreeViewCon.Add(cmdStr, 0, iconStr)
             this.LastItemID := root
             this.TreeAddBranch(root, cmdStr)
+            if (!isSetDebug && SubStr(cmdStr, 1, 1) == "⭐") {
+                isSetDebug := true
+                this.DebugItemID := root
+            }
         }
         this.MacroTreeViewCon.Opt("+Redraw")
     }
