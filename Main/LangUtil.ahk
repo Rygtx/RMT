@@ -148,24 +148,23 @@ GetLangCmd(Cmd, Mode) {
     action := Mode == 1 ? GetLang : GetLangKey
     IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
     IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
-    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
-    paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
+    paramArr[1] := GetCmdStr(paramArr[1])
 
     IsMM := paramArr[1] == "移动" || paramArr[1] == GetLang("移动")
     IsPressKey := paramArr[1] == "按键" || paramArr[1] == GetLang("按键")
     IsInterval := paramArr[1] == "间隔" || paramArr[1] == GetLang("间隔")
     IsRMT := paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")
     if (IsMM || IsPressKey || IsInterval || IsRMT) {
-        paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
-        paramArr[1] := IsDebug ? "⭐" action(paramArr[1]) : action(paramArr[1])
+        paramArr[1] := action(paramArr[1])
     }
     else {
         textOnly := RegExReplace(paramArr[1], "\d+")
         numbersOnly := RegExReplace(paramArr[1], "\D+")
-        SkipStr := IsSkip ? "🚫" : ""
-        DebugStr := IsDebug ? "⭐" : ""
-        paramArr[1] := Format("{}{}{}{}", DebugStr, SkipStr, action(textOnly), numbersOnly)
+        paramArr[1] := Format("{}{}", action(textOnly), numbersOnly)
     }
+    SkipStr := IsSkip ? "🚫" : ""
+    DebugStr := IsDebug ? "⭐" : ""
+    paramArr[1] := Format("{}{}{}", SkipStr, DebugStr, paramArr[1])
 
     if (IsRMT) {
         paramArr[2] := action(paramArr[2])

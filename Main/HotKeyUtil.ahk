@@ -60,8 +60,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             continue
-        if (SubStr(paramArr[1], 1, 1) == "⭐")
-            paramArr[1] := SubStr(paramArr[1], 2)
+        paramArr[1] := GetCmdStr(paramArr[1])
         IsMMPro := InStr(paramArr[1], "移动Pro")
         IsMM := InStr(paramArr[1], "移动") && !IsMMPro
         IsSearchPro := InStr(paramArr[1], "搜索Pro")

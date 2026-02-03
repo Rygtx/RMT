@@ -51,8 +51,7 @@ CompatMacro(MacroStr, &isFix) {
         paramArr := SplitCommand(CMDArr[A_Index])
         IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
         IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
-        paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
-        paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
+        paramArr[1] := GetCmdStr(paramArr[1])
 
         ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
         if (paramArr[1] == "间隔" && paramArr.Length == 3) {

@@ -7,8 +7,7 @@ SetGlobalData(macroStr, visitMap) {
     cmdArr := SplitMacro(macroStr)
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
-        paramArr[1] := StrReplace(paramArr[1], "🚫", "")
-        paramArr[1] := StrReplace(paramArr[1], "⭐", "")
+        paramArr[1] := GetCmdStr(paramArr[1])
         if (visitMap.Has(paramArr[1]))
             continue
         SetCMDSerialData(cmdArr[A_Index])

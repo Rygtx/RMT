@@ -652,7 +652,7 @@ class MacroEditGui {
         }
 
         paramsArr := StrSplit(itemText, "_")
-        cmd := GetCmdStr(paramsArr[1])
+        cmd := GetCmdOnlyText(paramsArr[1])
         subGui := this.SubGuiMap[cmd]
         this.OnOpenSubGui(subGui, 2)
     }
@@ -764,7 +764,7 @@ class MacroEditGui {
             case GetLang("编辑"):
             {
                 paramsArr := StrSplit(itemText, "_")
-                cmd := GetCmdStr(paramsArr[1])
+                cmd := GetCmdOnlyText(paramsArr[1])
                 subGui := this.SubGuiMap[cmd]
                 this.OnOpenSubGui(subGui, 2)
             }
@@ -854,14 +854,13 @@ class MacroEditGui {
     TreeAddBranch(root, cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
         IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-        IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
         IsSearchPro := InStr(paramArr[1], GetLang("搜索Pro"))
         IsSearch := InStr(paramArr[1], GetLang("搜索")) && !IsSearchPro
         IsIfPro := InStr(paramArr[1], GetLang("如果Pro"))
         IsIf := InStr(paramArr[1], GetLang("如果")) && !IsIfPro
         IsLoop := InStr(paramArr[1], GetLang("循环"))
-        Cmd := GetCmdStr(paramArr[1])
-        SerialStr := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
+        Cmd := GetCmdOnlyText(paramArr[1])
+        SerialStr := StrReplace(paramArr[1], "⭐", "")
         if (IsSkip)
             return
         if (!IsSearch && !IsSearchPro && !IsIf && !IsLoop && !IsIfPro)
@@ -944,11 +943,7 @@ class MacroEditGui {
 
         if (modeType == 2) {
             ItemText := this.MacroTreeViewCon.GetText(this.CurItemID)
-            IsSkip := SubStr(ItemText, 1, 2) == "🚫"
-            IsDebug := SubStr(ItemText, 1, 1) == "⭐"
-            CommandStr := IsSkip ? SubStr(ItemText, 3) : ItemText
-            CommandStr := IsDebug ? SubStr(ItemText, 2) : CommandStr
-
+            CommandStr := GetCmdStr(ItemText)
             subGui.ShowGui(CommandStr)
             return
         }
