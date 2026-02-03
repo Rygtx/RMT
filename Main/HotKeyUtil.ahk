@@ -60,6 +60,8 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             continue
+        if (SubStr(paramArr[1], 1, 1) == "⭐")
+            paramArr[1] := SubStr(paramArr[1], 2)
         IsMMPro := InStr(paramArr[1], "移动Pro")
         IsMM := InStr(paramArr[1], "移动") && !IsMMPro
         IsSearchPro := InStr(paramArr[1], "搜索Pro")
@@ -308,7 +310,7 @@ OnCompare(tableItem, cmd, index) {
             hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index])
             if (!hasValue)
                 return
-            if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
+            if (Data.CompareTypeArr[A_Index] == 6 || Data.CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
                 hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
                 hasOtherValue := true
@@ -373,7 +375,7 @@ OnComparePro(tableItem, cmd, index) {
             }
             else {
                 hasValue := TryGetVariableValue(&Value, tableItem, index, NameArr[A_Index])
-                if (CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
+                if (CompareTypeArr[A_Index] == 6 || CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
                     hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, VariableArr[A_Index],
                         false)
                     OtherValue := hasOtherValue ? OtherValue : VariableArr[A_Index]

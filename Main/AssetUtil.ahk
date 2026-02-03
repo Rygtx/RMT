@@ -1594,7 +1594,9 @@ GetItemColorState(ColorValue) {
 
 GetCmdStr(param) {
     IsSkip := SubStr(param, 1, 2) == "🚫"
+    IsDebug := SubStr(param, 1, 1) == "⭐"
     param := IsSkip ? SubStr(param, 3) : param
+    param := IsDebug ? SubStr(param, 2) : param
     textOnly := RegExReplace(param, "\d+")
     return textOnly
 }

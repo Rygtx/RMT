@@ -8,6 +8,7 @@ SetGlobalData(macroStr, visitMap) {
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         paramArr[1] := StrReplace(paramArr[1], "🚫", "")
+        paramArr[1] := StrReplace(paramArr[1], "⭐", "")
         if (visitMap.Has(paramArr[1]))
             continue
         SetCMDSerialData(cmdArr[A_Index])
@@ -36,10 +37,10 @@ SetGlobalData(macroStr, visitMap) {
             }
         }
         else if (IsTextOps) {
-            loop Data.ToggleArr.Length {
-                if (Data.ToggleArr[A_Index])
-                    VariableMap[Data.VariableArr[A_Index]] := true
-            }
+            if (Data.SaveType == "变量")
+                VariableMap[Data.SaveName] := true
+            if (Data.SaveType == "数组")
+                MySoftData.GlobalArrMap[Data.SaveName] := true
         }
         else if (IsIf) {
             if (Data.SaveToggle) {

@@ -10,6 +10,7 @@ GetSerialStr(CmdStr) {
 SetCMDSerialData(CMD) {
     paramArr := StrSplit(CMD, "_")
     paramArr[1] := StrReplace(paramArr[1], "🚫", "")
+    paramArr[1] := StrReplace(paramArr[1], "⭐", "")
     IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
     IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
     IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
