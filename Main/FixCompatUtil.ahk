@@ -49,6 +49,10 @@ CompatMacro(MacroStr, &isFix) {
         "变量提取", 1, "宏操作", 1, "运算", 1, "后台鼠标", 1, "后台按键", 1, "循环", 1)
     loop CMDArr.Length {
         paramArr := SplitCommand(CMDArr[A_Index])
+        IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
+        IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
+        paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
+        paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
 
         ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
         if (paramArr[1] == "间隔" && paramArr.Length == 3) {
@@ -78,6 +82,12 @@ CompatMacro(MacroStr, &isFix) {
             paramArr.Pop()
             CMDArr[A_Index] := GetCmdByParams(paramArr)
         }
+
+        if (IsSkip)
+            CMDArr[A_Index] := "🚫" CMDArr[A_Index]
+
+        if (IsDebug)
+            CMDArr[A_Index] := "⭐" CMDArr[A_Index]
     }
     MacroStr := GetMacroStrByCmdArr(CMDArr)
     return MacroStr
@@ -163,8 +173,8 @@ CompatCMD(filePath) {
         symbol := GetTableSymbol(A_Index)
         loop {
             MacroLabel := symbol "MacroArr" A_Index
-            MacroStr := IniRead(filePath, IniSection, MacroLabel, "🚫🚫⎖⎖⎖")
-            if (MacroStr == "🚫🚫⎖⎖⎖")
+            MacroStr := IniRead(filePath, IniSection, MacroLabel, "默认空文本")
+            if (MacroStr == "默认空文本")
                 break
 
             MacroStr := CompatMacro(MacroStr, &isFix)
@@ -183,6 +193,7 @@ CompatSearch(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Search", "搜索")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -199,12 +210,12 @@ CompatSearch(filePath) {
             curFix := curFix || isFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -213,6 +224,7 @@ CompatSearchPro(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Search", "搜索Pro")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -241,12 +253,12 @@ CompatSearchPro(filePath) {
             curFix := curFix || isFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -255,6 +267,7 @@ CompatMMPro(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "MMPro", "移动Pro")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -281,12 +294,12 @@ CompatMMPro(filePath) {
             curFix := CompatMMProConfig(Data) || curFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -312,6 +325,7 @@ CompatLoop(filePath) {
         return hasFix
 
     hasFix := CompatSerial(filePath, "Loop", "循环")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -323,12 +337,12 @@ CompatLoop(filePath) {
             curFix := curFix || isFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -339,16 +353,11 @@ CompatSubMacro(FilePath) {
     FixTypeMap := Map("1", "当前宏", "2", "按键宏", "3", "字串宏", "4", "菜单宏", "5", "定时宏", "6", "宏")
     FixCallTypeMap := Map("1", "插入到当前宏", "2", "触发", "3", "暂停", "4", "取消暂停", "5", "终止")
     hasFix := CompatSerial(filePath, "SubMacro", "宏操作")
+    newContent := "[UserSettings]"
     loop read, FilePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
-
-        if (Data.SerialStr == "宏操作1028037")
-            aa := 1
-
-        if (Data.SerialStr == "宏操作1026571")
-            aa := 1
 
         curFix := false
         ;宏插入可以指定次数
@@ -367,12 +376,12 @@ CompatSubMacro(FilePath) {
             Data.CallType := FixCallTypeMap[String(Data.CallType)]
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, FilePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -397,6 +406,7 @@ CompatCompare(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Compare", "如果")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -412,12 +422,12 @@ CompatCompare(filePath) {
             curFix := curFix || isFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -427,6 +437,7 @@ CompatComparePro(filePath) {
         return hasFix
 
     hasFix := CompatSerial(filePath, "ComparePro", "如果Pro")
+    newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -445,12 +456,12 @@ CompatComparePro(filePath) {
             curFix := curFix || isFix
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
@@ -459,6 +470,7 @@ CompatOperation(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Operation", "运算")
+    newContent := "[UserSettings]"
     DeletePropArr := ["NameArr", "OperationArr", "SymbolGroups", "ValueGroups"]
 
     loop read, filePath {
@@ -496,13 +508,12 @@ CompatOperation(filePath) {
             }
         }
 
-        if (curFix) {
-            hasFix := true
-            saveStr := JSON.stringify(Data, 0)
-            IniWrite(saveStr, filePath, IniSection, Data.SerialStr)
-        }
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
     }
-
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 
