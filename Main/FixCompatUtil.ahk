@@ -436,7 +436,9 @@ CompatComparePro(filePath) {
     if (!FileExist(FilePath))
         return hasFix
 
-    hasFix := CompatSerial(filePath, "ComparePro", "如果Pro")
+    hasFix1 := CompatSerial(filePath, "Compare+", "如果Pro")
+    hasFix2 := CompatSerial(filePath, "ComparePro", "如果Pro")
+    hasFix := hasFix1 || hasFix2
     newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
