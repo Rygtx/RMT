@@ -860,7 +860,7 @@ class MacroEditGui {
         IsIf := InStr(paramArr[1], GetLang("如果")) && !IsIfPro
         IsLoop := InStr(paramArr[1], GetLang("循环"))
         Cmd := GetCmdOnlyText(paramArr[1])
-        SerialStr := StrReplace(paramArr[1], "⭐", "")
+        SerialStr := GetCmdStr(paramArr[1])
         if (IsSkip)
             return
         if (!IsSearch && !IsSearchPro && !IsIf && !IsLoop && !IsIfPro)
@@ -1161,11 +1161,7 @@ class MacroEditGui {
 
     GetCmdIconStr(cmdStr) {
         paramArr := StrSplit(cmdStr, "_")
-        if (SubStr(paramArr[1], 1, 2) == "🚫")
-            paramArr[1] := SubStr(paramArr[1], 3)
-
-        if (SubStr(paramArr[1], 1, 1) == "⭐")
-            paramArr[1] := SubStr(paramArr[1], 2)
+        paramArr[1] := GetCmdStr(paramArr[1])
 
         textOnly := RegExReplace(paramArr[1], "\d+")
         if (this.IconMap.Has(textOnly)) {

@@ -33,9 +33,16 @@ class ExVariableEditGui {
 
         PosX := 15
         PosY := 10
+        tip1 := GetLang("源文本内容：请输入 提取范围 或 剪切板 的文本内容")
+        tip2 := GetLang("提取内容：请输入你需要提取的变量内容")
+        tip3 := GetLang("将根据 源文本内容 和 提取内容 自动生成提取文本")
+        tip4 := GetLang("提示1：源文本内容空时，将提取所有内容到第一个变量中")
+        tip5 := GetLang("提示2：源文本内容不需要太多，包含提取内容即可")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), Format("{}`n{}`n{}`n{}`n{}", tip1, tip2, tip3, tip4, tip5))
+        PosY += 110
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("源文本内容："))
         PosY += 25
-        this.OriTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 410, 50), "")
+        this.OriTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 430, 50), "")
 
         PosY += 60
         PosX := 15
@@ -43,7 +50,7 @@ class ExVariableEditGui {
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
 
-        PosX += 225
+        PosX += 245
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}2:", GetLang("提取内容")))
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
@@ -54,7 +61,7 @@ class ExVariableEditGui {
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
 
-        PosX += 225
+        PosX += 245
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}4:", GetLang("提取内容")))
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
@@ -65,16 +72,16 @@ class ExVariableEditGui {
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
 
-        PosX += 225
+        PosX += 245
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}6:", GetLang("提取内容")))
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
         this.VarTextConArr.Push(con)
 
-        PosX := 170
+        PosX := 190
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show(Format("w{} h{}", 440, 260))
+        MyGui.Show(Format("w{} h{}", 480, 370))
     }
 
     CheckIfValid() {

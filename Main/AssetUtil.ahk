@@ -1598,6 +1598,15 @@ GetCmdStr(param) {
     return param
 }
 
+GetCmdSymbol(cmd) {
+    IsSkip := RegExMatch(cmd, "🚫")
+    IsDebug := RegExMatch(cmd, "⭐")
+    SkipStr := IsSkip ? "🚫" : ""
+    DebugStr := IsDebug ? "⭐" : ""
+    Symbol := Format("{}{}", SkipStr, DebugStr)
+    return Symbol
+}
+
 GetCmdOnlyText(param) {
     param := GetCmdStr(param)
     textOnly := RegExReplace(param, "\d+")

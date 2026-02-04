@@ -49,8 +49,7 @@ CompatMacro(MacroStr, &isFix) {
         "变量提取", 1, "宏操作", 1, "运算", 1, "后台鼠标", 1, "后台按键", 1, "循环", 1)
     loop CMDArr.Length {
         paramArr := SplitCommand(CMDArr[A_Index])
-        IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-        IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
+        cmdSymbol := GetCmdSymbol(paramArr[1])
         paramArr[1] := GetCmdStr(paramArr[1])
 
         ;1.0.9F3 间隔指令调整 统一使用两个参数  调整处理时机
@@ -81,12 +80,7 @@ CompatMacro(MacroStr, &isFix) {
             paramArr.Pop()
             CMDArr[A_Index] := GetCmdByParams(paramArr)
         }
-
-        if (IsSkip)
-            CMDArr[A_Index] := "🚫" CMDArr[A_Index]
-
-        if (IsDebug)
-            CMDArr[A_Index] := "⭐" CMDArr[A_Index]
+        CMDArr[A_Index] := cmdSymbol CMDArr[A_Index]
     }
     MacroStr := GetMacroStrByCmdArr(CMDArr)
     return MacroStr

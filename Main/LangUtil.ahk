@@ -146,8 +146,7 @@ GetLangMacro(MacroStr, Mode) {
 GetLangCmd(Cmd, Mode) {
     paramArr := SplitCommand(Cmd)
     action := Mode == 1 ? GetLang : GetLangKey
-    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-    IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
+    cmdSymbol := GetCmdSymbol(paramArr[1])
     paramArr[1] := GetCmdStr(paramArr[1])
 
     IsMM := paramArr[1] == "移动" || paramArr[1] == GetLang("移动")
@@ -162,9 +161,7 @@ GetLangCmd(Cmd, Mode) {
         numbersOnly := RegExReplace(paramArr[1], "\D+")
         paramArr[1] := Format("{}{}", action(textOnly), numbersOnly)
     }
-    SkipStr := IsSkip ? "🚫" : ""
-    DebugStr := IsDebug ? "⭐" : ""
-    paramArr[1] := Format("{}{}{}", SkipStr, DebugStr, paramArr[1])
+    paramArr[1] := Format("{}{}", cmdSymbol, paramArr[1])
 
     if (IsRMT) {
         paramArr[2] := action(paramArr[2])
