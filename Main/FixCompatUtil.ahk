@@ -223,6 +223,7 @@ CompatSearchPro(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Search", "搜索Pro")
+    hasFix := CompatSerial(filePath, "Search\+", "搜索Pro")
     newContent := "[UserSettings]"
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
@@ -470,7 +471,9 @@ CompatOperation(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    hasFix := CompatSerial(filePath, "Operation", "运算")
+    hasFix1 := CompatSerial(filePath, "Operation", "运算")
+    hasFix2 := CompatSerial(filePath, "Calc", "运算")
+    hasFix := hasFix1 || hasFix2
     newContent := "[UserSettings]"
     DeletePropArr := ["NameArr", "OperationArr", "SymbolGroups", "ValueGroups"]
 

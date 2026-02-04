@@ -754,14 +754,13 @@ OnExVariable(tableItem, cmd, index) {
 }
 
 OnExVariableOnce(tableItem, index, Data) {
-    HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
-    HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
-    HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
-    HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
-    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
-        return
-
     if (Data.ExtractType == 1) {
+        HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+        if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+            return
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
         TextObjs := TextObjs == "" ? [] : TextObjs
     }

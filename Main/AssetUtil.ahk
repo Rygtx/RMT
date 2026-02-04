@@ -1339,7 +1339,7 @@ GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
 
         ResText := StrReplace(ResText, "{" value "}", variValue)
     }
-    return ResText
+    return true
 }
 
 TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
