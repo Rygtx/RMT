@@ -56,7 +56,8 @@ GetCMDSerialStr(Cmd) {
     SerialStr := Format("{}{}", Cmd, Data.CurNum)
     if (MySoftData.DataFileMap.Has(Cmd)) {
         DataFile := MySoftData.DataFileMap[Cmd]
-        IniDelete(DataFile, IniSection, SerialStr)
+        if (FileExist(DataFile))
+            IniDelete(DataFile, IniSection, SerialStr)
     }
     Data.NumMap.Set(Data.CurNum, true)
     Data.Refresh()
