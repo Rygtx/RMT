@@ -3,7 +3,7 @@
 ;资源保存
 OnSaveSetting(*) {
     global MySoftData
-    isValid := CheckFloatSettingValid()
+    isValid := CheckAllValueSettingValid()
     if (!isValid)
         return
 
@@ -69,31 +69,32 @@ OnSaveSetting(*) {
     Reload()
 }
 
-CheckFloatSettingValid() {
-    if (IsFloat(MySoftData.HoldFloatCtrl.Value)) {
-        MsgBox(GetLang("按住时间浮动值只能是整数"))
+CheckValueSettingValid(Name, Value) {
+    if (!IsInteger(Value)) {
+        MsgBox(Format("{}{}", Name, GetLang("只能是整数")))
         return false
     }
+    return true
+}
 
-    if (IsFloat(MySoftData.PreIntervalFloatCtrl.Value)) {
-        MsgBox(GetLang("每次间隔浮动值只能是整数"))
+CheckAllValueSettingValid() {
+    if (!CheckValueSettingValid(GetLang("按住时间浮动"), MySoftData.HoldFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.IntervalFloatCtrl.Value)) {
-        MsgBox(GetLang("间隔指令浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("每次间隔浮动"), MySoftData.PreIntervalFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.CoordXFloatCon.Value)) {
-        MsgBox(GetLang("坐标X浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("间隔指令浮动"), MySoftData.IntervalFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.CoordYFloatCon.Value)) {
-        MsgBox(GetLang("坐标Y浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("坐标X浮动"), MySoftData.CoordXFloatCon.Value))
         return false
-    }
+
+    if (!CheckValueSettingValid(GetLang("坐标Y浮动"), MySoftData.CoordYFloatCon.Value))
+        return false
+
+    if (!CheckValueSettingValid(GetLang("多线程数"), MySoftData.MutiThreadNumCtrl.Value))
+        return false
 
     return true
 }
