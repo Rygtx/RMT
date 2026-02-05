@@ -915,3 +915,6 @@ N. 对应索引的子数组=N. Sub-array at index N
 将根据 源文本内容 和 提取内容 自动生成提取文本=Auto-generate from source and target text.
 提示1：源文本内容空时，将提取所有内容到第一个变量中=Tip 1: If source is empty, all content goes to the first variable.
 提示2：源文本内容不需要太多，包含提取内容即可=Tip 2: Source Text only needs to include the target content.
+分割文本：=Split Text:
+分割长度：=Length:
+制表符=Tab key

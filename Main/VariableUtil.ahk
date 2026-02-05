@@ -110,6 +110,19 @@ GetGuiVarArr() {
         ResultArr.Push(Key)
     }
 
+    Length := ResultArr.Length
+    loop Length {
+        i := A_Index
+        loop Length - i {
+            j := A_Index + i
+            if (!StrCompare(ResultArr[i], ResultArr[j])) {
+                temp := ResultArr[i]
+                ResultArr[i] := ResultArr[j]
+                ResultArr[j] := temp
+            }
+        }
+    }
+
     ResultArr.Push(SpecialKeyArr*)
     return ResultArr
 }

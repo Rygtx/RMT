@@ -1130,7 +1130,7 @@ class MacroEditGui {
     OnSubNodeEdit(nodeItemID, macroStr) {
         RealItemID := this.MacroTreeViewCon.GetParent(nodeItemID)
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
-
+        macroStr := macroStr == "" ? " " : macroStr
         this.SaveCommandData(RealCommandStr, macroStr, nodeItemID)
         this.RefreshTree(RealItemID)
     }
@@ -1195,7 +1195,7 @@ class MacroEditGui {
             if (ItemNumber > Data.VariNameArr.Length) {
                 if (macroStr == "")
                     MsgBox("最后的分支不能删除，已清空分支指令")
-                Data.DefaultMacro := macroStr
+                Data.DefaultMacro := Trim(macroStr)
             }
             else {
                 if (macroStr == "") {
