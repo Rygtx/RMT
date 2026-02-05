@@ -158,3 +158,31 @@ RemoveInVariable(VarArr, Mode := 1) {
 
     return result
 }
+
+CheckVarNameIfValid(Name) {
+    if (Name == "") {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能为空")))
+        return false
+    }
+
+    if (IsNumber(Name)) {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能是纯数字")))
+        return false
+    }
+
+    if (InStr(Name, "_")) {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能包含下划线")))
+        return false
+    }
+    return true
+}
+
+;变量名需要替换掉运算符
+GetVarName(Name) {
+    Name := GetLangKey(Name)
+    Name := RegExReplace(Name, "+", "＋")
+    Name := RegExReplace(Name, "-", "－")
+    Name := RegExReplace(Name, "*", "×")
+    Name := RegExReplace(Name, "/", "÷")
+    return Name
+}

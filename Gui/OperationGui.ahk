@@ -146,21 +146,9 @@ class OperationGui {
 
     CheckIfValid() {
         loop 4 {
-            if (this.ToggleConArr[A_Index].Value) {
-                if (IsNumber(this.UpdateNameConArr[A_Index].Text)) {
-                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能是纯数字"), A_Index))
-                    return false
-                }
-
-                if (this.UpdateNameConArr[A_Index].Text == "") {
-                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能为空"), A_Index))
-                    return false
-                }
-
-                if (InStr(this.UpdateNameConArr[A_Index].Text, "_")) {
-                    MsgBox(Format(GetLang("{}. 结果变量名不规范：变量名不能包含下划线"), A_Index))
-                    return false
-                }
+            IsOn := this.ToggleConArr[A_Index].Value
+            if (IsOn && !CheckVarNameIfValid(this.UpdateNameConArr[A_Index].Text)) {
+                return false
             }
         }
 
@@ -172,7 +160,7 @@ class OperationGui {
         loop this.Data.ToggleArr.Length {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
             this.Data.ExpressionArr[A_Index] := GetLangStr(this.ExprConArr[A_Index].Value, 2)
-            this.Data.UpdateNameArr[A_Index] := GetLangKey(this.UpdateNameConArr[A_Index].Text)
+            this.Data.UpdateNameArr[A_Index] := GetVarName(this.UpdateNameConArr[A_Index].Text)
         }
 
         ; 添加全局变量，方便下拉选取

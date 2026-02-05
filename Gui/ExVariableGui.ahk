@@ -465,7 +465,7 @@ class ExVariableGui {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         loop this.Data.ToggleArr.Length {
             this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.VariableArr[A_Index] := this.VariableConArr[A_Index].Text
+            this.Data.VariableArr[A_Index] := GetVarName(this.VariableConArr[A_Index].Text)
         }
 
         ; 添加全局变量，方便下拉选取

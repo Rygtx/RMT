@@ -257,10 +257,9 @@ class TextOpsGui {
             }
         }
 
-        if (IsNumber(this.SaveNameCon.Text)) {
-            MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
+        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
             return false
-        }
+
         return true
     }
 
@@ -294,7 +293,7 @@ class TextOpsGui {
         ;edit没法直接输入制表符，增加一个特定的变量代表
         ArgsName := GetLangKey(this.ArgsNameCon.Text)
         ArgsName := ArgsName == "制表符" ? "`t" : ArgsName
-    
+
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Name := this.NameCon.Text
@@ -303,7 +302,7 @@ class TextOpsGui {
         this.Data.Search := GetLangKey(this.SearchCon.Text)
         this.Data.Replace := GetLangKey(this.ReplaceCon.Text)
         this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
-        this.Data.SaveName := this.SaveNameCon.Text
+        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
 
         if (this.Data.SaveType == "变量")
             MySoftData.GlobalVariMap[this.Data.SaveName] := true
