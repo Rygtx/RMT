@@ -180,9 +180,9 @@ CheckVarNameIfValid(Name) {
 ;变量名需要替换掉运算符
 GetVarName(Name) {
     Name := GetLangKey(Name)
-    Name := RegExReplace(Name, "+", "＋")
-    Name := RegExReplace(Name, "-", "－")
-    Name := RegExReplace(Name, "*", "×")
-    Name := RegExReplace(Name, "/", "÷")
+    Name := StrReplace(Name, "+", "＋")
+    Name := StrReplace(Name, "-", "－")
+    Name := StrReplace(Name, "*", "×")
+    Name := StrReplace(Name, "/", "÷")
     return Name
 }

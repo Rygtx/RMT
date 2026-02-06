@@ -1028,14 +1028,19 @@ class MacroEditGui {
     }
 
     OnSwitchCmd(ItemAID, ItemBID) {
-        ACommandStr := this.MacroTreeViewCon.GetText(ItemAID)
-        AIconStr := this.GetCmdIconStr(ACommandStr)
-        BCommandStr := this.MacroTreeViewCon.GetText(ItemBID)
-        BIconStr := this.GetCmdIconStr(BCommandStr)
-
-        this.MacroTreeViewCon.Modify(ItemAID, BIconStr, BCommandStr)
-        this.MacroTreeViewCon.Modify(ItemBID, AIconStr, ACommandStr)
+        LastItemID := this.MacroTreeViewCon.GetPrev(ItemAID)
         ParentID := this.MacroTreeViewCon.GetParent(ItemAID)
+        NewACmdStr := this.MacroTreeViewCon.GetText(ItemBID)
+        NewBCmdStr := this.MacroTreeViewCon.GetText(ItemAID)
+        NewAIconStr := this.GetCmdIconStr(NewACmdStr)
+        NewBIconStr := this.GetCmdIconStr(NewBCmdStr)
+
+        this.MacroTreeViewCon.Delete(ItemAID)
+        this.MacroTreeViewCon.Delete(ItemBID)
+        NewItemAID := this.MacroTreeViewCon.Add(NewACmdStr, ParentID, LastItemID " " NewAIconStr)
+        NewItemBID := this.MacroTreeViewCon.Add(NewBCmdStr, ParentID, NewItemAID " " NewBIconStr)
+        this.TreeAddBranch(NewItemAID, NewACmdStr)
+        this.TreeAddBranch(NewItemBID, NewBCmdStr)
         if (ParentID == 0) {
             return
         }
