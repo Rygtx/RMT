@@ -23,10 +23,7 @@ CheckIfHasTiming(&tableIndex) {
 
     tableItem := MySoftData.TableInfo[tableIndex]
     for index, value in tableItem.ModeArr {
-        if ((Integer)(tableItem.ForbidArr[index]))
-            continue
-
-        if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+        if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
@@ -40,10 +37,7 @@ CheckIfHasTiming(&tableIndex) {
 
 SetTimingNextTime(tableItem) {
     for index, value in tableItem.ModeArr {
-        if ((Integer)(tableItem.ForbidArr[index]))
-            continue
-
-        if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+        if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
@@ -95,10 +89,7 @@ TimingChecker() {
     tableIndex := GetTimingTableIndex()
     tableItem := MySoftData.TableInfo[tableIndex]
     for index, value in tableItem.ModeArr {
-        if ((Integer)(tableItem.ForbidArr[index]))
-            continue
-
-        if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+        if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
@@ -159,10 +150,7 @@ HandleOnSoftStart(tableItem) {
         return
 
     for index, value in tableItem.ModeArr {
-        if ((Integer)(tableItem.ForbidArr[index]))
-            continue
-
-        if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+        if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
@@ -170,4 +158,17 @@ HandleOnSoftStart(tableItem) {
             return
         TriggerMacroHandler(tableItem.Index, index)
     }
+}
+
+TimingCheckItemIfValid(tableItem, index) {
+    if (GetItemFoldForbidState(tableItem, index))
+        return false
+
+    if (tableItem.ForbidArr[index])
+        return false
+
+    if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+        return false
+
+    return true
 }
