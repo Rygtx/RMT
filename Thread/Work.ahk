@@ -8,6 +8,9 @@
 #Include "..\Main\FixCompatUtil.ahk"
 #Include "..\Main\LangUtil.ahk"
 #Include "..\Main\TextOpsUtil.ahk"
+#Include "..\Main\InputUtil.ahk"
+#Include "..\Gui\CustomInputGui.ahk"
+#Include "..\Gui\InputStateGui.ahk"
 #Include "..\Joy\SuperCvJoyInterface.ahk"
 #Include "..\Joy\JoyMacro.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
@@ -39,6 +42,8 @@ InitWork()
 global MyChineseOcr := RapidOcr(A_ScriptDir "\..")
 global MyEnglishOcr := RapidOcr(A_ScriptDir "\..", 2)
 global MyPToken := Gdip_Startup()
+global MyInputGui := CustomInputGui()
+global MyInputStateGui := InputStateGui()
 global MySubMacroStopAction := WorkSubMacroStopAction
 global MyTriggerSubMacro := WorkTriggerSubMacro
 global MySetGlobalVariable := WorkSetGlobalVariable

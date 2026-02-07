@@ -87,6 +87,7 @@ CompatMacro(MacroStr, &isFix) {
 }
 
 CompatSerial(FilePath, Symbol, NewSymbol) {
+    FileEncoding("UTF-16")
     fileContent := FileRead(filePath)
     newContent := RegExReplace(fileContent, Symbol "(\d+)", NewSymbol "$1")
     if (newContent != fileContent) {

@@ -5,6 +5,10 @@ class InputGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+
+        this.ReadTypeMap := Map(
+            GetLang("文本文件"), [GetLang("读取所有"), GetLang("逐行读取"), GetLang("指定行")],
+            GetLang("Excel"), [GetLang("表格行"), GetLang("表格列"), GetLang("指定单元格"), GetLang("指定区域")])
     }
 
     ShowGui(cmd) {
@@ -16,6 +20,7 @@ class InputGui {
         }
 
         this.Init(cmd)
+        this.RefreshConVisable()
     }
 
     AddGui() {
@@ -49,16 +54,22 @@ class InputGui {
 
         PosX := 20
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("交互时:"))
+        this.InterConArr := []
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("交互时:"))
+        this.InterConArr.Push(con)
         PosX += 80
-        TypeArr := GetLangArr(["不暂停", "暂停当前宏", "暂停所有宏"])
+        TypeArr := GetLangArr(["暂停当前宏", "暂停所有宏"])
         this.PauseTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 150), TypeArr)
+        this.InterConArr.Push(this.PauseTypeCon)
 
         PosX := 280
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("取消时:"))
+        this.CancelConArr := []
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("取消时:"))
+        this.CancelConArr.Push(con)
         PosX += 80
         TypeArr := GetLangArr(["终止当前宏", "终止所有宏"])
         this.CancelTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 150), TypeArr)
+        this.CancelConArr.Push(this.CancelTypeCon)
 
         PosX := 20
         PosY += 40
@@ -130,34 +141,32 @@ class InputGui {
         this.EndColCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 150, 30), [])
         this.RegionConArr.Push(this.EndColCon)
 
-        ;结果
-        {
-            PosX := 10
-            PosY += 40
-            MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 100), GetLang("结果保存选项:"))
+        PosX := 10
+        PosY += 40
+        this.ResultConArr := []
+        Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 510, 100), GetLang("结果保存选项:"))
+        this.ResultConArr.Push(Con)
 
-            PosX := 20
-            PosY += 20
-            this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h30", PosX, PosY, 200), GetLang(
-                "如果变量存在则不改变数值"))
+        PosX := 20
+        PosY += 20
+        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h30", PosX, PosY, 200), GetLang(
+            "如果变量存在则不改变数值"))
+        this.ResultConArr.Push(this.IsIgnoreExistCon)
 
-            PosX := 20
-            PosY += 40
-            this.ResultConArr := []
-            Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("结果："))
-            this.ResultConArr.Push(Con)
+        PosX := 20
+        PosY += 40
+        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("结果："))
+        this.ResultConArr.Push(Con)
 
-            PosX += 50
-            this.SaveTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["变量",
-                "数组"]))
-            this.SaveTypeCon.OnEvent("Change", this.OnRefreshDataType.Bind(this))
-            this.SaveTypeCon.Enabled := false
-            this.ResultConArr.Push(this.SaveTypeCon)
+        PosX += 50
+        this.SaveTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["变量",
+            "数组"]))
+        this.SaveTypeCon.Enabled := false
+        this.ResultConArr.Push(this.SaveTypeCon)
 
-            PosX += 105
-            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
-            this.ResultConArr.Push(this.SaveNameCon)
-        }
+        PosX += 105
+        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+        this.ResultConArr.Push(this.SaveNameCon)
 
         PosY += 50
         PosX := 210
@@ -175,22 +184,24 @@ class InputGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
-        this.FileReadTypeArr := GetLangArr(["读取所有", "逐行读取", "指定行"])
-        this.ExcelReadTypeArr := GetLangArr(["指定列", "指定行", "指定单元格", "指定区域"])
+        this.FileReadTypeArr := GetLangArr(["读取全部内容", "指定行" ,"逐行读取"])
+        this.ExcelReadTypeArr := GetLangArr(["指定行", "指定列", "指定单元格", "指定区域"])
         ReadTypeArr := this.Data.Type == "文本文件" ? this.FileReadTypeArr : this.ExcelReadTypeArr
 
         this.TypeCon.Text := GetLang(this.Data.Type)
         this.PauseTypeCon.Text := GetLang(this.Data.PauseType)
         this.CancelTypeCon.Text := GetLang(this.Data.CancelType)
         this.FilePathCon.Text := this.Data.FilePath
+        this.SaveNameCon.Text := this.Data.SaveName
         this.ReadTypeCon.Add(ReadTypeArr)
         loop ReadTypeArr.Length {
             if (ReadTypeArr[A_Index] == GetLang(this.Data.ReadType)) {
                 this.ReadTypeCon.Value := A_Index
-                return
+                break
             }
         }
         SetDLConValue(this.FileRowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.FileRow)
+        SetDLConValue(this.NameOrSerialCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.NameOrSerial)
         SetDLConValue(this.RowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Row)
         SetDLConValue(this.ColCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Col)
         SetDLConValue(this.EndRowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.EndRow)
@@ -198,17 +209,65 @@ class InputGui {
     }
 
     OnRefreshType(*) {
-
+        ReadTypeArr := []
+        this.ReadTypeCon.Delete()
+        if (this.ReadTypeMap.Has(this.TypeCon.Text)) {
+            ReadTypeArr := this.ReadTypeMap[this.TypeCon.Text]
+            this.ReadTypeCon.Add(ReadTypeArr)
+            this.ReadTypeCon.Value := 1
+        }
+        this.RefreshConVisable()
     }
 
     OnRefreshReadType(*) {
-
+        this.RefreshConVisable()
     }
 
-    OnRefreshDataType(*) {
-        IsResVar := this.SaveTypeCon.Text == GetLang("变量")
-        ResArr := IsResVar ? this.DLVariableArr : this.DLArrayArr
+    RefreshConVisable() {
+        IsPopUp := this.TypeCon.Text == GetLang("弹窗")
+        IsState := this.TypeCon.Text == GetLang("状态")
+        IsFile := this.TypeCon.Text == GetLang("文本文件")
+        IsExcel := this.TypeCon.Text == GetLang("Excel")
+        IsGoOn := this.TypeCon.Text == GetLang("继续")
+        IsGoOnAndCancel := this.TypeCon.Text == GetLang("继续&取消")
+
+        IsFileGetAll := this.ReadTypeCon.Text == GetLang("读取全部内容")
+        IsFileByLine := this.ReadTypeCon.Text == GetLang("逐行读取")
+        IsFileGetLine := this.ReadTypeCon.Text == GetLang("指定行")
+
+        IsExcelRow := this.ReadTypeCon.Text == GetLang("表格行")
+        IsExcelCol := this.ReadTypeCon.Text == GetLang("表格列")
+        IsExcelCell := this.ReadTypeCon.Text == GetLang("指定单元格")
+        IsExcelRegion := this.ReadTypeCon.Text == GetLang("指定区域")
+
+        HasInter := IsPopUp || IsState || IsGoOn || IsGoOnAndCancel
+        HasCancel := IsGoOnAndCancel
+        HasFilePath := IsFile || IsExcel
+        HasReadType := IsFile || IsExcel
+        HasFileRow := IsFileByLine || IsFileGetLine
+        HasExcel := IsExcel
+        HasExcelRegion := IsExcelRegion
+        HasRes := IsPopUp || IsState || IsFile || IsExcel
+        ResOnlyVar := IsPopUp || IsState || IsFileGetAll || IsFileGetLine || IsExcelCell
+
+        this.SetConArrVisible(this.InterConArr, HasInter)
+        this.SetConArrVisible(this.CancelConArr, HasCancel)
+        this.SetConArrVisible(this.FilePathConArr, HasFilePath)
+        this.SetConArrVisible(this.ReadConArr, HasReadType)
+        this.SetConArrVisible(this.FileRowConArr, HasFileRow)
+        this.SetConArrVisible(this.ExcelConArr, HasExcel)
+        this.SetConArrVisible(this.RegionConArr, HasExcelRegion)
+        this.SetConArrVisible(this.ResultConArr, HasRes)
+
+        this.SaveTypeCon.Text := ResOnlyVar ? GetLang("变量") : GetLang("数组")
+        ResArr := ResOnlyVar ? this.DLVariableArr : this.DLArrayArr
         SetDLConValue(this.SaveNameCon, RemoveInVariable(ResArr, 1), this.SaveNameCon.Text)
+    }
+
+    SetConArrVisible(ConArr, Visible) {
+        loop ConArr.Length {
+            ConArr[A_Index].Visible := Visible
+        }
     }
 
     OnSelectPathBtnClick() {
@@ -228,6 +287,16 @@ class InputGui {
     }
 
     CheckIfValid() {
+        IsFile := this.TypeCon.Text == GetLang("文本文件")
+        IsExcel := this.TypeCon.Text == GetLang("Excel")
+
+        if (IsFile || IsExcel && (this.FilePathCon.Text == "")) {
+            MsgBox("文件路径不能为空")
+            return false
+        }
+
+        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
+            return false
 
         return true
     }
@@ -254,16 +323,36 @@ class InputGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
+        Remark := this.RemarkCon.Value
+        if (Remark == "") {
+            Remark := this.TypeCon.Text
+        }
+        CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 
     SaveData() {
+        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        this.Data.Type := GetLangKey(this.TypeCon.Text)
+        this.Data.PauseType := GetLangKey(this.PauseTypeCon.Text)
+        this.Data.CancelType := GetLangKey(this.CancelTypeCon.Text)
+        this.Data.FilePath := this.FilePathCon.Text
+        this.Data.ReadType := GetLangKey(this.ReadTypeCon.Text)
+        this.Data.FileRow := GetLangKey(this.FileRowCon.Text)
+        this.Data.NameOrSerial := GetLangKey(this.NameOrSerialCon.Text)
+        this.Data.Row := GetLangKey(this.RowCon.Text)
+        this.Data.Col := GetLangKey(this.ColCon.Text)
+        this.Data.EndRow := GetLangKey(this.EndRowCon.Text)
+        this.Data.EndCol := GetLangKey(this.EndColCon.Text)
+        this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
+        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
 
-        if (this.Data.SaveType == "变量")
-            MySoftData.GlobalVariMap[this.Data.SaveName] := true
-        if (this.Data.SaveType == "数组")
-            MySoftData.GlobalArrMap[this.Data.SaveName] := true
+        if (this.SaveNameCon.Visible) {
+            if (this.Data.SaveType == "变量")
+                MySoftData.GlobalVariMap[this.Data.SaveName] := true
+            if (this.Data.SaveType == "数组")
+                MySoftData.GlobalArrMap[this.Data.SaveName] := true
+        }
         SaveMacroCMDData(this.Data)
     }
 }

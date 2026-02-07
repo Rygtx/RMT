@@ -503,7 +503,6 @@ MsgBoxContent(content) {
     MySoftData.MyGui.Flash()
     SoundPlay "*-1"
     MyMsgboxGui.ShowGui(content)
-    ; MsgBox(content)
 }
 
 MacroCount(content) {

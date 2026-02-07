@@ -81,6 +81,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsLoop := InStr(paramArr[1], "循环")
         IsTextOps := InStr(paramArr[1], "文本处理")
         IsArray := InStr(paramArr[1], "数组")
+        IsInput := InStr(paramArr[1], "输入")
 
         if (MySoftData.CMDTip) {
             MyCMDReportAciton(cmdArr[A_Index])
@@ -151,6 +152,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         }
         else if (IsArray) {
             OnArray(tableItem, cmdArr[A_Index], index)
+        }
+        else if (IsInput) {
+            OnInput(tableItem, cmdArr[A_Index], index)
         }
     }
 }
@@ -1494,5 +1498,19 @@ OnArray(tableItem, cmd, index) {
             ArrayReverse(Data, tableItem, index)
         case "长度":
             ArrayGetLength(Data, tableItem, index)
+    }
+}
+
+OnInput(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    switch Data.Type {
+        case "弹窗":
+            InputPopUp(Data, tableItem, index)
+        case "状态": 
+            InputStateValue(Data, tableItem, index)
+        case "文本文件":
+            InputTextFile(Data, tableItem, index)
     }
 }
