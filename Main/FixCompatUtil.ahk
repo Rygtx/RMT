@@ -87,8 +87,7 @@ CompatMacro(MacroStr, &isFix) {
 }
 
 CompatSerial(FilePath, Symbol, NewSymbol) {
-    FileEncoding("UTF-16")
-    fileContent := FileRead(filePath)
+    fileContent := FileRead(filePath, "UTF-16")
     newContent := RegExReplace(fileContent, Symbol "(\d+)", NewSymbol "$1")
     if (newContent != fileContent) {
         FileDelete(filePath)
@@ -188,6 +187,7 @@ CompatSearch(filePath) {
         return hasFix
     hasFix := CompatSerial(filePath, "Search", "搜索")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -220,6 +220,7 @@ CompatSearchPro(filePath) {
     hasFix := CompatSerial(filePath, "Search", "搜索Pro")
     hasFix := CompatSerial(filePath, "Search\+", "搜索Pro")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -263,6 +264,7 @@ CompatMMPro(filePath) {
         return hasFix
     hasFix := CompatSerial(filePath, "MMPro", "移动Pro")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -321,6 +323,7 @@ CompatLoop(filePath) {
 
     hasFix := CompatSerial(filePath, "Loop", "循环")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -349,6 +352,7 @@ CompatSubMacro(FilePath) {
     FixCallTypeMap := Map("1", "插入到当前宏", "2", "触发", "3", "暂停", "4", "取消暂停", "5", "终止")
     hasFix := CompatSerial(filePath, "SubMacro", "宏操作")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, FilePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -402,6 +406,7 @@ CompatCompare(filePath) {
         return hasFix
     hasFix := CompatSerial(filePath, "Compare", "如果")
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -435,6 +440,7 @@ CompatComparePro(filePath) {
     hasFix2 := CompatSerial(filePath, "ComparePro", "如果Pro")
     hasFix := hasFix1 || hasFix2
     newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
@@ -471,7 +477,7 @@ CompatOperation(filePath) {
     hasFix := hasFix1 || hasFix2
     newContent := "[UserSettings]"
     DeletePropArr := ["NameArr", "OperationArr", "SymbolGroups", "ValueGroups"]
-
+    FileEncoding("UTF-16")
     loop read, filePath {
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")

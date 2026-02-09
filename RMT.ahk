@@ -118,3 +118,10 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
+ExcelCellToRead("C:\Users\gh\Desktop\test.xlsx", 1, 1, 3, &ResValue)
+; ExcelCellToRead("C:\Users\gh\Desktop\test.xlsx", 1, 5, 5, &ResValue)
+
+; isOk := ExcelCellToRead("C:\Users\gh\Desktop\若梦兔布局.xlsx", 1, 5, 8, &ResValue)
+; if (isOk)
+;     MsgBox(ResValue)

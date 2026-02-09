@@ -7,7 +7,7 @@ class InputGui {
         this.SureBtnAction := ""
 
         this.ReadTypeMap := Map(
-            GetLang("文本文件"), [GetLang("读取所有"), GetLang("逐行读取"), GetLang("指定行")],
+            GetLang("文本文件"), [GetLang("读取全部内容"), GetLang("逐行读取"), GetLang("指定行")],
             GetLang("Excel"), [GetLang("表格行"), GetLang("表格列"), GetLang("指定单元格"), GetLang("指定区域")])
     }
 
@@ -51,6 +51,15 @@ class InputGui {
         TypeArr := GetLangArr(["弹窗", "状态", "文本文件", "Excel", "继续", "继续&取消"])
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 150), TypeArr)
         this.TypeCon.OnEvent("Change", this.OnRefreshType.Bind(this))
+
+        PosX := 280
+        this.EncodingConArr := []
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("文件编码:"))
+        this.EncodingConArr.Push(con)
+        PosX += 80
+        TypeArr := GetLangArr(MySoftData.FileEncodingArr)
+        this.EncodingCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 150), TypeArr)
+        this.EncodingConArr.Push(this.EncodingCon)
 
         PosX := 20
         PosY += 40
@@ -184,11 +193,12 @@ class InputGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
-        this.FileReadTypeArr := GetLangArr(["读取全部内容", "指定行" ,"逐行读取"])
+        this.FileReadTypeArr := GetLangArr(["读取全部内容", "指定行", "逐行读取"])
         this.ExcelReadTypeArr := GetLangArr(["指定行", "指定列", "指定单元格", "指定区域"])
         ReadTypeArr := this.Data.Type == "文本文件" ? this.FileReadTypeArr : this.ExcelReadTypeArr
 
         this.TypeCon.Text := GetLang(this.Data.Type)
+        this.EncodingCon.Text := GetShowEncoding(this.Data.Encoding)
         this.PauseTypeCon.Text := GetLang(this.Data.PauseType)
         this.CancelTypeCon.Text := GetLang(this.Data.CancelType)
         this.FilePathCon.Text := this.Data.FilePath
@@ -240,6 +250,7 @@ class InputGui {
         IsExcelCell := this.ReadTypeCon.Text == GetLang("指定单元格")
         IsExcelRegion := this.ReadTypeCon.Text == GetLang("指定区域")
 
+        HasEncoding := IsFile
         HasInter := IsPopUp || IsState || IsGoOn || IsGoOnAndCancel
         HasCancel := IsGoOnAndCancel
         HasFilePath := IsFile || IsExcel
@@ -250,6 +261,7 @@ class InputGui {
         HasRes := IsPopUp || IsState || IsFile || IsExcel
         ResOnlyVar := IsPopUp || IsState || IsFileGetAll || IsFileGetLine || IsExcelCell
 
+        this.SetConArrVisible(this.EncodingConArr, HasEncoding)
         this.SetConArrVisible(this.InterConArr, HasInter)
         this.SetConArrVisible(this.CancelConArr, HasCancel)
         this.SetConArrVisible(this.FilePathConArr, HasFilePath)
@@ -290,7 +302,7 @@ class InputGui {
         IsFile := this.TypeCon.Text == GetLang("文本文件")
         IsExcel := this.TypeCon.Text == GetLang("Excel")
 
-        if (IsFile || IsExcel && (this.FilePathCon.Text == "")) {
+        if ((IsFile || IsExcel) && this.FilePathCon.Text == "") {
             MsgBox("文件路径不能为空")
             return false
         }
@@ -331,9 +343,10 @@ class InputGui {
         return CommandStr
     }
 
-    SaveData() {
+    SaveData() {    
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         this.Data.Type := GetLangKey(this.TypeCon.Text)
+        this.Data.Encoding := GetSoftEncoding(this.EncodingCon.Text)
         this.Data.PauseType := GetLangKey(this.PauseTypeCon.Text)
         this.Data.CancelType := GetLangKey(this.CancelTypeCon.Text)
         this.Data.FilePath := this.FilePathCon.Text

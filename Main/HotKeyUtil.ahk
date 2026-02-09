@@ -1512,5 +1512,8 @@ OnInput(tableItem, cmd, index) {
             InputStateValue(Data, tableItem, index)
         case "文本文件":
             InputTextFile(Data, tableItem, index)
+        case "Excel" :
+            InputExcel(Data, tableItem, index)
+
     }
 }

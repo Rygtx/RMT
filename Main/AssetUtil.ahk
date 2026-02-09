@@ -1631,3 +1631,27 @@ GetNameAndValueByParamArr(&NameArr, &ValueArr, ParamArr) {
         i += 2
     }
 }
+
+GetShowEncoding(Encoding) {
+    if (Encoding == "CP0")
+        return "ANSI"
+    if (Encoding == "CP936")
+        return "GB2312"
+    if (Encoding == "CP54936")
+        return "GB18030"
+    if (Encoding == "CP950")
+        return "BIG5"
+    return Encoding
+}
+
+GetSoftEncoding(Encoding) {
+    if (Encoding == "ANSI")
+        return "CP0"
+    if (Encoding == "GB2312")
+        return "CP936"
+    if (Encoding == "GB18030")
+        return "CP54936"
+    if (Encoding == "BIG5")
+        return "CP950"
+    return Encoding
+}

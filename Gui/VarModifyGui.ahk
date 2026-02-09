@@ -30,19 +30,19 @@ class VarModifyGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY,), GetLang("变量名："))
         PosX := 10
         PosY += 20
-        this.NameCon := MyGui.Add("Text", Format("x{} y{} w260 h50", PosX, PosY), "")
+        this.NameCon := MyGui.Add("Text", Format("x{} y{} w360 h30", PosX, PosY), "")
 
         PosX := 10
-        PosY += 50
+        PosY += 30
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("值："))
         PosY += 25
-        this.ValueCon := MyGui.Add("Edit", Format("x{} y{} w260 h80", PosX, PosY), "")
+        this.ValueCon := MyGui.Add("Edit", Format("x{} y{} w360 h100", PosX, PosY), "")
 
-        PosY += 90
-        PosX := 90
+        PosY += 110
+        PosX := 140
         con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show(Format("w{} h{}", 280, 230))
+        MyGui.Show(Format("w{} h{}", 380, 230))
     }
 
     OnSureBtnClick() {

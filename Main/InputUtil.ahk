@@ -91,3 +91,17 @@ InputTextFile(Data, tableItem, index) {
         MySetGlobalArray(Data.SaveName, ResArr)
     }
 }
+
+InputExcel(Data, tableItem, index) {
+    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
+        return
+    if (!FileExist(Data.FilePath)) {
+        MsgBox(GetLang("{}文件不存在"), Data.FilePath)
+        return
+    }
+
+    if (Data.ReadType == "表格行") {
+        
+    }
+
+}
