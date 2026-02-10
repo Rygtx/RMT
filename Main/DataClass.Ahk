@@ -251,6 +251,8 @@ class SoftData {
             "RButton", "MButton", "MButton", "~MButton", "MButton", "XButton1", "XButton1", "~XButton1", "XButton1",
             "XButton2", "XButton2", "~XButton2", "XButton2")
         this.ContinueIntervale := 50    ;连续触发间隔
+    
+        this.FileEncodingArr := ["ANSI", "GB2312", "GB18030", "BIG5", "UTF-8", "UTF-16"]
 
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
 
@@ -678,5 +680,32 @@ class SerialData {
             this.CurNum++
             this.Refresh()
         }
+    }
+}
+
+class InputData {
+    __New() {
+        this.SerialStr := ""
+        this.IsIgnoreExist := 0
+        this.Type := "文本文件"     ;弹窗 状态 文本文件 excel 继续 继续&取消
+        this.Encoding := "UTF-8"    ;编码格式
+        this.PauseType := "暂停当前宏"  ;交互时：不暂停 暂停当前宏  暂停所有宏
+        this.CancelType := "终止当前宏" ;   取消时  终止当前宏  终止所有宏
+
+        ;文本文件  读取全部内容， 逐行读取 , 指定行     ; 行号
+        ;excel  指定列， 指定行， 指定单元格， 指定区域   ;表名或序号
+        ;单元格行号             ;单元格列号
+        ;终止行号             ;终止列号
+        this.FilePath := ""         ;文件路径
+        this.ReadType := "读取全部内容"
+        this.FileRow := "1"         ;文件行号
+        this.NameOrSerial := "1"     ;名或序号
+        this.Row := "1"
+        this.Col := "1"
+        this.EndRow := "5"
+        this.EndCol := "5"
+
+        this.SaveType := "变量"     ;保存类型  变量或数组
+        this.SaveName := "Data"     ;保存的变量名或数组名
     }
 }

@@ -265,11 +265,13 @@ InitData() {
     MySoftData.DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
-        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile)
+        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile, 
+        "输入", InputFile)
     MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
-        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData)
+        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData, 
+        "输入", InputData)
 }
 
 ;手柄轴未使用时，状态会变为0，而非中间值
@@ -1339,7 +1341,7 @@ GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
 
         ResText := StrReplace(ResText, "{" value "}", variValue)
     }
-    return ResText
+    return true
 }
 
 TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
@@ -1593,10 +1595,22 @@ GetItemColorState(ColorValue) {
 }
 
 GetCmdStr(param) {
-    IsSkip := SubStr(param, 1, 2) == "🚫"
-    IsDebug := SubStr(param, 1, 1) == "⭐"
-    param := IsSkip ? SubStr(param, 3) : param
-    param := IsDebug ? SubStr(param, 2) : param
+    param := StrReplace(param, "🚫", "")
+    param := StrReplace(param, "⭐", "")
+    return param
+}
+
+GetCmdSymbol(cmd) {
+    IsSkip := RegExMatch(cmd, "🚫")
+    IsDebug := RegExMatch(cmd, "⭐")
+    SkipStr := IsSkip ? "🚫" : ""
+    DebugStr := IsDebug ? "⭐" : ""
+    Symbol := Format("{}{}", SkipStr, DebugStr)
+    return Symbol
+}
+
+GetCmdOnlyText(param) {
+    param := GetCmdStr(param)
     textOnly := RegExReplace(param, "\d+")
     return textOnly
 }
@@ -1616,4 +1630,28 @@ GetNameAndValueByParamArr(&NameArr, &ValueArr, ParamArr) {
         ValueArr.Push(paramArr[i + 1])
         i += 2
     }
+}
+
+GetShowEncoding(Encoding) {
+    if (Encoding == "CP0")
+        return "ANSI"
+    if (Encoding == "CP936")
+        return "GB2312"
+    if (Encoding == "CP54936")
+        return "GB18030"
+    if (Encoding == "CP950")
+        return "BIG5"
+    return Encoding
+}
+
+GetSoftEncoding(Encoding) {
+    if (Encoding == "ANSI")
+        return "CP0"
+    if (Encoding == "GB2312")
+        return "CP936"
+    if (Encoding == "GB18030")
+        return "CP54936"
+    if (Encoding == "BIG5")
+        return "CP950"
+    return Encoding
 }

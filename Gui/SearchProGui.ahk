@@ -655,20 +655,8 @@ class SearchProGui {
         }
 
         if (this.ResultToggleCon.Value) {
-            if (IsNumber(this.ResultSaveNameCon.Text)) {
-                MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
+            if (!CheckVarNameIfValid(this.ResultSaveNameCon.Text))
                 return false
-            }
-
-            if (this.ResultSaveNameCon.Text == "") {
-                MsgBox(GetLang("结果变量名不规范：变量名不能为空"))
-                return false
-            }
-
-            if (InStr(this.ResultSaveNameCon.Text, "_")) {
-                MsgBox((GetLang("结果变量名不规范：变量名不能包含下划线")))
-                return false
-            }
         }
 
         return true
@@ -958,7 +946,7 @@ class SearchProGui {
         data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
         data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
         data.ResultToggle := this.ResultToggleCon.Value
-        data.ResultSaveName := this.ResultSaveNameCon.Text
+        data.ResultSaveName := GetVarName(this.ResultSaveNameCon.Text)
         data.TrueValue := this.TrueValueCon.Value
         data.FalseValue := this.FalseValueCon.Value
         data.CoordToogle := this.CoordToogleCon.Value

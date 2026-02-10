@@ -443,7 +443,7 @@ ArrayReverse(Data, tableItem, index) {
         Value := SourceArr[SourceArr.Length - A_Index + 1]
         ResArr.Push(Value)
     }
-    
+
     MySetGlobalArray(Data.SaveName, ResArr)
 }
 
@@ -454,4 +454,15 @@ ArrayGetLength(Data, tableItem, index) {
 
     Value := SourceArr.Length
     MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
+}
+
+ArrayTrimRightNull(Arr) {
+    if (!IsObject(Arr))
+        return
+    loop {
+        if (Arr.Length == 0 || Arr[Arr.Length] != "")
+            return
+    
+        Arr.Pop()
+    }
 }

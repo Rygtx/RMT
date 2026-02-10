@@ -10,6 +10,7 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
         }
+        xlApp.Calculate()   ; 关键
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
@@ -22,13 +23,8 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
-        }
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
@@ -61,13 +57,8 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
-        }
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
@@ -100,12 +91,183 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
         return false
     }
     finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
+    try {
+        xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
+        xlApp.Calculate()
+        if (IsInteger(sheetIdentifier))
+            sheetIdentifier := Integer(sheetIdentifier)
+        sheet := xlWorkbook.Sheets(sheetIdentifier)
+
+        ; 获取单元格
+        cell := sheet.Cells(row, col)
+        if cell.MergeCells {
+            ResValue := cell.MergeArea.Cells(1, 1).Text
+        } else {
+            ResValue := cell.Text
         }
-        xlWorkbook := ""
-        xlApp := ""
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        Sheet := xlWorkbook.Sheets(SheetIdentifier)
+
+        CurCol := Col
+        IsNullCount := 0
+        loop {
+            Cell := Sheet.Cells(Row, CurCol)
+            if Cell.MergeCells {
+                Value := Cell.MergeArea.Cells(1, 1).Text
+            } else {
+                Value := Cell.Text
+            }
+            IsNullCount := Value == "" ? IsNullCount + 1 : 0
+            if (IsNullCount == 5)
+                break
+            ResArr.Push(Value)
+            CurCol++
+        }
+        ArrayTrimRightNull(ResArr)
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        Sheet := xlWorkbook.Sheets(SheetIdentifier)
+
+        CurRow := Row
+        IsNullCount := 0
+        loop {
+            Cell := Sheet.Cells(CurRow, Col)
+            if Cell.MergeCells {
+                Value := Cell.MergeArea.Cells(1, 1).Text
+            } else {
+                Value := Cell.Text
+            }
+            IsNullCount := Value == "" ? IsNullCount + 1 : 0
+            if (IsNullCount == 5)
+                break
+            ResArr.Push(Value)
+            CurRow++
+        }
+        ArrayTrimRightNull(ResArr)
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        sheet := xlWorkbook.Sheets(SheetIdentifier)
+
+        loop EndRow - Row + 1 {
+            CurRow := Row + A_Index - 1
+            ResArr.Push([])
+            loop EndCol - Col + 1 {
+                CurCol := Col + A_Index - 1
+                Cell := sheet.Cells(CurRow, CurCol)
+                if Cell.MergeCells {
+                    Value := Cell.MergeArea.Cells(1, 1).Text
+                } else {
+                    Value := Cell.Text
+                }
+                ResArr[ResArr.Length].Push(Value)
+            }
+        }
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        sheet := xlWorkbook.Sheets(SheetIdentifier)
+
+        loop EndCol - Col + 1 {
+            CurCol := Col + A_Index - 1
+            ResArr.Push([])
+            loop EndRow - Row + 1 {
+                CurRow := Row + A_Index - 1
+                Cell := sheet.Cells(CurRow, curCol)
+                if Cell.MergeCells {
+                    Value := Cell.MergeArea.Cells(1, 1).Text
+                } else {
+                    Value := Cell.Text
+                }
+                ResArr[ResArr.Length].Push(Value)
+            }
+        }
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }

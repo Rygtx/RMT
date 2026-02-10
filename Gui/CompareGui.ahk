@@ -260,22 +260,8 @@ class CompareGui {
     }
 
     CheckIfValid() {
-        if (this.SaveToggleCon.Value) {
-            if (IsNumber(this.SaveNameCon.Text)) {
-                MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
-                return false
-            }
-
-            if (this.SaveNameCon.Text == "") {
-                MsgBox(GetLang("结果变量名不规范：变量名不能为空"))
-                return false
-            }
-
-            if (InStr(this.SaveNameCon.Text, "_")) {
-                MsgBox((GetLang("结果变量名不规范：变量名不能包含下划线")))
-                return false
-            }
-        }
+        if (this.SaveToggleCon.Value && !CheckVarNameIfValid(this.SaveNameCon.Text))
+            return false
 
         return true
     }
@@ -369,7 +355,7 @@ class CompareGui {
         this.Data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
         this.Data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
         this.Data.SaveToggle := this.SaveToggleCon.Value
-        this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
+        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
         this.Data.TrueValue := this.TrueValueCon.Value
         this.Data.FalseValue := this.FalseValueCon.Value
         this.Data.LogicalType := this.LogicalTypeCon.Value

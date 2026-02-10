@@ -60,8 +60,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         paramArr := StrSplit(cmdArr[A_Index], "_")
         if (SubStr(paramArr[1], 1, 2) == "🚫")
             continue
-        if (SubStr(paramArr[1], 1, 1) == "⭐")
-            paramArr[1] := SubStr(paramArr[1], 2)
+        paramArr[1] := GetCmdStr(paramArr[1])
         IsMMPro := InStr(paramArr[1], "移动Pro")
         IsMM := InStr(paramArr[1], "移动") && !IsMMPro
         IsSearchPro := InStr(paramArr[1], "搜索Pro")
@@ -82,6 +81,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         IsLoop := InStr(paramArr[1], "循环")
         IsTextOps := InStr(paramArr[1], "文本处理")
         IsArray := InStr(paramArr[1], "数组")
+        IsInput := InStr(paramArr[1], "输入")
 
         if (MySoftData.CMDTip) {
             MyCMDReportAciton(cmdArr[A_Index])
@@ -152,6 +152,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         }
         else if (IsArray) {
             OnArray(tableItem, cmdArr[A_Index], index)
+        }
+        else if (IsInput) {
+            OnInput(tableItem, cmdArr[A_Index], index)
         }
     }
 }
@@ -755,14 +758,13 @@ OnExVariable(tableItem, cmd, index) {
 }
 
 OnExVariableOnce(tableItem, index, Data) {
-    HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
-    HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
-    HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
-    HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
-    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
-        return
-
     if (Data.ExtractType == 1) {
+        HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+        if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+            return
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
         TextObjs := TextObjs == "" ? [] : TextObjs
     }
@@ -1496,5 +1498,26 @@ OnArray(tableItem, cmd, index) {
             ArrayReverse(Data, tableItem, index)
         case "长度":
             ArrayGetLength(Data, tableItem, index)
+    }
+}
+
+OnInput(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    switch Data.Type {
+        case "弹窗":
+            InputPopUp(Data, tableItem, index)
+        case "状态":
+            InputStateValue(Data, tableItem, index)
+        case "文本文件":
+            InputTextFile(Data, tableItem, index)
+        case "Excel":
+            InputExcel(Data, tableItem, index)
+        case "继续":
+            InputContinue(Data, tableItem, index)
+        case "继续&取消":
+            InputContinueAndCencel(Data, tableItem, index)
+
     }
 }

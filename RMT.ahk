@@ -26,6 +26,8 @@
 #Include Gui\FrontInfoGui.ahk
 #Include Gui\CMDTipSettingGui.ahk
 #Include Gui\CustomMsgBoxGui.ahk
+#Include Gui\CustomInputGui.ahk
+#Include Gui\InputBtnGui.ahk
 #Include Main\Gdip_All.ahk
 ;#Include Main\LineDrawer.ahk
 #Include Main\LineOverlay.ahk
@@ -43,6 +45,7 @@
 #Include Main\TimingUtil.ahk
 #Include Main\BindUtil.ahk
 #Include Main\TextOpsUtil.ahk
+#Include Main\InputUtil.ahk
 #Include Main\VariableUtil.ahk
 #Include Main\FixCompatUtil.ahk
 #Include Main\LangUtil.ahk
@@ -79,6 +82,8 @@ global MySlider := VerticalSlider()
 global MyTargetGui := TargetGui()
 global MyColorPanel := ColorPanelGui()
 global MyMsgboxGui := CustomMsgBoxGui()
+global MyInputGui := CustomInputGui()
+global MyInputBtnGui := InputBtnGui()
 global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
@@ -113,3 +118,5 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
+

@@ -9,8 +9,7 @@ GetSerialStr(CmdStr) {
 
 SetCMDSerialData(CMD) {
     paramArr := StrSplit(CMD, "_")
-    paramArr[1] := StrReplace(paramArr[1], "🚫", "")
-    paramArr[1] := StrReplace(paramArr[1], "⭐", "")
+    paramArr[1] := GetCmdStr(paramArr[1])
     IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
     IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
     IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
@@ -57,7 +56,8 @@ GetCMDSerialStr(Cmd) {
     SerialStr := Format("{}{}", Cmd, Data.CurNum)
     if (MySoftData.DataFileMap.Has(Cmd)) {
         DataFile := MySoftData.DataFileMap[Cmd]
-        IniDelete(DataFile, IniSection, SerialStr)
+        if (FileExist(DataFile))
+            IniDelete(DataFile, IniSection, SerialStr)
     }
     Data.NumMap.Set(Data.CurNum, true)
     Data.Refresh()

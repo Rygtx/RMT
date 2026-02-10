@@ -69,7 +69,7 @@ class CMDTipGui {
         else
             this.ContentCon.Value .= Format("`n{}", CMDStr)
 
-        SendMessage(0xB6, 0, this.ShowCount, this.ContentCon)
+        SendMessage(0xB6, 0, 10000, this.ContentCon)
     }
 
     Clear() {

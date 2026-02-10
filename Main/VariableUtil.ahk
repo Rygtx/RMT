@@ -7,8 +7,7 @@ SetGlobalData(macroStr, visitMap) {
     cmdArr := SplitMacro(macroStr)
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
-        paramArr[1] := StrReplace(paramArr[1], "🚫", "")
-        paramArr[1] := StrReplace(paramArr[1], "⭐", "")
+        paramArr[1] := GetCmdStr(paramArr[1])
         if (visitMap.Has(paramArr[1]))
             continue
         SetCMDSerialData(cmdArr[A_Index])
@@ -111,6 +110,19 @@ GetGuiVarArr() {
         ResultArr.Push(Key)
     }
 
+    Length := ResultArr.Length
+    loop Length {
+        i := A_Index
+        loop Length - i {
+            j := A_Index + i
+            if (!StrCompare(ResultArr[i], ResultArr[j])) {
+                temp := ResultArr[i]
+                ResultArr[i] := ResultArr[j]
+                ResultArr[j] := temp
+            }
+        }
+    }
+
     ResultArr.Push(SpecialKeyArr*)
     return ResultArr
 }
@@ -145,4 +157,32 @@ RemoveInVariable(VarArr, Mode := 1) {
     }
 
     return result
+}
+
+CheckVarNameIfValid(Name) {
+    if (Name == "") {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能为空")))
+        return false
+    }
+
+    if (IsNumber(Name)) {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能是纯数字")))
+        return false
+    }
+
+    if (InStr(Name, "_")) {
+        MsgBox(Format(GetLang("结果变量名不规范：变量名不能包含下划线")))
+        return false
+    }
+    return true
+}
+
+;变量名需要替换掉运算符
+GetVarName(Name) {
+    Name := GetLangKey(Name)
+    Name := StrReplace(Name, "+", "＋")
+    Name := StrReplace(Name, "-", "－")
+    Name := StrReplace(Name, "*", "×")
+    Name := StrReplace(Name, "/", "÷")
+    return Name
 }

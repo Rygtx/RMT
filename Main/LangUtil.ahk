@@ -9,7 +9,9 @@ LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显�
     "取值", "赋值", "插入", "追加", "移除", "移除最后", "长度", "变量或值", "数组", "文本分割", "文本提取", "文本替换", "去除空格",
     "大小写转换", "文本统计", "去除前空白字符", "去除后空白字符", "去除前后空白字符", "去除所有空白字符", "全部大写", "全部小写",
     "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏",
-    "菜单宏", "定时宏", "宏", "插入到当前宏", "触发", "暂停", "取消暂停", "终止"]
+    "菜单宏", "定时宏", "宏", "插入到当前宏", "触发", "暂停", "取消暂停", "终止", "制表符", "弹窗", "状态", "文本文件", "继续", "继续&取消",
+    "暂停当前宏", "暂停所有宏", "终止当前宏", "终止所有宏", "读取全部内容", "逐行读取", "指定行", "单元格", "表格行", "表格列", "指定区域-行",
+    "指定区域-列"]
 LangValueMap := Map()   ;部分文本需要反向映射
 
 LangInitSetting() {
@@ -146,26 +148,22 @@ GetLangMacro(MacroStr, Mode) {
 GetLangCmd(Cmd, Mode) {
     paramArr := SplitCommand(Cmd)
     action := Mode == 1 ? GetLang : GetLangKey
-    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-    IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
-    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
-    paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
+    cmdSymbol := GetCmdSymbol(paramArr[1])
+    paramArr[1] := GetCmdStr(paramArr[1])
 
     IsMM := paramArr[1] == "移动" || paramArr[1] == GetLang("移动")
     IsPressKey := paramArr[1] == "按键" || paramArr[1] == GetLang("按键")
     IsInterval := paramArr[1] == "间隔" || paramArr[1] == GetLang("间隔")
     IsRMT := paramArr[1] == "RMT指令" || paramArr[1] == GetLang("RMT指令")
     if (IsMM || IsPressKey || IsInterval || IsRMT) {
-        paramArr[1] := IsSkip ? "🚫" action(paramArr[1]) : action(paramArr[1])
-        paramArr[1] := IsDebug ? "⭐" action(paramArr[1]) : action(paramArr[1])
+        paramArr[1] := action(paramArr[1])
     }
     else {
         textOnly := RegExReplace(paramArr[1], "\d+")
         numbersOnly := RegExReplace(paramArr[1], "\D+")
-        SkipStr := IsSkip ? "🚫" : ""
-        DebugStr := IsDebug ? "⭐" : ""
-        paramArr[1] := Format("{}{}{}{}", DebugStr, SkipStr, action(textOnly), numbersOnly)
+        paramArr[1] := Format("{}{}", action(textOnly), numbersOnly)
     }
+    paramArr[1] := Format("{}{}", cmdSymbol, paramArr[1])
 
     if (IsRMT) {
         paramArr[2] := action(paramArr[2])

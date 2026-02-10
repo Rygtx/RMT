@@ -33,6 +33,10 @@ class TextOpsGui {
                 GetLang("内容分割"),
                 GetLang("定长分割"),
             ])
+
+        this.ArgsTipMap := Map(
+            GetLang("内容分割"), GetLang("分割文本："),
+            GetLang("定长分割"), GetLang("分割长度："))
     }
 
     ShowGui(cmd) {
@@ -91,6 +95,7 @@ class TextOpsGui {
         this.ArgsTypeConTip := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("类型选项:"))
         PosX += 75
         this.ArgsTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), [])
+        this.ArgsTypeCon.OnEvent("Change", this.OnRefreshArgsType.Bind(this))
 
         PosX := 275
         this.ArgsNameConTip := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("类型参数:"))
@@ -158,11 +163,12 @@ class TextOpsGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
-        this.SimpleDLVariableArr := RemoveInVariable(this.DLVariableArr, 1)
+        ArgsNameArr := RemoveInVariable(this.DLVariableArr, 2)
+        ArgsNameArr.InsertAt(1, GetLang("制表符"))
 
         this.TypeCon.Text := GetLangKey(this.Data.Type)
-        SetDLConValue(this.NameCon, this.SimpleDLVariableArr, this.Data.Name)
-        SetDLConValue(this.ArgsNameCon, this.DLVariableArr, this.Data.ArgsName)
+        SetDLConValue(this.NameCon, RemoveInVariable(this.DLVariableArr, 1), this.Data.Name)
+        SetDLConValue(this.ArgsNameCon, ArgsNameArr, this.Data.ArgsName)
 
         SetDLConValue(this.SearchCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Search)
         SetDLConValue(this.ReplaceCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Replace)
@@ -208,7 +214,15 @@ class TextOpsGui {
         OnlyResVar := IsReplace || IsSpace || IsUpLow || IsStatistics
         OnlyResArr := IsSplit || IsGetEx
         this.SaveTypeCon.Value := OnlyResVar ? 1 : 2
+        this.OnRefreshArgsType()
         this.OnRefreshDataType()
+    }
+
+    OnRefreshArgsType(*) {
+        tipText := GetLang("类型参数:")
+        if (this.ArgsTipMap.Has(this.ArgsTypeCon.Text))
+            tipText := this.ArgsTipMap[this.ArgsTypeCon.Text]
+        this.ArgsNameConTip.Text := tipText
     }
 
     OnRefreshDataType(*) {
@@ -243,10 +257,9 @@ class TextOpsGui {
             }
         }
 
-        if (IsNumber(this.SaveNameCon.Text)) {
-            MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
+        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
             return false
-        }
+
         return true
     }
 
@@ -277,15 +290,19 @@ class TextOpsGui {
     }
 
     SaveTextOpsData() {
+        ;edit没法直接输入制表符，增加一个特定的变量代表
+        ArgsName := GetLangKey(this.ArgsNameCon.Text)
+        ArgsName := ArgsName == "制表符" ? "`t" : ArgsName
+
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Name := this.NameCon.Text
         this.Data.ArgsType := GetLangKey(this.ArgsTypeCon.Text)
-        this.Data.ArgsName := GetLangKey(this.ArgsNameCon.Text)
+        this.Data.ArgsName := ArgsName
         this.Data.Search := GetLangKey(this.SearchCon.Text)
         this.Data.Replace := GetLangKey(this.ReplaceCon.Text)
         this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
-        this.Data.SaveName := this.SaveNameCon.Text
+        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
 
         if (this.Data.SaveType == "变量")
             MySoftData.GlobalVariMap[this.Data.SaveName] := true

@@ -289,10 +289,8 @@ class ArrayGui {
     }
 
     CheckIfValid() {
-        if (IsNumber(this.SaveNameCon.Text)) {
-            MsgBox(GetLang("结果变量名不规范：变量名不能是纯数字"))
+        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
             return false
-        }
         return true
     }
 
@@ -363,7 +361,7 @@ class ArrayGui {
         this.Data.ArgsType := GetLangKey(this.ArgsTypeCon.Text)
         this.Data.ArgsName := GetLangKey(this.ArgsNameCon.Text)
         this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
-        this.Data.SaveName := GetLangKey(this.SaveNameCon.Text)
+        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
         SetArrayDataNewArr(this.Data)
         SetArrayDataNewVar(this.Data)
         SaveMacroCMDData(this.Data)

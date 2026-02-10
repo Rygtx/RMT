@@ -3,7 +3,7 @@
 ;资源保存
 OnSaveSetting(*) {
     global MySoftData
-    isValid := CheckFloatSettingValid()
+    isValid := CheckAllValueSettingValid()
     if (!isValid)
         return
 
@@ -69,31 +69,32 @@ OnSaveSetting(*) {
     Reload()
 }
 
-CheckFloatSettingValid() {
-    if (IsFloat(MySoftData.HoldFloatCtrl.Value)) {
-        MsgBox(GetLang("按住时间浮动值只能是整数"))
+CheckValueSettingValid(Name, Value) {
+    if (!IsInteger(Value)) {
+        MsgBox(Format("{}{}", Name, GetLang("只能是整数")))
         return false
     }
+    return true
+}
 
-    if (IsFloat(MySoftData.PreIntervalFloatCtrl.Value)) {
-        MsgBox(GetLang("每次间隔浮动值只能是整数"))
+CheckAllValueSettingValid() {
+    if (!CheckValueSettingValid(GetLang("按住时间浮动"), MySoftData.HoldFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.IntervalFloatCtrl.Value)) {
-        MsgBox(GetLang("间隔指令浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("每次间隔浮动"), MySoftData.PreIntervalFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.CoordXFloatCon.Value)) {
-        MsgBox(GetLang("坐标X浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("间隔指令浮动"), MySoftData.IntervalFloatCtrl.Value))
         return false
-    }
 
-    if (IsFloat(MySoftData.CoordYFloatCon.Value)) {
-        MsgBox(GetLang("坐标Y浮动值只能是整数"))
+    if (!CheckValueSettingValid(GetLang("坐标X浮动"), MySoftData.CoordXFloatCon.Value))
         return false
-    }
+
+    if (!CheckValueSettingValid(GetLang("坐标Y浮动"), MySoftData.CoordYFloatCon.Value))
+        return false
+
+    if (!CheckValueSettingValid(GetLang("多线程数"), MySoftData.MutiThreadNumCtrl.Value))
+        return false
 
     return true
 }
@@ -276,6 +277,7 @@ InitFilePath() {
     global LoopFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\LoopFile.ini"
     global OperationFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OperationFile.ini"
     global BGMouseFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
+    global InputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\InputFile.ini"
 }
 
 SubMacroStopAction(tableIndex, itemIndex) {
@@ -501,7 +503,6 @@ MsgBoxContent(content) {
     MySoftData.MyGui.Flash()
     SoundPlay "*-1"
     MyMsgboxGui.ShowGui(content)
-    ; MsgBox(content)
 }
 
 MacroCount(content) {
@@ -785,10 +786,7 @@ CheckIfDiscardCMD(triggerMap, cmd) {
 
 FullCopyCmd(cmdStr, CopyedMap := Map()) {
     paramArr := SplitCommand(cmdStr)
-    IsSkip := SubStr(paramArr[1], 1, 2) == "🚫"
-    IsDebug := SubStr(paramArr[1], 1, 1) == "⭐"
-    paramArr[1] := IsSkip ? SubStr(paramArr[1], 3) : paramArr[1]
-    paramArr[1] := IsDebug ? SubStr(paramArr[1], 2) : paramArr[1]
+    paramArr[1] := GetCmdStr(paramArr[1])
     if (paramArr[1] == GetLang("间隔"))
         return cmdStr
     if (paramArr[1] == GetLang("按键"))
@@ -803,10 +801,10 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
         return GetCmdByParams(paramArr)
     }
 
-    textOnly := GetCmdStr(paramArr[1])
+    textOnly := GetCmdOnlyText(paramArr[1])
     cmd := GetLangKey(textOnly)
     dataFile := MySoftData.DataFileMap[cmd]
-    Data := GetMacroCMDData(paramArr[1])
+    Data := GetMacroCMDData(paramArr[1]).Clone()
     Data.SerialStr := GetCMDSerialStr(cmd)
     numbersOnly := RegExReplace(Data.SerialStr, "\D+")
     CommandStr := Format("{}{}", textOnly, numbersOnly)
@@ -825,7 +823,7 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     ;循环， 如果Pro
 
     SaveMacroCMDData(Data)
-    res := IsSkip ? "🚫" GetCmdByParams(paramArr) : GetCmdByParams(paramArr)
+    res := GetCmdByParams(paramArr)
     return res
 }
 
