@@ -1508,12 +1508,16 @@ OnInput(tableItem, cmd, index) {
     switch Data.Type {
         case "弹窗":
             InputPopUp(Data, tableItem, index)
-        case "状态": 
+        case "状态":
             InputStateValue(Data, tableItem, index)
         case "文本文件":
             InputTextFile(Data, tableItem, index)
-        case "Excel" :
+        case "Excel":
             InputExcel(Data, tableItem, index)
+        case "继续":
+            InputContinue(Data, tableItem, index)
+        case "继续&取消":
+            InputContinueAndCencel(Data, tableItem, index)
 
     }
 }

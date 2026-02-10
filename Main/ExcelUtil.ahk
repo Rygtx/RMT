@@ -10,6 +10,7 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
         }
+        xlApp.Calculate()   ; 关键
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
@@ -22,13 +23,8 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
-        }
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
@@ -61,13 +57,8 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
-        }
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
@@ -100,13 +91,8 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        if (!xlApp.Visible) {
-            xlWorkbook.Close()
-            xlApp.Quit()
-        }
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
@@ -114,31 +100,18 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
     try {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
-        xlApp.CalculateFullRebuild()
+        xlApp.Calculate()
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
 
-         ; 获取单元格
+        ; 获取单元格
         cell := sheet.Cells(row, col)
-        
-        ; 等待计算完成（如果包含公式）
-        if cell.HasFormula {
-            ; 检查计算状态
-            while (xlApp.CalculationState != -4105) {  ; xlDone = -4105
-                Sleep 100
-            }
+        if cell.MergeCells {
+            ResValue := cell.MergeArea.Cells(1, 1).Text
+        } else {
+            ResValue := cell.Text
         }
-
-        aa := cell.Text
-        bb := cell.Formula
-        cc := cell.FormulaR1C1
-        dd := cell.HasFormula
-        ee := cell.Row
-        ff := cell.Column
-        gg := cell.Value
-        hh := cell.Value2
-        ResValue := cell.Text
         return true
     }
     catch as e {
@@ -146,89 +119,155 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
         return false
     }
     finally {
-        xlApp := xlWorkbook.Application
-        xlWorkbook := ""
-        xlApp := ""
+        xlWorkbook.Close()
+        xlApp.Quit()
     }
 }
 
-; 读取Excel指定单元格内容（修复Value获取失败问题）
-; 参数说明：
-;   wbPath: Excel文件路径
-;   sheetIdentifier: 工作表标识（数字索引或工作表名称）
-;   row: 行号（整数）
-;   col: 列号（整数）
-; 返回值：成功返回单元格内容（空单元格返回空字符串），失败返回空字符串
-; ExcelCellToRead(wbPath, sheetIdentifier, row, col) {
-;     local xlWorkbook := "", xlApp := "", sheet := "", cell := "", cellValue := ""
+ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        Sheet := xlWorkbook.Sheets(SheetIdentifier)
 
-;     try {
-;         ; 尝试获取已打开的Excel工作簿
-;         xlWorkbook := ComObjGet(wbPath)
-;         xlApp := xlWorkbook.Application
+        CurCol := Col
+        IsNullCount := 0
+        loop {
+            Cell := Sheet.Cells(Row, CurCol)
+            if Cell.MergeCells {
+                Value := Cell.MergeArea.Cells(1, 1).Text
+            } else {
+                Value := Cell.Text
+            }
+            IsNullCount := Value == "" ? IsNullCount + 1 : 0
+            if (IsNullCount == 5)
+                break
+            ResArr.Push(Value)
+            CurCol++
+        }
+        ArrayTrimRightNull(ResArr)
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
 
-;         ; 如果Excel不可见，关闭后台实例后重新打开
-;         if (!xlApp.Visible) {
-;             xlWorkbook.Close()
-;             xlApp.Quit()
-;             xlApp := ComObject("Excel.Application")
-;             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式
-;         }
+ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        Sheet := xlWorkbook.Sheets(SheetIdentifier)
 
-;         ; 确保Excel实例在后台运行（避免弹窗干扰）
-;         xlApp.Visible := false
-;         xlApp.DisplayAlerts := false
+        CurRow := Row
+        IsNullCount := 0
+        loop {
+            Cell := Sheet.Cells(CurRow, Col)
+            if Cell.MergeCells {
+                Value := Cell.MergeArea.Cells(1, 1).Text
+            } else {
+                Value := Cell.Text
+            }
+            IsNullCount := Value == "" ? IsNullCount + 1 : 0
+            if (IsNullCount == 5)
+                break
+            ResArr.Push(Value)
+            CurRow++
+        }
+        ArrayTrimRightNull(ResArr)
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
 
-;         ; 处理工作表标识（数字转整数）
-;         if (IsInteger(sheetIdentifier))
-;             sheetIdentifier := Integer(sheetIdentifier)
+ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        sheet := xlWorkbook.Sheets(SheetIdentifier)
 
-;         ; 获取工作表
-;         sheet := xlWorkbook.Sheets(sheetIdentifier)
-;         ; 先获取单元格对象，再取值（避免直接链式调用出错）
-;         cell := sheet.Cells(row, col)
-;         aa := cell.Text
-;         bb := cell.Formula
-;         cc := cell.FormulaR1C1
-;         dd := cell.HasFormula
-;         ee := cell.Row
-;         ff := cell.Column
-;         gg := cell.Value
-;         ; 优先使用Value2（兼容性更强），兼容空单元格/公式/特殊格式
-;         if (!IsObject(cell)) {
-;             cellValue := ""
-;         } else {
-;             ; 尝试获取Value2，失败则降级到Text
-;             try {
-;                 cellValue := cell.Value2
-;             } catch {
-;                 cellValue := cell.Text
-;             }
-;             ; 处理COM对象返回的空值（转换为标准空字符串）
-;             if (cellValue = "") || IsSet(cellValue) && cellValue = ""
-;                 cellValue := ""
-;         }
+        loop EndRow - Row + 1 {
+            CurRow := Row + A_Index - 1
+            ResArr.Push([])
+            loop EndCol - Col + 1 {
+                CurCol := Col + A_Index - 1
+                Cell := sheet.Cells(CurRow, CurCol)
+                if Cell.MergeCells {
+                    Value := Cell.MergeArea.Cells(1, 1).Text
+                } else {
+                    Value := Cell.Text
+                }
+                ResArr[ResArr.Length].Push(Value)
+            }
+        }
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
 
-;         return cellValue
-;     }
-;     catch as e {
-;         MsgBox GetLang("读取失败：") e.Message "`n错误行：" e.Line
-;         return ""
-;     }
-;     finally {
-;         ; 确保释放所有资源
-;         if (xlWorkbook != "") {
-;             xlApp := xlWorkbook.Application
-;             xlApp.DisplayAlerts := true  ; 恢复默认提示
-;             if (!xlApp.Visible) {
-;                 xlWorkbook.Close(false)  ; 读取操作无需保存，false避免弹窗
-;                 xlApp.Quit()
-;             }
-;         }
-;         ; 清空所有COM对象引用，防止内存泄漏
-;         cell := ""
-;         sheet := ""
-;         xlWorkbook := ""
-;         xlApp := ""
-;     }
-; }
+ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
+    try {
+        ResArr := []
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        xlApp.Calculate()
+        if (IsInteger(SheetIdentifier))
+            SheetIdentifier := Integer(SheetIdentifier)
+        sheet := xlWorkbook.Sheets(SheetIdentifier)
+
+        loop EndCol - Col + 1 {
+            CurCol := Col + A_Index - 1
+            ResArr.Push([])
+            loop EndRow - Row + 1 {
+                CurRow := Row + A_Index - 1
+                Cell := sheet.Cells(CurRow, curCol)
+                if Cell.MergeCells {
+                    Value := Cell.MergeArea.Cells(1, 1).Text
+                } else {
+                    Value := Cell.Text
+                }
+                ResArr[ResArr.Length].Push(Value)
+            }
+        }
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("读取失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}

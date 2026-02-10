@@ -8,7 +8,7 @@ class InputGui {
 
         this.ReadTypeMap := Map(
             GetLang("文本文件"), [GetLang("读取全部内容"), GetLang("逐行读取"), GetLang("指定行")],
-            GetLang("Excel"), [GetLang("表格行"), GetLang("表格列"), GetLang("指定单元格"), GetLang("指定区域")])
+            GetLang("Excel"), [GetLang("单元格"), GetLang("表格行"), GetLang("表格列"), GetLang("指定区域-行"), GetLang("指定区域-列")])
     }
 
     ShowGui(cmd) {
@@ -193,8 +193,8 @@ class InputGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
-        this.FileReadTypeArr := GetLangArr(["读取全部内容", "指定行", "逐行读取"])
-        this.ExcelReadTypeArr := GetLangArr(["指定行", "指定列", "指定单元格", "指定区域"])
+        this.FileReadTypeArr := GetLangArr(["读取全部内容", "逐行读取", "指定行"])
+        this.ExcelReadTypeArr := GetLangArr(["单元格", "表格行", "表格列", "指定区域-行", "指定区域-列"])
         ReadTypeArr := this.Data.Type == "文本文件" ? this.FileReadTypeArr : this.ExcelReadTypeArr
 
         this.TypeCon.Text := GetLang(this.Data.Type)
@@ -245,10 +245,11 @@ class InputGui {
         IsFileByLine := this.ReadTypeCon.Text == GetLang("逐行读取")
         IsFileGetLine := this.ReadTypeCon.Text == GetLang("指定行")
 
+        IsExcelCell := this.ReadTypeCon.Text == GetLang("单元格")
         IsExcelRow := this.ReadTypeCon.Text == GetLang("表格行")
         IsExcelCol := this.ReadTypeCon.Text == GetLang("表格列")
-        IsExcelCell := this.ReadTypeCon.Text == GetLang("指定单元格")
-        IsExcelRegion := this.ReadTypeCon.Text == GetLang("指定区域")
+        IsExcelRegionRow := this.ReadTypeCon.Text == GetLang("指定区域-行")
+        IsExcelRegionCol := this.ReadTypeCon.Text == GetLang("指定区域-列")
 
         HasEncoding := IsFile
         HasInter := IsPopUp || IsState || IsGoOn || IsGoOnAndCancel
@@ -257,7 +258,7 @@ class InputGui {
         HasReadType := IsFile || IsExcel
         HasFileRow := IsFileByLine || IsFileGetLine
         HasExcel := IsExcel
-        HasExcelRegion := IsExcelRegion
+        HasExcelRegion := IsExcelRegionRow || IsExcelRegionCol
         HasRes := IsPopUp || IsState || IsFile || IsExcel
         ResOnlyVar := IsPopUp || IsState || IsFileGetAll || IsFileGetLine || IsExcelCell
 
@@ -343,7 +344,7 @@ class InputGui {
         return CommandStr
     }
 
-    SaveData() {    
+    SaveData() {
         this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
         this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Encoding := GetSoftEncoding(this.EncodingCon.Text)

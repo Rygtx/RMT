@@ -27,7 +27,7 @@
 #Include Gui\CMDTipSettingGui.ahk
 #Include Gui\CustomMsgBoxGui.ahk
 #Include Gui\CustomInputGui.ahk
-#Include Gui\InputStateGui.ahk
+#Include Gui\InputBtnGui.ahk
 #Include Main\Gdip_All.ahk
 ;#Include Main\LineDrawer.ahk
 #Include Main\LineOverlay.ahk
@@ -83,7 +83,7 @@ global MyTargetGui := TargetGui()
 global MyColorPanel := ColorPanelGui()
 global MyMsgboxGui := CustomMsgBoxGui()
 global MyInputGui := CustomInputGui()
-global MyInputStateGui := InputStateGui()
+global MyInputBtnGui := InputBtnGui()
 global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
@@ -119,9 +119,4 @@ PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
 
-ExcelCellToRead("C:\Users\gh\Desktop\test.xlsx", 1, 1, 3, &ResValue)
-; ExcelCellToRead("C:\Users\gh\Desktop\test.xlsx", 1, 5, 5, &ResValue)
 
-; isOk := ExcelCellToRead("C:\Users\gh\Desktop\若梦兔布局.xlsx", 1, 5, 8, &ResValue)
-; if (isOk)
-;     MsgBox(ResValue)
