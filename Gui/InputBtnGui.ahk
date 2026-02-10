@@ -24,7 +24,7 @@ class InputBtnGui {
     }
 
     AddGui() {
-        MyGui := Gui("-Caption +AlwaysOnTop +ToolWindow", GetLang("状态选择"))
+        MyGui := Gui("-Caption +AlwaysOnTop +ToolWindow", GetLang("输入按钮"))
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
         MyGui.BackColor := "EEAA99"
         WinSetTransColor("EEAA99", MyGui)

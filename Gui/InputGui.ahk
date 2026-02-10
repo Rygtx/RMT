@@ -89,7 +89,7 @@ class InputGui {
         this.FilePathCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 320, 30))
         this.FilePathConArr.Push(this.FilePathCon)
         PosX += 330
-        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("选择路径"))
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("选择文件"))
         con.OnEvent("Click", (*) => this.OnSelectPathBtnClick())
         this.FilePathConArr.Push(con)
 
