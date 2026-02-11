@@ -103,7 +103,7 @@ AddThankUI(index) {
     posX := OriPosX
     posY += 50
     con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 850, 70), 
-    Format("{}", GetLang("感谢所有打赏过若梦兔的守护者，感谢所有完善Bug文档，需求文档的参与者")))
+    Format("{}", GetLang("感谢所有打赏支持若梦兔的守护者，以及参与完善 Bug 和需求文档的朋友。")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     con.Focus()
     conInfo := ItemConInfo(con, tableItem, 1)
