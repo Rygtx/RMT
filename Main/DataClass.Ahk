@@ -443,6 +443,7 @@ class OutputData {
         this.SerialStr := ""
         this.Text := GetLang("将要输出的文本")
         this.OutputType := 1    ;sendtest  粘贴   粘贴
+        this.Encoding := "UTF-8"    ;编码格式
         this.FilePath := ""
         this.ExcelType := 1     ;1指定单元格    2 行号自增    3 列号自增
         this.NameOrSerial := 1
