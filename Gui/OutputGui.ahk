@@ -70,7 +70,7 @@ class OutputGui {
         this.EncodingConArr.Push(con)
         PosX += 80
         TypeArr := GetLangArr(MySoftData.FileEncodingArr)
-        this.EncodingCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 150), TypeArr)
+        this.EncodingCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), TypeArr)
         this.EncodingConArr.Push(this.EncodingCon)
 
         PosX := 10
