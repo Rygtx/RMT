@@ -90,7 +90,7 @@ class FolderPackager {
 
             ; 写入文件
             outputPath := outputFolder "\" fileInfo.path
-            FileOpen(outputPath, "w", "UTF-6").RawWrite(fileInfo.data)
+            FileOpen(outputPath, "w").RawWrite(fileInfo.data)
 
             pos := fileInfo.nextPos
             processedSize := pos
