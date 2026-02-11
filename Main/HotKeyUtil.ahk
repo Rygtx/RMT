@@ -507,7 +507,7 @@ OnOutput(tableItem, cmd, index) {
         A_Clipboard := Content
     }
     else if (Data.OutputType == 8) {    ;文本文件
-        FileObj := FileOpen(Data.FilePath, "a")
+        FileObj := FileOpen(Data.FilePath, "a", Data.Encoding)
         FileObj.WriteLine(Content)
         FileObj.Close()
     }

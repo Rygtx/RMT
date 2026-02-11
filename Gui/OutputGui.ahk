@@ -64,6 +64,15 @@ class OutputGui {
         this.OutputTypeCon.Value := 1
         this.OutputTypeCon.OnEvent("Change", (*) => this.OnOutTypeChange())
 
+        PosX := 280
+        this.EncodingConArr := []
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("文件编码:"))
+        this.EncodingConArr.Push(con)
+        PosX += 80
+        TypeArr := GetLangArr(MySoftData.FileEncodingArr)
+        this.EncodingCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 150), TypeArr)
+        this.EncodingConArr.Push(this.EncodingCon)
+
         PosX := 10
         PosY += 30
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), GetLang("输出的文本内容"))
@@ -143,6 +152,7 @@ class OutputGui {
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Value := this.Data.OutputType
+        this.EncodingCon.Text := GetShowEncoding(this.Data.Encoding)
         this.FilePathCon.Value := this.Data.FilePath
         this.VariCon.Delete()
         this.VariCon.Add(this.DLVariableArr)
@@ -179,8 +189,13 @@ class OutputGui {
     }
 
     OnOutTypeChange() {
+        IsTextFile := this.OutputTypeCon.Value == 8
         showFileConArr := this.OutputTypeCon.Value == 8 || this.OutputTypeCon.Value == 9
         showExcelConArr := this.OutputTypeCon.Value == 9
+        loop this.EncodingConArr.Length {
+            this.EncodingConArr[A_Index].Visible := IsTextFile
+        }
+
         loop this.FilePathConArr.Length {
             this.FilePathConArr[A_Index].Visible := showFileConArr
         }
@@ -238,6 +253,7 @@ class OutputGui {
     SaveOutputData() {
         this.Data.Text := GetLangStr(this.TextCon.Value, 2)
         this.Data.OutputType := this.OutputTypeCon.Value
+        this.Data.Encoding := GetSoftEncoding(this.EncodingCon.Text)
         this.Data.FilePath := this.FilePathCon.Value
         this.Data.ExcelType := this.ExcelTypeCon.Value
         this.Data.NameOrSerial := this.NameOrSerialCon.Value
