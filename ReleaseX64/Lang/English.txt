@@ -949,3 +949,4 @@ N. 对应索引的子数组=N. Sub-array at index N
 {}文件不存在={} file not found
 输入按钮=Input Button
 取消=Cancel
+感谢所有打赏支持若梦兔的守护者，以及参与完善 Bug 和需求文档的朋友。=Thanks to all who supported RuoMengTu and contributed to improving bug and requirement docs.
