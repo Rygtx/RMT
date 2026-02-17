@@ -47,17 +47,8 @@ class TriggerKeyData {
     }
 
     AddData(info) {
-        TriggerType := info.GetTriggerType()
-        if (TriggerType == 1)
-            this.OriDownArr.Push(info)
-        if (TriggerType == 2)
-            this.OriLoosenArr.Push(info)
-        if (TriggerType == 3)
-            this.OriLoosenStopArr.Push(info)
-        if (TriggerType == 4)
-            this.OriTogArr.Push(info)
-        if (TriggerType == 5)
-            this.OriHoldArr.Push(info)
+        static PropNames := ["OriDownArr", "OriLoosenArr", "OriLoosenStopArr", "OriTogArr", "OriHoldArr"]
+        this.%PropNames[info.GetTriggerType()]%.Push(info)
     }
 
     UpdataArr() {
