@@ -94,15 +94,12 @@ OnTriggerMacroOnce(tableItem, macro, index) {
 
         rawCmd := GetCmdStr(paramArr[1])
         ; 移除末尾数字以匹配Map键 (例如 "搜索1" -> "搜索"), 但保留Pro等后缀
-        cmdKey := RegExReplace(rawCmd, "\d+$", "")
+        cmdKey := RTrim(rawCmd, "0123456789")
 
-        if (Actions.Has(cmdKey)) {
-            action := Actions[cmdKey]
-            result := action(tableItem, cmdStr, index)
-
-            if (action == OnArray &&  result != "") {
-                cmdArr.InsertAt(A_Index + 1, result*)
-            }
+        action := Actions[cmdKey]
+        result := action(tableItem, cmdStr, index)
+        if (action == OnSubMacro &&  result != "") {
+            cmdArr.InsertAt(A_Index + 1, result*)
         }
     }
 }
