@@ -29,7 +29,6 @@
 #Include Gui\CustomInputGui.ahk
 #Include Gui\InputBtnGui.ahk
 #Include Main\Gdip_All.ahk
-;#Include Main\LineDrawer.ahk
 #Include Main\LineOverlay.ahk
 #Include Main\DataClass.ahk
 #Include Main\AssetUtil.ahk

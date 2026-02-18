@@ -1291,17 +1291,29 @@ GetWinPos() {
 }
 
 GetMacroCMDData(serialStr) {
-    textOnly := RegExReplace(serialStr, "\d+")
-    numbersOnly := RegExReplace(serialStr, "\D+")
-    cmd := GetLangKey(textOnly)
-    serialStr := Format("{}{}", cmd, numbersOnly)
     if (MySoftData.DataCacheMap.Has(serialStr)) {
         return MySoftData.DataCacheMap[serialStr]
     }
 
+    textOnly := RegExReplace(serialStr, "\d+")
+    numbersOnly := RegExReplace(serialStr, "\D+")
+    cmd := GetLangKey(textOnly)
+    
+    ; Normalize key if needed (though the cache check above might already cover common cases if they were stored with original key)
+    ; But here we reconstruct it using 'cmd' which might be different if 'GetLangKey' changes it.
+    ; NOTE: The original code reconstructed 'serialStr' using the translated 'cmd' + numbers.
+    ; This implies the cache key used is the TRANSLATED one.
+    
+    normalizedSerialStr := Format("{}{}", cmd, numbersOnly)
+    
+    ; Check cache again with normalized key if different
+    if (normalizedSerialStr != serialStr && MySoftData.DataCacheMap.Has(normalizedSerialStr)) {
+        return MySoftData.DataCacheMap[normalizedSerialStr]
+    }
+
     DataFile := MySoftData.DataFileMap[cmd]
     DataClass := MySoftData.DataClassMap[cmd]
-    saveStr := IniRead(DataFile, IniSection, serialStr, "")
+    saveStr := IniRead(DataFile, IniSection, normalizedSerialStr, "")
     if (saveStr == "") {
         Data := DataClass()
         Data.SerialStr := SerialStr
@@ -1309,7 +1321,13 @@ GetMacroCMDData(serialStr) {
     else {
         Data := JSON.parse(saveStr, , false)
     }
-    MySoftData.DataCacheMap.Set(serialStr, Data)
+    MySoftData.DataCacheMap.Set(normalizedSerialStr, Data)
+    
+    ; Also cache the original key if they differ, so next time we hit the fast path at the top
+    if (normalizedSerialStr != serialStr) {
+        MySoftData.DataCacheMap.Set(serialStr, Data)
+    }
+    
     return Data
 }
 
@@ -1556,9 +1574,9 @@ HandTipSound(tableItem, itmeIndex, macroState, isFirst, isLast) {
 ;type 1 开始   2结束
 PlayTipSound(type) {
     audioPathMap := Map(1, StartTipAudio, 2, EndTipAudio)
-    audioPath := audioPathMap[type]
-    playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, audioPath)
-    Run(playAudioCmd)
+    if (audioPathMap.Has(type) && FileExist(audioPathMap[type])) {
+        SoundPlay(audioPathMap[type])
+    }
 }
 
 GetExVariableActiveLength(Arr) {
