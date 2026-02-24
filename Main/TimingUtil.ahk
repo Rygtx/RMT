@@ -1,174 +1,288 @@
 #Requires AutoHotkey v2.0
 
+global MyTimingScheduler := ""
+
 TimingCheck() {
-    hasTiming := CheckIfHasTiming(&tableIndex)
-    if (!hasTiming)
+    if ((tableIndex := GetTimingTableIndex()) == "")
         return
 
     tableItem := MySoftData.TableInfo[tableIndex]
-    SetTimingNextTime(tableItem)
     HandleOnSoftStart(tableItem)
-    if (A_Sec == 0)
-        InitTimingChecker()
-    else {
-        StartLeftTime := (-(60 - A_Sec)) * 1000
-        SetTimer(InitTimingChecker, StartLeftTime)
+    
+    global MyTimingScheduler
+    if (IsObject(MyTimingScheduler))
+        MyTimingScheduler.Stop()
+    
+    MyTimingScheduler := TimingScheduler(tableIndex)
+    MyTimingScheduler.Start()
+}
+
+class TimingScheduler {
+
+    __New(tableIndex) {
+        this.tableIndex := tableIndex
+        this.heap := MinHeap()
+        this.timerFunc := ObjBindMethod(this, "OnTimer")
+        this.running := false
+    }
+
+    Start() {
+        this.running := true
+        this.Rebuild()
+    }
+
+    Stop() {
+        this.running := false
+        SetTimer(this.timerFunc, 0)
+        this.heap.Clear()
+    }
+
+    Rebuild() {
+        if (!this.running)
+            return
+
+        SetTimer(this.timerFunc, 0)
+        this.heap.Clear()
+
+        tableItem := MySoftData.TableInfo[this.tableIndex]
+
+        SetTimingNextTime(tableItem)
+
+        for index, _ in tableItem.ModeArr {
+
+            if (!TimingCheckItemIfValid(tableItem, index))
+                continue
+
+            Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
+            if (Data == "" || Data.NextTriggerTime == "")
+                continue
+
+            this.heap.Push({
+                time: Data.NextTriggerTime,
+                index: index
+            })
+        }
+
+        this.ScheduleNext()
+    }
+
+    ScheduleNext() {
+        if (!this.running || this.heap.IsEmpty())
+            return
+
+        next := this.heap.Peek()
+        CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+
+        delay := DateDiff(next.time, CurTime, "Seconds") * 1000
+        if (delay < 1)
+            delay := 1
+
+        SetTimer(this.timerFunc, -delay)
+    }
+
+    OnTimer() {
+        if (!this.running)
+            return
+
+        tableItem := MySoftData.TableInfo[this.tableIndex]
+        CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+
+        while (!this.heap.IsEmpty() && this.heap.Peek().time <= CurTime) {
+
+            item := this.heap.Pop()
+            index := item.index
+
+            if (!TimingCheckItemIfValid(tableItem, index))
+                continue
+
+            Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
+            if (Data == "" || Data.NextTriggerTime == "")
+                continue
+
+            shouldTrigger := true
+
+            if ((frontInfo := GetItemFrontInfo(tableItem, index)) != "") {
+                if (!MyMouseInfo.CheckIfMatch(frontInfo, true))
+                    shouldTrigger := false
+            }
+
+            Data.NextTriggerTime := CalculateNextTriggerTime(Data, Data.NextTriggerTime)
+
+            if (Data.EndTime != "" && Data.NextTriggerTime >= Data.EndTime)
+                Data.NextTriggerTime := ""
+
+            if (shouldTrigger)
+                TriggerMacroHandler(this.tableIndex, index)
+
+            if (Data.NextTriggerTime != "")
+                this.heap.Push({
+                    time: Data.NextTriggerTime,
+                    index: index
+                })
+        }
+
+        this.ScheduleNext()
     }
 }
 
-CheckIfHasTiming(&tableIndex) {
-    tableIndex := GetTimingTableIndex()
-    if (tableIndex == "")
-        return false
+class MinHeap {
 
-    tableItem := MySoftData.TableInfo[tableIndex]
-    for index, value in tableItem.ModeArr {
-        if (!TimingCheckItemIfValid(tableItem, index))
-            continue
-
-        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data == "" || ObjOwnPropCount(Data) == 0)
-            continue
-
-        return true
+    __New() {
+        this.heap := []
     }
-    return false
+
+    Push(item) {
+        this.heap.Push(item)
+        this._Up(this.heap.Length)
+    }
+
+    Pop() {
+        if (this.heap.Length = 0)
+            return ""
+
+        if (this.heap.Length = 1)
+            return this.heap.Pop()
+
+        top := this.heap[1]
+        this.heap[1] := this.heap.Pop()
+        this._Down(1)
+        return top
+    }
+
+    Peek() {
+        return this.heap.Length ? this.heap[1] : ""
+    }
+
+    IsEmpty() {
+        return this.heap.Length = 0
+    }
+
+    Clear() {
+        this.heap := []
+    }
+
+    _Up(i) {
+        while (i > 1) {
+            p := i // 2
+            if (this.heap[i].time < this.heap[p].time)
+                this._Swap(i, p), i := p
+            else
+                break
+        }
+    }
+
+    _Down(i) {
+        len := this.heap.Length
+        while (i * 2 <= len) {
+            c := i * 2
+            if (c + 1 <= len && this.heap[c + 1].time < this.heap[c].time)
+                c++
+
+            if (this.heap[c].time < this.heap[i].time)
+                this._Swap(i, c), i := c
+            else
+                break
+        }
+    }
+
+    _Swap(a, b) {
+        tmp := this.heap[a]
+        this.heap[a] := this.heap[b]
+        this.heap[b] := tmp
+    }
 }
 
 SetTimingNextTime(tableItem) {
-    for index, value in tableItem.ModeArr {
+    CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+
+    for index, _ in tableItem.ModeArr {
+
         if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        CurTime := FormatTime(A_Now, "yyyyMMddHHmm")
         if (Data == "" || ObjOwnPropCount(Data) == 0)
             continue
-        if (Data.EndTime != "" && CurTime >= Data.EndTime)
-            continue
 
-        span := DateDiff(CurTime, Data.StartTime, "Minutes")
-        if (Data.Type == 1)
-            Data.NextTriggerTime := span < 0 ? Data.StartTime : ""
-        else if (Data.Type == 2 || Data.Type == 3 || Data.Type == 4 || Data.Type == 7) {
-            interval := GetTimingInterval(Data)
-            if (span < 0)  ;时间还没到
-                Data.NextTriggerTime := Data.StartTime
-            else {
-                count := (Integer)(span / interval)
-                newTime := FormatTime(DateAdd(Data.StartTime, (count + 1) * interval, "Minutes"), "yyyyMMddHHmm")
-                Data.NextTriggerTime := newTime
-            }
+        if (Data.EndTime != "" && CurTime >= Data.EndTime) {
+            Data.NextTriggerTime := ""
+            continue
         }
-        else if (Data.Type == 5) {
-            if (span < 0)  ;时间还没到
-                Data.NextTriggerTime := Data.StartTime
-            else {
-                newTime := SubStr(CurTime, 1, 6) SubStr(Data.StartTime, 7)
-                Data.NextTriggerTime := newTime
-                if (CurTime > newTime) {
-                    newMonth := Format("{:02}", A_Mon + 1)
-                    Data.NextTriggerTime := A_Year newMonth SubStr(Data.StartTime, 7)
-                    if (A_Mon == 12) {
-                        newYear := Format("{:04}", A_Year + 1)
-                        newMonth := Format("{:02}", 1)
-                        Data.NextTriggerTime := newYear newMonth SubStr(Data.StartTime, 7)
-                    }
-                }
-            }
-        }
+
+        Data.NextTriggerTime := CalculateNextTriggerTime(Data, CurTime)
     }
 }
 
-InitTimingChecker() {
-    TimingChecker() ;立刻检测一次
-    SetTimer(TimingChecker, 60000) ;然后一分钟轮询一次
-}
+CalculateNextTriggerTime(Data, BaseTime := "") {
 
-TimingChecker() {
-    tableIndex := GetTimingTableIndex()
-    tableItem := MySoftData.TableInfo[tableIndex]
-    for index, value in tableItem.ModeArr {
-        if (!TimingCheckItemIfValid(tableItem, index))
-            continue
+    if (BaseTime == "")
+        BaseTime := FormatTime(A_Now, "yyyyMMddHHmmss")
 
-        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        CurTime := FormatTime(A_Now, "yyyyMMddHHmm")
-        if (Data == "" || ObjOwnPropCount(Data) == 0)
-            continue
-        if (Data.NextTriggerTime == "" || CurTime < Data.NextTriggerTime)
-            continue
+    span := DateDiff(BaseTime, Data.StartTime, "Minutes")
 
-        frontInfo := GetItemFrontInfo(tableItem, index)
-        if (frontInfo != "") {
-            if (!MyMouseInfo.CheckIfMatch(frontInfo, true))
-                return
-        }
+    if (Data.Type = 1)
+        return span < 0 ? Data.StartTime : ""
 
-        UpdateTimingNextTime(Data)
-        TriggerMacroHandler(tableIndex, index)
-    }
-}
+    if (Data.Type = 2 || Data.Type = 3 || Data.Type = 4 || Data.Type = 7) {
 
-UpdateTimingNextTime(Data) {
-    if (Data.Type == 1)
-        Data.NextTriggerTime := ""
-    else if (Data.Type == 2 || Data.Type == 3 || Data.Type == 4 || Data.Type == 7) {
         interval := GetTimingInterval(Data)
-        newTime := FormatTime(DateAdd(Data.NextTriggerTime, interval, "Minutes"), "yyyyMMddHHmm")
-        Data.NextTriggerTime := newTime
-    }
-    else if (Data.Type == 5) {
-        year := FormatTime(Data.NextTriggerTime, "yyyy")
-        month := FormatTime(Data.NextTriggerTime, "MM")
-        newMonth := Format("{:02}", month + 1)
-        Data.NextTriggerTime := year newMonth SubStr(Data.StartTime, 7)
-        if (month == 12) {
-            newYear := Format("{:04}", year + 1)
-            newMonth := Format("{:02}", 1)
-            Data.NextTriggerTime := newYear newMonth SubStr(Data.StartTime, 7)
-        }
+
+        if (span < 0)
+            return Data.StartTime
+
+        count := Floor(span / interval)
+
+        return FormatTime(DateAdd(Data.StartTime, (count + 1) * interval, "Minutes"), "yyyyMMddHHmmss")
     }
 
-    if (Data.EndTime != "" && Data.NextTriggerTime >= Data.EndTime)
-        Data.NextTriggerTime := ""
+    if (Data.Type = 5) {
+
+        if (span < 0)
+            return Data.StartTime
+
+        target := SubStr(BaseTime, 1, 6) SubStr(Data.StartTime, 7)
+
+        if (BaseTime < target)
+            return target
+
+        year := SubStr(BaseTime, 1, 4)
+        month := SubStr(BaseTime, 5, 2)
+
+        newMonth := month + 1
+        newYear := year
+
+        if (newMonth > 12)
+            newMonth := 1, newYear++
+
+        return Format("{:04}{:02}", newYear, newMonth)
+            . SubStr(Data.StartTime, 7)
+    }
+
+    return ""
 }
 
 GetTimingInterval(Data) {
-    if (Data.Type == 2)
-        return 60
-    else if (Data.Type == 3)
-        return 60 * 24
-    else if (Data.Type == 4)
-        return 60 * 24 * 7
+    static IntervalMap := Map(2, 60, 3, 1440, 4, 10080)
+    return IntervalMap.Has(Data.Type) ? IntervalMap[Data.Type] : (Data.HasOwnProp("CustomInterval") ? Data.CustomInterval : 60)
+}
 
-    return Data.CustomInterval
+TimingCheckItemIfValid(tableItem, index) {
+    return !GetItemFoldForbidState(tableItem, index)
+        && !tableItem.ForbidArr[index]
+        && tableItem.MacroArr.Length >= index
+        && tableItem.MacroArr[index] != ""
 }
 
 HandleOnSoftStart(tableItem) {
     if (MySoftData.IsReload)
         return
 
-    for index, value in tableItem.ModeArr {
+    for index, _ in tableItem.ModeArr {
         if (!TimingCheckItemIfValid(tableItem, index))
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data.Type != 6)
-            return
-        TriggerMacroHandler(tableItem.Index, index)
+        if (Data != "" && Data.Type == 6)
+            TriggerMacroHandler(tableItem.Index, index)
     }
-}
-
-TimingCheckItemIfValid(tableItem, index) {
-    if (GetItemFoldForbidState(tableItem, index))
-        return false
-
-    if (tableItem.ForbidArr[index])
-        return false
-
-    if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
-        return false
-
-    return true
 }
