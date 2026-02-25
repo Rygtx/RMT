@@ -64,12 +64,11 @@ class OperationGui {
 
             PosX += 305
             con := MyGui.Add("Button", Format("x{} y{} w{} Center", PosX, PosY - 4, 50), GetLang("编辑"))
-            con.OnEvent("Click", (*) => this.OnEditVariableBtnClick(1))
+            con.OnEvent("Click", this.OnEditVariableBtnClick.Bind(this, A_Index))
 
             PosX += 55
             con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 120), [])
             this.UpdateNameConArr.Push(con)
-
         }
 
         PosY += 40
@@ -115,7 +114,7 @@ class OperationGui {
         return CommandStr
     }
 
-    OnEditVariableBtnClick(Index) {
+    OnEditVariableBtnClick(Index, *) {
         if (this.OperationSubGui == "") {
             this.OperationSubGui := OperationSubGui()
         }
