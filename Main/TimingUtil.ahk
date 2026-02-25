@@ -92,9 +92,6 @@ class TimingScheduler {
             item := this.heap.Pop()
             index := item.index
 
-            if (!TimingCheckItemIfValid(tableItem, index))
-                continue
-
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
             if (Data == "" || Data.NextTriggerTime == "")
                 continue

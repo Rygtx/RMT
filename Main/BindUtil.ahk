@@ -532,7 +532,6 @@ GetMacroAction(tableIndex, index) {
         actionDown := TriggerMacroHandler.Bind(tableIndex, index)
     }
     else if (tableSymbol == "Replace") {
-
         actionDown := OnReplaceDownKey.Bind(tableItem, macro, index)
         actionUp := OnReplaceUpKey.Bind(tableItem, macro, index)
     }
