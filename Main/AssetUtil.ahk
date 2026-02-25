@@ -265,12 +265,12 @@ InitData() {
     MySoftData.DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
-        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile, 
+        "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile,
         "输入", InputFile)
     MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
-        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData, 
+        "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
         "输入", InputData)
 }
 
@@ -1298,14 +1298,14 @@ GetMacroCMDData(serialStr) {
     textOnly := RegExReplace(serialStr, "\d+")
     numbersOnly := RegExReplace(serialStr, "\D+")
     cmd := GetLangKey(textOnly)
-    
+
     ; Normalize key if needed (though the cache check above might already cover common cases if they were stored with original key)
     ; But here we reconstruct it using 'cmd' which might be different if 'GetLangKey' changes it.
     ; NOTE: The original code reconstructed 'serialStr' using the translated 'cmd' + numbers.
     ; This implies the cache key used is the TRANSLATED one.
-    
+
     normalizedSerialStr := Format("{}{}", cmd, numbersOnly)
-    
+
     ; Check cache again with normalized key if different
     if (normalizedSerialStr != serialStr && MySoftData.DataCacheMap.Has(normalizedSerialStr)) {
         return MySoftData.DataCacheMap[normalizedSerialStr]
@@ -1322,12 +1322,12 @@ GetMacroCMDData(serialStr) {
         Data := JSON.parse(saveStr, , false)
     }
     MySoftData.DataCacheMap.Set(normalizedSerialStr, Data)
-    
+
     ; Also cache the original key if they differ, so next time we hit the fast path at the top
     if (normalizedSerialStr != serialStr) {
         MySoftData.DataCacheMap.Set(serialStr, Data)
     }
-    
+
     return Data
 }
 
@@ -1342,7 +1342,7 @@ SaveMacroCMDData(Data) {
     }
 }
 
-GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
+GetReplaceVarText(tableItem, tableIndex, text) {
     matches := []  ; 初始化空数组
     pos := 1  ; 从字符串开头开始搜索
 
@@ -1354,12 +1354,10 @@ GetReplaceVarText(tableItem, tableIndex, text, &ResText) {
     ResText := text
     for index, value in matches {
         hasValue := TryGetVariableValue(&variValue, tableItem, tableIndex, value, false)
-        if (!hasValue)
-            return false
-
-        ResText := StrReplace(ResText, "{" value "}", variValue)
+        if (hasValue)
+            ResText := StrReplace(ResText, "{" value "}", variValue)
     }
-    return true
+    return ResText
 }
 
 TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {

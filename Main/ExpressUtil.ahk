@@ -5,10 +5,7 @@ GetExpressionResult(Expression, tableItem, tableIndex, &Res) {
         return false
 
     ; 替换表达式中的变量为实际值
-    isOk := GetReplaceVarText(tableItem, tableIndex, Expression, &ProcessedExpr)
-    if (!isOk)
-        return false
-
+    ProcessedExpr := GetReplaceVarText(tableItem, tableIndex, Expression)
     ; 计算表达式
     try {
         Res := EvaluateExpression(ProcessedExpr)

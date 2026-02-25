@@ -437,9 +437,7 @@ OnMMProOnce(tableItem, index, Data) {
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    isOk := GetReplaceVarText(tableItem, index, Data.Text, &Content)
-    if (!isOk)
-        return
+    Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == 1) {     ;send
         SendText(Content)
@@ -742,10 +740,7 @@ OnExVariableOnce(tableItem, index, Data) {
         if (index < TextObjs.Length)
             allText .= "`n"
     }
-    isSucces := GetReplaceVarText(tableItem, index, Data.ExtractStr, &ExtractStr)
-    if (!isSucces)
-        return false
-
+    ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
         VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
