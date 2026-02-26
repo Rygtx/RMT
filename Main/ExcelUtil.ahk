@@ -119,8 +119,10 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -157,8 +159,10 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -195,8 +199,10 @@ ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -231,8 +237,10 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -267,7 +275,9 @@ ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }

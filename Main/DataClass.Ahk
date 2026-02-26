@@ -251,7 +251,7 @@ class SoftData {
             "RButton", "MButton", "MButton", "~MButton", "MButton", "XButton1", "XButton1", "~XButton1", "XButton1",
             "XButton2", "XButton2", "~XButton2", "XButton2")
         this.ContinueIntervale := 50    ;连续触发间隔
-    
+
         this.FileEncodingArr := ["ANSI", "GB2312", "GB18030", "BIG5", "UTF-8", "UTF-16"]
 
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
@@ -287,8 +287,9 @@ class SoftData {
 
         this.IsTogStartRecord := false  ;通过开关触发录制   区分触发形式，删除宏里面的快捷键触发的按键
         this.IsTogEndRecord := false    ;通过开关结束录制
-        ;这些按键不会松开，特别处理
-        this.SpecialNumKeyMap := Map("WheelDown", 0, "WheelUp", 0)
+
+        this.WheelKeyMap := Map("WheelDown", 0, "WheelUp", 0)
+        this.MouseKeyMap := Map("LButton", "Left", "MButton", "Middle", "RButton", "Right")
 
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;上次显示月数
