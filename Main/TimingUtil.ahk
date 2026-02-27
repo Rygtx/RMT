@@ -7,12 +7,13 @@ TimingCheck() {
         return
 
     tableItem := MySoftData.TableInfo[tableIndex]
+    NormalizeTimingData(tableItem)
     HandleOnSoftStart(tableItem)
-    
+
     global MyTimingScheduler
     if (IsObject(MyTimingScheduler))
         MyTimingScheduler.Stop()
-    
+
     MyTimingScheduler := TimingScheduler(tableIndex)
     MyTimingScheduler.Start()
 }
@@ -45,8 +46,7 @@ class TimingScheduler {
         this.heap.Clear()
 
         tableItem := MySoftData.TableInfo[this.tableIndex]
-
-        SetTimingNextTime(tableItem)
+        now := UnixNow()
 
         for index, _ in tableItem.ModeArr {
 
@@ -54,13 +54,16 @@ class TimingScheduler {
                 continue
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "" || Data.NextTriggerTime == "")
+            if (Data == "")
                 continue
 
-            this.heap.Push({
-                time: Data.NextTriggerTime,
-                index: index
-            })
+            if (Data.EndStamp && now >= Data.EndStamp)
+                continue
+
+            Data.NextStamp := CalculateNextStamp(Data, now)
+
+            if (Data.NextStamp)
+                this.heap.Push({ time: Data.NextStamp, index: index })
         }
 
         this.ScheduleNext()
@@ -71,9 +74,9 @@ class TimingScheduler {
             return
 
         next := this.heap.Peek()
-        CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+        now := UnixNow()
 
-        delay := DateDiff(next.time, CurTime, "Seconds") * 1000
+        delay := (next.time - now) * 1000
         if (delay < 1)
             delay := 1
 
@@ -85,15 +88,15 @@ class TimingScheduler {
             return
 
         tableItem := MySoftData.TableInfo[this.tableIndex]
-        CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+        now := UnixNow()
 
-        while (!this.heap.IsEmpty() && this.heap.Peek().time <= CurTime) {
+        while (!this.heap.IsEmpty() && this.heap.Peek().time <= now) {
 
             item := this.heap.Pop()
             index := item.index
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "" || Data.NextTriggerTime == "")
+            if (Data == "")
                 continue
 
             shouldTrigger := true
@@ -103,19 +106,16 @@ class TimingScheduler {
                     shouldTrigger := false
             }
 
-            Data.NextTriggerTime := CalculateNextTriggerTime(Data, Data.NextTriggerTime)
+            Data.NextStamp := CalculateNextStamp(Data, Data.NextStamp)
 
-            if (Data.EndTime != "" && Data.NextTriggerTime >= Data.EndTime)
-                Data.NextTriggerTime := ""
+            if (Data.EndStamp && Data.NextStamp >= Data.EndStamp)
+                Data.NextStamp := 0
 
             if (shouldTrigger)
                 TriggerMacroHandler(this.tableIndex, index)
 
-            if (Data.NextTriggerTime != "")
-                this.heap.Push({
-                    time: Data.NextTriggerTime,
-                    index: index
-                })
+            if (Data.NextStamp)
+                this.heap.Push({ time: Data.NextStamp, index: index })
         }
 
         this.ScheduleNext()
@@ -189,73 +189,71 @@ class MinHeap {
     }
 }
 
-SetTimingNextTime(tableItem) {
-    CurTime := FormatTime(A_Now, "yyyyMMddHHmmss")
-
+NormalizeTimingData(tableItem) {
     for index, _ in tableItem.ModeArr {
 
-        if (!TimingCheckItemIfValid(tableItem, index))
-            continue
-
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data == "" || ObjOwnPropCount(Data) == 0)
+        if (Data == "" || Data.HasOwnProp("StartStamp"))
             continue
 
-        if (Data.EndTime != "" && CurTime >= Data.EndTime) {
-            Data.NextTriggerTime := ""
-            continue
-        }
-
-        Data.NextTriggerTime := CalculateNextTriggerTime(Data, CurTime)
+        Data.StartStamp := TimeStrToStamp(Data.StartTime)
+        Data.EndStamp := Data.EndTime != "" ? TimeStrToStamp(Data.EndTime) : 0
+        Data.NextStamp := 0
     }
 }
 
-CalculateNextTriggerTime(Data, BaseTime := "") {
+CalculateNextStamp(Data, baseStamp) {
+    start := Data.StartStamp
+    spanMinutes := Floor((baseStamp - start) / 60)
 
-    if (BaseTime == "")
-        BaseTime := FormatTime(A_Now, "yyyyMMddHHmmss")
+    switch Data.Type {
+        case 1:
+            return spanMinutes < 0 ? start : 0
 
-    span := DateDiff(BaseTime, Data.StartTime, "Minutes")
+        case 2, 3, 4, 7:
+            interval := GetTimingInterval(Data)
 
-    if (Data.Type = 1)
-        return span < 0 ? Data.StartTime : ""
+            if (spanMinutes < 0)
+                return start
 
-    if (Data.Type = 2 || Data.Type = 3 || Data.Type = 4 || Data.Type = 7) {
+            count := Floor(spanMinutes / interval)
+            return start + (count + 1) * interval * 60
 
-        interval := GetTimingInterval(Data)
+        case 5:
+            if (spanMinutes < 0)
+                return start
 
-        if (span < 0)
-            return Data.StartTime
+            t := DateAdd("19700101000000", baseStamp, "Seconds")
+            baseStr := FormatTime(t, "yyyyMMddHHmmss")
 
-        count := Floor(span / interval)
+            timeSuffix := SubStr(Data.StartTime, 7)
+            targetStr := SubStr(baseStr, 1, 6) timeSuffix
+            target := TimeStrToStamp(targetStr)
 
-        return FormatTime(DateAdd(Data.StartTime, (count + 1) * interval, "Minutes"), "yyyyMMddHHmmss")
+            if (baseStamp < target)
+                return target
+
+            year := SubStr(baseStr, 1, 4)
+            month := Number(SubStr(baseStr, 5, 2))
+
+            ++month
+            if (month > 12)
+                month := 1, ++year
+
+            nextStr := Format("{:04}{:02}", year, month) timeSuffix
+            return TimeStrToStamp(nextStr)
+
+        default:
+            return 0
     }
+}
 
-    if (Data.Type = 5) {
+UnixNow() {
+    return DateDiff(A_Now, "19700101000000", "Seconds")
+}
 
-        if (span < 0)
-            return Data.StartTime
-
-        target := SubStr(BaseTime, 1, 6) SubStr(Data.StartTime, 7)
-
-        if (BaseTime < target)
-            return target
-
-        year := SubStr(BaseTime, 1, 4)
-        month := SubStr(BaseTime, 5, 2)
-
-        newMonth := month + 1
-        newYear := year
-
-        if (newMonth > 12)
-            newMonth := 1, newYear++
-
-        return Format("{:04}{:02}", newYear, newMonth)
-            . SubStr(Data.StartTime, 7)
-    }
-
-    return ""
+TimeStrToStamp(timeStr) {
+    return DateDiff(timeStr, "19700101000000", "Seconds")
 }
 
 GetTimingInterval(Data) {
