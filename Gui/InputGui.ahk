@@ -8,7 +8,7 @@ class InputGui {
 
         this.ReadTypeMap := Map(
             GetLang("文本文件"), [GetLang("读取全部内容"), GetLang("逐行读取"), GetLang("指定行")],
-            GetLang("Excel"), [GetLang("单元格"), GetLang("表格行"), GetLang("表格列"), GetLang("指定区域-行"), GetLang("指定区域-列")])
+            GetLang("Excel"), [GetLang("单元格"), GetLang("指定行"), GetLang("指定列"), GetLang("指定区域-行"), GetLang("指定区域-列")])
     }
 
     ShowGui(cmd) {
@@ -194,7 +194,7 @@ class InputGui {
         this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
         this.FileReadTypeArr := GetLangArr(["读取全部内容", "逐行读取", "指定行"])
-        this.ExcelReadTypeArr := GetLangArr(["单元格", "表格行", "表格列", "指定区域-行", "指定区域-列"])
+        this.ExcelReadTypeArr := GetLangArr(["单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"])
         ReadTypeArr := this.Data.Type == "文本文件" ? this.FileReadTypeArr : this.ExcelReadTypeArr
 
         this.TypeCon.Text := GetLang(this.Data.Type)
@@ -203,6 +203,7 @@ class InputGui {
         this.CancelTypeCon.Text := GetLang(this.Data.CancelType)
         this.FilePathCon.Text := this.Data.FilePath
         this.SaveNameCon.Text := this.Data.SaveName
+        this.ReadTypeCon.Delete()
         this.ReadTypeCon.Add(ReadTypeArr)
         loop ReadTypeArr.Length {
             if (ReadTypeArr[A_Index] == GetLang(this.Data.ReadType)) {
@@ -246,8 +247,8 @@ class InputGui {
         IsFileGetLine := this.ReadTypeCon.Text == GetLang("指定行")
 
         IsExcelCell := this.ReadTypeCon.Text == GetLang("单元格")
-        IsExcelRow := this.ReadTypeCon.Text == GetLang("表格行")
-        IsExcelCol := this.ReadTypeCon.Text == GetLang("表格列")
+        IsExcelRow := this.ReadTypeCon.Text == GetLang("指定行")
+        IsExcelCol := this.ReadTypeCon.Text == GetLang("指定列")
         IsExcelRegionRow := this.ReadTypeCon.Text == GetLang("指定区域-行")
         IsExcelRegionCol := this.ReadTypeCon.Text == GetLang("指定区域-列")
 

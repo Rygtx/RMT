@@ -50,6 +50,30 @@ OnFinishMacro(tableItem, macro, index) {
 
 OnTriggerMacroOnce(tableItem, macro, index) {
     global MySoftData
+    static Actions := Map(
+        "间隔", OnInterval,
+        "按键", OnPressKey,
+        "搜索", OnSearchWrapper,
+        "搜索Pro", OnSearchWrapper,
+        "移动", OnMouseMove,
+        "移动Pro", OnMMPro,
+        "运行", OnRunFile,
+        "如果", OnCompare,
+        "如果Pro", OnComparePro,
+        "输出", OnOutput,
+        "变量", OnVariable,
+        "变量提取", OnExVariableWrapper,
+        "宏操作", OnSubMacro,
+        "运算", OnOperation,
+        "后台鼠标", OnBGMouse,
+        "后台按键", OnBGKey,
+        "RMT指令", OnRMTCMD,
+        "循环", OnLoop,
+        "文本处理", OnTextOps,
+        "数组", OnArray,
+        "输入", OnInput
+    )
+
     cmdArr := SplitMacro(macro)
 
     for value in cmdArr {
@@ -57,105 +81,35 @@ OnTriggerMacroOnce(tableItem, macro, index) {
             break
 
         WaitIfPaused(tableItem, index)
-        paramArr := StrSplit(cmdArr[A_Index], "_")
-        if (SubStr(paramArr[1], 1, 2) == "🚫")
+        if (SubStr(cmdArr[A_Index], 1, 2) == "🚫")
             continue
-        paramArr[1] := GetCmdStr(paramArr[1])
-        IsMMPro := InStr(paramArr[1], "移动Pro")
-        IsMM := InStr(paramArr[1], "移动") && !IsMMPro
-        IsSearchPro := InStr(paramArr[1], "搜索Pro")
-        IsSearch := InStr(paramArr[1], "搜索") && !IsSearchPro
-        IsPressKey := InStr(paramArr[1], "按键")
-        IsInterval := InStr(paramArr[1], "间隔")
-        IsRun := InStr(paramArr[1], "运行")
-        IsIfPro := InStr(paramArr[1], "如果Pro")
-        IsIf := InStr(paramArr[1], "如果") && !IsIfPro
-        IsOutput := InStr(paramArr[1], "输出")
-        IsExVariable := InStr(paramArr[1], "变量提取")
-        IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
-        IsSubMacro := InStr(paramArr[1], "宏操作")
-        IsOperation := InStr(paramArr[1], "运算")
-        IsBGMouse := InStr(paramArr[1], "后台鼠标")
-        IsBGKey := InStr(paramArr[1], "后台按键")
-        IsRMT := InStr(paramArr[1], "RMT指令")
-        IsLoop := InStr(paramArr[1], "循环")
-        IsTextOps := InStr(paramArr[1], "文本处理")
-        IsArray := InStr(paramArr[1], "数组")
-        IsInput := InStr(paramArr[1], "输入")
 
+        cmdStr := GetCmdStr(cmdArr[A_Index])
+        paramArr := StrSplit(cmdStr, "_")
         if (MySoftData.CMDTip) {
-            MyCMDReportAciton(cmdArr[A_Index])
+            MyCMDReportAciton(cmdStr)
         }
 
-        if (IsInterval) {
-            OnInterval(tableItem, cmdArr[A_Index], index)
+        ; 移除末尾数字以匹配Map键 (例如 "搜索1" -> "搜索"), 但保留Pro等后缀
+        cmdKey := RTrim(paramArr[1], "0123456789")
+        result := Actions[cmdKey](tableItem, cmdStr, index)
+        if (result != "") {
+            cmdArr.InsertAt(A_Index + 1, result*)
         }
-        else if (IsPressKey) {
-            OnPressKey(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsSearch || IsSearchPro) {
-            isLoopFound := OnSearch(tableItem, cmdArr[A_Index], index)
-            if (isLoopFound != "" && isLoopFound == false) {
-                cmdArr.InsertAt(A_Index + 1, cmdArr[A_Index])
-            }
-        }
-        else if (IsMM) {
-            OnMouseMove(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsMMPro) {
-            OnMMPro(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsRun) {
-            OnRunFile(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsIf) {
-            OnCompare(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsIfPro) {
-            OnComparePro(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsOutput) {
-            OnOutput(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsVariable) {
-            OnVariable(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsExVariable) {
-            isLoopFound := OnExVariable(tableItem, cmdArr[A_Index], index)
-            if (isLoopFound != "" && isLoopFound == false) {
-                cmdArr.InsertAt(A_Index + 1, cmdArr[A_Index])
-            }
-        }
-        else if (IsSubMacro) {
-            newCmdArr := OnSubMacro(tableItem, cmdArr[A_Index], index)
-            if (newCmdArr != "") {
-                cmdArr.InsertAt(A_Index + 1, newCmdArr*)
-            }
-        }
-        else if (IsOperation) {
-            OnOperation(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsBGMouse) {
-            OnBGMouse(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsRMT) {
-            OnRMTCMD(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsBGKey) {
-            OnBGKey(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsLoop) {
-            OnLoop(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsTextOps) {
-            OnTextOps(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsArray) {
-            OnArray(tableItem, cmdArr[A_Index], index)
-        }
-        else if (IsInput) {
-            OnInput(tableItem, cmdArr[A_Index], index)
-        }
+    }
+}
+
+OnSearchWrapper(tableItem, cmdStr, index) {
+    isLoopFound := OnSearch(tableItem, cmdStr, index)
+    if (isLoopFound != "" && isLoopFound == false) {
+        return [cmdStr]
+    }
+}
+
+OnExVariableWrapper(tableItem, cmdStr, index) {
+    isLoopFound := OnExVariable(tableItem, cmdStr, index)
+    if (isLoopFound != "" && isLoopFound == false) {
+        return [cmdStr]
     }
 }
 
@@ -479,9 +433,7 @@ OnMMProOnce(tableItem, index, Data) {
 OnOutput(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    isOk := GetReplaceVarText(tableItem, index, Data.Text, &Content)
-    if (!isOk)
-        return
+    Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == 1) {     ;send
         SendText(Content)
@@ -784,10 +736,7 @@ OnExVariableOnce(tableItem, index, Data) {
         if (index < TextObjs.Length)
             allText .= "`n"
     }
-    isSucces := GetReplaceVarText(tableItem, index, Data.ExtractStr, &ExtractStr)
-    if (!isSucces)
-        return false
-
+    ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
         VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
         VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
@@ -938,7 +887,7 @@ SendBGKeyState(hwnd, Key, state, tableItem, index) {
     lParamDown := (VSCode << 16) | 1
     lParamUp := (VSCode << 16) | 0xC0000001
 
-    if (MySoftData.SpecialNumKeyMap.Has(Key)) {
+    if (MySoftData.WheelKeyMap.Has(Key)) {
         if (state == 0)
             return
         try {
@@ -1261,7 +1210,7 @@ SendNormalKeyClick(KeyArrStr, holdTime, tableItem, index, keyType) {
 SendNormalKey(Key, state, tableItem, index) {
     if (Key == "逗号")
         Key := ","
-    if (MySoftData.SpecialNumKeyMap.Has(Key)) {
+    if (MySoftData.WheelKeyMap.Has(Key)) {
         if (state == 0)
             return
         keySymbol := "{Blind}{" Key " 1}"
@@ -1321,22 +1270,24 @@ SendLogicKeyClick(KeyArrStr, holdTime, tableItem, index, keyType) {
 SendLogicKey(Key, state, tableItem, index) {
     if (Key == "逗号")
         Key := ","
-    if (MySoftData.SpecialNumKeyMap.Has(Key)) {
+    if (MySoftData.WheelKeyMap.Has(Key)) {
         if (state == 0)
             return
         keySymbol := "{Blind}{" Key " 1}"
         IbSend(keySymbol)
         return
     }
-
-    if (state == 1) {
-        keySymbol := "{Blind}{" Key " down}"
+    if (MySoftData.MouseKeyMap.Has(key)) {
+        WhichButton := MySoftData.MouseKeyMap[key]
+        DownOrUp := state == 1 ? "Down" : "Up"
+        IbClick(Format("{} {}", WhichButton, DownOrUp))
     }
     else {
-        keySymbol := "{Blind}{" Key " up}"
+        Symbol := state == 1 ? "down" : "up"
+        keySymbol := "{Blind}{" key " " Symbol "}"
+        IbSend(keySymbol)
     }
 
-    IbSend(keySymbol)
     if (state == 1) {
         tableItem.HoldKeyArr[index][Key] := "Logic"
     }

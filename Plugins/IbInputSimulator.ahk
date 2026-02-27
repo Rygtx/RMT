@@ -7,8 +7,10 @@
 #Requires AutoHotkey v2.0
 
 #DllLoad "*i IbInputSimulator.dll"  ;DllCall("LoadLibrary") cannot locate DLL correctly
+global hasTipNoGHUB := false
 
 IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
+    global hasTipNoGHUB
     workding_dir := A_WorkingDir
     SetWorkingDir(A_ScriptDir)
 
@@ -45,7 +47,8 @@ IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
 
     SetWorkingDir(workding_dir)
 
-    if (result != 0 && send_type == "LogitechGHubNew") {
+    if (result != 0 && send_type == "LogitechGHubNew" && !hasTipNoGHUB) {
+        hasTipNoGHUB := true
         MsgBox("使用罗技按键类型，需要下载安装G HUB")
         Run("https://www.logitechg.com/en-my/innovation/g-hub.html")
         return false

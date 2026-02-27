@@ -253,9 +253,6 @@ InitFilePath() {
     FileInstall("Images\Soft\Condition.png", "Images\Soft\Condition.png", 1)
     FileInstall("Images\Soft\IfPro.png", "Images\Soft\IfPro.png", 1)
 
-    FileInstall("Audio\End.wav", "Audio\End.wav", 1)
-    FileInstall("Audio\Start.wav", "Audio\Start.wav", 1)
-
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\Audio\End.wav"

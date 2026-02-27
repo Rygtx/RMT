@@ -29,7 +29,6 @@
 #Include Gui\CustomInputGui.ahk
 #Include Gui\InputBtnGui.ahk
 #Include Main\Gdip_All.ahk
-;#Include Main\LineDrawer.ahk
 #Include Main\LineOverlay.ahk
 #Include Main\DataClass.ahk
 #Include Main\AssetUtil.ahk
@@ -118,5 +117,3 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
-
-

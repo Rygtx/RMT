@@ -110,12 +110,12 @@ InputExcel(Data, tableItem, index) {
         if (IsOk)
             MySetGlobalVariable([Data.SaveName], [ResArr], Data.IsIgnoreExist)
     }
-    else if (Data.ReadType == "表格行") {
+    else if (Data.ReadType == "指定行") {
         IsOk := ExcelRowToRead(Data.FilePath, Data.NameOrSerial, Row, Col, &ResArr)
         if (IsOk)
             MySetGlobalArray(Data.SaveName, ResArr)
     }
-    else if (Data.ReadType == "表格列") {
+    else if (Data.ReadType == "指定列") {
         IsOk := ExcelColToRead(Data.FilePath, Data.NameOrSerial, Row, Col, &ResArr)
         if (IsOk)
             MySetGlobalArray(Data.SaveName, ResArr)

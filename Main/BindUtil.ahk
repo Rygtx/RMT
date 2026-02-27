@@ -45,7 +45,9 @@ OnSuspendHotkey(*) {
     MySoftData.SuspendToggleCtrl.Value := MySoftData.IsSuspend
     if (MySoftData.IsSuspend) {
         OnKillAllMacro()
-        SetTimer(TimingChecker, 0)
+        global MyTimingScheduler
+        if (IsObject(MyTimingScheduler))
+            MyTimingScheduler.Stop()
         A_TrayMenu.Check(GetLang("休眠"))
         TraySetIcon("Images\Soft\IcoPause.ico")
     }
@@ -530,7 +532,6 @@ GetMacroAction(tableIndex, index) {
         actionDown := TriggerMacroHandler.Bind(tableIndex, index)
     }
     else if (tableSymbol == "Replace") {
-
         actionDown := OnReplaceDownKey.Bind(tableItem, macro, index)
         actionUp := OnReplaceUpKey.Bind(tableItem, macro, index)
     }

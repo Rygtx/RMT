@@ -47,6 +47,7 @@ class VarModifyGui {
 
     OnSureBtnClick() {
         if (this.Value == this.ValueCon.Text) {
+            this.Gui.Hide()
             return
         }
 

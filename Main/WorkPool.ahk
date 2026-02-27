@@ -170,6 +170,7 @@ class WorkPool {
             case "PauseState":
                 SetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
             case "MsgBox":
+                paramArr := StrSplit(Cmd, "_", , 2)
                 MsgBoxContent(paramArr[2])
             case "ToolTip":
                 ToolTipContent(paramArr[2])
