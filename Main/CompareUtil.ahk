@@ -15,7 +15,11 @@ GetAmpersandSequence(str) {
     return sequence
 }
 
-ExtractNumbers(Text, Pattern) {
+ExtractVariable(Text, Pattern) {
+    ; 去除空格
+    Text := StrReplace(Text, " ", "")
+    Pattern := StrReplace(Text, " ", "")
+    
     ; 转义Pattern中的特殊字符
     Pattern := RegExReplace(Pattern, "[.*+?()\[\]{}|^$\\]", "\$0")
     ; 将 pattern 中的中英文冒号统一替换为正则通配 [:：]
