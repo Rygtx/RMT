@@ -213,7 +213,12 @@ OnToolRecordMacro(isHotkey, *) {
     }
 
     StateSymbol := state ? "On" : "Off"
+    RecordHotKey := ToolCheckInfo.ToolRecordMacroHotKey
+    isSingleKey := !CheckIfHasModifyKey(RecordHotKey)
     loop 255 {
+        if (isSingleKey && GetKeyVK(RecordHotKey) == A_Index)
+            continue
+
         key := Format("$*~vk{:X}", A_Index)
         if (ToolCheckInfo.RecordSpecialKeyMap.Has(A_Index)) {
             keyName := GetKeyName(Format("vk{:X}", A_Index))
@@ -230,6 +235,8 @@ OnToolRecordMacro(isHotkey, *) {
     }
 
     loop spacialKeyArr.Length {
+        if (isSingleKey && GetKeySC(RecordHotKey) == GetKeySC(spacialKeyArr[A_Index]))
+            continue
         key := Format("$*~sc{:X}", GetKeySC(spacialKeyArr[A_Index]))
         Hotkey(key, OnRecordMacroKeyDown, StateSymbol)
         Hotkey(key " Up", OnRecordMacroKeyUp, StateSymbol)
@@ -363,6 +370,7 @@ OnFinishRecordMacro() {
 
     if (MySoftData.MacroEditGui != "") {
         MySoftData.MacroEditGui.InitTreeView(macroStr)
+        MySoftData.MacroEditGui.InitMacroText(MacroStr)
     }
     macroLineStr := StrReplace(macroStr, ",", "`n")
     ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
@@ -458,7 +466,7 @@ BindTabHotKey() {
                 if (actionArr[2] != "")
                     Hotkey(key " up", actionArr[2])
             }
-    
+
             if (frontInfo != "") {
                 HotIfWinActive
             }
@@ -542,7 +550,7 @@ OnTriggerKeyDown(tableIndex, itemIndex, *) {
     tableItem := MySoftData.TableInfo[tableIndex]
     key := LTrim(tableItem.TKArr[itemIndex], "~")
     key := StrLower(key)
-    
+
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
 
@@ -598,7 +606,7 @@ OnBindKeyDown(key, *) {
     key := StrLower(key)
     if (!MySoftData.TriggerKeyMap.Has(key))
         return
-    
+
     Data := MySoftData.TriggerKeyMap[key]
     Data.OnTriggerKeyDown()
 }

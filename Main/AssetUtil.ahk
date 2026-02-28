@@ -1068,6 +1068,16 @@ ClearUselessSetting(deleteMacro) {
     }
 }
 
+CheckIfHasModifyKey(keyCombo) {
+    modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]
+    for prefix in modPrefixes {
+        if (SubStr(keyCombo, 1, StrLen(prefix)) == prefix) {
+            return true
+        }
+    }
+    return false
+}
+
 LoosenModifyKey(keyCombo) {
     modifiers := []
     modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]

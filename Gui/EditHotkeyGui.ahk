@@ -34,7 +34,7 @@ class EditHotkeyGui {
 
         PosX += 150
         con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), GetLang("字串"))
-        con.OnEvent("Click", (*) => this.OnEditHotKey(MyTriggerStrGui))
+        con.OnEvent("Click", (*) => this.OnEditHotKeyStr(MyTriggerStrGui))
         this.TriggerStrBtnCon := con
 
         MyGui.Show(Format("w{} h{}", 420, 120))
@@ -42,15 +42,29 @@ class EditHotkeyGui {
 
     OnEditHotKey(gui) {
         triggerKey := this.KeyCon.Value
-        gui.SureBtnAction := this.OnSubSureBtn.Bind(this)
+        gui.SureBtnAction := this.OnHotKeySureBtn.Bind(this)
         gui.ShowGui(triggerKey, 0, true)
         this.Gui.Hide()
     }
 
-    OnSubSureBtn(sureTriggerStr, holdTime) {
+    OnEditHotKeyStr(gui) {
+        triggerStr := this.KeyCon.Value
+        gui.SureBtnAction := this.OnHotStrSureBtn.Bind(this)
+        gui.ShowGui(triggerStr, 0, true)
+        this.Gui.Hide()
+    }
+
+    OnHotKeySureBtn(sureTriggerStr, holdTime) {
         if (sureTriggerStr != "" && SubStr(sureTriggerStr, 1, 1) == "~") {
             sureTriggerStr := SubStr(sureTriggerStr, 2)
         }
+        this.KeyCon.Value := sureTriggerStr
+        this.KeyCon.Enabled := false
+        this.KeyCon.Visible := true
+        this.ShowCon.Visible := false
+    }
+
+    OnHotStrSureBtn(sureTriggerStr) {
         this.KeyCon.Value := sureTriggerStr
         this.KeyCon.Enabled := false
         this.KeyCon.Visible := true
