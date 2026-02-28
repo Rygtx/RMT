@@ -829,7 +829,7 @@ AddHelpUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 35),
-    Format('<a href="https://zclucas.github.io/RMT/">{}</a>', GetLang("帮助你快速上手，理解词条、指令，10分钟秒变大神")))
+    Format('<a href="https://zclucas.github.io/RMT/">{}</a>', GetLang("快速上手，指令手册、常见问题、常见报错、更新日志等")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)

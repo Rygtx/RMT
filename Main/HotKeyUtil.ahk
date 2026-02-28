@@ -738,7 +738,7 @@ OnExVariableOnce(tableItem, index, Data) {
     }
     ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
-        VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
+        VariableValueArr := ExtractVariable(value.Text, ExtractStr)
         VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
         if (VariableValueArr == "")
             continue
@@ -963,7 +963,7 @@ OnInterval(tableItem, cmd, index) {
 
     FloatInterval := GetFloatTime(interval, MySoftData.IntervalFloat)
     curTime := 0
-    clip := Min(500, FloatInterval)
+    clip := Min(100, FloatInterval)
     while (curTime < FloatInterval) {
         WaitIfPaused(tableItem, index)
 

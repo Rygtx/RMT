@@ -35,7 +35,7 @@ GetArray(Text) {
             IsArrayStart := SubStr(CurText, 1, 1) == "[" || SubStr(CurText, 1, 1) == "【"
             if (IsArrayStart) {
                 ArrayEndPos := GetArrayEndPos(Text, LastSplitPos)
-                ArrayText := SubStr(Text, LastSplitPos + 2, ArrayEndPos - LastSplitPos + 2)
+                ArrayText := SubStr(Text, LastSplitPos + 2, ArrayEndPos - LastSplitPos - 2)
                 ResArr.Push(GetArray(ArrayText))
                 Pos := ArrayEndPos + 1
             }

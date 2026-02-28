@@ -416,7 +416,7 @@ class ExVariableGui {
         ValueArr := []
         ExtractStr := this.GetReplaceVarText(Data.ExtractStr)
         for _, value in TextObjs {
-            VariableValueArr := ExtractNumbers(value.Text, ExtractStr)
+            VariableValueArr := ExtractVariable(value.Text, ExtractStr)
             VariableValueArr := ExtractStr == "" && allText != "" ? [allText] : VariableValueArr
             if (VariableValueArr == "")
                 continue
