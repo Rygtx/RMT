@@ -6,6 +6,7 @@
         global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
         global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
         global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
+        global ViGEmDllPath := A_WorkingDir "\..\Plugins\ViGEm\ViGEmWrapper.dll"
         global ArrayFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ArrayFile.ini"
         global TimingFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimingFile.ini"
         global MacroFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MacroFile.ini"

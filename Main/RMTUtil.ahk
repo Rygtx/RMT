@@ -151,6 +151,7 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
 
 PluginInit() {
     global MyWorkPool := WorkPool()
+    global ViGJoy := ViGEmXb360()
     global MyChineseOcr := RapidOcr(A_ScriptDir)
     global MyEnglishOcr := RapidOcr(A_ScriptDir, 2)
     global MyPToken := Gdip_Startup()
@@ -259,6 +260,7 @@ InitFilePath() {
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\Audio\End.wav"
+    global ViGEmDllPath := A_WorkingDir "\Plugins\ViGEm\ViGEmWrapper.dll"
     global ArrayFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ArrayFile.ini"
     global MacroFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
     global SearchFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\SearchFile.ini"

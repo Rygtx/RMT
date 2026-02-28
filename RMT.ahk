@@ -5,6 +5,7 @@
 #Include Plugins\RapidOcr\RapidOcr.ahk
 #Include Plugins\CLR.ahk
 #Include Plugins\IbInputSimulator.ahk
+#Include Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
 #Include Gui\TriggerKeyGui.ahk
 #Include Gui\TriggerStrGui.ahk
 #Include Gui\TimingGui.ahk
@@ -117,3 +118,27 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
+; 1:: {
+;     ViGJoy.Buttons["A"].SetState(true)
+; }
+
+; return
+
+; 1 up:: {
+;     ViGJoy.Buttons["A"].SetState(false)
+; }
+
+; for k in ["A","B","X","Y","LB","RB","LT","RT"] {
+;     pressed[k]       := false
+;     pulseActive[k]   := false
+;     nextPulseTime[k] := 0
+;     offTime[k]       := 0
+; }
+; Turbo(name, wantPressed) {
+;     if (name = "LT" || name = "RT") {
+;         ViGJoy.Axes[name].SetState(wantPressed ? 255 : 0)
+;     } else {
+;         ViGJoy.Buttons[name].SetState(wantPressed ? 1 : 0)
+;     }
+; }
