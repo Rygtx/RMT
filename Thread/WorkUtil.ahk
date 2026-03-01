@@ -306,6 +306,11 @@
         str := Format("MacroCount_{}", content)
         MsgSendHandler(str)
     }
+
+    WorkViGJoySetState(JoyType, Key, Value) {
+        str := Format("Joy_{}_{}_{}", JoyType, Key, Value)
+        MsgSendHandler(str)
+    }
 }
 
 ;通信校验

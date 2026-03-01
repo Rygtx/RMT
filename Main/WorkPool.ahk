@@ -176,6 +176,8 @@ class WorkPool {
                 ToolTipContent(paramArr[2])
             case "MacroCount":
                 MacroCount(paramArr[2])
+            case "Joy":
+                ViGJoySetState(paramArr[2], paramArr[3], paramArr[4])
             case "SetArray":
                 SetGlobalArray(paramArr[2], GetArray(paramArr[3]))
             case "CloneArray":

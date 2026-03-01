@@ -151,10 +151,12 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
 
 PluginInit() {
     global MyWorkPool := WorkPool()
-    global ViGJoy := ViGEmXb360()
     global MyChineseOcr := RapidOcr(A_ScriptDir)
     global MyEnglishOcr := RapidOcr(A_ScriptDir, 2)
     global MyPToken := Gdip_Startup()
+
+    if (MySoftData.HasJoyMacro)
+        global ViGJoy := ViGEmXb360()
 
     dllpath := A_ScriptDir "\Plugins\OpenCV\x64\ImageFinder.dll"
     ibDllPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
@@ -511,6 +513,21 @@ MacroCount(content) {
     if (content == "Add") {
         MySoftData.MacroTotalCount += 1
     }
+}
+
+ViGJoySetState(JoyType, Key, Value) {
+    if (!IsSet(ViGJoy))
+        global ViGJoy := ViGEmXb360()
+
+    if (ViGJoy.Instance == "")
+        return
+
+    if (JoyType == "Btn")
+        ViGJoy.Buttons[Key].SetState(Value)
+    else if (JoyType == "Axis")
+        ViGJoy.Axes[Key].SetState(Value)
+    else if (JoyType == "Dpad")
+        ViGJoy.Dpad.SetState(Key)
 }
 
 ToolTipContent(content) {

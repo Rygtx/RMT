@@ -1,7 +1,5 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-#Include Joy\SuperCvJoyInterface.ahk
-#Include Joy\JoyMacro.ahk
 #Include Plugins\RapidOcr\RapidOcr.ahk
 #Include Plugins\CLR.ahk
 #Include Plugins\IbInputSimulator.ahk
@@ -29,6 +27,7 @@
 #Include Gui\CustomMsgBoxGui.ahk
 #Include Gui\CustomInputGui.ahk
 #Include Gui\InputBtnGui.ahk
+#Include Main\JoyMacro.ahk
 #Include Main\Gdip_All.ahk
 #Include Main\LineOverlay.ahk
 #Include Main\DataClass.ahk
@@ -56,7 +55,6 @@ DetectHiddenWindows true
 Persistent
 A_MaxHotkeysPerInterval := 400
 
-global MyvJoy := SuperCvJoyInterface().GetMyvJoy()
 global MyJoyMacro := JoyMacro()
 global MyMouseInfo := MouseWinData()
 global MySoftData := SoftData()
@@ -98,6 +96,7 @@ global MySetItemPauseState := SetItemPauseState
 global MyMsgBoxContent := MsgBoxContent
 global MyToolTipContent := ToolTipContent
 global MyMacroCount := MacroCount
+global MyViGJoySetState := ViGJoySetState
 ;数组相关
 global MySetGlobalArray := SetGlobalArray
 global MyCloneGlobalArray := CloneGlobalArray
@@ -118,27 +117,3 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
-
-; 1:: {
-;     ViGJoy.Buttons["A"].SetState(true)
-; }
-
-; return
-
-; 1 up:: {
-;     ViGJoy.Buttons["A"].SetState(false)
-; }
-
-; for k in ["A","B","X","Y","LB","RB","LT","RT"] {
-;     pressed[k]       := false
-;     pulseActive[k]   := false
-;     nextPulseTime[k] := 0
-;     offTime[k]       := 0
-; }
-; Turbo(name, wantPressed) {
-;     if (name = "LT" || name = "RT") {
-;         ViGJoy.Axes[name].SetState(wantPressed ? 255 : 0)
-;     } else {
-;         ViGJoy.Buttons[name].SetState(wantPressed ? 1 : 0)
-;     }
-; }

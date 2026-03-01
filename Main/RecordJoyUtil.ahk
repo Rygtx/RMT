@@ -51,15 +51,14 @@ RecordJoyTimer() {
             isHold := RecordCheckAxisMacro(key)
         }
 
-        realKey := key
-        if (RecordKeyMap.Has(key))
-            realKey := RecordKeyMap.Get(key)
-
+        xboxKey := key
+        if (MySoftData.JoyAhkToXboxMap.Has(key))
+            xboxKey := MySoftData.JoyAhkToXboxMap[key]
         if (isHold)
-            OnRecordAddMacroStr(realKey, true)
+            OnRecordAddMacroStr(xboxKey, true)
 
-        if (ToolCheckInfo.RecordHoldKeyMap.Has(realKey) && !isHold)
-            OnRecordAddMacroStr(realKey, false)
+        if (ToolCheckInfo.RecordHoldKeyMap.Has(xboxKey) && !isHold)
+            OnRecordAddMacroStr(xboxKey, false)
     }
     SetTimer(RecordJoyTimer, -ToolCheckInfo.RecordJoyInterval)
 }
@@ -193,20 +192,6 @@ GetXboxAxisValue(joyAxisSymbol) {
     }
 
     return 0
-}
-
-OnRecordJoyDown(key) {
-    if (RecordKeyMap.Has(key))
-        key := RecordKeyMap.Get(key)
-
-    OnRecordAddMacroStr(key, true)
-}
-
-OnRecordJoyUp(key) {
-    if (RecordKeyMap.Has(key))
-        key := RecordKeyMap.Get(key)
-
-    OnRecordAddMacroStr(key, false)
 }
 
 XInputState(UserIndex) {

@@ -29,6 +29,7 @@ class JoyMacro {
         this.JoyIndexArr := []
 
         this.timerAction := this.CheckMacro.Bind(this)
+
         this.joyAxises := Map("JoyXMin", 0, "JoyXMax", 100, "JoyYMin", 0, "JoyYMax", 100, "JoyZMin", 0, "JoyZMax", 100,
             "JoyRMin", 0, "JoyRMax", 100, "JoyUMin", 0, "JoyUMax", 100, "JoyVMin", 0, "JoyVMax", 100)
         this.joyPOVMap := Map("JoyPOV_0", 0, "JoyPOV_9000", 9000, "JoyPOV_18000", 18000, "JoyPOV_27000", 27000)
@@ -48,7 +49,8 @@ class JoyMacro {
 
     AddMacro(key, action, processName) {
         macro := JoyMacro.MacroInfo(action, processName)
-        this.MacroMap.Set(key, macro)
+        ahkKey := MySoftData.JoyXboxToAhkMap[key]
+        this.MacroMap.Set(ahkKey, macro)
         this.Enable()
     }
 

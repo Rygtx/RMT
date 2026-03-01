@@ -11,6 +11,7 @@ SetGlobalData(macroStr, visitMap) {
         if (visitMap.Has(paramArr[1]))
             continue
         SetCMDSerialData(cmdArr[A_Index])
+        IsPressKey := InStr(paramArr[1], "按键")
         IsExVariable := InStr(paramArr[1], "变量提取")
         IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
         IsTextOps := InStr(paramArr[1], "文本处理")
@@ -23,6 +24,10 @@ SetGlobalData(macroStr, visitMap) {
         IsArray := InStr(paramArr[1], "数组")
         IsVarRelate := IsVariable || IsExVariable || IsTextOps || IsIf || IsOpera || IsSearch || IsSearchPro
             || IsLoop || IsIfPro || IsArray
+        if (!MySoftData.HasJoyMacro && IsPressKey) {
+            MySoftData.HasJoyMacro := InStr(paramArr[2], "Joy")
+        }
+
         if (!IsVarRelate)
             continue
         visitMap[paramArr[1]] := true

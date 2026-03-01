@@ -42,8 +42,11 @@ class ViGEmWrapper {
         try {
             return this.asm.CreateInstance_2(cls, true)  ; Usa _2 para v2 compat
         } catch as err {
-            MsgBox "Fallo al crear instancia de " cls ":`n" err.Message, "Error", 16
-            ExitApp
+            ; MsgBox "Fallo al crear instancia de " cls ":`n" err.Message, "Error", 16
+            ; ExitApp
+            str1 := GetLang("ViGEm创建实例失败,手柄功能无法生效")
+            str2 := GetLang("请先安装Joy目录下ViGEmBus.exe后运行软件")
+            MsgBox(Format("{}`n{}", str1, str2))
         }
     }
 }
@@ -63,8 +66,8 @@ class ViGEmTarget {
                 ExitApp
             }
         } catch {
-            MsgBox "No se pudo llamar a OkCheck(). El DLL cargó pero parece incompatible.", "Error OkCheck", 16
-            ExitApp
+            ; MsgBox "No se pudo llamar a OkCheck(). El DLL cargó pero parece incompatible.", "Error OkCheck", 16
+            ; ExitApp
         }
     }
 
