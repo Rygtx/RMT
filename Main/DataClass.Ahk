@@ -287,12 +287,67 @@ class SoftData {
 
         this.IsTogStartRecord := false  ;通过开关触发录制   区分触发形式，删除宏里面的快捷键触发的按键
         this.IsTogEndRecord := false    ;通过开关结束录制
+        this.HasJoyMacro := false       ;含有手柄宏，手柄宏启动时需要初始化手柄（操作系统会提示，有点嘈）
 
         this.WheelKeyMap := Map("WheelDown", 0, "WheelUp", 0)
         this.MouseKeyMap := Map("LButton", "Left", "MButton", "Middle", "RButton", "Right")
 
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;上次显示月数
+
+        ;手柄映射
+        this.JoyXboxToAhkMap := Map(
+            "JoyA", "Joy1", 
+            "JoyB", "Joy2", 
+            "JoyX", "Joy3", 
+            "JoyY", "Joy4", 
+            "JoyLB", "Joy5",
+            "JoyRB", "Joy6", 
+            "JoyLT", "JoyZMin", 
+            "JoyRT", "JoyZMax", 
+            "JoyLS", "Joy9", 
+            "JoyRS", "Joy10", 
+            "JoyBack", "Joy7", 
+            "JoyStart", "Joy8", 
+            "JoyDpadUp", "JoyPOV_0", 
+            "JoyDpadRight", "JoyPOV_9000", 
+            "JoyDpadDown", "JoyPOV_18000",
+            "JoyDpadLeft", "JoyPOV_27000", 
+            "JoyAxisLXMin", "JoyXMin", 
+            "JoyAxisLXMax", "JoyXMax", 
+            "JoyAxisLYMin","JoyYMin",
+            "JoyAxisLYMax", "JoyYMax", 
+            "JoyAxisRXMin", "JoyUMin", 
+            "JoyAxisRXMax", "JoyUMax", 
+            "JoyAxisRYMin", "JoyRMin",
+            "JoyAxisRYMax", "JoyRMax"
+        )
+        this.JoyAhkToXboxMap := Map(
+            "Joy1", "JoyA",
+            "Joy2", "JoyB",
+            "Joy3", "JoyX",
+            "Joy4", "JoyY",
+            "Joy5", "JoyLB",
+            "Joy6", "JoyRB",
+            "JoyZMin", "JoyLT",
+            "JoyZMax", "JoyRT",
+            "Joy9", "JoyLS",
+            "Joy10", "JoyRS",
+            "Joy7", "JoyBack",
+            "Joy8", "JoyStart",
+            "JoyPOV_0", "JoyDpadUp",
+            "JoyPOV_9000", "JoyDpadRight",
+            "JoyPOV_18000", "JoyDpadDown",
+            "JoyPOV_27000", "JoyDpadLeft",
+            "JoyXMin", "JoyAxisLXMin",
+            "JoyXMax", "JoyAxisLXMax",
+            "JoyYMin", "JoyAxisLYMin",
+            "JoyYMax", "JoyAxisLYMax",
+            "JoyUMin", "JoyAxisRXMin",
+            "JoyUMax", "JoyAxisRXMax",
+            "JoyRMin", "JoyAxisRYMin",
+            "JoyRMax", "JoyAxisRYMax"
+        )
     }
 }
 

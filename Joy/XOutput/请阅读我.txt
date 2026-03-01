@@ -1,3 +1,0 @@
-1.运行ViGEmBus_1.22.0_x64_x86_arm64.exe安装完成
-2.运行XOutput.exe
-3.点击RMT虚拟手柄转Xbox手柄右边的开始按钮

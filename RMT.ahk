@@ -1,10 +1,9 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-#Include Joy\SuperCvJoyInterface.ahk
-#Include Joy\JoyMacro.ahk
 #Include Plugins\RapidOcr\RapidOcr.ahk
 #Include Plugins\CLR.ahk
 #Include Plugins\IbInputSimulator.ahk
+#Include Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
 #Include Gui\TriggerKeyGui.ahk
 #Include Gui\TriggerStrGui.ahk
 #Include Gui\TimingGui.ahk
@@ -28,6 +27,7 @@
 #Include Gui\CustomMsgBoxGui.ahk
 #Include Gui\CustomInputGui.ahk
 #Include Gui\InputBtnGui.ahk
+#Include Main\JoyMacro.ahk
 #Include Main\Gdip_All.ahk
 #Include Main\LineOverlay.ahk
 #Include Main\DataClass.ahk
@@ -55,7 +55,6 @@ DetectHiddenWindows true
 Persistent
 A_MaxHotkeysPerInterval := 400
 
-global MyvJoy := SuperCvJoyInterface().GetMyvJoy()
 global MyJoyMacro := JoyMacro()
 global MyMouseInfo := MouseWinData()
 global MySoftData := SoftData()
@@ -97,6 +96,7 @@ global MySetItemPauseState := SetItemPauseState
 global MyMsgBoxContent := MsgBoxContent
 global MyToolTipContent := ToolTipContent
 global MyMacroCount := MacroCount
+global MyViGJoySetState := ViGJoySetState
 ;数组相关
 global MySetGlobalArray := SetGlobalArray
 global MyCloneGlobalArray := CloneGlobalArray

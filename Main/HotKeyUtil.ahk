@@ -977,13 +977,15 @@ OnInterval(tableItem, cmd, index) {
 
 OnPressKey(tableItem, cmd, index) {
     paramArr := SplitCommand(cmd)
-    isJoyKey := SubStr(paramArr[2], 1, 3) == "Joy"
-    isJoyAxis := StrCompare(SubStr(paramArr[2], 1, 7), "JoyAxis", false) == 0
+    isJoyKey := InStr(paramArr[2], "Joy")
+    isJoyAxis := InStr(paramArr[2], "JoyAxis")
+    isJoyDpad := InStr(paramArr[2], "JoyDpad")
     actionMap := Map(1, SendNormalKeyClick, 2, SendGameModeKeyClick, 3, SendLogicKeyClick)
     keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
     action := actionMap[Integer(tableItem.ModeArr[index])]
     action := isJoyKey ? SendJoyBtnClick : action
     action := isJoyAxis ? SendJoyAxisClick : action
+    action := isJoyDpad ? SendJoyDpadClick : action
 
     keyType := keyTypeMap[paramArr[3]]
     holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
@@ -1299,16 +1301,6 @@ SendLogicKey(Key, state, tableItem, index) {
 }
 
 SendJoyBtnClick(KeyArrStr, holdTime, tableItem, index, keyType) {
-    if (!CheckIfInstallVjoy()) {
-        MsgBox(GetLang("使用手柄功能前,请先安装Joy目录下的vJoy驱动!"))
-        return
-    }
-
-    if (Type(MyvJoy) == "String") {
-        MsgBox(GetLang("vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手柄功能"))
-        return
-    }
-
     KeyArr := GetPressKeyArr(KeyArrStr)
     if (keyType == 1 || keyType == 3) {
         for key in KeyArr {
@@ -1328,8 +1320,14 @@ SendJoyBtnClick(KeyArrStr, holdTime, tableItem, index, keyType) {
 }
 
 SendJoyBtnKey(key, state, tableItem, index) {
-    joyIndex := SubStr(key, 4)
-    MyvJoy.SetBtn(state, joyIndex)
+    JoyBtnName := SubStr(key, 4)
+    if (JoyBtnName == "LT" || JoyBtnName == "RT") {
+        Value := state == 1 ? 100 : 0
+        MyViGJoySetState("Axis", JoyBtnName, Value)
+    }
+    else {
+        MyViGJoySetState("Btn", JoyBtnName, state)
+    }
 
     if (state == 1) {
         tableItem.HoldKeyArr[index][key] := "Joy"
@@ -1342,16 +1340,6 @@ SendJoyBtnKey(key, state, tableItem, index) {
 }
 
 SendJoyAxisClick(KeyArrStr, holdTime, tableItem, index, keyType) {
-    if (!CheckIfInstallVjoy()) {
-        MsgBox(GetLang("使用手柄功能前,请先安装Joy目录下的vJoy驱动!"))
-        return
-    }
-
-    if (Type(MyvJoy) == "String") {
-        MsgBox(GetLang("vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手柄功能"))
-        return
-    }
-
     KeyArr := GetPressKeyArr(KeyArrStr)
     if (keyType == 1 || keyType == 3) {
         for key in KeyArr {
@@ -1371,13 +1359,10 @@ SendJoyAxisClick(KeyArrStr, holdTime, tableItem, index, keyType) {
 }
 
 SendJoyAxisKey(key, state, tableItem, index) {
-    percent := 50
-    if (state == 1) {
-        percent := MyvJoy.JoyAxisMap.Get(key)
-    }
-    value := percent * 327.68
-    axisIndex := Integer(SubStr(key, 8, StrLen(key) - 10))
-    MyvJoy.SetAxisByIndex(value, axisIndex)
+    Value := InStr(key, "Min") ? 0 : 100
+    Value := state == 1 ? Value : 50
+    JoyAxisName := SubStr(key, 8, 2)
+    MyViGJoySetState("Axis", JoyAxisName, Value)
 
     if (state == 1) {
         tableItem.HoldKeyArr[index][key] := "JoyAxis"
@@ -1387,6 +1372,44 @@ SendJoyAxisKey(key, state, tableItem, index) {
             tableItem.HoldKeyArr[index].Delete(key)
         }
 
+    }
+}
+
+SendJoyDpadClick(KeyArrStr, holdTime, tableItem, index, keyType) {
+    KeyArr := GetPressKeyArr(KeyArrStr)
+    if (keyType == 1 || keyType == 3) {
+        for key in KeyArr {
+            SendJoyDpadKey(key, 1, tableItem, index)
+        }
+    }
+
+    if (keyType == 3) {
+        Sleep(holdTime)
+    }
+
+    if (keyType == 2 || keyType == 3) {
+        for key in KeyArr {
+            SendJoyDpadKey(key, 0, tableItem, index)
+        }
+    }
+}
+
+SendJoyDpadKey(key, state, tableItem, index) {
+    RealKey := SubStr(key, 8)
+    Value := state ? RealKey : "None"
+    MyViGJoySetState("Dpad", Value, 0)
+
+    if (state == 1 && Value != "None") {
+        tableItem.HoldKeyArr[index][key] := "JoyDpad"
+    }
+    else {
+        DpadArr := ["Up", "Down", "Left", "Right"]
+        loop DpadArr.Length {
+            curKey := DpadArr[A_Index]
+            if (tableItem.HoldKeyArr[index].Has(curKey)) {
+                tableItem.HoldKeyArr[index].Delete(curKey)
+            }
+        }
     }
 }
 

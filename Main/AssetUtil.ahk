@@ -261,7 +261,6 @@ CheckIfDrop(Msg, wParam, lParam, hWnd) {
 ;初始化数据
 InitData() {
     InitTableItemState()
-    InitJoyAxis()
     MySoftData.DataFileMap := Map("搜索", SearchFile, "搜索Pro", SearchProFile, "移动Pro", MMProFile,
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
@@ -272,22 +271,6 @@ InitData() {
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
         "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
         "输入", InputData)
-}
-
-;手柄轴未使用时，状态会变为0，而非中间值
-InitJoyAxis() {
-    if (!CheckIfInstallVjoy())
-        return
-
-    if (Type(MyvJoy) == "String")
-        return
-
-    joyAxisNum := 8
-    tableItem := MySoftData.SpecialTableItem
-    tableItem.HoldKeyArr[1] := Map()
-    loop joyAxisNum {
-        SendJoyAxisClick("JoyAxis" A_Index "Max", 30, tableItem, 1, 2)
-    }
 }
 
 InitLogitechGHubNew() {
@@ -797,6 +780,9 @@ KillTableItemMacro(tableItem, index) {
         else if (value == "JoyAxis") {
             SendJoyAxisKey(key, 0, tableItem, index)
         }
+        else if (value == "JoyDpad") {
+            SendJoyDpadKey(key, 0, tableItem, index)
+        }
         else if (value == "GameMouse") {
             SendGameMouseKey(key, 0, tableItem, index)
         }
@@ -955,15 +941,6 @@ GetHotKeyCtrlType(key) {
     isHotKey := CheckIsNormalHotKey(key)
     CtrlType := isHotKey ? "Hotkey" : "Text"
     return CtrlType
-}
-
-CheckIfInstallVjoy() {
-    vJoyFolder := RegRead(
-        "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8E31F76F-74C3-47F1-9550-E041EEDC5FBB}_is1",
-        "InstallLocation", "")
-    if (!vJoyFolder)
-        return false
-    return true
 }
 
 CheckContainText(source, text) {

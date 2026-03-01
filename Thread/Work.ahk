@@ -11,8 +11,6 @@
 #Include "..\Main\InputUtil.ahk"
 #Include "..\Gui\CustomInputGui.ahk"
 #Include "..\Gui\InputBtnGui.ahk"
-#Include "..\Joy\SuperCvJoyInterface.ahk"
-#Include "..\Joy\JoyMacro.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
 #Include "..\Plugins\IbInputSimulator.ahk"
 #Include "WorkUtil.ahk"
@@ -27,11 +25,8 @@ global ReceiveInfoMap := Map()
 global MySoftData := SoftData()
 global ToolCheckInfo := ToolCheck()
 global MyMouseInfo := MouseWinData()
-global MyvJoy := SuperCvJoyInterface().GetMyvJoy()
-global MyJoyMacro := JoyMacro()
 global IniFile := A_WorkingDir "\..\Setting\MainSettings.ini"
 global LangDir := A_WorkingDir "\..\Lang"
-; global ReceiveTiming := 0     ;通讯收发间隔，防止在收到信息时立刻回复，信息丢失问题
 LoadMainSetting()   ;加载配置
 InitWorkFilePath()  ;初始化文件路径
 LoadCurMacroSetting()   ;加载当前配置宏
@@ -55,6 +50,7 @@ global MySetItemPauseState := WorkSetItemPauseState
 global MyMsgBoxContent := WorkMsgBoxContent
 global MyToolTipContent := WorkToolTipContent
 global MyMacroCount := WorkMacroCount
+global MyViGJoySetState := WorkViGJoySetState
 ;数组相关
 global MySetGlobalArray := WorkSetGlobalArray
 global MyCloneGlobalArray := WorkCloneGlobalArray
