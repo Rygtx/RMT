@@ -1658,3 +1658,23 @@ GetSoftEncoding(Encoding) {
         return "CP950"
     return Encoding
 }
+
+GetBrightness() {
+    wmi := ComObjGet("winmgmts:\\.\root\WMI")
+    itmes := wmi.ExecQuery("SELECT * FROM WmiMonitorBrightness")
+    for item in itmes {
+        return item.CurrentBrightness
+    }
+    return 20
+}
+
+
+ChangeBrightness(isAdd){
+    CurrentBrightness := GetBrightness()
+    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10 
+    Value := Max(0, Min(100, Value)) ; 限制在 0-100
+    wmi := ComObjGet("winmgmts:\\.\root\WMI")
+    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
+        item.WmiSetBrightness(1, Value)
+    }
+}
