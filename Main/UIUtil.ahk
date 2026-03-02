@@ -31,10 +31,6 @@ OnOpen() {
         IniWrite(true, IniFile, IniSection, "AgreeAgreement")
     }
 
-    uptimeMs := DllCall("GetTickCount64", "Int64")
-    if (uptimeMs <= 120 * 1000 && IsBootStart() && !MySoftData.IsReload)
-        return
-
     if (MySoftData.IsMinStart) {
         MySoftData.IsMinStart := false
         return

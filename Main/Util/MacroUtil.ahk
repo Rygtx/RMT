@@ -1052,8 +1052,9 @@ OnBootStartChanged(*) {
     MySoftData.IsBootStart := MySoftData.BootStartCtrl.Value
     regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
     softPath := A_ScriptFullPath
+    params := " -min"
     if (MySoftData.IsBootStart) {
-        RegWrite(softPath, "REG_SZ", regPath, "RMT")
+        RegWrite(softPath params, "REG_SZ", regPath, "RMT")
     }
     else {
         RegDelete(regPath, "RMT")
