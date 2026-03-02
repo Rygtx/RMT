@@ -243,7 +243,8 @@ class SoftData {
         this.SpecialKeyMap := Map("Browser_Back", 0, "Browser_Forward", 0, "Browser_Refresh", 0, "Browser_Stop", 0,
             "Browser_Search", 0, "Browser_Favorites", 0, "Browser_Home", 0, "Volume_Mute", 0, "Volume_Down", 0,
             "Volume_Up", 0, "Media_Next", 0, "Media_Prev", 0, "Media_Stop", 0, "Media_Play_Pause", 0, "Launch_Mail", 0,
-            "Launch_Media", 0, "Launch_App1", 0, "Launch_App2", 0)
+            "Launch_Media", 0, "Launch_App1", 0, "Launch_App2", 0, "Bright_Down", 0, "Bright_Up", 0)
+        this.OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0, "Bright_Down", 0, "Bright_Up", 0, "None", 0)
         this.SpecialTableItem := TableItem()    ;特别的TableItem，用于编辑器模式测试指令
 
         ;这些按键不会重复触发按下的按键宏，特别标记特殊处理
@@ -288,10 +289,6 @@ class SoftData {
         this.IsTogStartRecord := false  ;通过开关触发录制   区分触发形式，删除宏里面的快捷键触发的按键
         this.IsTogEndRecord := false    ;通过开关结束录制
         this.HasJoyMacro := false       ;含有手柄宏，手柄宏启动时需要初始化手柄（操作系统会提示，有点嘈）
-
-        this.WheelKeyMap := Map("WheelDown", 0, "WheelUp", 0)
-        this.MouseKeyMap := Map("LButton", "Left", "MButton", "Middle", "RButton", "Right")
-
         this.MacroTotalCount := 0   ;宏运行次数
         this.LastShowMonth := 0     ;上次显示月数
 
