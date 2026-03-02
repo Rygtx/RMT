@@ -286,9 +286,15 @@ InitFilePath() {
 
 SubMacroStopAction(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[itemIndex])
-    ; tableItem.IsWorkIndexArr[itemIndex] := false
-    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
+    KillTableItemMacro(tableItem, itemIndex)
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (!IsMuti)
+        return
+    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
+    if (WorkerIndex != 0) {
+        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
+        MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
+    }
 }
 
 SetGlobalArray(Name, Value) {
@@ -488,7 +494,7 @@ CancelTableItemStopState(tableIndex, itemIndex) {
 SetItemPauseState(tableIndex, itemIndex, state) {
     tableItem := MySoftData.TableInfo[tableIndex]
     tableItem.PauseArr[itemIndex] := state
-    isWork := tableItem.IsWorkIndexArr[itemIndex]
+    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
 
     LastColorState := tableItem.ColorStateArr[itemIndex]
     if (LastColorState == 1 && state == 1)
@@ -496,8 +502,8 @@ SetItemPauseState(tableIndex, itemIndex, state) {
     else if (LastColorState == 2 && state == 0)
         SetTableItemState(tableIndex, itemIndex, 1)
 
-    if (isWork) {
-        workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[itemIndex])
+    if (WorkerIndex != 0) {
+        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
         str := Format("PauseState_{}_{}_{}", tableIndex, itemIndex, state)
         MyWorkPool.SendMessage(WM_COPYDATA, workPath, str)
     }

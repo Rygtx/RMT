@@ -288,8 +288,8 @@ class TriggerKeyInfo {
         triggerType := this.GetTriggerType()
         if (this.macroType == 1) {
             if (triggerType == 4) {
-                isWork := tableItem.IsWorkIndexArr[this.itemIndex]
-                if (isWork) {       ;关闭开关
+                WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
+                if (WorkerIndex != 0) {       ;关闭开关
                     MySubMacroStopAction(this.tableIndex, this.itemIndex)
                     return
                 }
@@ -310,9 +310,9 @@ class TriggerKeyInfo {
         triggerType := this.GetTriggerType()
         if (this.macroType == 1) {
             if (triggerType == 3) {
-                isWork := tableItem.IsWorkIndexArr[this.itemIndex]
-                if (isWork) {
-                    workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[this.itemIndex])
+                WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
+                if (WorkerIndex != 0) {
+                    workPath := MyWorkPool.GetWorkPath(WorkerIndex)
                     MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
                     return
                 }

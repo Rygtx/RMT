@@ -9,20 +9,40 @@ class ExVariableEditGui {
         this.VarTextConArr := []
     }
 
-    ShowGui() {
+    ShowGui(ExtractStr) {
         if (this.Gui != "") {
             this.Gui.Show()
         }
         else {
             this.AddGui()
         }
-        this.Init()
+        this.Init(ExtractStr)
     }
 
-    Init() {
-        this.OriTextCon.Value := ""
-        for index, value in this.VarTextConArr {
-            value.Value := ""
+    Init(ExtractStr) {
+        CurPos := 1
+        NextText := InStr(ExtractStr, "&c", true, CurPos)
+        NextNum := InStr(ExtractStr, "&x", true, CurPos)
+        TextConArr := []
+        while (NextNum || NextText) {
+            Text := GetLang("<内容>")
+            CurPos := NextText + 1
+            if (NextNum > 0 && (NextNum < NextText || NextText == 0)) {
+                Text := GetLang("<数字>")
+                CurPos := NextNum + 1
+            }
+
+            TextConArr.Push(Text)
+            NextText := InStr(ExtractStr, "&c", true, CurPos)
+            NextNum := InStr(ExtractStr, "&x", true, CurPos)
+        }
+        ExtractStr := StrReplace(ExtractStr, "&c", GetLang("<内容>"))
+        ExtractStr := StrReplace(ExtractStr, "&x", GetLang("<数字>"))
+        this.OriTextCon.Value := ExtractStr
+        for index, TextCon in this.VarTextConArr {
+            TextCon.Value := ""
+            if (TextConArr.Length >= index)
+                TextCon.Value := TextConArr[index]
         }
     }
 
@@ -108,9 +128,7 @@ class ExVariableEditGui {
 
         for index, con in this.VarTextConArr {
             text := con.Value
-            text := StrReplace(text, ",", "")
-            text := StrReplace(text, "，", "")
-            isNum := IsNumber(text)
+            isNum := IsNumber(text) || text == GetLang("<数字>")
             replaceStr := isNum ? "&x" : "&c"
 
             ExtractStr := StrReplace(ExtractStr, con.Value, replaceStr, true, &OutputVarCount, 1)

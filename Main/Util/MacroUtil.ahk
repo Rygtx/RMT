@@ -616,13 +616,7 @@ OnSubMacro(tableItem, cmd, index) {
         MySetItemPauseState(macroTableIndex, macroIndex, 0)
     }
     else if (Data.CallType == "终止") {  ;终止
-        isWork := macroItem.IsWorkIndexArr[macroIndex]
-        if (isWork || MySoftData.isWork) {
-            MySubMacroStopAction(macroTableIndex, macroIndex)
-            return
-        }
-
-        KillTableItemMacro(macroItem, macroIndex)
+        MySubMacroStopAction(macroTableIndex, macroIndex)
     }
 }
 

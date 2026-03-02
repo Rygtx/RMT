@@ -383,6 +383,7 @@ OnItemEditTriggerStr(tableItem, index, *) {
     triggerStr := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey) {
+        tableItem.TKArr[index] := sureTriggerKey
         ItemUsePool := ItemUseConPoolMap[tableItem.Index]
         if (ItemUsePool.Has(index)) {
             ItemConObj := ItemUsePool[index]
@@ -406,7 +407,7 @@ OnItemCustomEditTriggerStr(tableItem, index, *) {
     ; 检查用户是否取消输入
     if CustomTK.Result = "Cancel"
         return
-
+    tableItem.TKArr[index] := CustomTK.Value
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     if (ItemUsePool.Has(index)) {
         ItemConObj := ItemUsePool[index]
@@ -419,6 +420,7 @@ OnItemEditTriggerKey(tableItem, index, *) {
     triggerKey := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey, holdTime) {
+        tableItem.TKArr[index] := sureTriggerKey
         tableItem.HoldTimeArr[index] := holdTime
         ItemUsePool := ItemUseConPoolMap[tableItem.Index]
         if (ItemUsePool.Has(index)) {

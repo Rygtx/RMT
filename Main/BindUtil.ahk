@@ -103,9 +103,9 @@ OnKillAllMacro(*) {
         tableItem := MySoftData.TableInfo[A_Index]
         KillSingleTableMacro(tableItem)
         for index, value in tableItem.ModeArr {
-            isWork := tableItem.IsWorkIndexArr[index]
-            if (isWork) {
-                workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[index])
+            WorkerIndex := tableItem.IsWorkIndexArr[index]
+            if (WorkerIndex != 0) {
+                workPath := MyWorkPool.GetWorkPath(WorkerIndex)
                 MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
             }
         }
@@ -624,14 +624,14 @@ OnBindKeyUp(key, *) {
 OnToggleTriggerMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
     macro := tableItem.MacroArr[itemIndex]
-    hasWork := MyWorkPool.CheckHasFreeWorker()
+    hasWorker := MyWorkPool.CheckHasFreeWorker()
 
-    if (hasWork) {
+    if (hasWorker) {
         SetTableItemState(tableItem.index, itemIndex, 1)
-        workPath := MyWorkPool.Get()
-        workIndex := MyWorkPool.GetWorkIndex(workPath)
-        tableItem.IsWorkIndexArr[itemIndex] := workIndex
-        MyWorkPool.PostMessage(WM_TR_MACRO, workPath, tableIndex, itemIndex)
+        workerPath := MyWorkPool.Get()
+        workerIndex := MyWorkPool.GetWorkIndex(workerPath)
+        tableItem.IsWorkIndexArr[itemIndex] := workerIndex
+        MyWorkPool.PostMessage(WM_TR_MACRO, workerPath, tableIndex, itemIndex)
         return
     }
 

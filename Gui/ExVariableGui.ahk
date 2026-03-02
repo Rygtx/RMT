@@ -285,7 +285,7 @@ class ExVariableGui {
 
     OnClickExtractBtn(*) {
         this.MyEditGui.SureAction := this.OnSureExtractAction.Bind(this)
-        this.MyEditGui.ShowGui()
+        this.MyEditGui.ShowGui(this.ExtractStrCon.Value)
     }
 
     OnSureExtractAction(ExtractStr, VariNum) {
