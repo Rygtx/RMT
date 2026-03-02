@@ -12,7 +12,6 @@
 #Include ..\Gui\MenuWheelGui.ahk
 #Include ..\Gui\ReplaceKeyGui.ahk
 #Include ..\Gui\UseExplainGui.ahk
-#Include ..\Gui\LoopGui.ahk
 #Include ..\Gui\TargetGui.ahk
 #Include ..\Gui\ColorPanelGui.ahk
 #Include ..\Gui\ToolRecordSettingGui.ahk
