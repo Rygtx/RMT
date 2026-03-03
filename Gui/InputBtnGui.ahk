@@ -8,7 +8,7 @@ class InputBtnGui {
         this.ContinueAction := ""
         this.CancelAction := ""
         this.HideAction := ""
-    
+
         this.CheckHotKeyAction := this.CheckHotKey.Bind(this)
     }
     ;1 真值 假值  2 继续  3 继续&取消
@@ -23,7 +23,9 @@ class InputBtnGui {
         this.Type := Type
         this.Init()
         SetTimer(this.CheckHotKeyAction, 30)
-        WinActivate(PreviousActiveWindow)
+        try {
+            WinActivate(PreviousActiveWindow)
+        }
     }
 
     AddGui() {
