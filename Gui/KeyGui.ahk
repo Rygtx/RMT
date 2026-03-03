@@ -127,7 +127,6 @@ class KeyGui {
         {
 
             MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("键盘"))
-
             PosX := 20
             PosY += 20
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 40, 25), "Esc")
@@ -1126,18 +1125,20 @@ class KeyGui {
     }
 
     OnMouseMove(wParam, lParam, msg, hwnd) {
-        if (!this.ConHwndMap.Has(hwnd))
-            return
-        Con := this.ConHwndMap.Get(hwnd)
-        if (this.HoverCon != "" && this.HoverCon != Con) {
+        IsLeven := this.HoverCon != "" && !this.ConHwndMap.Has(hwnd)
+        IsUpdate := this.ConHwndMap.Has(hwnd) && this.ConHwndMap.Get(hwnd) != this.HoverCon
+        if ((IsLeven || IsUpdate) && this.HoverCon != "") {
             ColorStr := this.HoverCon.State ? this.SelectColor : this.UnSelectColor
             this.HoverCon.Opt(ColorStr)
             this.HoverCon.Redraw()
+            this.HoverCon := IsLeven ? "" : this.ConHwndMap.Get(hwnd)
         }
-        this.HoverCon := Con
 
-        ColorStr := this.HoverCon.State ? this.SelectHoverColor : this.UnSelectHoverColor
-        Con.Opt(ColorStr)
-        Con.Redraw()
+        if (IsUpdate) {
+            this.HoverCon := this.ConHwndMap.Get(hwnd)
+            ColorStr := this.HoverCon.State ? this.SelectHoverColor : this.UnSelectHoverColor
+            this.HoverCon.Opt(ColorStr)
+            this.HoverCon.Redraw()
+        }
     }
 }
