@@ -7,27 +7,18 @@ class KeyGui {
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
 
-        this.HotkeyCon := ""
         this.CheckedArr := []
         this.ConMap := Map()
-        this.CheckedInfoCon := ""
-        this.CheckRuleBtn := ""
+        this.ConHwndMap := Map()
 
-        this.KeyStr := ""
-        this.CommandStr := ""
-        this.HoldTimeCon := ""
-        this.KeyTypeCon := ""
-        this.PerIntervalCon := ""
-        this.KeyCountCon := ""
-        this.CommandStrCon := ""
-
-        this.ModifyKeys := ["Shift", "Alt", "Ctrl", "Win", "LShift", "RShift", "LAlt", "RAlt", "LCtrl", "RCtrl", "LWin",
-            "RWin"]
-        this.JoyAxises := ["JoyXMin", "JoyXMax", "JoyYMin", "JoyYMax", "JoyZMin", "JoyZMax", "JoyRMin", "JoyRMax",
-            "JoyUMin", "JoyUMax", "JoyVMin", "JoyVMax", "JoyPOV_0", "JoyPOV_9000", "JoyPOV_18000", "JoyPOV_27000"]
-
-        this.ModifyKeyMap := Map("LAlt", "<!", "RAlt", ">!", "Alt", "!", "LWin", "<#", "RWin", ">#", "Win", "#",
-            "LCtrl", "<^", "RCtrl", ">^", "Ctrl", "^", "LShift", "<+", "RShift", ">+", "Shift", "+")
+        this.TriggerAction := (*) => this.TriggerMacro()
+        this.MouseMoveAction := this.OnMouseMove.Bind(this)
+        this.HoverCon := ""
+    
+        this.SelectColor := "Background12ebeb"
+        this.UnSelectColor := "-Background"
+        this.SelectHoverColor := "Background4fd1d1"
+        this.UnSelectHoverColor := "Backgrounddadada"
     }
 
     OnSureHotkey() {
@@ -54,12 +45,14 @@ class KeyGui {
         }
 
         if (isSelected) {
-            con.Opt("-Background")
+            con.State := 0
+            con.Opt(this.UnSelectColor)
             con.Redraw()
             this.CheckedArr.RemoveAt(arrayIndex)
         }
         else {
-            con.Opt("Background" "0x4fd1d1")
+            con.State := 1
+            con.Opt(this.SelectColor)
             con.Redraw()
             this.CheckedArr.Push(key)
         }
@@ -71,7 +64,8 @@ class KeyGui {
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value)) {
                 con := this.ConMap.Get(value)
-                con.Opt("-Background")
+                con.State := 0
+                con.Opt(this.UnSelectColor)
                 con.Redraw()
             }
         }
@@ -750,7 +744,7 @@ class KeyGui {
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("计算器"))
             con.OnEvent("Click", (*) => this.OnCheckedKey("Launch_App2"))
             this.ConMap.Set("Launch_App2", con)
-    
+
             PosX += 75
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("下一首"))
             con.OnEvent("Click", (*) => this.OnCheckedKey("Media_Next"))
@@ -1009,6 +1003,9 @@ class KeyGui {
         }
         else {
             this.AddGui()
+            for key, value in this.ConMap {
+                this.ConHwndMap.Set(value.Hwnd, value)
+            }
         }
 
         this.Init(cmd)
@@ -1031,14 +1028,16 @@ class KeyGui {
         this.CheckedArr := GetPressKeyArr(KeyArrStr)
 
         for key, value in this.ConMap {
-            value.Opt("-Background")
+            value.State := 0
+            value.Opt(this.UnSelectColor)
             value.Redraw()
         }
 
         for index, value in this.CheckedArr {
             if (this.ConMap.Has(value)) {
                 con := this.ConMap.Get(value)
-                con.Opt("Background" "0x4fd1d1")
+                con.State := 1
+                con.Opt(this.SelectColor)
                 con.Redraw()
             }
 
@@ -1046,12 +1045,14 @@ class KeyGui {
     }
 
     ToggleFunc(state) {
-        MacroAction := (*) => this.TriggerMacro()
+        WM_MOUSEMOVE := 0x200
         if (state) {
-            Hotkey("F1", MacroAction, "On")
+            Hotkey("F1", this.TriggerAction, "On")
+            OnMessage(WM_MOUSEMOVE, this.MouseMoveAction)
         }
         else {
-            Hotkey("F1", MacroAction, "Off")
+            Hotkey("F1", this.TriggerAction, "Off")
+            OnMessage(WM_MOUSEMOVE, this.MouseMoveAction, 0)
         }
     }
 
@@ -1122,5 +1123,21 @@ class KeyGui {
         this.KeyCountCon.Enabled := isShowHoldTime
         this.PerIntervalCon.Enabled := isShowCount
         this.CommandStrCon.Value := Format("{}{}", GetLang("当前指令："), this.CommandStr)
+    }
+
+    OnMouseMove(wParam, lParam, msg, hwnd) {
+        if (!this.ConHwndMap.Has(hwnd))
+            return
+        Con := this.ConHwndMap.Get(hwnd)
+        if (this.HoverCon != "" && this.HoverCon != Con) {
+            ColorStr := this.HoverCon.State ? this.SelectColor : this.UnSelectColor
+            this.HoverCon.Opt(ColorStr)
+            this.HoverCon.Redraw()
+        }
+        this.HoverCon := Con
+
+        ColorStr := this.HoverCon.State ? this.SelectHoverColor : this.UnSelectHoverColor
+        Con.Opt(ColorStr)
+        Con.Redraw()
     }
 }
