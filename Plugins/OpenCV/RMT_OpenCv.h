@@ -1,18 +1,33 @@
-#pragma once
+ï»¿#pragma once
 #ifdef IMAGEFINDER_EXPORTS
 #define IMAGEFINDER_API __declspec(dllexport)
 #else
 #define IMAGEFINDER_API __declspec(dllimport)
 #endif
 
-extern "C" IMAGEFINDER_API int __cdecl FindImage(const char* targetPath,  // Í¼Æ¬Â·¾¶
-    int searchX,             // ËÑË÷ÇøÓò×óÉÏ½ÇX×ø±ê
-    int searchY,             // ËÑË÷ÇøÓò×óÉÏ½ÇY×ø±ê
-    int searchW,             // ËÑË÷ÇøÓò¿í¶È
-    int searchH,             // ËÑË÷ÇøÓò¸ß¶È
-    int matchThreshold,      // Æ¥ÅäãĞÖµ
-    int* x,                  // Æ¥Åäµ½µÄX×ø±ê
-    int* y);                 // Æ¥Åäµ½µÄY×ø±ê
+extern "C" IMAGEFINDER_API int __cdecl FindImage(const char* targetPath,  // å›¾ç‰‡è·¯å¾„
+    int searchX,             // æœç´¢åŒºåŸŸå·¦ä¸Šè§’Xåæ ‡
+    int searchY,             // æœç´¢åŒºåŸŸå·¦ä¸Šè§’Yåæ ‡
+    int searchW,             // æœç´¢åŒºåŸŸå®½åº¦
+    int searchH,             // æœç´¢åŒºåŸŸé«˜åº¦
+    int matchThreshold,      // åŒ¹é…é˜ˆå€¼
+    int* x,                  // åŒ¹é…åˆ°çš„Xåæ ‡
+    int* y);                 // åŒ¹é…åˆ°çš„Yåæ ‡
 
-// ĞÂÔö²âÊÔ·½·¨ add ·½·¨
-extern "C" IMAGEFINDER_API int __cdecl add(int a, int b);
+extern "C" IMAGEFINDER_API int __cdecl FindWinImage(
+    const char* targetPath,
+    int hwnd,
+    int matchThreshold,
+    int* x,
+    int* y);
+
+extern "C" IMAGEFINDER_API int __cdecl FindWinAreaImage(
+    const char* targetPath,
+    int hwnd,
+    int searchX,
+    int searchY,
+    int searchW,
+    int searchH,
+    int matchThreshold,
+    int* x,
+    int* y);
