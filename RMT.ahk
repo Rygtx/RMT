@@ -30,17 +30,3 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
-
-9:: {
-    x := 0
-    y := 0
-    res := FindWinImage(A_ScriptDir "\111.png", 395728, 90, &x, &y)
-    ; ; res := FindImage(A_ScriptDir "\111.png", 0, 0, 1920, 1080, 90, &x, &y)
-    MsgBox (Format("res:{}x:{} y:{}", res, x, y))
-
-}
-
-FindWinImage(targetPath, hwnd, matchThreshold, x, y) {
-    return DllCall("RMT_OpenCV.dll\FindWinImage", "AStr", targetPath,
-        "Int", hwnd, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
-}

@@ -31,7 +31,7 @@ cv::Mat captureScreen(int x, int y, int width, int height)
 	DeleteObject(hBitmap);
 	DeleteDC(hCaptureDC);
 	ReleaseDC(NULL, hDesktopDC);
-	cv::imwrite("screenshot.png", mat); //测试
+	//cv::imwrite("screenshot.png", mat); //测试
 	return mat;
 }
 
@@ -113,9 +113,9 @@ cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
 	::DeleteDC(hDesktopDC); // 对于CreateDCA，使用DeleteDC
 
 	// 测试：保存为PNG文件
-	if (!mat.empty()) {
+	/*if (!mat.empty()) {
 		cv::imwrite("screenshot.png", mat);
-	}
+	}*/
 
 	return mat;
 }
