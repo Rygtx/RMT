@@ -1,35 +1,32 @@
-
-#include <iostream>
-#include <Windows.h>
-#include <chrono>
-#include <vector>
+#include "RMT_OpenCv.h"
 #include <opencv2/opencv.hpp>
+#include <windows.h>
 
-// æ•è·å±å¹•æŒ‡å®šåŒºåŸŸçš„å‡½æ•°
+// ²¶»ñÆÁÄ»Ö¸¶¨ÇøÓòµÄº¯Êı
 cv::Mat captureScreen(int x, int y, int width, int height)
 {
-    HDC hDesktopDC  = GetDC(NULL);
-    HDC hCaptureDC  = CreateCompatibleDC(hDesktopDC);
+    HDC hDesktopDC = GetDC(NULL);
+    HDC hCaptureDC = CreateCompatibleDC(hDesktopDC);
     HBITMAP hBitmap = CreateCompatibleBitmap(hDesktopDC, width, height);
     SelectObject(hCaptureDC, hBitmap);
 
     BitBlt(hCaptureDC, 0, 0, width, height, hDesktopDC, x, y, SRCCOPY | CAPTUREBLT);
 
     BITMAPINFOHEADER bi;
-    bi.biSize          = sizeof(BITMAPINFOHEADER);
-    bi.biWidth         = width;
-    bi.biHeight        = -height;  // è´Ÿå€¼è¡¨ç¤ºä»ä¸Šåˆ°ä¸‹æ‰«æ
-    bi.biPlanes        = 1;
-    bi.biBitCount      = 32;
-    bi.biCompression   = BI_RGB;
-    bi.biSizeImage     = 0;
+    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biWidth = width;
+    bi.biHeight = -height;  // ¸ºÖµ±íÊ¾´ÓÉÏµ½ÏÂÉ¨Ãè
+    bi.biPlanes = 1;
+    bi.biBitCount = 32;
+    bi.biCompression = BI_RGB;
+    bi.biSizeImage = 0;
     bi.biXPelsPerMeter = 0;
     bi.biYPelsPerMeter = 0;
-    bi.biClrUsed       = 0;
-    bi.biClrImportant  = 0;
+    bi.biClrUsed = 0;
+    bi.biClrImportant = 0;
 
     cv::Mat mat(height, width, CV_8UC4);
-    GetDIBits(hCaptureDC, hBitmap, 0, height, mat.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+    GetDIBits(hCaptureDC, hBitmap, 0, height, mat.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 
     DeleteObject(hBitmap);
     DeleteDC(hCaptureDC);
@@ -38,10 +35,10 @@ cv::Mat captureScreen(int x, int y, int width, int height)
     return mat;
 }
 
-// è®¡ç®—ä¸¤ä¸ªçŸ©å½¢çš„äº¤å¹¶æ¯”ï¼ˆIOUï¼‰
-double computeIOU(const cv::Rect &rect1, const cv::Rect &rect2)
+// ¼ÆËãÁ½¸ö¾ØĞÎµÄ½»²¢±È£¨IOU£©
+double computeIOU(const cv::Rect& rect1, const cv::Rect& rect2)
 {
-    // è®¡ç®—äº¤é›†åŒºåŸŸ
+    // ¼ÆËã½»¼¯ÇøÓò
     cv::Rect intersection = rect1 & rect2;
     if (intersection.empty())
         return 0.0;
@@ -51,11 +48,11 @@ double computeIOU(const cv::Rect &rect1, const cv::Rect &rect2)
     return interArea / unionArea;
 }
 
-// éæå¤§å€¼æŠ‘åˆ¶ï¼ˆNMSï¼‰ç®—æ³•
-std::vector<cv::Rect> nonMaximumSuppression(const std::vector<cv::Rect> &rects,
-                                            const std::vector<float> &scores,
-                                            double scoreThreshold,
-                                            double iouThreshold)
+// ·Ç¼«´óÖµÒÖÖÆ£¨NMS£©Ëã·¨
+std::vector<cv::Rect> nonMaximumSuppression(const std::vector<cv::Rect>& rects,
+    const std::vector<float>& scores,
+    double scoreThreshold,
+    double iouThreshold)
 {
     std::vector<int> indices;
     for (int i = 0; i < scores.size(); ++i)
@@ -66,10 +63,10 @@ std::vector<cv::Rect> nonMaximumSuppression(const std::vector<cv::Rect> &rects,
         }
     }
 
-    // æŒ‰åŒ¹é…åˆ†æ•°é™åºæ’åº
+    // °´Æ¥Åä·ÖÊı½µĞòÅÅĞò
     std::sort(indices.begin(), indices.end(), [&](int a, int b) {
         return scores[a] > scores[b];
-    });
+        });
 
     std::vector<bool> suppressed(indices.size(), false);
     std::vector<cv::Rect> selected;
@@ -98,23 +95,23 @@ std::vector<cv::Rect> nonMaximumSuppression(const std::vector<cv::Rect> &rects,
     return selected;
 }
 
-int FindImage(const char *targetPath,
-              int searchX,
-              int searchY,
-              int searchW,
-              int searchH,
-              int matchThreshold,
-              int *x,
-              int *y)
+extern "C" IMAGEFINDER_API int __cdecl FindImage(const char* targetPath,
+    int searchX,
+    int searchY,
+    int searchW,
+    int searchH,
+    int matchThreshold,
+    int* x,
+    int* y)
 {
     if (matchThreshold > 100)
         matchThreshold = 100;
     else if (matchThreshold < 0)
         matchThreshold = 0;
-    // åŒ¹é…åˆ†æ•°é˜ˆå€¼
+    // Æ¥Åä·ÖÊıãĞÖµ
     double scoreThreshold = matchThreshold / 100.0;
 
-    // 1. åŠ è½½æ¨¡æ¿å›¾åƒ
+    // 1. ¼ÓÔØÄ£°åÍ¼Ïñ
     cv::Mat templateImage = cv::imread(targetPath, cv::IMREAD_UNCHANGED);
     if (templateImage.empty())
     {
@@ -122,7 +119,7 @@ int FindImage(const char *targetPath,
         return 0;
     }
 
-    // æˆªå–å±å¹•åŒºåŸŸ
+    // ½ØÈ¡ÆÁÄ»ÇøÓò
     cv::Mat capturedImage = captureScreen(searchX, searchY, searchW, searchH);
     if (capturedImage.empty())
     {
@@ -130,23 +127,32 @@ int FindImage(const char *targetPath,
         return 0;
     }
 
-    // 2. è½¬æ¢ä¸ºç°åº¦å›¾ï¼ˆæé«˜å¤„ç†é€Ÿåº¦ï¼‰
+    // 2. ×ª»»Îª»Ò¶ÈÍ¼£¨Ìá¸ß´¦ÀíËÙ¶È£©
     cv::Mat grayLarge, graySmall;
-    cv::cvtColor(capturedImage, grayLarge, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(templateImage, graySmall, cv::COLOR_BGR2GRAY);
+    // ÏàËÆ¶È98¼°ÆäÒÔÉÏ£¬²»×ö»Ò¶È´¦Àí
+    if (matchThreshold >= 98)
+    {
+        grayLarge = capturedImage;
+        graySmall = templateImage;
+    }
+    else
+    {
+        cv::cvtColor(capturedImage, grayLarge, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(templateImage, graySmall, cv::COLOR_BGR2GRAY);
+    }
 
-    // 3. æ¨¡æ¿åŒ¹é…
+    // 3. Ä£°åÆ¥Åä
     cv::Mat result;
     cv::matchTemplate(grayLarge, graySmall, result, cv::TM_CCOEFF_NORMED);
 
-    // 4. è®¾ç½®é˜ˆå€¼å¹¶æŸ¥æ‰¾åŒ¹é…ä½ç½®
-    // NMSé‡å é˜ˆå€¼
+    // 4. ÉèÖÃãĞÖµ²¢²éÕÒÆ¥ÅäÎ»ÖÃ
+    // NMSÖØµşãĞÖµ
     const double nmsThreshold = 0.3;
 
     std::vector<cv::Rect> rects;
     std::vector<float> scores;
 
-    // éå†æ‰€æœ‰åŒ¹é…ç»“æœ
+    // ±éÀúËùÓĞÆ¥Åä½á¹û
     for (int y = 0; y < result.rows; y++)
     {
         for (int x = 0; x < result.cols; x++)
@@ -160,33 +166,33 @@ int FindImage(const char *targetPath,
         }
     }
 
-    // 5. æ£€æŸ¥æ˜¯å¦æœ‰åŒ¹é…ç»“æœ
+    // 5. ¼ì²éÊÇ·ñÓĞÆ¥Åä½á¹û
     if (rects.empty())
     {
         std::cout << "no find" << std::endl;
         return 0;
     }
 
-    // 6. åº”ç”¨éæå¤§å€¼æŠ‘åˆ¶
+    // 6. Ó¦ÓÃ·Ç¼«´óÖµÒÖÖÆ
     std::vector<cv::Rect> selected = nonMaximumSuppression(rects, scores, scoreThreshold, nmsThreshold);
 
-    // 7. æ£€æŸ¥NMSåæ˜¯å¦æœ‰ç»“æœ
+    // 7. ¼ì²éNMSºóÊÇ·ñÓĞ½á¹û
     if (selected.empty())
     {
         std::cout << "not find" << std::endl;
         return 0;
     }
 
-    cv::Rect &rect = selected.front();
-    // è®¡ç®—æ¨¡æ¿åœ¨å±å¹•ä¸Šçš„å®é™…ä¸­å¿ƒåæ ‡
+    cv::Rect& rect = selected.front();
+    // ¼ÆËãÄ£°åÔÚÆÁÄ»ÉÏµÄÊµ¼ÊÖĞĞÄ×ø±ê
     cv::Point topLeft(rect.x + searchX, rect.y + searchY);
     cv::Point center(topLeft.x + templateImage.cols / 2, topLeft.y + templateImage.rows / 2);
 
-    // æ‰“å°æ¨¡æ¿åœ¨å±å¹•ä¸Šçš„ä¸­å¿ƒåæ ‡
+    // ´òÓ¡Ä£°åÔÚÆÁÄ»ÉÏµÄÖĞĞÄ×ø±ê
     std::cout << "Template found at center coordinates: (" << center.x << ", " << center.y << ")" << std::endl;
 
-    // ç§»åŠ¨é¼ æ ‡åˆ°æ¨¡æ¿ä¸­å¿ƒä½ç½®
-    SetCursorPos(center.x, center.y);
+    // ÒÆ¶¯Êó±êµ½Ä£°åÖĞĞÄÎ»ÖÃ
+    // SetCursorPos(center.x, center.y);
 
     *x = static_cast<int>(topLeft.x);
     *y = static_cast<int>(topLeft.y);
@@ -194,31 +200,8 @@ int FindImage(const char *targetPath,
     return 1;
 }
 
-int main()
+    // ÊµÏÖ add
+extern "C" IMAGEFINDER_API int __cdecl add(int a, int b)
 {
-    int x, y;
-    // è·å–å¼€å§‹æ—¶é—´ç‚¹
-    auto start = std::chrono::high_resolution_clock::now();
-
-    auto result = FindImage("11.png", 0, 0, 1920, 1080, 90, &x, &y);
-    // è·å–ç»“æŸæ—¶é—´ç‚¹
-    auto end = std::chrono::high_resolution_clock::now();
-
-    // è®¡ç®—è€—æ—¶ï¼ˆæ¯«ç§’ï¼‰
-    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    // è¾“å‡ºç»“æœ
-    std::cout << "time: " << duration_ms.count() << " ms" << std::endl;
-
-    // æ‰“å°ç»“æœ
-    if (result == 1)
-    {
-        std::cout << "Image found at (" << x << ", " << y << ")" << std::endl;
-    }
-    else
-    {
-        std::cout << "Image not found" << std::endl;
-    }
-
-    return 0;
+    return a + b;
 }
