@@ -155,7 +155,7 @@ OnSearch(tableItem, cmdStr, index) {
 
 ; 定义OpenCV图片搜索函数原型
 FindImage(targetPath, searchX, searchY, searchW, searchH, matchThreshold, x, y) {
-    return DllCall("ImageFinder.dll\FindImage", "AStr", targetPath,
+    return DllCall("RMT_OpenCV.dll\FindImage", "AStr", targetPath,
         "Int", searchX, "Int", searchY, "Int", searchW, "Int", searchH,
         "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
 }

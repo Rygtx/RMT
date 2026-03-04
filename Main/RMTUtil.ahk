@@ -158,17 +158,18 @@ PluginInit() {
     if (MySoftData.HasJoyMacro)
         global ViGJoy := ViGEmXb360()
 
-    dllpath := A_ScriptDir "\Plugins\OpenCV\x64\ImageFinder.dll"
-    ibDllPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
     ; 构建包含 DLL 文件的目录路径
-    dllDir := A_ScriptDir "\Plugins\OpenCV\x64"
+    dllDir := A_ScriptDir "\Plugins\OpenCV"
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
-    DllCall('LoadLibrary', 'str', dllpath, "Ptr")
-    DllCall("LoadLibrary", "Str", ibDllPath)
 
-    dllpath := A_ScriptDir "\Plugins\RMT.dll"
-    RMT_ASM := CLR_LoadLibrary(dllpath)
+    OpenCvPath := A_ScriptDir "\Plugins\OpenCV\RMT_OpenCV.dll"
+    IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
+    DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
+    DllCall("LoadLibrary", "Str", IBPath)
+
+    RMTPath := A_ScriptDir "\Plugins\RMT.dll"
+    RMT_ASM := CLR_LoadLibrary(RMTPath)
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 }
 
