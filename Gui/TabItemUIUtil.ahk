@@ -578,6 +578,9 @@ OnFlodTKEditClick(TKEditCon, tableItem, con, *) {
 
 ;刷新函数
 UpdateItemConPos(tableItem, isDown) {
+    hwnd := MySoftData.MyGui.Hwnd
+    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+
     loop tableItem.AllConArr.Length {
         Index := isDown ? A_Index : tableItem.AllConArr.Length - A_Index + 1
         ConInfo := tableItem.AllConArr[Index]
@@ -589,6 +592,9 @@ UpdateItemConPos(tableItem, isDown) {
         RefreshGroupItem(tableItem, Index)
         value.Redraw()
     }
+
+    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    DllCall("InvalidateRect", "Ptr", hwnd, "Ptr", 0, "UInt", 0)
 }
 
 HandleItemTopLabel(foldInfo, tableItem, foldIndex) {
