@@ -792,7 +792,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     LineCon := ""
     if (MySoftData.ShowSplitLine) {
         LineCon := MyGui.Add("Text", Format("x{} y{} w870 h1 0x10", TabPosX + 20, -1000), "") ; SS_ETCHEDHORZ
-        LineCon.Offset := 32
+        LineCon.OffsetY := 32
         LineCon.OriPosX := TabPosX + 20
     }
 
