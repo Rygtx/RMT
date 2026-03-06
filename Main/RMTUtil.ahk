@@ -2,12 +2,12 @@
 
 ;资源保存
 OnSaveSetting(*) {
-    global MySoftData
+    global MySoftData, MyWorkPool
     isValid := CheckAllValueSettingValid()
     if (!isValid)
         return
 
-    if (ObjHasOwnProp(MyWorkPool, "Clear"))
+    if (IsSet(MyWorkPool) && ObjHasOwnProp(MyWorkPool, "Clear"))
         MyWorkPool.Clear()
 
     loop MySoftData.TabNameArr.Length {
