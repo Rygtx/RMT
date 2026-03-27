@@ -9,6 +9,8 @@ class RunGui {
         this.PathTextCon := ""
         this.MouseProNameCon := ""
         this.BackPlayCon := ""
+        this.VariCon := ""
+        this.VariTipCon := ""
 
         this.RefreshAction := () => this.RefreshProcessName()
         this.Data := ""
@@ -79,17 +81,32 @@ class RunGui {
         PosY += 25
         this.BackPlayCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 400), GetLang("后台播放mp3文件"))
 
+        PosY += 30
+        PosX := 10
+        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量"))
+
+        PosX += 40
+        this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), [])
+
+        PosX += 140
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量名"))
+        btnCon.OnEvent("Click", (*) => this.OnClickAddVarNameBtn())
+
+        PosX += 110
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量值"))
+        btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
+
         PosY += 45
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 400, 20), GetLang("路径是进程时：该进程务必属于系统软件，或者有系统变量环境"))
 
-        PosY += 25
+        PosY += 35
         PosX := 200
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 285))
+        MyGui.Show(Format("w{} h{}", 500, 335))
     }
 
     Init(cmd) {
@@ -100,6 +117,11 @@ class RunGui {
 
         this.PathTextCon.Value := this.Data.RunPath
         this.BackPlayCon.Value := this.Data.BackPlay
+
+        DLVariableArr := GetGuiVarArr()
+        this.VariCon.Delete()
+        this.VariCon.Add(DLVariableArr)
+        this.VariCon.Value := 1
     }
 
     GetCommandStr() {
@@ -176,9 +198,18 @@ class RunGui {
     }
 
     SaveRunData() {
-        this.Data.RunPath := this.PathTextCon.Value
+        this.Data.RunPath := GetLangStr(this.PathTextCon.Value, 2)
         this.Data.BackPlay := this.BackPlayCon.Value
 
         SaveMacroCMDData(this.Data)
+    }
+
+    OnClickAddVarNameBtn() {
+        this.PathTextCon.Value .= this.VariCon.Text
+    }
+
+    OnClickAddVarValueBtn() {
+        if (this.VariCon.Text != "")
+            this.PathTextCon.Value .= "{" this.VariCon.Text "}"
     }
 }

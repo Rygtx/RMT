@@ -247,8 +247,8 @@ OnRunFile(tableItem, cmd, index) {
         Run(playAudioCmd)
         return
     }
-
-    Run(Data.RunPath)
+    processedPath := GetReplaceVarText(tableItem, index, Data.RunPath)
+    Run(processedPath)
 }
 
 OnCompare(tableItem, cmd, index) {
