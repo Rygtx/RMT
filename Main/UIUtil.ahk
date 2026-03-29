@@ -33,6 +33,7 @@ OnOpen() {
 
     if (MySoftData.IsMinStart) {
         MySoftData.IsMinStart := false
+        MySoftData.MyGui.Hide()
         return
     }
 
