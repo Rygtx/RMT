@@ -732,13 +732,15 @@ class SearchProGui {
         if (path != "") {
             SplitPath path, &name, &dir, &ext, &name_no_ext, &drive
             newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name
-            if (FileExist(newPath)) {
+            if(path != newPath){
+                if (FileExist(newPath)) {
                 CurrentDateTime := FormatTime(, "HHmmss")
                 newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name_no_ext .
                     CurrentDateTime ".png"
+                }
+                FileCopy(path, newPath)
+                path := newPath
             }
-            FileCopy(path, newPath)
-            path := newPath
         }
         this.ImageCon.Value := path
         this.Data.SearchImagePath := path
