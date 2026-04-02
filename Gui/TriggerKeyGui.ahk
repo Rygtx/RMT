@@ -868,18 +868,6 @@ class TriggerKeyGui {
             con.OnEvent("Click", (*) => this.OnCheckedKey("Volume_Up"))
             this.ConMap.Set("Volume_Up", con)
 
-            ; PosX += 108
-            ; con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("降低亮度"
-            ; ))
-            ; con.OnEvent("Click", (*) => this.OnCheckedKey("Bright_Down"))
-            ; this.ConMap.Set("Bright_Down", con)
-
-            ; PosX += 75
-            ; con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("提高亮度"
-            ; ))
-            ; con.OnEvent("Click", (*) => this.OnCheckedKey("Bright_Up"))
-            ; this.ConMap.Set("Bright_Up", con)
-
             PosX := 20
             PosY += 30
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("此电脑"))
