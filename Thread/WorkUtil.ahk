@@ -108,6 +108,14 @@
         ExitApp()
     }
 
+    CheckParentProcess() {
+        if !ProcessExist(parentPID) {
+            ExitApp()
+        }
+    }
+
+    SetTimer(CheckParentProcess, 2000)
+
     OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
         StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
         Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.

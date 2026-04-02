@@ -7,12 +7,13 @@ class WorkPool {
         this.pidMap := Map()
         this.MessageArr := []   ;消息数组，避免消息重复处理
         this.MessageMap := Map()
+        this.mainPID := DllCall("GetCurrentProcessId")  ; 获取主进程PID
         loop this.maxSize {
             workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
             if (!FileExist(workPath) && this.maxSize <= 10) {
                 FileCopy(A_ScriptDir "\Thread\Work1.exe", workPath)
             }
-            Run (Format("{} {} {}", workPath, MySoftData.MyGui.Hwnd, A_Index))
+            Run (Format("{} {} {} {}", workPath, MySoftData.MyGui.Hwnd, A_Index, this.mainPID))
         }
 
         OnMessage(WM_LOAD_WORK, this.OnFinishLoad.Bind(this))  ; 工作器完成工作回调
