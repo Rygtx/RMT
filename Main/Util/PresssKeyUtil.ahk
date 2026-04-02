@@ -12,6 +12,7 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
                 RealAction := SetBrightnessByKey
             if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
                 RealAction := SendNormalKey
+
             RealAction(key, 1, tableItem, index)  ; 按下
         }
     }
@@ -27,7 +28,8 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
                 continue
             if (Action == SendLogicKey && LogicNoKeyMap.Has(key))
                 RealAction := SendNormalKey
-            RealAction(key, 0, tableItem, index)  ; 按下
+    
+            RealAction(key, 0, tableItem, index)  ; 松开
         }
     }
 }
