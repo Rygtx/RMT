@@ -1,8 +1,18 @@
 #Requires AutoHotkey v2.0
-#Include ExcelUtil.ahk
-#Include SerialUtil.ahk
-#Include ExpressUtil.ahk
-#Include ArrayUtil.ahk
+#Include "DataClass.ahk"
+#Include Util\ExcelUtil.ahk
+#Include Util\SerialUtil.ahk
+#Include Util\JsonUtil.ahk
+#Include Util\LangUtil.ahk
+#Include Util\Gdip_All.ahk
+#Include Util\FixCompatUtil.ahk
+#Include Util\CompareUtil.ahk
+#Include Util\PresssKeyUtil.ahk
+#Include Util\TextOpsUtil.ahk
+#Include Util\ArrayUtil.ahk
+#Include Util\ExpressUtil.ahk
+#Include Util\InputUtil.ahk
+#Include Util\MacroUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -1657,4 +1667,24 @@ GetSoftEncoding(Encoding) {
     if (Encoding == "BIG5")
         return "CP950"
     return Encoding
+}
+
+GetBrightness() {
+    wmi := ComObjGet("winmgmts:\\.\root\WMI")
+    itmes := wmi.ExecQuery("SELECT * FROM WmiMonitorBrightness")
+    for item in itmes {
+        return item.CurrentBrightness
+    }
+    return 20
+}
+
+
+ChangeBrightness(isAdd){
+    CurrentBrightness := GetBrightness()
+    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10 
+    Value := Max(0, Min(100, Value)) ; 限制在 0-100
+    wmi := ComObjGet("winmgmts:\\.\root\WMI")
+    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
+        item.WmiSetBrightness(1, Value)
+    }
 }

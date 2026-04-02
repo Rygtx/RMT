@@ -8,6 +8,8 @@ class InputBtnGui {
         this.ContinueAction := ""
         this.CancelAction := ""
         this.HideAction := ""
+
+        this.CheckHotKeyAction := this.CheckHotKey.Bind(this)
     }
     ;1 真值 假值  2 继续  3 继续&取消
     ShowGui(Type) {
@@ -20,7 +22,10 @@ class InputBtnGui {
         }
         this.Type := Type
         this.Init()
-        WinActivate(PreviousActiveWindow)
+        SetTimer(this.CheckHotKeyAction, 30)
+        try {
+            WinActivate(PreviousActiveWindow)
+        }
     }
 
     AddGui() {
@@ -74,6 +79,25 @@ class InputBtnGui {
 
         loop this.ContAndCancelConArr.Length {
             this.ContAndCancelConArr[A_Index].Visible := this.Type == 3
+        }
+    }
+
+    CheckHotKey() {
+        static EnterActionMap := Map(1, this.OnTrueBtnClick.Bind(this), 2, this.OnContinueBtnClick.Bind(this), 3, this.OnContinueBtnClick
+        .Bind(this))
+        static EscActionMap := Map(1, this.OnFalseBtnClick.Bind(this), 2, "", 3, this.OnCancelBtnClick.Bind(this))
+        if (GetKeyState("Enter", "P")) {
+            Action := EnterActionMap[this.Type]
+            if (Action != "") {
+                Action()
+            }
+        }
+
+        if (GetKeyState("Esc", "P")) {
+            Action := EscActionMap[this.Type]
+            if (Action != "") {
+                Action()
+            }
         }
     }
 
@@ -139,5 +163,6 @@ class InputBtnGui {
             Action()
             this.HideAction := ""
         }
+        SetTimer(this.CheckHotKeyAction, 0)
     }
 }

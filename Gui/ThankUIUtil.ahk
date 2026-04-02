@@ -41,7 +41,7 @@ AddThankUI(index) {
 
     posX := OriPosX
     posY += 40
-    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", posX, posY, 850, 60), GetLang("软件的开发离不开众多优秀开源项目的支持，特别感谢："))
+    con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", posX, posY, 850, 85), GetLang("软件的开发离不开众多优秀开源项目的支持，特别感谢："))
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     tableItem.AllGroup.Push(con)
@@ -58,17 +58,33 @@ AddThankUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posX += 100
-    con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '<a href="https://github.com/RapidAI/RapidOCR">RapidOCR</a>')
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/RapidAI/RapidOCR">RapidOCR</a>')
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
     posX += 100
-    con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '<a href="https://github.com/evilC/AHK-CvJoyInterface">AHK-CvJoyInterface</a>')
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/evilC/AHK-CvJoyInterface">AHK-CvJoyInterface</a>')
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
-    
+
     posX += 150
-    con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '<a href="https://github.com/Chaoses-Ib/IbInputSimulator">IbInputSimulator</a>')
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/Chaoses-Ib/IbInputSimulator">IbInputSimulator</a>')
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    posY += 25
+    posX := OriPosX + 10
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/evilC/AHK-ViGEm-Bus">AHK-ViGEm-Bus</a>')
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
+    posX += 150
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/CesarHlp1/AHK-ViGEm-Bus-v2.ahk">AHK-ViGEm-Bus-v2</a>')
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
@@ -100,9 +116,13 @@ AddThankUI(index) {
     con := MyGui.Add("Link", Format("x{} y{}", posX, posY), '话听')
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, 1))
 
+    posX += 100
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY), 'yun')
+    tableItem.AllConArr.Push(ItemConInfo(con, tableItem, 1))
+
     posX := OriPosX
     posY += 50
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 850, 70), 
+    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 850, 70),
     Format("{}", GetLang("感谢所有打赏支持若梦兔的守护者，以及参与完善 Bug 和需求文档的朋友。")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     con.Focus()
@@ -111,8 +131,9 @@ AddThankUI(index) {
 
     posX := OriPosX
     posY += 50
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 850, 70), 
-    Format("{}`n{}", GetLang("感谢每一位陪伴我们走过这段旅程的粉丝和群友们！是你们的支持与信任，让这个软件从一个小小的想法，一步步成长为今天的样子。每一次的鼓励、每一条的建议，都是我们前进的动力。"), GetLang("感谢你们不离不弃，与我们共同见证每一次的迭代与成长。")))
+    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 850, 70),
+    Format("{}`n{}", GetLang("感谢每一位陪伴我们走过这段旅程的粉丝和群友们！是你们的支持与信任，让这个软件从一个小小的想法，一步步成长为今天的样子。每一次的鼓励、每一条的建议，都是我们前进的动力。"),
+    GetLang("感谢你们不离不弃，与我们共同见证每一次的迭代与成长。")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     con.Focus()
     conInfo := ItemConInfo(con, tableItem, 1)
@@ -127,7 +148,7 @@ AddThankUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
-     posX := OriPosX
+    posX := OriPosX
     posY += 50
     con := MyGui.Add("Text", Format("x{} y{} w{} h30", posX + 600, posY, 200), Format("—— 若梦兔{}", GetLang("敬上")))
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))

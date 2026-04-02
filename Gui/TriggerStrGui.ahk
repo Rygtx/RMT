@@ -56,6 +56,9 @@ class TriggerStrGui {
 
         triggerStr .= ":"
         triggerStr .= this.Str
+    
+        if (this.Str == "")
+            triggerStr := ""
 
         return triggerStr
     }
@@ -72,7 +75,7 @@ class TriggerStrGui {
     }
 
     ;UI相关
-    ShowGui(triggerKey, holdTime,  IsToolEdit) {
+    ShowGui(triggerKey, holdTime, IsToolEdit) {
 
         if (this.Gui != "") {
             this.Gui.Show()
@@ -448,7 +451,8 @@ class TriggerStrGui {
 
         PosY += 25
         PosX := 20
-        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), GetLang("备注：字串长度必须大于0,但不能超过40, 鼠标点击会重置字串识别器"))
+        con := MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 1000), GetLang(
+            "备注：字串长度必须大于0,但不能超过40, 鼠标点击会重置字串识别器"))
 
         PosY += 30
         PosX := 20
@@ -478,10 +482,8 @@ class TriggerStrGui {
     ;按钮点击回调
     OnSureBtnClick() {
         isValid := this.CheckConfigValid()
-        if (!isValid) {
-            MsgBox(GetLang("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。"))
+        if (!isValid)
             return
-        }
 
         triggerStr := this.GetTriggerStr()
         action := this.SureBtnAction
@@ -492,10 +494,8 @@ class TriggerStrGui {
 
     OnSaveBtnClick() {
         isValid := this.CheckConfigValid()
-        if (!isValid) {
-            MsgBox(GetLang("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。"))
+        if (!isValid) 
             return
-        }
 
         triggerStr := this.GetTriggerStr()
         action := this.SureBtnAction
@@ -559,27 +559,11 @@ class TriggerStrGui {
 
     CheckConfigValid() {
         len := StrLen(this.Str)
-        if (len >= 40 || len <= 0)
-            return false
-
-        return true
-    }
-
-    SureTriggerStr() {
-        isValid := this.CheckConfigValid()
-        if (!isValid) {
-            MsgBox(GetLang("字串长度必须大于0,但不能超过40,有异议请联系UP: 浮生若梦的兔子。"))
+        if (len >= 40) {
+            MsgBox(GetLang("字串长度不能超过40,有异议请联系UP: 浮生若梦的兔子。"))
             return false
         }
 
-        triggerStr := this.GetTriggerStr()
-
-        if (this.SureBtnAction != "") {
-            action := this.SureBtnAction
-            action(triggerStr)
-            this.SureBtnAction := ""
-        }
         return true
     }
-
 }

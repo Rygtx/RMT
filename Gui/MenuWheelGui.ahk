@@ -29,7 +29,9 @@ class MenuWheelGui {
             this.AddGui()
         }
         this.Init(MenuIndex)
-        WinActivate(PreviousActiveWindow)
+        try {
+            WinActivate(PreviousActiveWindow)
+        }
     }
 
     Init(MenuIndex) {

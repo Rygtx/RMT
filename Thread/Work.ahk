@@ -1,19 +1,10 @@
 #Requires AutoHotkey v2.0
-#Include "..\Main\DataClass.ahk"
-#Include "..\Main\JsonUtil.ahk"
 #Include "..\Main\AssetUtil.ahk"
-#Include "..\Main\HotkeyUtil.ahk"
-#Include "..\Main\Gdip_All.ahk"
-#Include "..\Main\CompareUtil.ahk"
-#Include "..\Main\FixCompatUtil.ahk"
-#Include "..\Main\LangUtil.ahk"
-#Include "..\Main\TextOpsUtil.ahk"
-#Include "..\Main\InputUtil.ahk"
 #Include "..\Gui\CustomInputGui.ahk"
 #Include "..\Gui\InputBtnGui.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
 #Include "..\Plugins\IbInputSimulator.ahk"
-#Include "WorkUtil.ahk"
+#Include WorkUtil.ahk
 #SingleInstance Force
 DetectHiddenWindows true
 Persistent

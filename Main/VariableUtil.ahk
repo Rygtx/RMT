@@ -12,6 +12,7 @@ SetGlobalData(macroStr, visitMap) {
             continue
         SetCMDSerialData(cmdArr[A_Index])
         IsPressKey := InStr(paramArr[1], "按键")
+        IsBGKey := InStr(paramArr[1], "后台按键")
         IsExVariable := InStr(paramArr[1], "变量提取")
         IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
         IsTextOps := InStr(paramArr[1], "文本处理")

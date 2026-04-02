@@ -2,12 +2,12 @@
 
 ;资源保存
 OnSaveSetting(*) {
-    global MySoftData
+    global MySoftData, MyWorkPool
     isValid := CheckAllValueSettingValid()
     if (!isValid)
         return
 
-    if (ObjHasOwnProp(MyWorkPool, "Clear"))
+    if (IsSet(MyWorkPool) && ObjHasOwnProp(MyWorkPool, "Clear"))
         MyWorkPool.Clear()
 
     loop MySoftData.TabNameArr.Length {
@@ -158,17 +158,18 @@ PluginInit() {
     if (MySoftData.HasJoyMacro)
         global ViGJoy := ViGEmXb360()
 
-    dllpath := A_ScriptDir "\Plugins\OpenCV\x64\ImageFinder.dll"
-    ibDllPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
     ; 构建包含 DLL 文件的目录路径
-    dllDir := A_ScriptDir "\Plugins\OpenCV\x64"
+    dllDir := A_ScriptDir "\Plugins\OpenCV"
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
-    DllCall('LoadLibrary', 'str', dllpath, "Ptr")
-    DllCall("LoadLibrary", "Str", ibDllPath)
 
-    dllpath := A_ScriptDir "\Plugins\RMT.dll"
-    RMT_ASM := CLR_LoadLibrary(dllpath)
+    OpenCvPath := A_ScriptDir "\Plugins\OpenCV\RMT_OpenCV.dll"
+    IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
+    DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
+    DllCall("LoadLibrary", "Str", IBPath)
+
+    RMTPath := A_ScriptDir "\Plugins\RMT.dll"
+    RMT_ASM := CLR_LoadLibrary(RMTPath)
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 }
 
@@ -286,9 +287,15 @@ InitFilePath() {
 
 SubMacroStopAction(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[itemIndex])
-    ; tableItem.IsWorkIndexArr[itemIndex] := false
-    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
+    KillTableItemMacro(tableItem, itemIndex)
+    IsMuti := MyWorkPool.CheckEnableMutiThread()
+    if (!IsMuti)
+        return
+    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
+    if (WorkerIndex != 0) {
+        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
+        MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
+    }
 }
 
 SetGlobalArray(Name, Value) {
@@ -488,7 +495,7 @@ CancelTableItemStopState(tableIndex, itemIndex) {
 SetItemPauseState(tableIndex, itemIndex, state) {
     tableItem := MySoftData.TableInfo[tableIndex]
     tableItem.PauseArr[itemIndex] := state
-    isWork := tableItem.IsWorkIndexArr[itemIndex]
+    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
 
     LastColorState := tableItem.ColorStateArr[itemIndex]
     if (LastColorState == 1 && state == 1)
@@ -496,8 +503,8 @@ SetItemPauseState(tableIndex, itemIndex, state) {
     else if (LastColorState == 2 && state == 0)
         SetTableItemState(tableIndex, itemIndex, 1)
 
-    if (isWork) {
-        workPath := MyWorkPool.GetWorkPath(tableItem.IsWorkIndexArr[itemIndex])
+    if (WorkerIndex != 0) {
+        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
         str := Format("PauseState_{}_{}_{}", tableIndex, itemIndex, state)
         MyWorkPool.SendMessage(WM_COPYDATA, workPath, str)
     }

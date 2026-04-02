@@ -166,7 +166,7 @@ class TextOpsGui {
         ArgsNameArr := RemoveInVariable(this.DLVariableArr, 2)
         ArgsNameArr.InsertAt(1, GetLang("制表符"))
 
-        this.TypeCon.Text := GetLangKey(this.Data.Type)
+        this.TypeCon.Text := GetLang(this.Data.Type)
         SetDLConValue(this.NameCon, RemoveInVariable(this.DLVariableArr, 1), this.Data.Name)
         SetDLConValue(this.ArgsNameCon, ArgsNameArr, this.Data.ArgsName)
 

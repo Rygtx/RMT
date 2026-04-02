@@ -383,6 +383,7 @@ OnItemEditTriggerStr(tableItem, index, *) {
     triggerStr := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey) {
+        tableItem.TKArr[index] := sureTriggerKey
         ItemUsePool := ItemUseConPoolMap[tableItem.Index]
         if (ItemUsePool.Has(index)) {
             ItemConObj := ItemUsePool[index]
@@ -406,7 +407,7 @@ OnItemCustomEditTriggerStr(tableItem, index, *) {
     ; 检查用户是否取消输入
     if CustomTK.Result = "Cancel"
         return
-
+    tableItem.TKArr[index] := CustomTK.Value
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     if (ItemUsePool.Has(index)) {
         ItemConObj := ItemUsePool[index]
@@ -419,6 +420,7 @@ OnItemEditTriggerKey(tableItem, index, *) {
     triggerKey := tableItem.TKArr[index]
 
     SureAction(sureTriggerKey, holdTime) {
+        tableItem.TKArr[index] := sureTriggerKey
         tableItem.HoldTimeArr[index] := holdTime
         ItemUsePool := ItemUseConPoolMap[tableItem.Index]
         if (ItemUsePool.Has(index)) {
@@ -576,6 +578,9 @@ OnFlodTKEditClick(TKEditCon, tableItem, con, *) {
 
 ;刷新函数
 UpdateItemConPos(tableItem, isDown) {
+    hwnd := MySoftData.MyGui.Hwnd
+    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+
     loop tableItem.AllConArr.Length {
         Index := isDown ? A_Index : tableItem.AllConArr.Length - A_Index + 1
         ConInfo := tableItem.AllConArr[Index]
@@ -587,6 +592,9 @@ UpdateItemConPos(tableItem, isDown) {
         RefreshGroupItem(tableItem, Index)
         value.Redraw()
     }
+
+    DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    DllCall("InvalidateRect", "Ptr", hwnd, "Ptr", 0, "UInt", 0)
 }
 
 HandleItemTopLabel(foldInfo, tableItem, foldIndex) {
@@ -784,7 +792,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     LineCon := ""
     if (MySoftData.ShowSplitLine) {
         LineCon := MyGui.Add("Text", Format("x{} y{} w870 h1 0x10", TabPosX + 20, -1000), "") ; SS_ETCHEDHORZ
-        LineCon.Offset := 32
+        LineCon.OffsetY := 32
         LineCon.OriPosX := TabPosX + 20
     }
 
