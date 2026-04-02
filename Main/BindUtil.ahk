@@ -461,10 +461,10 @@ BindTabHotKey() {
             }
             else {
                 if (actionArr[1] != "")
-                    Hotkey(key, actionArr[1])
+                    Hotkey(key, actionArr[1], "On")
 
                 if (actionArr[2] != "")
-                    Hotkey(key " up", actionArr[2])
+                    Hotkey(key " up", actionArr[2], "On")
             }
 
             if (frontInfo != "") {
