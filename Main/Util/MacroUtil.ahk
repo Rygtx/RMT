@@ -43,7 +43,7 @@ OnFinishMacro(tableItem, macro, index) {
     if (tableItem.TriggerTypeArr[index] == 4) { ;开关状态下
         tableItem.ToggleStateArr[index] := false
     }
-    
+
     itemState := tableItem.KilledArr[index] ? 3 : 0
     MySetTableItemState(tableItem.index, index, itemState)
 }
@@ -727,9 +727,9 @@ OnExVariableOnce(tableItem, index, Data) {
     allText := ""
     for index, value in TextObjs {
         allText .= value.text
-        if (index < TextObjs.Length)
-            allText .= "`n"
+        allText .= "`n"
     }
+    allText := RTrim(allText, "`n")
     ExtractStr := GetReplaceVarText(tableItem, index, Data.ExtractStr)
     for _, value in TextObjs {
         VariableValueArr := ExtractVariable(value.Text, ExtractStr)
