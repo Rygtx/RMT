@@ -18,6 +18,7 @@ class CMDTipGui {
 
         if (this.Gui == "") {
             this.AddGui()
+            this.OnToggleMacroWorkState()
         }
         else {
             style := WinGetStyle(this.Gui.Hwnd)
@@ -35,6 +36,7 @@ class CMDTipGui {
         this.Width := MySoftData.CMDWidth
         this.Height := MySoftData.CMDHeight
         this.BGColor := MySoftData.CMDBGColor
+        this.RunBGColor := MySoftData.CMDRunBGColor
         this.Transparency := (Integer)(MySoftData.CMDTransparency * 2.55)
         this.FontSize := MySoftData.CMDFontSize
         this.FontColor := MySoftData.CMDFontColor
@@ -78,6 +80,20 @@ class CMDTipGui {
 
         this.ShowCount := 0
         this.ContentCon.Value := ""
+    }
+
+    OnToggleMacroWorkState() {
+        if (this.Gui == "")
+            return
+        style := WinGetStyle(this.Gui.Hwnd)
+        isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+        if (!isVisible)
+            return
+
+        ColorStr := MySoftData.IsMacroWorking ? this.RunBGColor : this.BGColor
+        this.Gui.BackColor := ColorStr
+        this.ContentCon.Opt("Background" ColorStr)
+        this.ContentCon.Redraw()
     }
 
     OnScrollWheel(key) {

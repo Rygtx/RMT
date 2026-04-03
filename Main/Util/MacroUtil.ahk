@@ -43,7 +43,7 @@ OnFinishMacro(tableItem, macro, index) {
     if (tableItem.TriggerTypeArr[index] == 4) { ;开关状态下
         tableItem.ToggleStateArr[index] := false
     }
-
+    
     itemState := tableItem.KilledArr[index] ? 3 : 0
     MySetTableItemState(tableItem.index, index, itemState)
 }

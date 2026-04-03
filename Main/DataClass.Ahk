@@ -190,7 +190,9 @@ class ToolCheck {
 
 class SoftData {
     __New() {
-        this.isWork := false            ;子线程标识
+        this.isWorker := false          ;子线程标识
+        this.MacroRunningCount := 0     ;运行中的宏数量
+        this.IsMacroWorking := false    ;宏正在运行
         this.IsLogitechInit := false    ;罗技按键初始化
         this.ToolTipText := ""          ;临时提示文本
         this.ToolTipEndTime := ""       ;临时提示结束时间
@@ -272,6 +274,7 @@ class SoftData {
         this.CMDWidth := 225
         this.CMDHeight := 120
         this.CMDBGColor := "FFFFFF"
+        this.CMDRunBGColor := "00FF00"
         this.CMDTransparency := 50
         this.CMDFontSize := "12"
         this.CMDFontColor := "000000"

@@ -41,7 +41,7 @@
 
     InitWork() {
         global MySoftData
-        MySoftData.isWork := true
+        MySoftData.isWorker := true
     }
 
     WorkOpenCVLoadDll() {
