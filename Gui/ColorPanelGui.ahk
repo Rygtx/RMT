@@ -97,7 +97,8 @@ class ColorPanelGui {
         if (this.SureAction == "")
             return
         action := this.SureAction
-        action(this.CoordX, this.CoordY, this.ColorValue)
+        colorStr := Format("{:06X}", this.ColorValue)
+        action(this.CoordX, this.CoordY, colorStr)
     }
 
     OnClose(*) {
@@ -118,7 +119,8 @@ class ColorPanelGui {
         if (this.SureAction == "")
             return
         action := this.SureAction
-        action(this.CoordX, this.CoordY, this.ColorValue)
+        colorStr := Format("{:06X}", this.ColorValue)
+        action(this.CoordX, this.CoordY,colorStr)
     }
 
     RefreshCoord() {

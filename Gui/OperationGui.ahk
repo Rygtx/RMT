@@ -47,8 +47,8 @@ class OperationGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
         PosX += 50
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运算表达式"))
-        PosX += 290
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("保存结果变量"))
+        PosX += 350
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("结果保存变量"))
         PosY -= 10
 
         loop 4 {

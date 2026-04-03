@@ -42,7 +42,8 @@ class FolderPackager {
         }
 
         ; 保存到文件
-        FileOpen(outputFile, "w", "UTF-16").RawWrite(mainBuffer)
+        FileEncoding("CP0")
+        FileOpen(outputFile, "w").RawWrite(mainBuffer)
         return true
     }
 
@@ -55,7 +56,8 @@ class FolderPackager {
             callback(GetLang("开始解包文件:") packedFile)
 
         ; 读取二进制数据 - 修正这里
-        file := FileOpen(packedFile, "r", "UTF-16")
+        FileEncoding("CP0")
+        file := FileOpen(packedFile, "r")
         fileSize := FileGetSize(packedFile)  ; 使用 FileGetSize 获取文件大小
         data := Buffer(fileSize)
         bytesRead := file.RawRead(data, fileSize)  ; 读取指定字节数

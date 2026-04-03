@@ -63,6 +63,7 @@ OnSaveSetting(*) {
     MySoftData.CMDWidth := IniWrite(MySoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
     MySoftData.CMDHeight := IniWrite(MySoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
     MySoftData.CMDBGColor := IniWrite(MySoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
+    MySoftData.CMDRunBGColor := IniWrite(MySoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
     MySoftData.CMDTransparency := IniWrite(MySoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
     MySoftData.CMDFontColor := IniWrite(MySoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
     MySoftData.CMDFontSize := IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
@@ -451,21 +452,22 @@ CMDReport(CMDStr) {
     MyCMDTipGui.ShowGui(CMDStr)
 }
 
-;0默认状态 1运行 2暂停 3取消暂停 4终止
-SetTableItemState(tableIndex, itemIndex, state) {
+;0默认状态 1运行 2暂停 3终止
+SetTableItemState(tableIndex, itemIndex, State) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    LastColorState := tableItem.ColorStateArr[itemIndex]
-    isVisible := state != 0
+    LastState := tableItem.ColorStateArr[itemIndex]
+    isVisible := State != 0
 
-    if (LastColorState == 0 && (state == 2 || state == 3))  ;默认状态不可暂停，终止
+    if (LastState == 0 && (State == 2 || State == 3))  ;默认状态不可暂停，终止
         return
 
-    if (state == 2 && LastColorState != 1)  ;非运行状态忽略
+    if (State == 2 && LastState != 1)  ;非运行状态 不可暂停
         return
-    if (state == 3 && LastColorState == 3)  ;终止状态忽略
+    if (State == 3 && LastState == 3)  ;终止状态，不能再次终止
         return
 
-    tableItem.ColorStateArr[itemIndex] := state
+    UpdateMacroRunningCount(LastState, State)
+    tableItem.ColorStateArr[itemIndex] := State
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     if (ItemUsePool.Has(itemIndex)) {
         ItemConObj := ItemUsePool[itemIndex]
@@ -473,7 +475,7 @@ SetTableItemState(tableIndex, itemIndex, state) {
         ItemConObj.ColorCon.Visible := isVisible
     }
 
-    if (state == 3) {
+    if (State == 3) {
         SetTimer(CancelTableItemStopState.Bind(tableIndex, itemIndex), -5000)
     }
 }
@@ -1031,5 +1033,26 @@ SetEditData() {
             macroStr := tableItem.MacroArr[index]
             SetGlobalData(macroStr, visitMap)
         }
+    }
+}
+
+;0默认状态 1运行 2暂停 3终止
+UpdateMacroRunningCount(LastState, State) {
+    value := 0
+    if ((LastState == 0 || LastState == 3) && State == 1) ;运行+1
+        value := 1
+    else if (LastState == 1 && State != 1)  ;结束 | 暂停 | 终止 -1
+        value := -1
+    else if (LastState == 2 && State == 1)  ;取消暂停+1
+         value := 1
+
+    MySoftData.MacroRunningCount += value
+    if (MySoftData.MacroRunningCount < 0)
+        MySoftData.MacroRunningCount := 0
+
+    curState := MySoftData.MacroRunningCount > 0
+    if (curState != MySoftData.IsMacroWorking) {
+        MySoftData.IsMacroWorking := curState
+        MyCMDTipGui.OnToggleMacroWorkState()
     }
 }

@@ -349,6 +349,7 @@ LoadMainSetting() {
     MySoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
     MySoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
     MySoftData.CMDBGColor := IniRead(IniFile, IniSection, "CMDBGColor", "FFFFFF")
+    MySoftData.CMDRunBGColor := IniRead(IniFile, IniSection, "CMDRunBGColor", "12fc0a")
     MySoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
     MySoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
     MySoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
@@ -1678,10 +1679,9 @@ GetBrightness() {
     return 20
 }
 
-
-ChangeBrightness(isAdd){
+ChangeBrightness(isAdd) {
     CurrentBrightness := GetBrightness()
-    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10 
+    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10
     Value := Max(0, Min(100, Value)) ; 限制在 0-100
     wmi := ComObjGet("winmgmts:\\.\root\WMI")
     for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {

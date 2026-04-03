@@ -6,20 +6,6 @@ class CMDTipSettingGui {
         this.PosAction := () => this.RefreshMouseInfo()
         this.SureBtnAction := ""
 
-        this.PosXCon := ""
-        this.PosYCon := ""
-        this.WidthCon := ""
-        this.HeightCon := ""
-        this.BGColorCon := ""
-        this.TransparencyCon := ""
-        this.FontSizeCon := ""
-        this.FontColorCon := ""
-
-        this.BGColorTipCon := ""
-        this.FontColorTipCon := ""
-        this.MousePosCon := ""
-        this.MouseColorCon := ""
-        this.MouseColorTipCon := ""
     }
 
     ShowGui() {
@@ -34,15 +20,18 @@ class CMDTipSettingGui {
         this.WidthCon.Value := MySoftData.CMDWidth
         this.HeightCon.Value := MySoftData.CMDHeight
         this.BGColorCon.Value := MySoftData.CMDBGColor
+        this.RunBGColorCon.Value := MySoftData.CMDRunBGColor
         this.TransparencyCon.Value := MySoftData.CMDTransparency
         this.FontSizeCon.Value := MySoftData.CMDFontSize
         this.FontColorCon.Value := MySoftData.CMDFontColor
 
-        this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
-        this.BGColorTipCon.Redraw()
         this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
         this.FontColorTipCon.Redraw()
-
+        this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
+        this.BGColorTipCon.Redraw()
+        this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
+        this.RunBGColorTipCon.Redraw()
+    
         this.ToggleFunc(true)
     }
 
@@ -66,11 +55,17 @@ class CMDTipSettingGui {
         PosX += 30
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取字体颜色"))
 
-        PosX += 200
+        PosX += 125
         con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 30), "F2")
         con.Enabled := false
         PosX += 30
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取背景颜色"))
+
+        PosX += 125
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 30), "F3")
+        con.Enabled := false
+        PosX += 30
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取运行时背景"))
 
         PosX := 10
         PosY += 35
@@ -117,13 +112,18 @@ class CMDTipSettingGui {
         this.BGColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX + 85, PosY, 20, "FF0000"), "")
 
         PosX += 140
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("背景透明度："))
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运行时背景："))
         PosX += 90
-        this.TransparencyCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
+        this.RunBGColorCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
+        this.RunBGColorCon.OnEvent("Change", (*) => this.OnEditColor())
+        this.RunBGColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX + 85, PosY, 20, "09ff00"),
+        "")
 
         PosX := 10
         PosY += 35
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("背景透明度："))
         PosX += 90
+        this.TransparencyCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
 
         PosX += 140
         PosX += 90
@@ -147,11 +147,13 @@ class CMDTipSettingGui {
             SetTimer this.PosAction, 100
             Hotkey("F1", (*) => this.SureFontColor(), "On")
             Hotkey("F2", (*) => this.SureBGColor(), "On")
+            Hotkey("F3", (*) => this.SureRunBGColor(), "On")
         }
         else {
             SetTimer this.PosAction, 0
             Hotkey("F1", (*) => this.SureFontColor(), "OFF")
             Hotkey("F2", (*) => this.SureBGColor(), "OFF")
+            Hotkey("F3", (*) => this.SureRunBGColor(), "OFF")
         }
     }
 
@@ -190,6 +192,7 @@ class CMDTipSettingGui {
         MySoftData.CMDWidth := this.WidthCon.Value
         MySoftData.CMDHeight := this.HeightCon.Value
         MySoftData.CMDBGColor := this.BGColorCon.Value
+        MySoftData.CMDRunBGColor := this.RunBGColorCon.Value
         MySoftData.CMDTransparency := this.TransparencyCon.Value
         MySoftData.CMDFontSize := this.FontSizeCon.Value
         MySoftData.CMDFontColor := this.FontColorCon.Value
@@ -221,15 +224,32 @@ class CMDTipSettingGui {
         this.BGColorTipCon.Redraw()
     }
 
+    SureRunBGColor() {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos &mouseX, &mouseY
+
+        CoordMode("Pixel", "Screen")
+        Color := PixelGetColor(mouseX, mouseY, "Slow")
+        ColorText := StrReplace(Color, "0x", "")
+        this.RunBGColorCon.Value := ColorText
+        this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
+        this.RunBGColorTipCon.Redraw()
+    }
+
     OnEditColor() {
         if (RegExMatch(this.FontColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
             this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
             this.FontColorTipCon.Redraw()
         }
 
-        if (!RegExMatch(this.BGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
+        if (RegExMatch(this.BGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
             this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
             this.BGColorTipCon.Redraw()
+        }
+
+        if (RegExMatch(this.RunBGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
+            this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
+            this.RunBGColorTipCon.Redraw()
         }
     }
 

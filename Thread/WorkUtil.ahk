@@ -41,7 +41,7 @@
 
     InitWork() {
         global MySoftData
-        MySoftData.isWork := true
+        MySoftData.isWorker := true
     }
 
     WorkOpenCVLoadDll() {
@@ -107,6 +107,14 @@
     OnExit(wParam, lParam, msg, hwnd) {
         ExitApp()
     }
+
+    CheckParentProcess() {
+        if !ProcessExist(parentPID) {
+            ExitApp()
+        }
+    }
+
+    SetTimer(CheckParentProcess, 2000)
 
     OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
         StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
