@@ -12,6 +12,7 @@ Persistent
 
 global parentHwnd := A_Args[1]
 global workIndex := A_Args[2]
+global parentPID := A_Args[3]
 global ReceiveInfoMap := Map()
 global MySoftData := SoftData()
 global ToolCheckInfo := ToolCheck()
