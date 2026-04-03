@@ -67,6 +67,7 @@ class VarListenGui {
         MyGui := Gui(, GetLang("变量监视器"))
         this.Gui := MyGui
         MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.Opt("+Resize")
 
         PosX := 10
         PosY := 10
@@ -75,7 +76,7 @@ class VarListenGui {
 
         PosX := 10
         PosY += 30
-        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w350 h250 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr([
+        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w380 h370 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr([
             "变量名", "类型", "值"]))
         ; 设置列宽（单位：px）
         this.LVCon.ModifyCol(1, 100) ; 第一列宽度
@@ -84,7 +85,8 @@ class VarListenGui {
         this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
 
         MyGui.OnEvent("Close", this.OnClose.Bind(this))
-        MyGui.Show(Format("w{} h{}", 370, 300))
+        MyGui.OnEvent("Size", this.OnResize.Bind(this))
+        MyGui.Show(Format("w{} h{}", 400, 420))
     }
 
     OnClose(*) {
@@ -96,6 +98,21 @@ class VarListenGui {
             }
         }
         IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
+    }
+
+    OnResize(guiObj, MinMax, Width, Height) {
+        ; 留一点边距
+        margin := 10
+
+        ; Checkbox 不动（可选）
+
+        ; ListView 自适应
+        this.LVCon.Move(
+            margin,
+            40,
+            Width - margin * 2,
+            Height - 50
+        )
     }
 
     OnTogTop(*) {
