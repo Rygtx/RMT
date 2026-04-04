@@ -1044,7 +1044,8 @@ class MacroEditGui {
 
         this.MacroTreeViewCon.Delete(ItemAID)
         this.MacroTreeViewCon.Delete(ItemBID)
-        NewItemAID := this.MacroTreeViewCon.Add(NewACmdStr, ParentID, LastItemID " " NewAIconStr)
+        SortArg := LastItemID == 0 ? "First" : LastItemID
+        NewItemAID := this.MacroTreeViewCon.Add(NewACmdStr, ParentID, SortArg " " NewAIconStr)
         NewItemBID := this.MacroTreeViewCon.Add(NewBCmdStr, ParentID, NewItemAID " " NewBIconStr)
         this.TreeAddBranch(NewItemAID, NewACmdStr)
         this.TreeAddBranch(NewItemBID, NewBCmdStr)
