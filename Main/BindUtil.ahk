@@ -160,6 +160,9 @@ OnToolTextFilterScreenShot(*) {
         Run("ms-screenclip:")
         SetTimer(OnToolTextCheckScreenShot, 500)  ; 每 500 毫秒检查一次剪贴板
     }
+    else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        RunScreenCapture(OnToolTextCheckScreenShot)
+    }
     else {
         TogSelectArea(true, OnToolTextFilterGetArea)
     }
@@ -168,6 +171,9 @@ OnToolTextFilterScreenShot(*) {
 OnToolScreenShot(*) {
     if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
         Run("ms-screenclip:")
+    }
+    else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        RunScreenCapture()
     }
     else {
         TogSelectArea(true, OnToolScreenShotGetArea)
@@ -180,6 +186,17 @@ OnToolScreenShotGetArea(x1, y1, x2, y2) {
     pBitmap := Gdip_BitmapFromScreen(X1 "|" Y1 "|" width "|" height)
     Gdip_SetBitmapToClipboard(pBitmap)
     Gdip_DisposeImage(pBitmap)
+}
+
+RunScreenCapture(callback := "") {
+    scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
+    if !FileExist(scPath)
+        return
+    A_Clipboard := ""
+    if (callback != "") {
+        SetTimer(callback, 500)
+    }
+    Run('"' scPath '" --tool:"clipboard,save,close"')
 }
 
 OnToolFreePaste(*) {

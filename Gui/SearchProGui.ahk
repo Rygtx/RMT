@@ -753,6 +753,10 @@ class SearchProGui {
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
             TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
+        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+            RunScreenCapture(this.CheckClipboardAction)
+            TogGetSelectArea(true, this.OnGetArea.Bind(this))
+        }
         else {
             TogSelectArea(true, this.OnScreenShotGetArea.Bind(this))
         }

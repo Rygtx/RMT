@@ -731,7 +731,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 710, posY - 5), GetLangArr(["微软截图",
-        "RMT截图"]))
+        "RMT截图", "SC截图"]))
     MySoftData.ScreenShotTypeCtrl := con
     MySoftData.ScreenShotTypeCtrl.Value := MySoftData.ScreenShotType
     conInfo := ItemConInfo(con, tableItem, 1)
