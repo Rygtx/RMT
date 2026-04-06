@@ -1,6 +1,16 @@
 #Requires AutoHotkey v2.0
+; 窗口颜色识别 x，y 窗口坐标
+FindWinColor(colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold, x, y) {
+    colorStr := Format("{:06X}", ("0x" colorStr) + 0)
+    searchX := X1
+    searchY := Y1
+    searchW := X2 - X1
+    searchH := Y2 - Y1
+    return DllCall("RMT_OpenCV.dll\FindWinColor", "AStr", colorStr, "Int", hwnd, "Int", searchX,
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
+}
 
-;RapidOcr文本识别
+;RapidOcr文本识别 result里面都是窗口坐标
 GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
     global MyChineseOcr, MyEnglishOcr
     width := X2 - X1
@@ -50,8 +60,8 @@ GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode) {
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
-    matPtr := DllCall("RMT_OpenCV.dll\CaptureWinMat", "Int", hwnd, "Int", X1, "Int", Y1, "Int",
-        searchW, "Int", searchH, "Cdecl Ptr")
+    matPtr := DllCall("RMT_OpenCV.dll\CaptureWinMat", "Int", hwnd, "Int", searchX, "Int", searchY,
+        "Int", searchW, "Int", searchH, "Cdecl Ptr")
     ocr := mode == 1 ? MyChineseOcr : MyEnglishOcr
 
     res := ocr.ocr_from_mat(matPtr, , true)
@@ -66,22 +76,16 @@ FindScreenImage(targetPath, X1, Y1, X2, Y2, matchThreshold, x, y) {
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
-    return DllCall("RMT_OpenCV.dll\FindImage", "AStr", targetPath, "Int", searchX,
+    return DllCall("RMT_OpenCV.dll\FindScreenImage", "AStr", targetPath, "Int", searchX,
         "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
 }
 
 ; OpenCV窗口图片识别    返回窗口的坐标
-FindWinImage(targetPath, hwnd, matchThreshold, x, y) {
-    return DllCall("RMT_OpenCV.dll\FindWinImage", "AStr", targetPath,
-        "Int", hwnd, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
-}
-
-; OpenCV窗口局部图片识别    返回窗口的坐标
-FindWinAreaImage(targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold, x, y) {
+FindWinImage(targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold, x, y) {
     searchX := X1
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
-    return DllCall("RMT_OpenCV.dll\FindWinAreaImage", "AStr", targetPath, "Int", hwnd, "Int", searchX,
+    return DllCall("RMT_OpenCV.dll\FindWinImage", "AStr", targetPath, "Int", hwnd, "Int", searchX,
         "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
 }

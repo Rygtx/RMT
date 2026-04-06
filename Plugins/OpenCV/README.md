@@ -1,10 +1,10 @@
 ###  编译OpenCV插件
 
-1. 安装OpenCV Windows版本（推荐4.6.0）
+1. 安装OpenCV Windows版本（推荐4.8.0）
 
 2. 设置环境变量 OpenCV_DIR 指向OpenCV的build目录（例如：C:\opencv\build）
 
-3. 将OpenCV的二进制目录（例如：C:\opencv\build\x64\vc14\bin）添加到系统PATH环境变量  (作者使用的vs2015编译器，所以选择vc14)
+3. 将OpenCV的二进制目录（例如：C:\opencv\build\x64\vc16\bin）添加到系统PATH环境变量
 
 ### 编译项目环境设置
 
@@ -23,7 +23,7 @@
 
 7. 属性 链接器 常规 附加库目录 添加 D:\opencv\build\x64\vc16\lib（opencv的lib目录）
 
-8. 属性 链接器 输入 附加依赖项 添加 opencv_world460.lib
+8. 属性 链接器 输入 附加依赖项 添加 opencv_world481.lib
 
 9. 属性 C/C++ 预处理器 预处理器定义 添加 IMAGEFINDER_EXPORTS
 
