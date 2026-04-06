@@ -164,6 +164,9 @@ class UseExplainGui {
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
         }
+        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+            RunScreenCapture(this.CheckClipboardAction)
+        }
         else {
             TogSelectArea(true, this.OnScreenShotGetArea.Bind(this))
         }
