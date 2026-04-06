@@ -153,13 +153,6 @@ OnSearch(tableItem, cmdStr, index) {
     }
 }
 
-; 定义OpenCV图片搜索函数原型
-FindImage(targetPath, searchX, searchY, searchW, searchH, matchThreshold, x, y) {
-    return DllCall("RMT_OpenCV.dll\FindImage", "AStr", targetPath,
-        "Int", searchX, "Int", searchY, "Int", searchW, "Int", searchH,
-        "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
-}
-
 OnSearchOnce(tableItem, Data, index) {
     HasX1 := TryGetVariableValue(&X1, tableItem, index, Data.StartPosX)
     HasY1 := TryGetVariableValue(&Y1, tableItem, index, Data.StartPosY)
@@ -173,8 +166,7 @@ OnSearchOnce(tableItem, Data, index) {
         if (Data.SearchImageType == 1) {
             OutputVarX := 0
             OutputVarY := 0
-            found := FindImage(Data.SearchImagePath, X1, Y1, X2 - X1, Y2 - Y1, Data.Similar, &OutputVarX, &
-                OutputVarY)
+            found := FindScreenImage(Data.SearchImagePath, X1, Y1, X2, Y2, Data.Similar, &OutputVarX, &OutputVarY)
         }
         else {
             Similar := Integer(-2.55 * Data.Similar + 255)

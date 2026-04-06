@@ -13,6 +13,7 @@
 #Include Util\ExpressUtil.ahk
 #Include Util\InputUtil.ahk
 #Include Util\MacroUtil.ahk
+#Include Util\PluginUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -958,48 +959,6 @@ GetHotKeyCtrlType(key) {
 CheckContainText(source, text) {
     ; 返回布尔值：true 表示包含，false 表示不包含
     return RegExMatch(source, text)
-}
-
-GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
-    global MyChineseOcr, MyEnglishOcr
-    width := X2 - X1
-    height := Y2 - Y1
-    pBitmap := Gdip_BitmapFromScreen(X1 "|" Y1 "|" width "|" height)
-
-    ; 获取位图的宽度和高度
-    Width := Gdip_GetImageWidth(pBitmap)
-    Height := Gdip_GetImageHeight(pBitmap)
-
-    ; 锁定位图以获取位图数据
-    Gdip_LockBits(pBitmap, 0, 0, Width, Height, &Stride, &Scan0, &BitmapData)
-
-    if (A_PtrSize == 8) {
-        ; 64位系统结构
-        BITMAP_DATA := Buffer(24)  ; 64位下结构总大小为24字节
-        NumPut("ptr", Scan0, BITMAP_DATA, 0)   ; bits (8字节)
-        NumPut("uint", Stride, BITMAP_DATA, 8)  ; pitch (4字节)
-        NumPut("int", Width, BITMAP_DATA, 12)   ; width (4字节)
-        NumPut("int", Height, BITMAP_DATA, 16)  ; height (4字节)
-        NumPut("int", 4, BITMAP_DATA, 20)      ; bytespixel (4字节)
-    } else {
-        ; 32位系统结构
-        BITMAP_DATA := Buffer(20)  ; 32位下结构总大小为20字节
-        NumPut("ptr", Scan0, BITMAP_DATA, 0)   ; bits (4字节)
-        NumPut("uint", Stride, BITMAP_DATA, 4)  ; pitch (4字节)
-        NumPut("int", Width, BITMAP_DATA, 8)    ; width (4字节)
-        NumPut("int", Height, BITMAP_DATA, 12)  ; height (4字节)
-        NumPut("int", 4, BITMAP_DATA, 16)       ; bytespixel (4字节)
-    }
-
-    ; 调用 ocr_from_bitmapdata 方法
-    ocr := mode == 1 ? MyChineseOcr : MyEnglishOcr
-    result := ocr.ocr_from_bitmapdata(BITMAP_DATA, , true)
-
-    ; 解锁位图
-    Gdip_UnlockBits(pBitmap, &BitmapData)
-    ; 释放位图
-    Gdip_DisposeImage(pBitmap)
-    return result
 }
 
 CheckScreenContainText(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, text, mode) {

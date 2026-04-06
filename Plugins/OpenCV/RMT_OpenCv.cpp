@@ -31,78 +31,68 @@ cv::Mat captureScreen(int x, int y, int width, int height)
 	DeleteObject(hBitmap);
 	DeleteDC(hCaptureDC);
 	ReleaseDC(NULL, hDesktopDC);
-	//cv::imwrite("screenshot.png", mat); //测试
+	//测试：保存为PNG文件
+	if (!mat.empty()) {
+		cv::imwrite("screenshot.png", mat);
+	}
 	return mat;
 }
 
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
 	HWND targetHwnd = (HWND)hwnd;
-	HDC hDesktopDC = NULL;
-	HDC hCaptureDC = NULL;
-	HBITMAP hBitmap = NULL;
-	cv::Mat mat;
+	HDC hDesktopDC = ::CreateDCA("DISPLAY", NULL, NULL, NULL);
+	if (!hDesktopDC) return cv::Mat();
 
-	// 获取桌面DC - 始终使用CreateDCA来获取真实的屏幕DC
-	hDesktopDC = CreateDCA("DISPLAY", NULL, NULL, NULL);
+	RECT rcWin = { 0 };
+	int winWidth = 0, winHeight = 0;
 
-	if (hDesktopDC == NULL) {
-		return cv::Mat(); // 返回空Mat表示失败
-	}
-
-	// 如果没有指定宽高，使用屏幕尺寸
-	if (width <= 0 || height <= 0) {
-		width = ::GetDeviceCaps(hDesktopDC, HORZRES);
-		height = ::GetDeviceCaps(hDesktopDC, VERTRES);
-	}
-
-	// 创建兼容DC和位图
-	hCaptureDC = ::CreateCompatibleDC(hDesktopDC);
-	hBitmap = ::CreateCompatibleBitmap(hDesktopDC, width, height);
-	HBITMAP hOldBitmap = (HBITMAP)::SelectObject(hCaptureDC, hBitmap);
-
-	// 判断是否为窗口句柄
-	if (targetHwnd != NULL && targetHwnd != ::GetDesktopWindow()) {
-		// 对于窗口，尝试使用PrintWindow
-		BOOL bret = ::PrintWindow(targetHwnd, hCaptureDC, 0); // 使用0而不是PW_CLIENTONLY来捕获整个窗口
-
-		if (!bret) {
-			// 如果PrintWindow失败，需要特殊处理
-			// 获取窗口位置和大小
-			RECT windowRect;
-			::GetWindowRect(targetHwnd, &windowRect);
-
-			// 计算窗口在屏幕上的位置
-			int windowX = windowRect.left;
-			int windowY = windowRect.top;
-			int windowWidth = windowRect.right - windowRect.left;
-			int windowHeight = windowRect.bottom - windowRect.top;
-
-			// 使用BitBlt从桌面DC复制窗口区域
-			::BitBlt(hCaptureDC, 0, 0, windowWidth, windowHeight,
-				hDesktopDC, windowX, windowY, SRCCOPY);
-		}
+	// 如果指定了窗口句柄，获取窗口尺寸
+	if (targetHwnd && targetHwnd != ::GetDesktopWindow()) {
+		GetWindowRect(targetHwnd, &rcWin);
+		winWidth = rcWin.right - rcWin.left;
+		winHeight = rcWin.bottom - rcWin.top;
 	}
 	else {
-		// 桌面截图
-		::BitBlt(hCaptureDC, 0, 0, width, height, hDesktopDC, x, y, SRCCOPY);
+		// 桌面截屏
+		winWidth = ::GetDeviceCaps(hDesktopDC, HORZRES);
+		winHeight = ::GetDeviceCaps(hDesktopDC, VERTRES);
 	}
 
-	// 准备BITMAPINFO结构体
+	// 如果没指定宽高，则默认截整个窗口
+	if (width <= 0) width = winWidth;
+	if (height <= 0) height = winHeight;
+
+	// 创建完整窗口位图
+	HDC hWinDC = ::CreateCompatibleDC(hDesktopDC);
+	HBITMAP hWinBmp = ::CreateCompatibleBitmap(hDesktopDC, winWidth, winHeight);
+	HBITMAP hOldBmp = (HBITMAP)::SelectObject(hWinDC, hWinBmp);
+
+	BOOL bret = FALSE;
+	if (targetHwnd && targetHwnd != ::GetDesktopWindow()) {
+		bret = ::PrintWindow(targetHwnd, hWinDC, PW_RENDERFULLCONTENT);
+	}
+	if (!bret) {
+		// PrintWindow失败，回退到桌面截取
+		::BitBlt(hWinDC, 0, 0, winWidth, winHeight, hDesktopDC, rcWin.left, rcWin.top, SRCCOPY);
+	}
+
+	// 将窗口位图上 (x, y, width, height) 区域复制到Mat
+	HDC hCaptureDC = ::CreateCompatibleDC(hDesktopDC);
+	HBITMAP hBitmap = ::CreateCompatibleBitmap(hDesktopDC, width, height);
+	HBITMAP hOldBitmap = (HBITMAP)::SelectObject(hCaptureDC, hBitmap);
+	BitBlt(hCaptureDC, 0, 0, width, height, hWinDC, x, y, SRCCOPY);
+
+	// 创建OpenCV Mat用于剪切
+	cv::Mat mat(height, width, CV_8UC4);
 	BITMAPINFO bi = { 0 };
 	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bi.bmiHeader.biWidth = width;
-	bi.bmiHeader.biHeight = -height; // 负值表示从上到下存储，与OpenCV兼容
+	bi.bmiHeader.biHeight = -height; // top-down
 	bi.bmiHeader.biPlanes = 1;
-	bi.bmiHeader.biBitCount = 32;     // 32位颜色，对应CV_8UC4
+	bi.bmiHeader.biBitCount = 32;
 	bi.bmiHeader.biCompression = BI_RGB;
-	bi.bmiHeader.biSizeImage = 0;
 
-	// 创建OpenCV Mat (4通道，BGRA格式)
-	mat = cv::Mat(height, width, CV_8UC4);
-
-	// 获取位图数据到Mat
 	if (::GetDIBits(hCaptureDC, hBitmap, 0, height, mat.data, &bi, DIB_RGB_COLORS) == 0) {
-		// 如果获取失败，返回空Mat
 		mat = cv::Mat();
 	}
 
@@ -110,16 +100,18 @@ cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
 	::SelectObject(hCaptureDC, hOldBitmap);
 	::DeleteObject(hBitmap);
 	::DeleteDC(hCaptureDC);
-	::DeleteDC(hDesktopDC); // 对于CreateDCA，使用DeleteDC
+	::SelectObject(hWinDC, hOldBmp);
+	::DeleteObject(hWinBmp);
+	::DeleteDC(hWinDC);
+	::DeleteDC(hDesktopDC);
 
-	// 测试：保存为PNG文件
-	/*if (!mat.empty()) {
+	// 测试保存
+	if (!mat.empty()) {
 		cv::imwrite("screenshot.png", mat);
-	}*/
+	}
 
 	return mat;
 }
-
 
 // 计算两个矩形的交并比（IOU）
 double computeIOU(const cv::Rect& rect1, const cv::Rect& rect2)
@@ -181,7 +173,26 @@ std::vector<cv::Rect> nonMaximumSuppression(const std::vector<cv::Rect>& rects,
 	return selected;
 }
 
-extern "C" IMAGEFINDER_API int __cdecl FindImage(const char* targetPath,
+extern "C" IMAGEFINDER_API void* __cdecl CaptureWinMat(int hwnd, int x, int y, int width, int height) {
+	cv::Mat* mat = new cv::Mat(captureScreen(hwnd, x, y, width, height));
+	if (mat->empty()) {
+		delete mat;
+		return nullptr;
+	}
+
+	return mat;
+}
+
+extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
+{
+	if (matPtr) {
+		cv::Mat* mat = (cv::Mat*)matPtr;
+		delete mat;
+	}
+}
+
+extern "C" IMAGEFINDER_API int __cdecl FindImage(
+	const char* targetPath,
 	int searchX,
 	int searchY,
 	int searchW,
@@ -287,7 +298,6 @@ extern "C" IMAGEFINDER_API int __cdecl FindImage(const char* targetPath,
 }
 
 
-// 暂时无用，因为后台截图一直是黑屏
 extern "C" IMAGEFINDER_API int __cdecl FindWinAreaImage(
 	const char* targetPath,
 	int hwndInt,
@@ -299,8 +309,6 @@ extern "C" IMAGEFINDER_API int __cdecl FindWinAreaImage(
 	int* x,
 	int* y)
 {
-	HWND hwnd = (HWND)(uintptr_t)hwndInt;
-
 	if (matchThreshold > 100) matchThreshold = 100;
 	else if (matchThreshold < 0) matchThreshold = 0;
 	double scoreThreshold = matchThreshold / 100.0;
@@ -364,11 +372,11 @@ extern "C" IMAGEFINDER_API int __cdecl FindWinAreaImage(
 	cv::Point topLeft(rect.x + searchX, rect.y + searchY);
 	*x = topLeft.x;
 	*y = topLeft.y;
-
+	
 	return 1;
 }
 
-// 暂时无用，因为后台截图一直是黑屏
+
 extern "C" IMAGEFINDER_API int __cdecl FindWinImage(
 	const char* targetPath,
 	int hwndInt,
@@ -384,7 +392,7 @@ extern "C" IMAGEFINDER_API int __cdecl FindWinImage(
 	int height = rc.bottom - rc.top;
 
 	// 直接调用 FindWinAreaImage 遍历整个窗口
-	return FindWinAreaImage(
+	bool res = FindWinAreaImage(
 		targetPath,
 		hwndInt,
 		0, 0,
@@ -392,4 +400,5 @@ extern "C" IMAGEFINDER_API int __cdecl FindWinImage(
 		matchThreshold,
 		x, y
 	);
+	return res;
 }
