@@ -30,34 +30,3 @@ SetEditData()      ;缓存编辑器数据
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
-
-; a:: {
-    ; hwnd := 591560
-    ; targetPath := "test.png"
-    ; matchThreshold := 90
-    ; x := 0
-    ; y := 0
-    ; isFind := FindWinAreaImage(targetPath, hwnd, 0, 0, 1400, 500, matchThreshold, &x, &y)
-    ; if (isFind)
-    ;     MsgBox("x:" x ",Y:" y)
-
-    ; isFind := FindWinImage(targetPath, hwnd, matchThreshold, &x, &y)
-    ; if (isFind)
-    ;     MsgBox("x:" x ",Y:" y)
-
-    ; isFind := FindScreenImage(targetPath, 100, 200, 400, 500, matchThreshold, &x, &y)
-    ; if (isFind)
-    ;     MsgBox("x:" x ",Y:" y)
-    ; TextObjs := GetWinTextObjArr(hwnd, 0, 0, 1000, 500, 1)
-    ; TextObjs := TextObjs == "" ? [] : TextObjs
-    ; allText := ""
-    ; for index, value in TextObjs {
-    ;     allText .= value.text
-    ;     allText .= "`n"
-    ; }
-    ; MsgBox(allText)
-
-    ; isFind := FindWinColor("ff00", hwnd, 0, 0, 336, 354, matchThreshold, &x, &y)
-    ; if (isFind)
-    ;     MsgBox("x:" x ",Y:" y)
-; }

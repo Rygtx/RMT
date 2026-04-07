@@ -42,9 +42,9 @@ class CMDTipSettingGui {
 
         PosX := 10
         PosY := 15
-        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 200), GetLang("当前鼠标坐标：0,0"))
+        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 200), GetLang("屏幕坐标：0,0"))
         PosX += 230
-        this.MouseColorCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 170), GetLang("当前鼠标颜色：FFFFFF"))
+        this.MouseColorCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 170), GetLang("鼠标颜色：FFFFFF"))
         PosX += 170
         this.MouseColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
 
@@ -256,12 +256,12 @@ class CMDTipSettingGui {
     RefreshMouseInfo() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        this.MousePosCon.Value := Format("{}{},{}", GetLang("当前鼠标坐标："), mouseX, mouseY)
+        this.MousePosCon.Value := Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY)
 
         CoordMode("Pixel", "Screen")
         Color := PixelGetColor(mouseX, mouseY, "Slow")
         ColorText := StrReplace(Color, "0x", "")
-        this.MouseColorCon.Value := Format("{}{}", GetLang("当前鼠标颜色："), ColorText)
+        this.MouseColorCon.Value := Format("{}{}", GetLang("鼠标颜色："), ColorText)
         this.MouseColorTipCon.Opt(Format("+Background0x{}", ColorText))
         this.MouseColorTipCon.Redraw()
     }
