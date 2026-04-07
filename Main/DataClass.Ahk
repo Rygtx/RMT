@@ -389,7 +389,8 @@ class SearchData {
     __New() {
         this.SerialStr := ""
         this.ConfigName := Format("{}*{}_{}", A_ScreenWidth, A_ScreenHeight, GetLang("全屏"))
-        this.SearchType := 1       ;1 图片  2 颜色  3 文本
+        this.SearchType := 1        ;1屏幕图片  2屏幕颜色  3屏幕文本 4窗口图片 5窗口颜色 6窗口文本
+        this.WinInfo := ""          ;窗口信息
         this.SearchColor := "FFFFFF"
         this.SearchText := GetLang("检索文本")
         this.SearchImagePath := ""

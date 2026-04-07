@@ -239,6 +239,11 @@ CompatSearchPro(filePath) {
             curFix := CompatSearchProConfig(Data) || curFix
         }
 
+        if (!ObjHasOwnProp(Data, "WinInfo")) {
+            Data.WinInfoStr := ""
+            curFix := true
+        }
+
         if (Data.TrueMacro != "") {
             Data.TrueMacro := CompatMacro(Data.TrueMacro, &isFix)
             curFix := curFix || isFix

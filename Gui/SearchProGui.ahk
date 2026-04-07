@@ -28,7 +28,6 @@ class SearchProGui {
         this.OCRLabelCon := ""
         this.OCRTypeCon := ""
         this.ScreenshotBtn := ""
-        this.ImageTipCon := ""
         this.ImageTypeTipCon := ""
         this.ImageTypeCon := ""
         this.ColorTipCon := ""
@@ -54,6 +53,7 @@ class SearchProGui {
         this.MacroGui := ""
 
         this.ConfigDLArr := []
+        this.WinInfoArr := []
         this.CountTogArr := []
         this.SimilarArr := []
         this.MouseSpeedArr := []
@@ -139,17 +139,12 @@ class SearchProGui {
         SplitPosY := PosY
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索类型："))
         PosX += 80
-        this.SearchTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h{}", PosX, PosY - 3, 80, 100), GetLangArr([
-            "图片", "颜色",
-            "文本"]))
+        this.SearchTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R6", PosX, PosY - 3, 160), GetLangArr([
+            "屏幕图片", "屏幕颜色", "屏幕文本", "窗口图片", "窗口颜色", "窗口文本"]))
         this.SearchTypeCon.OnEvent("Change", (*) => this.OnChangeType())
         this.SearchTypeCon.Value := 1
-        PosX := 180
-        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("相似度(%)："))
-        this.SimilarArr.Push(Con)
-        PosX += 80
-        this.SimilarCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.SimilarArr.Push(this.SimilarCon)
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 165, PosY - 4), "?")
+        Con.OnEvent("Click", this.OnClickTypeHelpBtn.Bind(this))
 
         PosX := 10
         PosY += 35
@@ -197,7 +192,7 @@ class SearchProGui {
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("鼠标动作："))
         PosX += 80
-        this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 150),
+        this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 160),
         GetLangArr(["无动作",
             "移动至目标", "移动至目标点击"]))
         this.MouseActionTypeCon.Value := 1
@@ -256,17 +251,23 @@ class SearchProGui {
 
         PosY := SplitPosY
         PosX := 360
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
+        this.WinInfoArr.Push(con)
         PosX += 80
         this.WinInfoCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 150), "")
-
+        this.WinInfoArr.Push(this.WinInfoCon)
         PosX += 160
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 27), GetLang("编辑"))
         btnCon.OnEvent("Click", this.OnClickWinEditBtn.Bind(this))
+        this.WinInfoArr.Push(btnCon)
 
         PosY += 35
         PosX := 360
-        this.ImageTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索图片："))
+        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("相似度(%)："))
+        this.SimilarArr.Push(Con)
+        PosX += 80
+        this.SimilarCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.SimilarArr.Push(this.SimilarCon)
 
         PosY += 35
         PosX := 360
@@ -625,6 +626,12 @@ class SearchProGui {
     }
 
     CheckIfValid() {
+        curType := this.SearchTypeCon.Value
+        isImage := curType == 1 || curType == 4
+        isColor := curType == 2 || curType == 5
+        isText := curType == 3 || curType == 6
+        isWin := curType == 4 || curType == 5 || curType == 6
+
         if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text) && IsNumber(this.EndPosXCon.Text
         ) && IsNumber(this.EndPosYCon.Text)) {
             if (Number(this.StartPosXCon.Text) > Number(this.EndPosXCon.Text) || Number(this.StartPosYCon.Text) >
@@ -643,12 +650,12 @@ class SearchProGui {
             return false
         }
 
-        if (this.SearchTypeCon.Value == 1 && this.Data.SearchImagePath == "") {
+        if (isImage && this.Data.SearchImagePath == "") {
             MsgBox(GetLang("请设置搜索图片"))
             return false
         }
 
-        if (this.SearchTypeCon.Value == 1) {
+        if (isImage) {
             if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text)
             && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)) {
                 searchWidth := this.EndPosXCon.Text - this.StartPosXCon.Text
@@ -661,17 +668,22 @@ class SearchProGui {
             }
         }
 
-        if (this.SearchTypeCon.Value == 2 && !RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
+        if (isColor && !RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
             MsgBox(GetLang("请输入正确的颜色值"))
             return false
         }
 
-        if (this.SearchTypeCon.Value == 3) {
+        if (isText) {
             if (this.StartPosXCon.Text == this.EndPosXCon.Text) ||
             this.StartPosYCon.Text == Number(this.EndPosYCon.Text) {
                 MsgBox(GetLang("搜索文本时：搜索范围中起始坐标不能和终止坐标相同"))
                 return false
             }
+        }
+
+        if (isWin && this.WinInfoCon.Value == "") {
+            MsgBox(GetLang("目标窗口信息不能为空"))
+            return false
         }
 
         if (this.ResultToggleCon.Value) {
@@ -705,7 +717,7 @@ class SearchProGui {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
             this.MousePosCon.Value := Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY)
-            PosArr := GetWinPos()
+            PosArr := GetCurWinPos()
             this.MouseWinPosCon.Value := Format("{}{},{}", GetLang("窗口坐标："), PosArr[1], PosArr[2])
             CoordMode("Pixel", "Screen")
             Color := PixelGetColor(mouseX, mouseY, "Slow")
@@ -735,6 +747,17 @@ class SearchProGui {
         str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
         ))
         MsgBox(str, GetLang("定位取色器操作说明"))
+    }
+
+    OnClickTypeHelpBtn(*) {
+        str1 := GetLang("屏幕搜索：在屏幕搜索目标")
+        str2 := GetLang("窗口搜索：在符合目标的窗口搜索目标(支持后台)")
+        str3 := GetLang("tip1：图片搜索：推荐32*32px，截取目标特征即可，不要包含会变化的背景")
+        str4 := GetLang("tip2：文本搜索：推荐32*32px以上和多文本，单字符识别不准确")
+        str5 := GetLang("tip3：窗口搜索时：目标窗口需要激活或非激活状态，不可最小化")
+
+        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        MsgBox(str, GetLang("搜索类型说明"))
     }
 
     OnClickWinRuleHelpBtn(*) {
@@ -864,17 +887,17 @@ class SearchProGui {
     }
 
     OnChangeType(*) {
-        isImage := this.SearchTypeCon.Value == 1
-        isColor := this.SearchTypeCon.Value == 2
-        isText := this.SearchTypeCon.Value == 3
-
-        showImageTip := isImage && this.Data.SearchImagePath == ""
+        ;1屏幕图片  2屏幕颜色  3屏幕文本 4窗口图片 5窗口颜色 6窗口文本
+        curType := this.SearchTypeCon.Value
+        isImage := curType == 1 || curType == 4
+        isColor := curType == 2 || curType == 5
+        isText := curType == 3 || curType == 6
+        isWin := curType == 4 || curType == 5 || curType == 6
         showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
 
         this.ImageBtn.Enabled := isImage
         this.ScreenshotBtn.Enabled := isImage
         this.ImageTypeCon.Enabled := isImage && A_PtrSize == 8
-        this.ImageTipCon.Enabled := isImage
         this.ImageTypeTipCon.Enabled := isImage
         this.ImageCon.Enabled := isImage
         if (A_PtrSize != 8)
@@ -895,6 +918,7 @@ class SearchProGui {
         this.MousePosCon.Focus()
 
         this.SetConArrState(this.SimilarArr, !isText)
+        this.SetConArrState(this.WinInfoArr, isWin)
 
         CountValue := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
         isCount := IsNumber(CountValue) && (CountValue == -1 || CountValue > 1)
@@ -969,6 +993,7 @@ class SearchProGui {
         data.OCRType := this.OCRTypeCon.Value
         data.SearchImageType := this.ImageTypeCon.Value
         data.SearchType := this.SearchTypeCon.Value
+        data.WinInfo := this.WinInfoCon.Value
         data.SearchColor := this.HexColorCon.Value
         data.SearchText := this.TextCon.Text
         data.StartPosX := this.StartPosXCon.Text

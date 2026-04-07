@@ -961,22 +961,6 @@ CheckContainText(source, text) {
     return RegExMatch(source, text)
 }
 
-CheckScreenContainText(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, text, mode) {
-    result := GetScreenTextObjArr(X1, Y1, X2, Y2, mode)
-    if (result == "" || !result)
-        return false
-    for index, value in result {
-        isContain := CheckContainText(value.text, text)
-        if (isContain) {
-            pos := GetMatchCoord(value, X1, Y1)
-            OutputVarX := pos[1]
-            OutputVarY := pos[2]
-            break
-        }
-    }
-    return isContain
-}
-
 GetMatchCoord(screenTextObj, x1, y1) {
     value := screenTextObj
     pointX := value.boxPoint[1].x + value.boxPoint[2].x + value.boxPoint[3].x + value.boxPoint[4].x
@@ -1223,33 +1207,37 @@ StrToHex(str) {
     return hex
 }
 
-GetWinPos() {
+GetWinPos(ScreenX, ScreenY, hwnd := 0) {
+    WinX := 0
+    WinY := 0
     DllCall("SetProcessDPIAware")
-    CoordMode("Mouse", "Screen")
-    MouseGetPos &mouseX, &mouseY
-    xClient := 0
-    yClient := 0
+    if (hwnd == 0) {
+        hwnd := DllCall("User32\WindowFromPoint", "int64", (ScreenY << 32) | (ScreenX & 0xFFFFFFFF), "ptr")
+    }
     try {
-        ; 获取鼠标下窗口句柄
-        winId := DllCall("User32\WindowFromPoint", "int64", (mouseY << 32) | (mouseX & 0xFFFFFFFF), "ptr")
 
         ; 获取该窗口的主窗口（避免偏移）
         GA_ROOT := 2
-        rootHwnd := DllCall("GetAncestor", "ptr", winId, "uint", GA_ROOT, "ptr")
+        rootHwnd := DllCall("GetAncestor", "ptr", hwnd, "uint", GA_ROOT, "ptr")
 
         ; 创建结构体 POINT
         pt := Buffer(8, 0)
-        NumPut("int", mouseX, pt, 0)  ; X
-        NumPut("int", mouseY, pt, 4)  ; Y
+        NumPut("int", ScreenX, pt, 0)  ; X
+        NumPut("int", ScreenY, pt, 4)  ; Y
 
         ; 屏幕坐标转客户区
         DllCall("User32\ScreenToClient", "ptr", rootHwnd, "ptr", pt)
 
-        xClient := NumGet(pt, 0, "int")
-        yClient := NumGet(pt, 4, "int")
+        WinX := NumGet(pt, 0, "int")
+        WinY := NumGet(pt, 4, "int")
     }
+    return [WinX, WinY]
+}
 
-    return [xClient, yClient]
+GetCurWinPos() {
+    CoordMode("Mouse", "Screen")
+    MouseGetPos &mouseX, &mouseY
+    return GetWinPos(mouseX, mouseY)
 }
 
 GetMacroCMDData(serialStr) {

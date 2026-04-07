@@ -191,7 +191,7 @@ class BGMouseGui {
     }
 
     OnF2() {
-        PosArr := GetWinPos()
+        PosArr := GetCurWinPos()
         this.PosVarXCon.Text := PosArr[1]
         this.PosVarYCon.Text := PosArr[2]
     }
@@ -204,7 +204,7 @@ class BGMouseGui {
     RefreshInfo() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &oriId
-        PosArr := GetWinPos()
+        PosArr := GetCurWinPos()
         try {
             this.CurPosCon.Value := GetLang("当前窗口坐标: ") PosArr[1] "," PosArr[2]
             this.CurPosCon.Value := Format("{}{},{}", GetLang("当前窗口坐标:"), PosArr[1], PosArr[2])

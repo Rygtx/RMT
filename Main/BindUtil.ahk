@@ -149,7 +149,7 @@ SetToolCheckInfo() {
         ToolCheckInfo.ProcessId := winId
         ToolCheckInfo.Color := StrReplace(PixelGetColor(mouseX, mouseY, "Slow"), "0x", "")
 
-        WinPosArr := GetWinPos()
+        WinPosArr := GetCurWinPos()
         ToolCheckInfo.WinPosStr := WinPosArr[1] . "," . WinPosArr[2]
         RefreshToolUI()
     }

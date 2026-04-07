@@ -112,8 +112,7 @@ class SearchGui {
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索类型："))
         PosX += 80
         this.SearchTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h{}", PosX, PosY - 3, 80, 100), GetLangArr([
-            "图片", "颜色",
-            "文本"]))
+            "屏幕图片", "屏幕颜色", "屏幕文本"]))
         this.SearchTypeCon.OnEvent("Change", (*) => this.OnChangeSearchType())
         this.SearchTypeCon.Value := 1
         PosY += 30

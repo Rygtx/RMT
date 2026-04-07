@@ -162,27 +162,41 @@ OnSearchOnce(tableItem, Data, index) {
         return
 
     CoordMode("Pixel", "Screen")
-    if (Data.SearchType == 1) {
+    ResX := 0
+    ResY := 0
+    if (Data.SearchType == 1) {     ;屏幕图片
         if (Data.SearchImageType == 1) {
-            OutputVarX := 0
-            OutputVarY := 0
-            found := FindScreenImage(Data.SearchImagePath, X1, Y1, X2, Y2, Data.Similar, &OutputVarX, &OutputVarY)
+            found := FindScreenImage(&ResX, &ResY, Data.SearchImagePath, X1, Y1, X2, Y2, Data.Similar)
         }
         else {
             Similar := Integer(-2.55 * Data.Similar + 255)
             SearchInfo := Format("*{} *w0 *h0 {}", Similar, Data.SearchImagePath)
-            found := ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, SearchInfo)
+            found := ImageSearch(&ResX, &ResY, X1, Y1, X2, Y2, SearchInfo)
         }
     }
-    else if (Data.SearchType == 2) {
+    else if (Data.SearchType == 2) {    ;屏幕颜色
         color := "0X" Data.SearchColor
         Similar := Integer(-2.55 * Data.Similar + 255)
-        found := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, color, Similar)
+        found := PixelSearch(&ResX, &ResY, X1, Y1, X2, Y2, color, Similar)
     }
-    else if (Data.SearchType == 3) {
+    else if (Data.SearchType == 3) {    ;屏幕文本
         text := Data.SearchText
         hasValue := TryGetVariableValue(&text, tableItem, index, Data.SearchText, false)
-        found := CheckScreenContainText(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, text, Data.OCRType)
+        found := FindScreenText(&ResX, &ResY, X1, Y1, X2, Y2, text, Data.OCRType)
+    }
+    else if (Data.SearchType == 4) {    ;窗口图片
+        hwnd := 30000
+        found := FindWinImage(&ResX, &ResY, Data.SearchImagePath, hwnd, X1, Y1, X2, Y2, Data.Similar)
+    }
+    else if (Data.SearchType == 5) {    ;窗口颜色
+        hwnd := 40000
+        found := FindWinColor(&ResX, &ResY, Data.SearchColor, hwnd, X1, Y1, X2, Y2, Data.Similar)
+    }
+    else if (Data.SearchType == 6) {    ;窗口文本
+        hwnd := 40000
+        text := Data.SearchText
+        hasValue := TryGetVariableValue(&text, tableItem, index, Data.SearchText, false)
+        found := FindWinText(&ResX, &ResY, hwnd, X1, Y1, X2, Y2, text, Data.OCRType)
     }
 
     if (found) {
@@ -190,10 +204,10 @@ OnSearchOnce(tableItem, Data, index) {
         CoordMode("Mouse", "Screen")
         SendMode("Event")
         Speed := 100 - Data.Speed
-        Pos := [OutputVarX, OutputVarY]
+        Pos := [ResX, ResY]
         if (Data.SearchType == 1) {
             imageSize := GetImageSize(Data.SearchImagePath)
-            Pos := [OutputVarX + imageSize[1] / 2, OutputVarY + imageSize[2] / 2]
+            Pos := [ResX + imageSize[1] / 2, ResY + imageSize[2] / 2]
         }
 
         if (Data.ResultToggle) {

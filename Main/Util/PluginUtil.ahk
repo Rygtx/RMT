@@ -1,13 +1,29 @@
 #Requires AutoHotkey v2.0
 ; 窗口颜色识别 x，y 窗口坐标
-FindWinColor(colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold, x, y) {
+FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
     colorStr := Format("{:06X}", ("0x" colorStr) + 0)
     searchX := X1
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindWinColor", "AStr", colorStr, "Int", hwnd, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
+}
+
+FindScreenText(&ResX, &ResY, X1, Y1, X2, Y2, text, mode) {
+    result := GetScreenTextObjArr(X1, Y1, X2, Y2, mode)
+    if (result == "" || !result)
+        return false
+    for index, value in result {
+        isContain := CheckContainText(value.text, text)
+        if (isContain) {
+            pos := GetMatchCoord(value, X1, Y1)
+            ResX := pos[1]
+            ResY := pos[2]
+            break
+        }
+    }
+    return isContain
 }
 
 ;RapidOcr文本识别 result里面都是窗口坐标
@@ -53,6 +69,22 @@ GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
     return result
 }
 
+FindWinText(&ResX, &ResY, hwnd, X1, Y1, X2, Y2, text, mode) {
+    result := GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode)
+    if (result == "" || !result)
+        return false
+    for index, value in result {
+        isContain := CheckContainText(value.text, text)
+        if (isContain) {
+            pos := GetMatchCoord(value, X1, Y1)
+            ResX := pos[1] + X1
+            ResY := pos[2] + Y1
+            break
+        }
+    }
+    return isContain
+}
+
 ; 窗口文本识别
 ; C++ 后台截图 -> OpenCv 转 Mat -> RapidOcr 识别 Mat
 GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode) {
@@ -71,21 +103,21 @@ GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode) {
 }
 
 ; OpenCV屏幕图片识别
-FindScreenImage(targetPath, X1, Y1, X2, Y2, matchThreshold, x, y) {
+FindScreenImage(ResXPtr, ResYPtr, targetPath, X1, Y1, X2, Y2, matchThreshold) {
     searchX := X1
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindScreenImage", "AStr", targetPath, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
 }
 
 ; OpenCV窗口图片识别    返回窗口的坐标
-FindWinImage(targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold, x, y) {
+FindWinImage(ResXPtr, ResYPtr, targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold) {
     searchX := X1
     searchY := Y1
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindWinImage", "AStr", targetPath, "Int", hwnd, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
 }
