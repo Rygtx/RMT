@@ -17,9 +17,9 @@ class TriggerKeyGui {
 
         this.MouseMoveAction := this.OnMouseMove.Bind(this)
         this.HoverCon := ""
-        this.SelectColor := "Background12ebeb"
+        this.SelectColor := "Background19c930"
         this.UnSelectColor := "-Background"
-        this.SelectHoverColor := "Background4fd1d1"
+        this.SelectHoverColor := "Background169727"
         this.UnSelectHoverColor := "Backgrounddadada"
 
     }

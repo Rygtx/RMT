@@ -99,6 +99,11 @@ SetPauseState(state) {
 OnKillAllMacro(*) {
     global MySoftData ; 访问全局变量
 
+    CloseMenuWheel()    ;关闭菜单按钮
+
+    MySoftData.MacroRunningCount := 0   ;运行计数重置
+    UpdateMacroRunningCount(0, 0)
+
     loop MySoftData.TableInfo.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         KillSingleTableMacro(tableItem)

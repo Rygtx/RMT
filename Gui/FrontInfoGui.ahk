@@ -54,7 +54,7 @@ class FrontInfoGui {
         this.TopTogCon := con
 
         PosX := 160
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F1")
+        con := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 30), "F1")
         con.Enabled := false
         PosX += 30
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定信息"))
