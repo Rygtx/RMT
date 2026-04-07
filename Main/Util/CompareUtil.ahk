@@ -18,7 +18,7 @@ GetAmpersandSequence(str) {
 ExtractVariable(Text, Pattern) {
     ; 去除空格
     Text := StrReplace(Text, " ", "")
-    Pattern := StrReplace(Text, " ", "")
+    Pattern := StrReplace(Pattern, " ", "")
     
     ; 转义Pattern中的特殊字符
     Pattern := RegExReplace(Pattern, "[.*+?()\[\]{}|^$\\]", "\$0")

@@ -963,3 +963,4 @@ ViGEm创建实例失败,手柄功能无法生效=ViGEm init failed. Controller f
 案例学习、获取他人分享的宏配置（支持下载导入）=Example learning & shared macro configs (download/import supported)
 运行时背景：=Runtime Background:
 结果保存变量=Save Var
+SC截图=SC Shot

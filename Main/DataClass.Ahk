@@ -201,7 +201,7 @@ class SoftData {
         this.ShowSplitLine := false     ;显示分割线
         this.FixedMenuWheel := false    ;固定菜单轮
         this.NoVariableTip := false     ;无变量提醒
-        this.ScreenShotType := 1        ;截图类型
+        this.ScreenShotType := 3        ;截图类型
         this.MutiThreadNum := 3         ;多线程数
         this.IsSuspend := false         ;休眠
         this.SuspendHotkey := ""        ;休眠快捷键

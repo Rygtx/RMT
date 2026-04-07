@@ -196,8 +196,9 @@ class TriggerKeyData {
             MyMenuWheel.OnSoftKey(this.Key, true)
 
         if (this.Key == "f5" || this.Key == "f6" || this.Key == "delete" || this.Key == "numpaddot") {
-            if (MySoftData.MacroEditGui != "")
+            if (MySoftData.MacroEditGui != "" && WinActive("ahk_id " MySoftData.MacroEditGui.Gui.Hwnd)) {
                 MySoftData.MacroEditGui.OnSoftKey(this.Key, true)
+            }
         }
     }
 
@@ -313,7 +314,7 @@ class TriggerKeyInfo {
                 WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
                 if (WorkerIndex != 0) {
                     workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-                    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, 0, 0)
+                    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, this.tableIndex, this.itemIndex)
                     return
                 }
                 KillTableItemMacro(tableItem, this.itemIndex)
