@@ -168,7 +168,7 @@ OnSearchOnce(tableItem, Data, index) {
     isWin := Data.SearchType == 4 || Data.SearchType == 5 || Data.SearchType == 6
     if (isWin) {
         frontStr := GetParamsWinInfoStr(Data.TargetTitle)
-        hwndList := WinGetList(frontStr)
+        hwndList := frontStr == "" ? [] : WinGetList(frontStr)
     }
     if (Data.SearchType == 1) {     ;屏幕图片
         if (Data.SearchImageType == 1) {
@@ -814,7 +814,7 @@ OnBGMouse(tableItem, cmd, index) {
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
 
     frontStr := GetParamsWinInfoStr(Data.TargetTitle)
-    hwndList := WinGetList(frontStr)
+    hwndList := frontStr == "" ? [] : WinGetList(frontStr)
     loop hwndList.Length {
         hwnd := hwndList[A_Index]
         ; 点击位置（窗口客户区坐标）
@@ -870,7 +870,7 @@ OnBGKey(tableItem, cmd, index) {
 
 SendBGKey(Data, tableItem, index) {
     frontStr := GetParamsWinInfoStr(Data.FrontStr)
-    hwndList := WinGetList(frontStr)
+    hwndList := frontStr == "" ? [] : WinGetList(frontStr)
 
     if (Data.Type == 1 || Data.Type == 3) {
         for hwnd in hwndList {

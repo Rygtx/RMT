@@ -422,9 +422,11 @@ BindMenuHotKey() {
         actionArr := GetBindMacroAction(oriKey)
         isJoyKey := RegExMatch(oriKey, "Joy")
         frontInfo := FoldInfo.FrontInfoArr[index]
+        groupSymbolStr := "GroupFold_" index
+        realFrontStr := GetParamsWinInfoStr(frontInfo, groupSymbolStr)
 
-        if (frontInfo != "") {
-            HotIfWinActive(GetParamsWinInfoStr(frontInfo))
+        if (realFrontStr != "") {
+            HotIfWinActive(realFrontStr)
         }
 
         if (isJoyKey) {
@@ -438,7 +440,7 @@ BindMenuHotKey() {
                 Hotkey(key " up", actionArr[2])
         }
 
-        if (frontInfo != "") {
+        if (realFrontStr != "") {
             HotIfWinActive
         }
     }
@@ -469,7 +471,8 @@ BindTabHotKey() {
             isJoyKey := RegExMatch(tableItem.TKArr[index], "Joy")
             isHotstring := SubStr(tableItem.TKArr[index], 1, 1) == ":"
             frontInfo := GetItemFrontInfo(tableItem, index)
-            realFrontStr := GetParamsWinInfoStr(frontInfo)
+            groupSymbolStr := "Group" tableIndex "_" index
+            realFrontStr := GetParamsWinInfoStr(frontInfo, groupSymbolStr)
 
             if (realFrontStr != "") {
                 HotIfWinActive(realFrontStr)
@@ -489,7 +492,7 @@ BindTabHotKey() {
                     Hotkey(key " up", actionArr[2], "On")
             }
 
-            if (frontInfo != "") {
+            if (realFrontStr != "") {
                 HotIfWinActive
             }
         }

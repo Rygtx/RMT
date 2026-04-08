@@ -62,9 +62,19 @@ GetCurMSec() {
     return A_Hour * 3600 * 1000 + A_Min * 60 * 1000 + A_Sec * 1000 + A_mSec
 }
 
-GetParamsWinInfoStr(infoStr) {
+GetParamsWinInfoStr(infoStr, symbolStr := "default") {
     if (infoStr == "")
         return ""
+
+    if (InStr(infoStr, "❖")) {
+        infoStr := StrReplace(infoStr, "❖")
+        hwndList := StrSplit(infoStr, "|")
+        for index, hwnd in hwndList {
+            GroupAdd(symbolStr, "ahk_id " hwnd)
+        }
+        ResStr := "ahk_group " symbolStr
+        return ResStr
+    }
 
     infoArr := StrSplit(infoStr, "⎖")
     if (infoArr.Length != 3)

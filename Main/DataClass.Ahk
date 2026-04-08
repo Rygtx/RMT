@@ -297,28 +297,28 @@ class SoftData {
 
         ;手柄映射
         this.JoyXboxToAhkMap := Map(
-            "JoyA", "Joy1", 
-            "JoyB", "Joy2", 
-            "JoyX", "Joy3", 
-            "JoyY", "Joy4", 
+            "JoyA", "Joy1",
+            "JoyB", "Joy2",
+            "JoyX", "Joy3",
+            "JoyY", "Joy4",
             "JoyLB", "Joy5",
-            "JoyRB", "Joy6", 
-            "JoyLT", "JoyZMin", 
-            "JoyRT", "JoyZMax", 
-            "JoyLS", "Joy9", 
-            "JoyRS", "Joy10", 
-            "JoyBack", "Joy7", 
-            "JoyStart", "Joy8", 
-            "JoyDpadUp", "JoyPOV_0", 
-            "JoyDpadRight", "JoyPOV_9000", 
+            "JoyRB", "Joy6",
+            "JoyLT", "JoyZMin",
+            "JoyRT", "JoyZMax",
+            "JoyLS", "Joy9",
+            "JoyRS", "Joy10",
+            "JoyBack", "Joy7",
+            "JoyStart", "Joy8",
+            "JoyDpadUp", "JoyPOV_0",
+            "JoyDpadRight", "JoyPOV_9000",
             "JoyDpadDown", "JoyPOV_18000",
-            "JoyDpadLeft", "JoyPOV_27000", 
-            "JoyAxisLXMin", "JoyXMin", 
-            "JoyAxisLXMax", "JoyXMax", 
-            "JoyAxisLYMin","JoyYMin",
-            "JoyAxisLYMax", "JoyYMax", 
-            "JoyAxisRXMin", "JoyUMin", 
-            "JoyAxisRXMax", "JoyUMax", 
+            "JoyDpadLeft", "JoyPOV_27000",
+            "JoyAxisLXMin", "JoyXMin",
+            "JoyAxisLXMax", "JoyXMax",
+            "JoyAxisLYMin", "JoyYMin",
+            "JoyAxisLYMax", "JoyYMax",
+            "JoyAxisRXMin", "JoyUMin",
+            "JoyAxisRXMax", "JoyUMax",
             "JoyAxisRYMin", "JoyRMin",
             "JoyAxisRYMax", "JoyRMax"
         )
@@ -678,6 +678,7 @@ class TextOpsData {
 
 class MouseWinData {
     __New() {
+        this.WinId := ""
         this.WinTitle := ""
         this.WinClass := ""
         this.WinProcess := ""
@@ -688,6 +689,7 @@ class MouseWinData {
         this.HasError := false
         MouseGetPos &mouseX, &mouseY, &winId
         try {
+            this.WinId := winId
             this.WinTitle := WinGetTitle(winId)
             this.WinClass := WinGetClass(winId)
             this.WinProcess := WinGetProcessName(winId)
@@ -703,6 +705,16 @@ class MouseWinData {
 
         if (FrontInfoStr == "" || this.HasError)
             return false
+
+        if (InStr(FrontInfoStr, "❖")) {
+            FrontInfoStr := StrReplace(FrontInfoStr, "❖")
+            hwndList := StrSplit(FrontInfoStr, "|")
+            for index, hwnd in hwndList {
+                if (this.WinId == hwnd)
+                    return true
+            }
+            return false
+        }
 
         infoArr := StrSplit(FrontInfoStr, "⎖")
         if (infoArr.Length != 3)

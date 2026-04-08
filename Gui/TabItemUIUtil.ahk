@@ -481,12 +481,6 @@ OnItemEditReplaceKey(tableItem, index, *) {
     MyReplaceKeyGui.ShowGui(replaceKey)
 }
 
-OnItemEditFrontInfo(tableItem, btn, *) {
-    index := tableItem.ConIndexMap[btn].index
-    frontInfoCon := tableItem.FrontInfoConArr[index]
-    MyFrontInfoGui.ShowGui(frontInfoCon)
-}
-
 OnItemMoveUp(tableItem, index, *) {
     if (index == 1) {
         MsgBox(GetLang("上面没有元素，无法上移！！！"))
@@ -524,7 +518,7 @@ OnFoldFrontInfoEdit(tableItem, FrontCon, con, *) {
     foldInfo := tableItem.FoldInfo
     foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
     MyFrontInfoGui.SureAction := () => foldInfo.FrontInfoArr[foldIndex] := FrontCon.text
-    MyFrontInfoGui.ShowGui(FrontCon)
+    MyFrontInfoGui.ShowGui(FrontCon, true)
 }
 
 OnFoldForbidChange(tableItem, con, *) {
