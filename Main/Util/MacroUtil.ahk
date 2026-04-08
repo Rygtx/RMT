@@ -164,6 +164,12 @@ OnSearchOnce(tableItem, Data, index) {
     CoordMode("Pixel", "Screen")
     ResX := 0
     ResY := 0
+    hwndList := []
+    isWin := Data.SearchType == 4 || Data.SearchType == 5 || Data.SearchType == 6
+    if (isWin) {
+        frontStr := GetParamsWinInfoStr(Data.TargetTitle)
+        hwndList := WinGetList(frontStr)
+    }
     if (Data.SearchType == 1) {     ;屏幕图片
         if (Data.SearchImageType == 1) {
             found := FindScreenImage(&ResX, &ResY, Data.SearchImagePath, X1, Y1, X2, Y2, Data.Similar)
@@ -185,18 +191,27 @@ OnSearchOnce(tableItem, Data, index) {
         found := FindScreenText(&ResX, &ResY, X1, Y1, X2, Y2, text, Data.OCRType)
     }
     else if (Data.SearchType == 4) {    ;窗口图片
-        hwnd := 30000
-        found := FindWinImage(&ResX, &ResY, Data.SearchImagePath, hwnd, X1, Y1, X2, Y2, Data.Similar)
+        for index, hwnd in hwndList {
+            found := FindWinImage(&ResX, &ResY, Data.SearchImagePath, hwnd, X1, Y1, X2, Y2, Data.Similar)
+            if (found)
+                break
+        }
     }
     else if (Data.SearchType == 5) {    ;窗口颜色
-        hwnd := 40000
-        found := FindWinColor(&ResX, &ResY, Data.SearchColor, hwnd, X1, Y1, X2, Y2, Data.Similar)
+        for index, hwnd in hwndList {
+            found := FindWinColor(&ResX, &ResY, Data.SearchColor, hwnd, X1, Y1, X2, Y2, Data.Similar)
+            if (found)
+                break
+        }
     }
     else if (Data.SearchType == 6) {    ;窗口文本
-        hwnd := 40000
         text := Data.SearchText
         hasValue := TryGetVariableValue(&text, tableItem, index, Data.SearchText, false)
-        found := FindWinText(&ResX, &ResY, hwnd, X1, Y1, X2, Y2, text, Data.OCRType)
+        for index, hwnd in hwndList {
+            found := FindWinText(&ResX, &ResY, hwnd, X1, Y1, X2, Y2, text, Data.OCRType)
+            if (found)
+                break
+        }
     }
 
     if (found) {
