@@ -4,6 +4,7 @@ class FrontInfoGui {
     __new() {
         this.Gui := ""
         this.InfoAction := () => this.RefreshMouseInfo()
+        this.HideAction := ""
         this.SureAction := ""
         this.winInfoCon := ""
         this.isFront := false   ;前台不支持句柄模式
@@ -95,14 +96,18 @@ class FrontInfoGui {
 
         PosY += 32
         PosX := 175
+        this.VarConArr := []
         this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量:"))
+        this.VarConArr.Push(this.VariTipCon)
 
         PosX += 45
         this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), [])
+        this.VarConArr.Push(this.VariCon)
 
         PosX += 135
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量值"))
         btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
+        this.VarConArr.Push(btnCon)
 
         PosY += 35
         PosX := 20
@@ -135,7 +140,7 @@ class FrontInfoGui {
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
+        MyGui.OnEvent("Close", this.OnClose.Bind(this))
         MyGui.Show(Format("w{} h{}", 500, 400))
     }
 
@@ -150,6 +155,15 @@ class FrontInfoGui {
             className, GetLang("进程名："),
             process)
             this.CurWinInfoCon.Value := tipStr
+        }
+    }
+
+    OnClose(*) {
+        this.ToggleFunc(false)
+        if (this.HideAction != "") {
+            action := this.HideAction
+            action()
+            this.HideAction := ""
         }
     }
 
@@ -222,6 +236,7 @@ class FrontInfoGui {
         this.winInfoCon.Value := this.GetInfoStr()
         this.ToggleFunc(false)
         this.Gui.Hide()
+        this.OnClose()
         if (this.SureAction != "") {
             action := this.SureAction
             action()
@@ -239,6 +254,10 @@ class FrontInfoGui {
 
         isHwndID := this.InfoTogArrCon[1].Value
         this.InfoTextArrCon[1].Enabled := isHwndID
+        loop this.VarConArr.Length {
+            con := this.VarConArr[A_Index]
+            con.Enabled := isHwndID
+        }
         loop 4 {
             if (A_Index == 1)
                 continue
@@ -293,7 +312,5 @@ class FrontInfoGui {
         }
 
         this.InfoTextArrCon[1].Text .= Symbol VarStr
-        this.InfoTogArrCon[1].Value := true
-        this.OnTogClick()
     }
 }
