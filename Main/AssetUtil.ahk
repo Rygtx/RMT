@@ -62,6 +62,30 @@ GetCurMSec() {
     return A_Hour * 3600 * 1000 + A_Min * 60 * 1000 + A_Sec * 1000 + A_mSec
 }
 
+GetHwndList(infoStr) {
+    HwndList := []
+    if (infoStr == "")
+        return HwndList
+
+    if (InStr(infoStr, "❖")) {
+        infoStr := StrReplace(infoStr, "❖")
+        hwndIdStrList := StrSplit(infoStr, "|")
+        for index, hwndIdStr in hwndIdStrList {
+            hasValue := TryGetVarValue(&hwnd, hwndIdStr)
+            if (hasValue)
+                HwndList.Push(hwnd)
+        }
+        return HwndList
+    }
+
+    paramStr := GetParamsWinInfoStr(infoStr)
+    if (paramStr == "")
+        return HwndList
+
+    HwndList := WinGetList(paramStr)
+    return HwndList
+}
+
 GetParamsWinInfoStr(infoStr, symbolStr := "default") {
     if (infoStr == "")
         return ""
@@ -1313,15 +1337,38 @@ GetReplaceVarText(tableItem, tableIndex, text) {
 
     ResText := text
     for index, value in matches {
-        hasValue := TryGetVariableValue(&variValue, tableItem, tableIndex, value, false)
+        hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, false)
         if (hasValue)
             ResText := StrReplace(ResText, "{" value "}", variValue)
     }
     return ResText
 }
 
-TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
+TryGetVarValue(&Value, variableName, variTip := true) {
+    if (IsNumber(variableName)) {
+        Value := Number(variableName)
+        return true
+    }
 
+    if (variableName == "当前鼠标坐标X" || variableName == "当前鼠标坐标Y") {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos &mouseX, &mouseY
+        Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+        return true
+    }
+
+    GlobalVariableMap := MySoftData.VariableMap
+    if (GlobalVariableMap.Has(variableName)) {
+        Value := GlobalVariableMap[variableName]
+        return true
+    }
+
+    if (variTip)
+        ShowNoVariableTip(variableName)
+    return false
+}
+
+TryGetTabVarValue(&Value, tableItem, index, variableName, variTip := true) {
     if (IsNumber(variableName)) {
         Value := Number(variableName)
         return true

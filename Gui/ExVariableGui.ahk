@@ -385,10 +385,10 @@ class ExVariableGui {
 
     TestExVariable(Data) {
         tableItem := MySoftData.SpecialTableItem
-        HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
-        HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
-        HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
-        HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+        HasX1 := TryGetTabVarValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetTabVarValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetTabVarValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetTabVarValue(&Y2, tableItem, 1, Data.EndPosY)
         if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
             return
 

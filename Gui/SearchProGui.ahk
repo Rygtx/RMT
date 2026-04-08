@@ -8,48 +8,11 @@ class SearchProGui {
         this.Gui := ""
         this.RuleMenu := ""
         this.SureBtnAction := ""
-        this.RemarkCon := ""
         this.PosAction := () => this.RefreshMouseInfo()
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
         this.CheckClipboardAction := () => this.CheckClipboard()
-        this.SelectToggleCon := ""
         this.Data := ""
-        this.ConfigDLCon := ""
-        this.MousePosCon := ""
-        this.MouseColorCon := ""
-        this.MouseColorTipCon := ""
-        this.StartPosXCon := ""
-        this.StartPosYCon := ""
-        this.EndPosXCon := ""
-        this.EndPosYCon := ""
-        this.ImageCon := ""
-        this.ImageBtn := ""
-        this.SimilarCon := ""
-        this.OCRLabelCon := ""
-        this.OCRTypeCon := ""
-        this.ScreenshotBtn := ""
-        this.ImageTypeTipCon := ""
-        this.ImageTypeCon := ""
-        this.ColorTipCon := ""
-        this.HexColorCon := ""
-        this.HexColorTipCon := ""
-        this.TextCon := ""
-        this.TextTipCon := ""
-        this.SearchCountCon := ""
-        this.SearchIntervalCon := ""
-        this.TrueMacroCon := ""
-        this.FalseMacroCon := ""
-        this.SearchTypeCon := ""
-        this.MouseActionTypeCon := ""
-        this.ClickCountCon := ""
-        this.SpeedCon := ""
-        this.ResultToggleCon := ""
-        this.ResultSaveNameCon := ""
-        this.TrueValueCon := ""
-        this.FalseValueCon := ""
-        this.CoordToogleCon := ""
-        this.CoordXNameCon := ""
-        this.CoordYNameCon := ""
+        this.LastIsWin := ""    ;上次是窗口搜索类型
         this.MacroGui := ""
 
         this.ConfigDLArr := []
@@ -193,8 +156,7 @@ class SearchProGui {
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("鼠标动作："))
         PosX += 80
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 160),
-        GetLangArr(["无动作",
-            "移动至目标", "移动至目标点击"]))
+        GetLangArr(["无动作", "移动至目标", "移动至目标点击"]))
         this.MouseActionTypeCon.Value := 1
         this.MouseActionTypeCon.OnEvent("Change", this.OnChangeType.Bind(this))
         PosY += 35
@@ -274,7 +236,7 @@ class SearchProGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 70, 30), GetLang("选择图片"))
         btnCon.OnEvent("Click", (*) => this.OnClickSetPicBtn())
         btnCon.Focus()
-        this.ImageBtn := btnCon
+        this.ImageSelectBtn := btnCon
 
         PosX += 80
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("截图"))
@@ -283,15 +245,16 @@ class SearchProGui {
 
         PosY += 35
         PosX := 360
-        this.ImageTypeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("识别模型："))
+        this.SearchImageTypeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("识别模型："))
         PosX += 80
-        this.ImageTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), ["OpenCV",
+        this.SearchImageTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), [
+            "OpenCV",
             "RMT识图"])
         this.ImageCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", 570, 145, 100, 100), "")
 
         PosY += 35
         PosX := 360
-        this.ColorTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索颜色："))
+        this.ColorLabelCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索颜色："))
         PosX += 80
         this.HexColorCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 120), "FFFFFF")
         PosX += 130
@@ -363,7 +326,7 @@ class SearchProGui {
         this.SearchTypeCon.Value := this.Data.SearchType
         this.SimilarCon.Value := this.Data.Similar
         this.OCRTypeCon.Value := this.Data.OCRType
-        this.ImageTypeCon.Value := this.Data.SearchImageType
+        this.SearchImageTypeCon.Value := this.Data.SearchImageType
         this.ImageCon.GetPos(&imagePosX, &imagePosY)
         this.ImageCon.Value := this.Data.SearchImagePath
         this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
@@ -387,7 +350,6 @@ class SearchProGui {
         this.SearchCountCon.Add([GetLang("无限")])
         this.SearchCountCon.Text := this.Data.SearchCount == -1 ? GetLang("无限") : this.Data.SearchCount
         this.SearchIntervalCon.Value := this.Data.SearchInterval
-        this.MouseActionTypeCon.Value := this.Data.MouseActionType
         this.SpeedCon.Value := this.Data.Speed
         this.ClickCountCon.Value := this.Data.ClickCount
         this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
@@ -405,6 +367,13 @@ class SearchProGui {
         this.CoordYNameCon.Delete()
         this.CoordYNameCon.Add(RemoveInVariable(this.DLVariableArr))
         this.CoordYNameCon.Text := this.Data.CoordYName
+
+        curType := this.SearchTypeCon.Value
+        isWin := curType == 4 || curType == 5 || curType == 6
+        this.LastIsWin := isWin
+        MouseDLArr := isWin ? GetLangArr(["无动作", "后台鼠标至目标点击"]) : GetLangArr(["无动作", "移动至目标", "移动至目标点击"])
+        SetDLConValue(this.MouseActionTypeCon, MouseDLArr, GetLang("无动作"))
+        this.MouseActionTypeCon.Value := this.Data.MouseActionType
         this.OnChangeType()
     }
 
@@ -502,7 +471,7 @@ class SearchProGui {
             LastConfig.SearchImagePath := this.Data.SearchImagePath
             LastConfig.Similar := this.SimilarCon.Value
             LastConfig.OCRType := this.OCRTypeCon.Value
-            LastConfig.SearchImageType := this.ImageTypeCon.Value
+            LastConfig.SearchImageType := this.SearchImageTypeCon.Value
             LastConfig.StartPosX := this.StartPosXCon.Text
             LastConfig.StartPosY := this.StartPosYCon.Text
             LastConfig.EndPosX := this.EndPosXCon.Text
@@ -569,7 +538,7 @@ class SearchProGui {
         LastConfig.SearchImagePath := this.Data.SearchImagePath
         LastConfig.Similar := this.SimilarCon.Value
         LastConfig.OCRType := this.OCRTypeCon.Value
-        LastConfig.SearchImageType := this.ImageTypeCon.Value
+        LastConfig.SearchImageType := this.SearchImageTypeCon.Value
         LastConfig.StartPosX := this.StartPosXCon.Text
         LastConfig.StartPosY := this.StartPosYCon.Text
         LastConfig.EndPosX := this.EndPosXCon.Text
@@ -895,16 +864,16 @@ class SearchProGui {
         isWin := curType == 4 || curType == 5 || curType == 6
         showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageBtn.Enabled := isImage
+        this.ImageSelectBtn.Enabled := isImage
         this.ScreenshotBtn.Enabled := isImage
-        this.ImageTypeCon.Enabled := isImage && A_PtrSize == 8
-        this.ImageTypeTipCon.Enabled := isImage
+        this.SearchImageTypeCon.Enabled := isImage && A_PtrSize == 8
+        this.SearchImageTypeTipCon.Enabled := isImage
         this.ImageCon.Enabled := isImage
         if (A_PtrSize != 8)
-            this.ImageTypeCon.Value := 2
+            this.SearchImageTypeCon.Value := 2
 
         this.HexColorCon.Enabled := isColor
-        this.ColorTipCon.Enabled := isColor
+        this.ColorLabelCon.Enabled := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
@@ -920,14 +889,21 @@ class SearchProGui {
         this.SetConArrState(this.SimilarArr, !isText)
         this.SetConArrState(this.WinInfoArr, isWin)
 
+        if (!this.LastIsWin && isWin) {
+            SetDLConValue(this.MouseActionTypeCon, GetLangArr(["无动作", "后台鼠标至目标点击"]), GetLang("无动作"))
+        }
+        if (this.LastIsWin && !isWin) {
+            SetDLConValue(this.MouseActionTypeCon, GetLangArr(["无动作", "移动至目标", "移动至目标点击"]), GetLang("无动作"))
+        }
+
         CountValue := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
         isCount := IsNumber(CountValue) && (CountValue == -1 || CountValue > 1)
         this.SetConArrState(this.CountTogArr, isCount)
 
-        isMouseSpeed := this.MouseActionTypeCon.Value != 1
+        isMouseSpeed := this.MouseActionTypeCon.Value != 1 && !isWin
         this.SetConArrState(this.MouseSpeedArr, isMouseSpeed)
 
-        isMouseClick := this.MouseActionTypeCon.Value == 3
+        isMouseClick := this.MouseActionTypeCon.Value == 3 || (isWin && this.MouseActionTypeCon.Value == 2)
         this.SetConArrState(this.MouseClickArr, isMouseClick)
 
         isSaveResult := this.ResultToggleCon.Value
@@ -935,6 +911,8 @@ class SearchProGui {
 
         isCoord := this.CoordToogleCon.Value
         this.SetConArrState(this.CoordTogArr, isCoord)
+
+        this.LastIsWin := isWin
     }
 
     SetConArrState(ConArr, state) {
@@ -991,7 +969,7 @@ class SearchProGui {
         data := this.Data
         data.Similar := this.SimilarCon.Value
         data.OCRType := this.OCRTypeCon.Value
-        data.SearchImageType := this.ImageTypeCon.Value
+        data.SearchImageType := this.SearchImageTypeCon.Value
         data.SearchType := this.SearchTypeCon.Value
         data.WinInfo := this.WinInfoCon.Value
         data.SearchColor := this.HexColorCon.Value
