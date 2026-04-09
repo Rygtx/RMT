@@ -33,7 +33,7 @@ OnOpen() {
 
     if (MySoftData.IsMinStart) {
         MySoftData.IsMinStart := false
-        MySoftData.MyGui.Hide()
+        MySoftData.Gui.Hide()
         return
     }
 
@@ -989,5 +989,5 @@ CustomTrayMenu() {
     A_TrayMenu.ClickCount := 1
     A_TrayMenu.Default := GetLang("显示窗口")
     A_IconHidden := 0   ;0(可见) 和 1(隐藏)
-    TraySetIcon(, , true)
+    TraySetIcon("Images\Soft\rabit.ico")
 }

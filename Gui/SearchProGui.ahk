@@ -326,6 +326,7 @@ class SearchProGui {
         this.SearchTypeCon.Value := this.Data.SearchType
         this.SimilarCon.Value := this.Data.Similar
         this.OCRTypeCon.Value := this.Data.OCRType
+        this.WinInfoCon.Value := this.Data.WinInfo
         this.SearchImageTypeCon.Value := this.Data.SearchImageType
         this.ImageCon.GetPos(&imagePosX, &imagePosY)
         this.ImageCon.Value := this.Data.SearchImagePath
