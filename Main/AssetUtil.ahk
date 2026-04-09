@@ -1382,6 +1382,16 @@ TryGetTabVarValue(&Value, tableItem, index, variableName, variTip := true) {
         return true
     }
 
+    if (variableName == "句柄ID") {
+        winId := 0
+        try {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY, &winId
+        }
+        Value := winId
+        return true
+    }
+
     TableVariableMap := tableItem.VariableMapArr[index]
     if (TableVariableMap.Has(variableName)) {
         Value := TableVariableMap[variableName]

@@ -43,6 +43,11 @@ class VariableGui {
         PosX += 200
         this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
             "如果变量存在则不改变数值"))
+
+        PosX += 200
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX, PosY - 4), "?")
+        Con.OnEvent("Click", this.OnClickTypeHelpBtn.Bind(this))
+
         {
             PosX := 10
             PosY += 30
@@ -224,6 +229,17 @@ class VariableGui {
             this.MinVariableConArr[A_Index].Enabled := EnableMinMax
             this.MaxVariableConArr[A_Index].Enabled := EnableMinMax
         }
+    }
+
+    OnClickTypeHelpBtn(*) {
+        str1 := GetLang("循环次数：如指令上级存在 循环 指令，则该变量为该循环体执行的次数")
+        str2 := GetLang("宏循环次数：配置整体执行的次数")
+        str3 := GetLang("句柄ID：实时获取当前鼠标窗口句柄ID")
+        str4 := GetLang("当前鼠标坐标X：实时获取当前鼠标X")
+        str5 := GetLang("当前鼠标坐标Y：实时获取当前鼠标Y")
+
+        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        MsgBox(str, GetLang("变量信息说明"), "Owner" this.Gui.Hwnd)
     }
 
     OnClickSureBtn() {
