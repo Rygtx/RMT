@@ -13,10 +13,10 @@ class CompareProGui {
         this.ContextMenu := ""
 
         this.CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在"])
+            "小于", "字符包含", "变量存在", "正则匹配"])
 
         this.CompareTypeStrMap := Map(GetLang("大于"), 1, GetLang("大于等于"), 2, GetLang("等于"), 3, GetLang("小于等于"),
-        4, GetLang("小于"), 5, GetLang("字符包含"), 6, GetLang("变量存在"), 7)
+        4, GetLang("小于"), 5, GetLang("字符包含"), 6, GetLang("变量存在"), 7, GetLang("正则匹配"), 8)
 
         this.Data := ""
     }

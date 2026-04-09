@@ -113,7 +113,6 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
     }
 }
 
-
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
@@ -136,7 +135,8 @@ OnCompare(tableItem, cmd, index) {
         if (!Data.ToggleArr[A_Index])
             continue
 
-        if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
+        CompareType := Data.CompareTypeArr[A_Index]
+        if (CompareType == 7) {        ;变量是否存在
             hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
             currentComparison := hasValue
         }
@@ -144,7 +144,7 @@ OnCompare(tableItem, cmd, index) {
             hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
             if (!hasValue)
                 return
-            if (Data.CompareTypeArr[A_Index] == 6 || Data.CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
+            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
                 hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
                 hasOtherValue := true
@@ -163,6 +163,7 @@ OnCompare(tableItem, cmd, index) {
                 case 4: currentComparison := Value <= OtherValue
                 case 5: currentComparison := Value < OtherValue
                 case 6: currentComparison := CheckContainText(Value, OtherValue)
+                case 8: currentComparison := RegExMatch(Value, OtherValue)
             }
         }
 
@@ -203,15 +204,15 @@ OnComparePro(tableItem, cmd, index) {
         Macro := Data.MacroArr[A_Index]
         result := LogicType == 1 ? true : false
         loop NameArr.Length {
-            if (CompareTypeArr[A_Index] == 7) {
+            CompareType := CompareTypeArr[A_Index]
+            if (CompareType == 7) {
                 hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index], false)
                 currentComparison := hasValue
             }
             else {
                 hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index])
-                if (CompareTypeArr[A_Index] == 6 || CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
-                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index],
-                        false)
+                if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
+                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index], false)
                     OtherValue := hasOtherValue ? OtherValue : VariableArr[A_Index]
                     hasOtherValue := true
                 }
@@ -230,6 +231,7 @@ OnComparePro(tableItem, cmd, index) {
                     case 4: currentComparison := Value <= OtherValue
                     case 5: currentComparison := Value < OtherValue
                     case 6: currentComparison := CheckContainText(Value, OtherValue)
+                    case 8: currentComparison := RegExMatch(Value, OtherValue)
                 }
             }
 

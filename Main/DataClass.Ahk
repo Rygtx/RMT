@@ -425,7 +425,7 @@ class CompareData {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
+        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量 8正则匹配
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.TrueMacro := ""
         this.FalseMacro := ""
