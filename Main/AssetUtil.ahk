@@ -390,6 +390,9 @@ LoadMainSetting() {
     MySoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
     MySoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
     MySoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
+    MySoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
+    MySoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)
+    MySoftData.VarListenHeight := IniRead(IniFile, IniSection, "VarListenHeight", 420)
     MySoftData.MacroTotalCount := IniRead(IniFile, IniSection, "MacroTotalCount", 0)
     MySoftData.LastShowMonth := IniRead(IniFile, IniSection, "LastShowMonth", A_Mon)
 

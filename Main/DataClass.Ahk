@@ -279,6 +279,11 @@ class SoftData {
         this.CMDFontSize := "12"
         this.CMDFontColor := "000000"
 
+        ;变量监视器窗口大小
+        this.VarListenTop := false
+        this.VarListenWidth := 400
+        this.VarListenHeight := 420
+
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
         this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
             "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
