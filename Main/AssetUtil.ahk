@@ -1347,7 +1347,7 @@ GetReplaceVarText(tableItem, tableIndex, text) {
     return ResText
 }
 
-TryGetVarValue(&Value, varName, variTip := true, tableVarMap := {}) {
+TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
     if (IsNumber(varName)) {
         Value := Number(varName)
         return true
