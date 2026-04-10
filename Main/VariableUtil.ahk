@@ -92,7 +92,7 @@ SetGlobalData(macroStr, visitMap) {
     }
 }
 
-;mode 1-所有 2-循环次数 3-坐标 4-句柄ID 5-颜色
+;mode 0自定义 1-所有 2-循环次数 3-坐标 4-句柄ID 5-颜色
 GetGuiVarArr(Mode := 0) {
     ResultArr := []
     ResultMap := Map()
@@ -138,7 +138,7 @@ GetGuiVarArr(Mode := 0) {
         }
     }
 
-    ResultArr.Push(SpecialKeyArr1*)
+    ResultArr.Push(SpecialKeyArr*)
     return ResultArr
 }
 

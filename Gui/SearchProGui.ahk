@@ -257,7 +257,7 @@ class SearchProGui {
         PosX := 360
         this.ColorLabelCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索颜色："))
         PosX += 80
-        this.HexColorCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 120), "FFFFFF")
+        this.HexColorCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center R5", PosX, PosY - 3, 120), [])
         PosX += 130
         this.HexColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
 
@@ -335,7 +335,9 @@ class SearchProGui {
         this.ImageCon.GetPos(&imagePosX, &imagePosY)
         this.ImageCon.Value := this.Data.SearchImagePath
         this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
-        this.HexColorCon.Value := this.Data.SearchColor
+        this.HexColorCon.Delete()
+        this.HexColorCon.Add(this.DLVariableArr)
+        this.HexColorCon.Text := this.Data.SearchColor
         this.TextCon.Delete()
         this.TextCon.Add(this.DLVariableArr)
         this.TextCon.Text := this.Data.SearchText
@@ -472,7 +474,7 @@ class SearchProGui {
             LastConfig := Object()
             LastConfig.ConfigName := this.Data.ConfigName
             LastConfig.SearchType := this.SearchTypeCon.Value
-            LastConfig.SearchColor := this.HexColorCon.Value
+            LastConfig.SearchColor := this.HexColorCon.Text
             LastConfig.SearchText := this.TextCon.Text
             LastConfig.SearchImagePath := this.Data.SearchImagePath
             LastConfig.Similar := this.SimilarCon.Value
@@ -539,7 +541,7 @@ class SearchProGui {
         LastConfig := Object()
         LastConfig.ConfigName := this.Data.ConfigName
         LastConfig.SearchType := this.SearchTypeCon.Value
-        LastConfig.SearchColor := this.HexColorCon.Value
+        LastConfig.SearchColor := this.HexColorCon.Text
         LastConfig.SearchText := this.TextCon.Text
         LastConfig.SearchImagePath := this.Data.SearchImagePath
         LastConfig.Similar := this.SimilarCon.Value
@@ -643,10 +645,10 @@ class SearchProGui {
             }
         }
 
-        if (isColor && !RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            MsgBox(GetLang("请输入正确的颜色值"))
-            return false
-        }
+        ; if (isColor && !RegExMatch(this.HexColorCon.Text, "^([0-9A-Fa-f]{6})$")) {
+        ;     MsgBox(GetLang("请输入正确的颜色值"))
+        ;     return false
+        ; }
 
         if (isText) {
             if (this.StartPosXCon.Text == this.EndPosXCon.Text) ||
@@ -705,10 +707,10 @@ class SearchProGui {
 
     OnSureTarget(PosX, PosY, Color) {
         ColorText := StrReplace(Color, "0x", "")
-        this.HexColorCon.Value := ColorText
+        this.HexColorCon.Text := ColorText
         this.HexColor := ColorText
         this.HexColorTipCon.Visible := true
-        this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
+        this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
         this.HexColorTipCon.Redraw()
         this.OnSetSearchArea(PosX, PosY, PosX, PosY)
     }
@@ -871,7 +873,7 @@ class SearchProGui {
         isText := curType == 3 || curType == 6
         isWin := curType == 4 || curType == 5 || curType == 6
         isInfinite := this.SearchCountCon.Text == GetLang("无限")
-        showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
+        showColorTip := isColor && RegExMatch(this.HexColorCon.Text, "^([0-9A-Fa-f]{6})$")
 
         this.ImageSelectBtn.Enabled := isImage
         this.ScreenshotBtn.Enabled := isImage
@@ -885,7 +887,7 @@ class SearchProGui {
         this.ColorLabelCon.Enabled := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
-            this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
+            this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
             this.HexColorTipCon.Redraw()
         }
 
@@ -894,8 +896,6 @@ class SearchProGui {
         this.OCRTypeCon.Enabled := isText
         this.TextTipCon.Enabled := isText
         this.MousePosCon.Focus()
-    
-        
 
         this.SetConArrState(this.SimilarArr, !isText)
         this.SetConArrState(this.WinInfoArr, isWin)
@@ -982,10 +982,10 @@ class SearchProGui {
         CoordMode("Pixel", "Screen")
         Color := PixelGetColor(mouseX, mouseY, "Slow")
         ColorText := StrReplace(Color, "0x", "")
-        this.HexColorCon.Value := ColorText
+        this.HexColorCon.Text := ColorText
         this.HexColor := ColorText
         this.HexColorTipCon.Visible := true
-        this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
+        this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
         this.HexColorTipCon.Redraw()
         this.OnSetSearchArea(mouseX, mouseY, mouseX, mouseY)
     }
@@ -997,7 +997,7 @@ class SearchProGui {
         data.SearchImageType := this.SearchImageTypeCon.Value
         data.SearchType := this.SearchTypeCon.Value
         data.WinInfo := this.WinInfoCon.Value
-        data.SearchColor := this.HexColorCon.Value
+        data.SearchColor := this.HexColorCon.Text
         data.SearchText := this.TextCon.Text
         data.StartPosX := this.StartPosXCon.Text
         data.StartPosY := this.StartPosYCon.Text
