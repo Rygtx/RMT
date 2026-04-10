@@ -586,6 +586,7 @@ class ExVariableData {
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
         this.ExtractStr := ""
         this.ExtractType := 1
+        this.WinInfo := ""
         this.OCRType := 1
         this.StartPosX := 0
         this.StartPosY := 0

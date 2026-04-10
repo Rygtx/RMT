@@ -705,7 +705,6 @@ SaveTableItemMacro(index) {
 GetSavedTableItemInfo(index) {
     Saved := MySoftData.MyGui.Submit()
     TKArrStr := ""
-    MacroArrStr := ""
     ModeArrStr := ""
     HoldTimeArrStr := ""
     ForbidArrStr := ""

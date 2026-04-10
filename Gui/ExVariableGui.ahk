@@ -12,16 +12,7 @@ class ExVariableGui {
         this.IsIgnoreExistCon := ""
         this.ToggleConArr := []
         this.VariableConArr := []
-        this.SelectToggleCon := ""
-        this.ExtractStrCon := ""
-        this.ExtractTypeCon := ""
-        this.StartPosXCon := ""
-        this.StartPosYCon := ""
-        this.EndPosXCon := ""
-        this.EndPosYCon := ""
-        this.SearchCountCon := ""
-        this.SearchIntervalCon := ""
-        this.OCRTypeCon := ""
+        this.WinInfoArr := []
         this.Data := ""
 
         this.OCROptConArr := []
@@ -66,14 +57,26 @@ class ExVariableGui {
         PosX := 20
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 3, 75), GetLang("提取来源："))
         this.ExtractTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 75, PosY - 2, 75), GetLangArr([
-            "屏幕", "剪切板"]))
+            "屏幕", "剪切板", "窗口"]))
         this.ExtractTypeCon.OnEvent("Change", this.OnTypeChange.Bind(this))
         this.ExtractTypeCon.Value := 1
 
-        PosX += 180
+        PosX := 200
+        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
+        this.WinInfoArr.Push(con)
+        PosX += 80
+        this.WinInfoCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 150), "")
+        this.WinInfoArr.Push(this.WinInfoCon)
+        PosX += 160
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 27), GetLang("编辑"))
+        btnCon.OnEvent("Click", this.OnClickWinEditBtn.Bind(this))
+        this.WinInfoArr.Push(btnCon)
+
+        PosX := 20
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("提取文本："))
-        this.ExtractStrCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 75, PosY - 3, 190), "")
-        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX + 270, PosY - 4, 50), "编辑")
+        this.ExtractStrCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 75, PosY - 3, 335), "")
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX + 420, PosY - 4, 50), "编辑")
         con.OnEvent("Click", this.OnClickExtractBtn.Bind(this))
 
         PosX := 20
@@ -82,9 +85,9 @@ class ExVariableGui {
         PosX += 75
         this.SearchCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 75))
 
-        PosX := 200
+        PosX += 105
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("每次间隔："))
-        this.SearchIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 75, PosY - 5, 50))
+        this.SearchIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 75, PosY - 5, 75))
 
         PosX := 10
         PosY += 30
@@ -212,13 +215,13 @@ class ExVariableGui {
         con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
         this.VariableConArr.Push(con)
 
-        PosY += 40
+        PosY += 45
         PosX := 210
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 560, 405))
+        MyGui.Show(Format("w{} h{}", 560, 450))
     }
 
     Init(cmd) {
@@ -244,6 +247,7 @@ class ExVariableGui {
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.ExtractStrCon.Value := this.Data.ExtractStr
         this.ExtractTypeCon.Value := this.Data.ExtractType
+        this.WinInfoCon.Value := this.Data.WinInfo
         this.OCRTypeCon.Value := this.Data.OCRType
 
         this.StartPosXCon.Delete()
@@ -277,10 +281,20 @@ class ExVariableGui {
     }
 
     OnTypeChange(*) {
-        isEnable := this.ExtractTypeCon.Value == 1
+        isScreen := this.ExtractTypeCon.Value == 1
+        isWin := this.ExtractTypeCon.Value == 3
         for index, value in this.OCROptConArr {
-            value.Enabled := isEnable
+            value.Enabled := isScreen
         }
+
+        for index, value in this.WinInfoArr {
+            value.Enabled := isWin
+        }
+    }
+
+    OnClickWinEditBtn(*) {
+        MyFrontInfoGui.HideAction := () => this.ToggleFunc(true)
+        MyFrontInfoGui.ShowGui(this.WinInfoCon)
     }
 
     OnClickExtractBtn(*) {
@@ -323,13 +337,22 @@ class ExVariableGui {
 
     OnSetSearchArea(x1, y1, x2, y2) {
         this.SelectToggleCon.Value := 0
-        this.StartPosXCon.Text := x1
-        this.StartPosYCon.Text := y1
-        this.EndPosXCon.Text := x2
-        this.EndPosYCon.Text := y2
+        isWin := this.ExtractTypeCon.Value == 3
+        Point1 := isWin ? GetWinPos(x1, y1) : [x1, y1]
+        Point2 := isWin ? GetWinPos(x2, y2) : [x2, y2]
+
+        this.StartPosXCon.Text := Point1[1]
+        this.StartPosYCon.Text := Point1[2]
+        this.EndPosXCon.Text := Point2[1]
+        this.EndPosYCon.Text := Point2[2]
     }
 
     CheckIfValid() {
+        if (this.ExtractTypeCon.Value == 3 && this.WinInfoCon.Value == "") {
+            MsgBox(GetLang("目标窗口信息不能为空"))
+            return false
+        }
+
         if (!InStr(this.ExtractStrCon.Value, "&x") && !InStr(this.ExtractStrCon.Value, "&c")) {
             if (this.ExtractStrCon.Value != "") {
                 MsgBox(GetLang("提取文本：不包含&x 或 &c 无法提取内容到变量中"))
@@ -396,7 +419,7 @@ class ExVariableGui {
             TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
             TextObjs := TextObjs == "" ? [] : TextObjs
         }
-        else {
+        else if (Data.ExtractType == 2) {
             TextObjs := []
             if (!IsClipboardText())
                 return
@@ -404,6 +427,21 @@ class ExVariableGui {
             obj := Object()
             obj.Text := A_Clipboard
             TextObjs.Push(obj)
+        }
+        else if (Data.ExtractType == 3) {
+            HasX1 := TryGetTabVarValue(&X1, tableItem, 1, Data.StartPosX)
+            HasY1 := TryGetTabVarValue(&Y1, tableItem, 1, Data.StartPosY)
+            HasX2 := TryGetTabVarValue(&X2, tableItem, 1, Data.EndPosX)
+            HasY2 := TryGetTabVarValue(&Y2, tableItem, 1, Data.EndPosY)
+            if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+                return
+            TextObjs := []
+            hwndList := GetHwndList(Data.WinInfo)
+            loop hwndList.Length {
+                CurWinTextObjs := GetWinTextObjArr(hwndList[A_Index], X1, Y1, X2, Y2, Data.OCRType)
+                if (CurWinTextObjs != "")
+                    TextObjs.Push(CurWinTextObjs*)
+            }
         }
 
         allText := ""
@@ -455,6 +493,7 @@ class ExVariableGui {
     SaveExVariableData() {
         this.Data.ExtractStr := this.ExtractStrCon.Value
         this.Data.ExtractType := this.ExtractTypeCon.Value
+        this.Data.WinInfo := this.WinInfoCon.Value
         this.Data.OCRType := this.OCRTypeCon.Value
         this.Data.StartPosX := this.StartPosXCon.Text
         this.Data.StartPosY := this.StartPosYCon.Text

@@ -593,13 +593,28 @@ OnExVariableOnce(tableItem, index, Data) {
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
         TextObjs := TextObjs == "" ? [] : TextObjs
     }
-    else {
+    else if (Data.ExtractType == 2) {
         TextObjs := []
         if (!IsClipboardText())
             return
         obj := Object()
         obj.Text := A_Clipboard
         TextObjs.Push(obj)
+    }
+    else if (Data.ExtractType == 3) {
+        HasX1 := TryGetTabVarValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetTabVarValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetTabVarValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetTabVarValue(&Y2, tableItem, 1, Data.EndPosY)
+        if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+            return
+        TextObjs := []
+        hwndList := GetHwndList(Data.WinInfo)
+        loop hwndList.Length {
+            CurWinTextObjs := GetWinTextObjArr(hwndList[A_Index], X1, Y1, X2, Y2, Data.OCRType)
+            if (CurWinTextObjs != "")
+                TextObjs.Push(CurWinTextObjs*)
+        }
     }
 
     isOk := false

@@ -59,7 +59,6 @@ SearchOnce(tableItem, Data, index) {
 
     ; 执行搜索
     ResXList := [], ResYList := [], ResHwndList := []
-    isWin := Data.SearchType == 4 || Data.SearchType == 5 || Data.SearchType == 6
     found := DoSearch(Data, X1, Y1, X2, Y2, Text, &ResX, &ResY, &ResXList, &ResYList, &ResHwndList)
 
     ; 处理搜索结果

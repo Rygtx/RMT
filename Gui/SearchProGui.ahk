@@ -23,6 +23,7 @@ class SearchProGui {
         this.MouseClickArr := []
         this.ResultTogArr := []
         this.CoordTogArr := []
+        this.FalseConArr := []
     }
 
     ShowGui(cmd) {
@@ -275,13 +276,16 @@ class SearchProGui {
 
         PosY += 35
         PosX := 360
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
+        con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
+        this.FalseConArr.Push(con)
         PosX += 180
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 25), GetLang("编辑"))
         btnCon.OnEvent("Click", (*) => this.OnEditUnFoundMacroBtnClick())
+        this.FalseConArr.Push(btnCon)
         PosY += 20
         PosX := 360
         this.FalseMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 330, 80), "")
+        this.FalseConArr.Push(this.FalseMacroCon)
 
         PosY += 90
         PosX := 360
@@ -866,6 +870,7 @@ class SearchProGui {
         isColor := curType == 2 || curType == 5
         isText := curType == 3 || curType == 6
         isWin := curType == 4 || curType == 5 || curType == 6
+        isInfinite := this.SearchCountCon.Text == GetLang("无限")
         showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
 
         this.ImageSelectBtn.Enabled := isImage
@@ -889,9 +894,12 @@ class SearchProGui {
         this.OCRTypeCon.Enabled := isText
         this.TextTipCon.Enabled := isText
         this.MousePosCon.Focus()
+    
+        
 
         this.SetConArrState(this.SimilarArr, !isText)
         this.SetConArrState(this.WinInfoArr, isWin)
+        this.SetConArrState(this.FalseConArr, !isInfinite)
 
         if (!this.LastIsWin && isWin) {
             SetDLConValue(this.MouseActionTypeCon, GetLangArr(["无动作", "后台鼠标至目标点击", "后台鼠标至目标双击"]), GetLang("无动作"))
