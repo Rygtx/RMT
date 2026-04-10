@@ -31,3 +31,4 @@ PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
     
+    
