@@ -84,6 +84,13 @@ GetHwndList(infoStr) {
         return HwndList
 
     HwndList := WinGetList(paramStr)
+
+    loop HwndList.Length {
+        index := HwndList.Length - A_Index + 1
+        if (HwndList[index] == 0)
+            HwndList.RemoveAt(index)
+    }
+
     return HwndList
 }
 
