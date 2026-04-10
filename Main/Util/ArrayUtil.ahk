@@ -143,7 +143,7 @@ GetCmdArray(Data, tableItem, index, variTip := true) {
 
     ResArr := MySoftData.ArrayMap[Data.Name]
     if (Data.MainIndex != 0) {
-        isHas := TryGetVariableValue(&Value, tableItem, index, Data.MainIndex, variTip)
+        isHas := TryGetTabVarValue(&Value, tableItem, index, Data.MainIndex, variTip)
         if (!isHas)
             return ""
 
@@ -206,7 +206,7 @@ ArrayCheckIfContain(Data, tableItem, index) {
         return
 
     if (Data.ArgsType == "变量或值") {
-        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        isHas := TryGetTabVarValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
             return
 
@@ -247,8 +247,8 @@ ArrayGetIndexValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
-    isHas := TryGetVariableValue(&GetIndex, tableItem, index, Data.ArgsIndex, true)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    isHas := TryGetTabVarValue(&GetIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
@@ -275,8 +275,8 @@ ArrayModifyIndexValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
-    isHas := TryGetVariableValue(&SetIndex, tableItem, index, Data.ArgsIndex, true)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    isHas := TryGetTabVarValue(&SetIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
@@ -292,7 +292,7 @@ ArrayModifyIndexValue(Data, tableItem, index) {
     }
 
     if (Data.ArgsType == "变量或值") {
-        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        isHas := TryGetTabVarValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
             return
         MyModifyGlobalArray(Data.Name, MainIndex, SetIndex, 0, Value)
@@ -313,14 +313,14 @@ ArrayInsertIndexValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
-    isHas := TryGetVariableValue(&InsertIndex, tableItem, index, Data.ArgsIndex, true)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    isHas := TryGetTabVarValue(&InsertIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
     if (SourceArr.Length < InsertIndex) {
         if (MySoftData.NoVariableTip) {
-            TryGetVariableValue(&SubIndex, tableItem, index, Data.MainIndex, false)
+            TryGetTabVarValue(&SubIndex, tableItem, index, Data.MainIndex, false)
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
             str1 := SubIndex == 0 ? tip1 : tip2
@@ -331,7 +331,7 @@ ArrayInsertIndexValue(Data, tableItem, index) {
     }
 
     if (Data.ArgsType == "变量或值") {
-        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        isHas := TryGetTabVarValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
             return
         MyInsertGlobalArray(Data.Name, MainIndex, InsertIndex, 0, Value)
@@ -353,9 +353,9 @@ ArrayPushValue(Data, tableItem, index) {
         return
 
     PushIndex := SourceArr.Length + 1
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (Data.ArgsType == "变量或值") {
-        isHas := TryGetVariableValue(&Value, tableItem, index, Data.ArgsName, true)
+        isHas := TryGetTabVarValue(&Value, tableItem, index, Data.ArgsName, true)
         if (!isHas)
             return
         MyInsertGlobalArray(Data.Name, MainIndex, PushIndex, 0, Value)
@@ -376,11 +376,11 @@ ArrayRemoveAtIndex(Data, tableItem, index) {
     if (SourceArr == "")
         return
 
-    isHas := TryGetVariableValue(&RemoveIndex, tableItem, index, Data.ArgsIndex, true)
+    isHas := TryGetTabVarValue(&RemoveIndex, tableItem, index, Data.ArgsIndex, true)
     if (!isHas)
         return
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (SourceArr.Length < RemoveIndex) {
         if (MySoftData.NoVariableTip) {
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
@@ -418,7 +418,7 @@ ArrayPopValue(Data, tableItem, index) {
         return
     }
 
-    TryGetVariableValue(&MainIndex, tableItem, index, Data.MainIndex, false)
+    TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     Value := SourceArr[SourceArr.Length]
     MyRemoveAtGlobalArray(Data.Name, MainIndex, SourceArr.Length)
 

@@ -12,7 +12,9 @@
 #Include Util\ArrayUtil.ahk
 #Include Util\ExpressUtil.ahk
 #Include Util\InputUtil.ahk
+#Include Util\SearchUtil.ahk
 #Include Util\MacroUtil.ahk
+#Include Util\PluginUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
@@ -61,9 +63,43 @@ GetCurMSec() {
     return A_Hour * 3600 * 1000 + A_Min * 60 * 1000 + A_Sec * 1000 + A_mSec
 }
 
-GetParamsWinInfoStr(infoStr) {
+GetHwndList(infoStr) {
+    HwndList := []
+    if (infoStr == "")
+        return HwndList
+
+    if (InStr(infoStr, "❖")) {
+        infoStr := StrReplace(infoStr, "❖")
+        hwndIdStrList := StrSplit(infoStr, "|")
+        for index, hwndIdStr in hwndIdStrList {
+            hasValue := TryGetVarValue(&hwnd, hwndIdStr)
+            if (hasValue)
+                HwndList.Push(hwnd)
+        }
+        return HwndList
+    }
+
+    paramStr := GetParamsWinInfoStr(infoStr)
+    if (paramStr == "")
+        return HwndList
+
+    HwndList := WinGetList(paramStr)
+    return HwndList
+}
+
+GetParamsWinInfoStr(infoStr, symbolStr := "default") {
     if (infoStr == "")
         return ""
+
+    if (InStr(infoStr, "❖")) {
+        infoStr := StrReplace(infoStr, "❖")
+        hwndList := StrSplit(infoStr, "|")
+        for index, hwnd in hwndList {
+            GroupAdd(symbolStr, "ahk_id " hwnd)
+        }
+        ResStr := "ahk_group " symbolStr
+        return ResStr
+    }
 
     infoArr := StrSplit(infoStr, "⎖")
     if (infoArr.Length != 3)
@@ -158,8 +194,9 @@ SplitMacro(macroStr) {
     resultArr := []
 
     for value in cmdArr {
-        if (value != "")
-            resultArr.Push(value)
+        curCmd := Trim(value)
+        if (curCmd != "")
+            resultArr.Push(curCmd)
     }
     return resultArr
 }
@@ -337,7 +374,7 @@ LoadMainSetting() {
     MySoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MySoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
-    MySoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 1)
+    MySoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 3)
     MySoftData.AgreeAgreement := IniRead(IniFile, IniSection, "AgreeAgreement", false)
     MySoftData.WinPosX := IniRead(IniFile, IniSection, "WinPosX", 0)
     MySoftData.WinPosY := IniRead(IniFile, IniSection, "WinPosY", 0)
@@ -353,6 +390,9 @@ LoadMainSetting() {
     MySoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
     MySoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
     MySoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
+    MySoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
+    MySoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)
+    MySoftData.VarListenHeight := IniRead(IniFile, IniSection, "VarListenHeight", 420)
     MySoftData.MacroTotalCount := IniRead(IniFile, IniSection, "MacroTotalCount", 0)
     MySoftData.LastShowMonth := IniRead(IniFile, IniSection, "LastShowMonth", A_Mon)
 
@@ -665,7 +705,6 @@ SaveTableItemMacro(index) {
 GetSavedTableItemInfo(index) {
     Saved := MySoftData.MyGui.Submit()
     TKArrStr := ""
-    MacroArrStr := ""
     ModeArrStr := ""
     HoldTimeArrStr := ""
     ForbidArrStr := ""
@@ -959,64 +998,6 @@ CheckContainText(source, text) {
     return RegExMatch(source, text)
 }
 
-GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
-    global MyChineseOcr, MyEnglishOcr
-    width := X2 - X1
-    height := Y2 - Y1
-    pBitmap := Gdip_BitmapFromScreen(X1 "|" Y1 "|" width "|" height)
-
-    ; 获取位图的宽度和高度
-    Width := Gdip_GetImageWidth(pBitmap)
-    Height := Gdip_GetImageHeight(pBitmap)
-
-    ; 锁定位图以获取位图数据
-    Gdip_LockBits(pBitmap, 0, 0, Width, Height, &Stride, &Scan0, &BitmapData)
-
-    if (A_PtrSize == 8) {
-        ; 64位系统结构
-        BITMAP_DATA := Buffer(24)  ; 64位下结构总大小为24字节
-        NumPut("ptr", Scan0, BITMAP_DATA, 0)   ; bits (8字节)
-        NumPut("uint", Stride, BITMAP_DATA, 8)  ; pitch (4字节)
-        NumPut("int", Width, BITMAP_DATA, 12)   ; width (4字节)
-        NumPut("int", Height, BITMAP_DATA, 16)  ; height (4字节)
-        NumPut("int", 4, BITMAP_DATA, 20)      ; bytespixel (4字节)
-    } else {
-        ; 32位系统结构
-        BITMAP_DATA := Buffer(20)  ; 32位下结构总大小为20字节
-        NumPut("ptr", Scan0, BITMAP_DATA, 0)   ; bits (4字节)
-        NumPut("uint", Stride, BITMAP_DATA, 4)  ; pitch (4字节)
-        NumPut("int", Width, BITMAP_DATA, 8)    ; width (4字节)
-        NumPut("int", Height, BITMAP_DATA, 12)  ; height (4字节)
-        NumPut("int", 4, BITMAP_DATA, 16)       ; bytespixel (4字节)
-    }
-
-    ; 调用 ocr_from_bitmapdata 方法
-    ocr := mode == 1 ? MyChineseOcr : MyEnglishOcr
-    result := ocr.ocr_from_bitmapdata(BITMAP_DATA, , true)
-
-    ; 解锁位图
-    Gdip_UnlockBits(pBitmap, &BitmapData)
-    ; 释放位图
-    Gdip_DisposeImage(pBitmap)
-    return result
-}
-
-CheckScreenContainText(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, text, mode) {
-    result := GetScreenTextObjArr(X1, Y1, X2, Y2, mode)
-    if (result == "" || !result)
-        return false
-    for index, value in result {
-        isContain := CheckContainText(value.text, text)
-        if (isContain) {
-            pos := GetMatchCoord(value, X1, Y1)
-            OutputVarX := pos[1]
-            OutputVarY := pos[2]
-            break
-        }
-    }
-    return isContain
-}
-
 GetMatchCoord(screenTextObj, x1, y1) {
     value := screenTextObj
     pointX := value.boxPoint[1].x + value.boxPoint[2].x + value.boxPoint[3].x + value.boxPoint[4].x
@@ -1263,29 +1244,37 @@ StrToHex(str) {
     return hex
 }
 
-GetWinPos() {
+GetWinPos(ScreenX, ScreenY, hwnd := 0) {
+    WinX := 0
+    WinY := 0
     DllCall("SetProcessDPIAware")
+    if (hwnd == 0) {
+        hwnd := DllCall("User32\WindowFromPoint", "int64", (ScreenY << 32) | (ScreenX & 0xFFFFFFFF), "ptr")
+    }
+    try {
+
+        ; 获取该窗口的主窗口（避免偏移）
+        GA_ROOT := 2
+        rootHwnd := DllCall("GetAncestor", "ptr", hwnd, "uint", GA_ROOT, "ptr")
+
+        ; 创建结构体 POINT
+        pt := Buffer(8, 0)
+        NumPut("int", ScreenX, pt, 0)  ; X
+        NumPut("int", ScreenY, pt, 4)  ; Y
+
+        ; 屏幕坐标转客户区
+        DllCall("User32\ScreenToClient", "ptr", rootHwnd, "ptr", pt)
+
+        WinX := NumGet(pt, 0, "int")
+        WinY := NumGet(pt, 4, "int")
+    }
+    return [WinX, WinY]
+}
+
+GetCurWinPos() {
     CoordMode("Mouse", "Screen")
     MouseGetPos &mouseX, &mouseY
-
-    ; 获取鼠标下窗口句柄
-    winId := DllCall("User32\WindowFromPoint", "int64", (mouseY << 32) | (mouseX & 0xFFFFFFFF), "ptr")
-
-    ; 获取该窗口的主窗口（避免偏移）
-    GA_ROOT := 2
-    rootHwnd := DllCall("GetAncestor", "ptr", winId, "uint", GA_ROOT, "ptr")
-
-    ; 创建结构体 POINT
-    pt := Buffer(8, 0)
-    NumPut("int", mouseX, pt, 0)  ; X
-    NumPut("int", mouseY, pt, 4)  ; Y
-
-    ; 屏幕坐标转客户区
-    DllCall("User32\ScreenToClient", "ptr", rootHwnd, "ptr", pt)
-
-    xClient := NumGet(pt, 0, "int")
-    yClient := NumGet(pt, 4, "int")
-    return [xClient, yClient]
+    return GetWinPos(mouseX, mouseY)
 }
 
 GetMacroCMDData(serialStr) {
@@ -1351,15 +1340,14 @@ GetReplaceVarText(tableItem, tableIndex, text) {
 
     ResText := text
     for index, value in matches {
-        hasValue := TryGetVariableValue(&variValue, tableItem, tableIndex, value, false)
+        hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, false)
         if (hasValue)
             ResText := StrReplace(ResText, "{" value "}", variValue)
     }
     return ResText
 }
 
-TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
-
+TryGetVarValue(&Value, variableName, variTip := true) {
     if (IsNumber(variableName)) {
         Value := Number(variableName)
         return true
@@ -1369,6 +1357,40 @@ TryGetVariableValue(&Value, tableItem, index, variableName, variTip := true) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
         Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+        return true
+    }
+
+    GlobalVariableMap := MySoftData.VariableMap
+    if (GlobalVariableMap.Has(variableName)) {
+        Value := GlobalVariableMap[variableName]
+        return true
+    }
+
+    if (variTip)
+        ShowNoVariableTip(variableName)
+    return false
+}
+
+TryGetTabVarValue(&Value, tableItem, index, variableName, variTip := true) {
+    if (IsNumber(variableName)) {
+        Value := Number(variableName)
+        return true
+    }
+
+    if (variableName == "当前鼠标坐标X" || variableName == "当前鼠标坐标Y") {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos &mouseX, &mouseY
+        Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+        return true
+    }
+
+    if (variableName == "句柄ID") {
+        winId := 0
+        try {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY, &winId
+        }
+        Value := winId
         return true
     }
 

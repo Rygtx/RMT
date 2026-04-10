@@ -58,15 +58,15 @@ OnSaveSetting(*) {
     IniWrite(true, IniFile, IniSection, "IsReload")
     SaveCurWinPos()
 
-    MySoftData.CMDPosX := IniWrite(MySoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
-    MySoftData.CMDPosY := IniWrite(MySoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
-    MySoftData.CMDWidth := IniWrite(MySoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
-    MySoftData.CMDHeight := IniWrite(MySoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
-    MySoftData.CMDBGColor := IniWrite(MySoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
-    MySoftData.CMDRunBGColor := IniWrite(MySoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
-    MySoftData.CMDTransparency := IniWrite(MySoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
-    MySoftData.CMDFontColor := IniWrite(MySoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
-    MySoftData.CMDFontSize := IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
+    IniWrite(MySoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
+    IniWrite(MySoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
+    IniWrite(MySoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
+    IniWrite(MySoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
+    IniWrite(MySoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
+    IniWrite(MySoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
+    IniWrite(MySoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
+    IniWrite(MySoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
+    IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
     Reload()
 }
 
@@ -1044,7 +1044,7 @@ UpdateMacroRunningCount(LastState, State) {
     else if (LastState == 1 && State != 1)  ;结束 | 暂停 | 终止 -1
         value := -1
     else if (LastState == 2 && State == 1)  ;取消暂停+1
-         value := 1
+        value := 1
 
     MySoftData.MacroRunningCount += value
     if (MySoftData.MacroRunningCount < 0)

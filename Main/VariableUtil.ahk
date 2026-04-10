@@ -25,7 +25,7 @@ SetGlobalData(macroStr, visitMap) {
         IsArray := InStr(paramArr[1], "数组")
         IsVarRelate := IsVariable || IsExVariable || IsTextOps || IsIf || IsOpera || IsSearch || IsSearchPro
             || IsLoop || IsIfPro || IsArray
-        if (!MySoftData.HasJoyMacro && IsPressKey) {
+        if (!MySoftData.HasJoyMacro && IsPressKey && !IsBGKey) {
             MySoftData.HasJoyMacro := InStr(paramArr[2], "Joy")
         }
 
@@ -95,7 +95,7 @@ SetGlobalData(macroStr, visitMap) {
 GetGuiVarArr() {
     ResultArr := []
     ResultMap := Map()
-    SpecialKeyArr := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
 
     ; 添加全局变量（如果不存在）
     for Key in MySoftData.GlobalVariMap {
@@ -135,9 +135,9 @@ GetGuiVarArr() {
 
 ;mode 1:移除所有  2：移除坐标变量 3:移除循环计数变量
 RemoveInVariable(VarArr, Mode := 1) {
-    SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialKeyArr3 := [GetLang("循环次数"), GetLang("宏循环次数")]
+    SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y"), GetLang("句柄ID")]
+    SpecialKeyArr3 := [GetLang("句柄ID"), GetLang("循环次数"), GetLang("宏循环次数")]
     SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3)
     SpecialKeyArr := SpecialMap[Mode]
 

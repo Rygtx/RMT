@@ -27,7 +27,8 @@ SetCMDSerialData(CMD) {
         Data.NumMap.Set(Integer(numbersOnly), true)
     }
     catch as e {
-        MsgBox(GetLang("初始化失败: ") e.Message, GetLang("错误"), 0x10)
+        tipStr := Format("{}{} {}`n{}", GetLang("初始化失败: "), CMD, GetLang("错误"), e.Message)
+        MsgBox(tipStr, GetLang("错误"), 0x10)
     }
 
     Data.Refresh()

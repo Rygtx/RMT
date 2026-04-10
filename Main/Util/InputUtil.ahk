@@ -100,8 +100,8 @@ InputExcel(Data, tableItem, index) {
         return
     }
 
-    HasRow := TryGetVariableValue(&Row, tableItem, index, Data.Row, true)
-    HasCol := TryGetVariableValue(&Col, tableItem, index, Data.Col, true)
+    HasRow := TryGetTabVarValue(&Row, tableItem, index, Data.Row, true)
+    HasCol := TryGetTabVarValue(&Col, tableItem, index, Data.Col, true)
     if (!HasRow || !HasCol)
         return
 
@@ -121,8 +121,8 @@ InputExcel(Data, tableItem, index) {
             MySetGlobalArray(Data.SaveName, ResArr)
     }
     else if (Data.ReadType == "指定区域-行") {
-        HasEndRow := TryGetVariableValue(&EndRow, tableItem, index, Data.EndRow, true)
-        HasEndCol := TryGetVariableValue(&EndCol, tableItem, index, Data.EndCol, true)
+        HasEndRow := TryGetTabVarValue(&EndRow, tableItem, index, Data.EndRow, true)
+        HasEndCol := TryGetTabVarValue(&EndCol, tableItem, index, Data.EndCol, true)
         if (!HasEndRow || !HasEndCol)
             return
         IsOk := ExcelRangeRowToRead(Data.FilePath, Data.NameOrSerial, Row, Col, EndRow, EndCol, &ResArr)
@@ -130,8 +130,8 @@ InputExcel(Data, tableItem, index) {
             MySetGlobalArray(Data.SaveName, ResArr)
     }
     else if (Data.ReadType == "指定区域-列") {
-        HasEndRow := TryGetVariableValue(&EndRow, tableItem, index, Data.EndRow, true)
-        HasEndCol := TryGetVariableValue(&EndCol, tableItem, index, Data.EndCol, true)
+        HasEndRow := TryGetTabVarValue(&EndRow, tableItem, index, Data.EndRow, true)
+        HasEndCol := TryGetTabVarValue(&EndCol, tableItem, index, Data.EndCol, true)
         if (!HasEndRow || !HasEndCol)
             return
         IsOk := ExcelRangeColToRead(Data.FilePath, Data.NameOrSerial, Row, Col, EndRow, EndCol, &ResArr)

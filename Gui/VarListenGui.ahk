@@ -16,6 +16,9 @@ class VarListenGui {
         else {
             this.AddGui()
         }
+        
+        this.TopCon.Value := MySoftData.VarListenTop
+        this.OnTogTop()
         IniWrite(true, IniFile, IniSection, "IsOpenListenVar")
         this.Refresh()
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
@@ -86,7 +89,8 @@ class VarListenGui {
 
         MyGui.OnEvent("Close", this.OnClose.Bind(this))
         MyGui.OnEvent("Size", this.OnResize.Bind(this))
-        MyGui.Show(Format("w{} h{}", 400, 420))
+        MyGui.Show(Format("w{} h{}", MySoftData.VarListenWidth, MySoftData.VarListenHeight))
+        MyGui.Opt("+MinSize400x420")
     }
 
     OnClose(*) {
@@ -103,9 +107,6 @@ class VarListenGui {
     OnResize(guiObj, MinMax, Width, Height) {
         ; 留一点边距
         margin := 10
-
-        ; Checkbox 不动（可选）
-
         ; ListView 自适应
         this.LVCon.Move(
             margin,
@@ -113,6 +114,9 @@ class VarListenGui {
             Width - margin * 2,
             Height - 50
         )
+
+        IniWrite(Width, IniFile, IniSection, "VarListenWidth")
+        IniWrite(Height, IniFile, IniSection, "VarListenHeight")
     }
 
     OnTogTop(*) {
@@ -123,6 +127,7 @@ class VarListenGui {
         else {
             this.Gui.Opt("-AlwaysOnTop")
         }
+        IniWrite(state, IniFile, IniSection, "VarListenTop")
     }
 
     OnDoubleClick(LV, RowNumber, *) {

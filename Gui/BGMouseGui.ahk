@@ -60,7 +60,7 @@ class BGMouseGui {
 
         PosY += 25
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 500), GetLang("F1:选取当前窗口信息   F2:选取当前窗口位置   F3:选取信息和位置"))
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 500), GetLang("F1:选取信息和位置 F2:选取当前窗口信息   F3:选取当前窗口位置"))
 
         PosX := 10
         PosY += 20
@@ -180,6 +180,11 @@ class BGMouseGui {
     }
 
     OnF1() {
+        this.OnF2()
+        this.OnF3()
+    }
+
+    OnF2() {
         CoordMode("Mouse", "Window")
         MouseGetPos &mouseX, &mouseY, &winId
         try {
@@ -190,21 +195,16 @@ class BGMouseGui {
         }
     }
 
-    OnF2() {
-        PosArr := GetWinPos()
+    OnF3() {
+        PosArr := GetCurWinPos()
         this.PosVarXCon.Text := PosArr[1]
         this.PosVarYCon.Text := PosArr[2]
-    }
-
-    OnF3() {
-        this.OnF1()
-        this.OnF2()
     }
 
     RefreshInfo() {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &oriId
-        PosArr := GetWinPos()
+        PosArr := GetCurWinPos()
         try {
             this.CurPosCon.Value := GetLang("当前窗口坐标: ") PosArr[1] "," PosArr[2]
             this.CurPosCon.Value := Format("{}{},{}", GetLang("当前窗口坐标:"), PosArr[1], PosArr[2])

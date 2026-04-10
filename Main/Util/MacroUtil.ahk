@@ -100,7 +100,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
 }
 
 OnSearchWrapper(tableItem, cmdStr, index) {
-    isLoopFound := OnSearch(tableItem, cmdStr, index)
+    isLoopFound := SearchOnTrigger(tableItem, cmdStr, index)
     if (isLoopFound != "" && isLoopFound == false) {
         return [cmdStr]
     }
@@ -111,130 +111,6 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
     if (isLoopFound != "" && isLoopFound == false) {
         return [cmdStr]
     }
-}
-
-OnSearch(tableItem, cmdStr, index) {
-    paramArr := StrSplit(cmdStr, "_")
-    IsSearchPro := InStr(paramArr[1], "搜索Pro")
-    dataFile := IsSearchPro ? SearchProFile : SearchFile
-    Data := GetMacroCMDData(paramArr[1])
-    if (Data.SearchCount == -1) {
-        isLoopFound := OnSearchOnce(tableItem, Data, index)
-        if (!isLoopFound) {
-            FloatInterval := GetFloatTime(Data.SearchInterval, MySoftData.PreIntervalFloat)
-            Sleep(FloatInterval)
-        }
-        return isLoopFound
-    }
-    else {
-        loop Data.SearchCount {
-            WaitIfPaused(tableItem, index)
-
-            if (tableItem.KilledArr[index])
-                return
-
-            isFound := OnSearchOnce(tableItem, Data, index)
-            if (isFound)
-                return
-
-            if (Data.SearchCount > A_Index) {
-                FloatInterval := GetFloatTime(Data.SearchInterval, MySoftData.PreIntervalFloat)
-                Sleep(FloatInterval)
-            }
-        }
-
-        if (Data.ResultToggle) {
-            MySetGlobalVariable([Data.ResultSaveName], [Data.FalseValue], false)
-        }
-
-        if (Data.FalseMacro == "")
-            return
-        OnTriggerMacroOnce(tableItem, Data.FalseMacro, index)
-    }
-}
-
-; 定义OpenCV图片搜索函数原型
-FindImage(targetPath, searchX, searchY, searchW, searchH, matchThreshold, x, y) {
-    return DllCall("RMT_OpenCV.dll\FindImage", "AStr", targetPath,
-        "Int", searchX, "Int", searchY, "Int", searchW, "Int", searchH,
-        "Int", matchThreshold, "Int*", x, "Int*", y, "Cdecl Int")
-}
-
-OnSearchOnce(tableItem, Data, index) {
-    HasX1 := TryGetVariableValue(&X1, tableItem, index, Data.StartPosX)
-    HasY1 := TryGetVariableValue(&Y1, tableItem, index, Data.StartPosY)
-    HasX2 := TryGetVariableValue(&X2, tableItem, index, Data.EndPosX)
-    HasY2 := TryGetVariableValue(&Y2, tableItem, index, Data.EndPosY)
-    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
-        return
-
-    CoordMode("Pixel", "Screen")
-    if (Data.SearchType == 1) {
-        if (Data.SearchImageType == 1) {
-            OutputVarX := 0
-            OutputVarY := 0
-            found := FindImage(Data.SearchImagePath, X1, Y1, X2 - X1, Y2 - Y1, Data.Similar, &OutputVarX, &
-                OutputVarY)
-        }
-        else {
-            Similar := Integer(-2.55 * Data.Similar + 255)
-            SearchInfo := Format("*{} *w0 *h0 {}", Similar, Data.SearchImagePath)
-            found := ImageSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, SearchInfo)
-        }
-    }
-    else if (Data.SearchType == 2) {
-        color := "0X" Data.SearchColor
-        Similar := Integer(-2.55 * Data.Similar + 255)
-        found := PixelSearch(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, color, Similar)
-    }
-    else if (Data.SearchType == 3) {
-        text := Data.SearchText
-        hasValue := TryGetVariableValue(&text, tableItem, index, Data.SearchText, false)
-        found := CheckScreenContainText(&OutputVarX, &OutputVarY, X1, Y1, X2, Y2, text, Data.OCRType)
-    }
-
-    if (found) {
-        ;自动移动鼠标
-        CoordMode("Mouse", "Screen")
-        SendMode("Event")
-        Speed := 100 - Data.Speed
-        Pos := [OutputVarX, OutputVarY]
-        if (Data.SearchType == 1) {
-            imageSize := GetImageSize(Data.SearchImagePath)
-            Pos := [OutputVarX + imageSize[1] / 2, OutputVarY + imageSize[2] / 2]
-        }
-
-        if (Data.ResultToggle) {
-            MySetGlobalVariable([Data.ResultSaveName], [Data.TrueValue], false)
-        }
-
-        if (Data.CoordToogle) {
-            MySetGlobalVariable([Data.CoordXName], [Pos[1]], false)
-            MySetGlobalVariable([Data.CoordYName], [Pos[2]], false)
-        }
-
-        Pos[1] := GetFloatValue(Pos[1], MySoftData.CoordXFloat)
-        Pos[2] := GetFloatValue(Pos[2], MySoftData.CoordYFloat)
-        if (Data.MouseActionType == 4) {
-            SetDefaultMouseSpeed(Speed)
-            Click(Format("{} {} {}"), Pos[1], Pos[2], 2)
-        }
-        if (Data.MouseActionType == 3) {
-            SetDefaultMouseSpeed(Speed)
-            Click(Format("{} {} {}"), Pos[1], Pos[2], Data.ClickCount)
-        }
-        else if (Data.MouseActionType == 2) {
-            MouseMove(Pos[1], Pos[2], Speed)
-        }
-
-        if (Data.TrueMacro == "")
-            return true
-
-        OnTriggerMacroOnce(tableItem, Data.TrueMacro, index)
-        return true
-    }
-
-    return false
 }
 
 OnRunFile(tableItem, cmd, index) {
@@ -259,21 +135,22 @@ OnCompare(tableItem, cmd, index) {
         if (!Data.ToggleArr[A_Index])
             continue
 
-        if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
-            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
+        CompareType := Data.CompareTypeArr[A_Index]
+        if (CompareType == 7) {        ;变量是否存在
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
             currentComparison := hasValue
         }
         else {
-            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index])
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
             if (!hasValue)
                 return
-            if (Data.CompareTypeArr[A_Index] == 6 || Data.CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
-                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
+            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
+                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
                 hasOtherValue := true
             }
             else {
-                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
+                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
             }
 
             if (!hasOtherValue)
@@ -286,6 +163,7 @@ OnCompare(tableItem, cmd, index) {
                 case 4: currentComparison := Value <= OtherValue
                 case 5: currentComparison := Value < OtherValue
                 case 6: currentComparison := CheckContainText(Value, OtherValue)
+                case 8: currentComparison := RegExMatch(Value, OtherValue)
             }
         }
 
@@ -326,20 +204,20 @@ OnComparePro(tableItem, cmd, index) {
         Macro := Data.MacroArr[A_Index]
         result := LogicType == 1 ? true : false
         loop NameArr.Length {
-            if (CompareTypeArr[A_Index] == 7) {
-                hasValue := TryGetVariableValue(&Value, tableItem, index, NameArr[A_Index], false)
+            CompareType := CompareTypeArr[A_Index]
+            if (CompareType == 7) {
+                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index], false)
                 currentComparison := hasValue
             }
             else {
-                hasValue := TryGetVariableValue(&Value, tableItem, index, NameArr[A_Index])
-                if (CompareTypeArr[A_Index] == 6 || CompareTypeArr[A_Index] == 3) {  ;等于或字符包含的时候可以直接使用字符
-                    hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, VariableArr[A_Index],
-                        false)
+                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index])
+                if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
+                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index], false)
                     OtherValue := hasOtherValue ? OtherValue : VariableArr[A_Index]
                     hasOtherValue := true
                 }
                 else {
-                    hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, VariableArr[A_Index])
+                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index])
                 }
 
                 if (!hasValue || !hasOtherValue) {
@@ -353,6 +231,7 @@ OnComparePro(tableItem, cmd, index) {
                     case 4: currentComparison := Value <= OtherValue
                     case 5: currentComparison := Value < OtherValue
                     case 6: currentComparison := CheckContainText(Value, OtherValue)
+                    case 8: currentComparison := RegExMatch(Value, OtherValue)
                 }
             }
 
@@ -399,8 +278,8 @@ OnMMProOnce(tableItem, index, Data) {
     CoordMode("Mouse", "Screen")
     Speed := 100 - Data.Speed
 
-    hasPosVarX := TryGetVariableValue(&PosX, tableItem, index, Data.PosVarX)
-    hasPosVarY := TryGetVariableValue(&PosY, tableItem, index, Data.PosVarY)
+    hasPosVarX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosVarX)
+    hasPosVarY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosVarY)
     if (!hasPosVarX || !hasPosVarY) {
         return
     }
@@ -464,8 +343,8 @@ OnOutput(tableItem, cmd, index) {
         FileObj.Close()
     }
     else if (Data.OutputType == 9) {    ;Excel
-        hasRowValue := TryGetVariableValue(&RowValue, tableItem, index, Data.RowVar)
-        hasColValue := TryGetVariableValue(&ColValue, tableItem, index, Data.ColVar)
+        hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
+        hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
         if (Data.ExcelType == 1) {
             if (hasRowValue && hasColValue)
                 ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
@@ -500,7 +379,7 @@ OnLoop(tableItem, cmd, index) {
         }
     }
     else {
-        hasValue := TryGetVariableValue(&Value, tableItem, index, Data.LoopCount)
+        hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.LoopCount)
         if (!hasValue)
             return
 
@@ -529,18 +408,18 @@ GetLoopState(tableItem, cmd, index, Data) {
             continue
 
         if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
-            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
             currentComparison := hasValue
         }
         else {
-            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.NameArr[A_Index])
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
             if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
-                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
+                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
                 hasOtherValue := true
             }
             else {
-                hasOtherValue := TryGetVariableValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
+                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
             }
 
             if (!hasValue || !hasOtherValue) {
@@ -597,7 +476,7 @@ OnSubMacro(tableItem, cmd, index) {
     if (Data.CallType == "插入到当前宏") {   ;插入
         macro := macroItem.MacroArr[macroIndex]
         resultMacro := ""
-        isHas := TryGetVariableValue(&Count, tableItem, index, Data.InsertCount, true)
+        isHas := TryGetTabVarValue(&Count, tableItem, index, Data.InsertCount, true)
         if (isHas) {
             loop Count {
                 resultMacro .= macro ","
@@ -638,13 +517,13 @@ OnVariable(tableItem, cmd, index) {
 
         Value := 0
         if (Data.OperaTypeArr[A_Index] == 1) {   ;数值
-            hasValue := TryGetVariableValue(&Value, tableItem, index, Data.CopyVariableArr[A_Index])
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.CopyVariableArr[A_Index])
             if (!hasValue)
                 return
         }
         if (Data.OperaTypeArr[A_Index] == 2) {  ;随机
-            hasMin := TryGetVariableValue(&minValue, tableItem, index, Data.MinVariableArr[A_Index])
-            hasMax := TryGetVariableValue(&maxValue, tableItem, index, Data.MaxVariableArr[A_Index])
+            hasMin := TryGetTabVarValue(&minValue, tableItem, index, Data.MinVariableArr[A_Index])
+            hasMax := TryGetTabVarValue(&maxValue, tableItem, index, Data.MaxVariableArr[A_Index])
             if (!hasMin || !hasMax)
                 return
             Value := Random(minValue, maxValue)
@@ -705,22 +584,37 @@ OnExVariable(tableItem, cmd, index) {
 
 OnExVariableOnce(tableItem, index, Data) {
     if (Data.ExtractType == 1) {
-        HasX1 := TryGetVariableValue(&X1, tableItem, 1, Data.StartPosX)
-        HasY1 := TryGetVariableValue(&Y1, tableItem, 1, Data.StartPosY)
-        HasX2 := TryGetVariableValue(&X2, tableItem, 1, Data.EndPosX)
-        HasY2 := TryGetVariableValue(&Y2, tableItem, 1, Data.EndPosY)
+        HasX1 := TryGetTabVarValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetTabVarValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetTabVarValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetTabVarValue(&Y2, tableItem, 1, Data.EndPosY)
         if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
             return
         TextObjs := GetScreenTextObjArr(X1, Y1, X2, Y2, Data.OCRType)
         TextObjs := TextObjs == "" ? [] : TextObjs
     }
-    else {
+    else if (Data.ExtractType == 2) {
         TextObjs := []
         if (!IsClipboardText())
             return
         obj := Object()
         obj.Text := A_Clipboard
         TextObjs.Push(obj)
+    }
+    else if (Data.ExtractType == 3) {
+        HasX1 := TryGetTabVarValue(&X1, tableItem, 1, Data.StartPosX)
+        HasY1 := TryGetTabVarValue(&Y1, tableItem, 1, Data.StartPosY)
+        HasX2 := TryGetTabVarValue(&X2, tableItem, 1, Data.EndPosX)
+        HasY2 := TryGetTabVarValue(&Y2, tableItem, 1, Data.EndPosY)
+        if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+            return
+        TextObjs := []
+        hwndList := GetHwndList(Data.WinInfo)
+        loop hwndList.Length {
+            CurWinTextObjs := GetWinTextObjArr(hwndList[A_Index], X1, Y1, X2, Y2, Data.OCRType)
+            if (CurWinTextObjs != "")
+                TextObjs.Push(CurWinTextObjs*)
+        }
     }
 
     isOk := false
@@ -784,16 +678,14 @@ OnBGMouse(tableItem, cmd, index) {
     WM_DOWN_ARR := [0x201, 0x207, 0x204]    ;左键，中键，右键
     WM_UP_ARR := [0x202, 0x208, 0x205]    ;左键，中键，右键
     WM_DCLICK_ARR := [0x203, 0x209, 0x206]    ;左键，中键，右键
-    hasPosVarX := TryGetVariableValue(&PosX, tableItem, index, Data.PosVarX)
-    hasPosVarY := TryGetVariableValue(&PosY, tableItem, index, Data.PosVarY)
+    hasPosVarX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosVarX)
+    hasPosVarY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosVarY)
     if (!hasPosVarX || !hasPosVarY) {
         return
     }
     PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
-
-    frontStr := GetParamsWinInfoStr(Data.TargetTitle)
-    hwndList := WinGetList(frontStr)
+    hwndList := GetHwndList(Data.TargetTitle)
     loop hwndList.Length {
         hwnd := hwndList[A_Index]
         ; 点击位置（窗口客户区坐标）
@@ -848,8 +740,7 @@ OnBGKey(tableItem, cmd, index) {
 }
 
 SendBGKey(Data, tableItem, index) {
-    frontStr := GetParamsWinInfoStr(Data.FrontStr)
-    hwndList := WinGetList(frontStr)
+    hwndList := GetHwndList(Data.FrontStr)
 
     if (Data.Type == 1 || Data.Type == 3) {
         for hwnd in hwndList {
@@ -950,7 +841,7 @@ OnInterval(tableItem, cmd, index) {
     isVar := !IsNumber(paramArr[2])
     interval := isVar ? 0 : Integer(paramArr[2])
     if (isVar) {
-        hasInterval := TryGetVariableValue(&interval, tableItem, index, paramArr[2])
+        hasInterval := TryGetTabVarValue(&interval, tableItem, index, paramArr[2])
         if (!hasInterval)
             return
     }

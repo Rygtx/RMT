@@ -201,7 +201,7 @@ class SoftData {
         this.ShowSplitLine := false     ;显示分割线
         this.FixedMenuWheel := false    ;固定菜单轮
         this.NoVariableTip := false     ;无变量提醒
-        this.ScreenShotType := 1        ;截图类型
+        this.ScreenShotType := 3        ;截图类型
         this.MutiThreadNum := 3         ;多线程数
         this.IsSuspend := false         ;休眠
         this.SuspendHotkey := ""        ;休眠快捷键
@@ -279,6 +279,11 @@ class SoftData {
         this.CMDFontSize := "12"
         this.CMDFontColor := "000000"
 
+        ;变量监视器窗口大小
+        this.VarListenTop := false
+        this.VarListenWidth := 400
+        this.VarListenHeight := 420
+
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
         this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
             "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
@@ -297,28 +302,28 @@ class SoftData {
 
         ;手柄映射
         this.JoyXboxToAhkMap := Map(
-            "JoyA", "Joy1", 
-            "JoyB", "Joy2", 
-            "JoyX", "Joy3", 
-            "JoyY", "Joy4", 
+            "JoyA", "Joy1",
+            "JoyB", "Joy2",
+            "JoyX", "Joy3",
+            "JoyY", "Joy4",
             "JoyLB", "Joy5",
-            "JoyRB", "Joy6", 
-            "JoyLT", "JoyZMin", 
-            "JoyRT", "JoyZMax", 
-            "JoyLS", "Joy9", 
-            "JoyRS", "Joy10", 
-            "JoyBack", "Joy7", 
-            "JoyStart", "Joy8", 
-            "JoyDpadUp", "JoyPOV_0", 
-            "JoyDpadRight", "JoyPOV_9000", 
+            "JoyRB", "Joy6",
+            "JoyLT", "JoyZMin",
+            "JoyRT", "JoyZMax",
+            "JoyLS", "Joy9",
+            "JoyRS", "Joy10",
+            "JoyBack", "Joy7",
+            "JoyStart", "Joy8",
+            "JoyDpadUp", "JoyPOV_0",
+            "JoyDpadRight", "JoyPOV_9000",
             "JoyDpadDown", "JoyPOV_18000",
-            "JoyDpadLeft", "JoyPOV_27000", 
-            "JoyAxisLXMin", "JoyXMin", 
-            "JoyAxisLXMax", "JoyXMax", 
-            "JoyAxisLYMin","JoyYMin",
-            "JoyAxisLYMax", "JoyYMax", 
-            "JoyAxisRXMin", "JoyUMin", 
-            "JoyAxisRXMax", "JoyUMax", 
+            "JoyDpadLeft", "JoyPOV_27000",
+            "JoyAxisLXMin", "JoyXMin",
+            "JoyAxisLXMax", "JoyXMax",
+            "JoyAxisLYMin", "JoyYMin",
+            "JoyAxisLYMax", "JoyYMax",
+            "JoyAxisRXMin", "JoyUMin",
+            "JoyAxisRXMax", "JoyUMax",
             "JoyAxisRYMin", "JoyRMin",
             "JoyAxisRYMax", "JoyRMax"
         )
@@ -389,7 +394,8 @@ class SearchData {
     __New() {
         this.SerialStr := ""
         this.ConfigName := Format("{}*{}_{}", A_ScreenWidth, A_ScreenHeight, GetLang("全屏"))
-        this.SearchType := 1       ;1 图片  2 颜色  3 文本
+        this.SearchType := 1        ;1屏幕图片  2屏幕颜色  3屏幕文本 4窗口图片 5窗口颜色 6窗口文本
+        this.WinInfo := ""          ;窗口信息
         this.SearchColor := "FFFFFF"
         this.SearchText := GetLang("检索文本")
         this.SearchImagePath := ""
@@ -424,7 +430,7 @@ class CompareData {
         this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
+        this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量 8正则匹配
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
         this.TrueMacro := ""
         this.FalseMacro := ""
@@ -580,6 +586,7 @@ class ExVariableData {
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"]
         this.ExtractStr := ""
         this.ExtractType := 1
+        this.WinInfo := ""
         this.OCRType := 1
         this.StartPosX := 0
         this.StartPosY := 0
@@ -677,6 +684,7 @@ class TextOpsData {
 
 class MouseWinData {
     __New() {
+        this.WinId := ""
         this.WinTitle := ""
         this.WinClass := ""
         this.WinProcess := ""
@@ -687,6 +695,7 @@ class MouseWinData {
         this.HasError := false
         MouseGetPos &mouseX, &mouseY, &winId
         try {
+            this.WinId := winId
             this.WinTitle := WinGetTitle(winId)
             this.WinClass := WinGetClass(winId)
             this.WinProcess := WinGetProcessName(winId)
@@ -702,6 +711,16 @@ class MouseWinData {
 
         if (FrontInfoStr == "" || this.HasError)
             return false
+
+        if (InStr(FrontInfoStr, "❖")) {
+            FrontInfoStr := StrReplace(FrontInfoStr, "❖")
+            hwndList := StrSplit(FrontInfoStr, "|")
+            for index, hwnd in hwndList {
+                if (this.WinId == hwnd)
+                    return true
+            }
+            return false
+        }
 
         infoArr := StrSplit(FrontInfoStr, "⎖")
         if (infoArr.Length != 3)

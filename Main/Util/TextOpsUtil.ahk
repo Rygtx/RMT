@@ -1,14 +1,14 @@
 #Requires AutoHotkey v2.0
 
 TextGetSource(Data, tableItem, index) {
-    IsHas := TryGetVariableValue(&SourceText, tableItem, index, Data.Name, false)
+    IsHas := TryGetTabVarValue(&SourceText, tableItem, index, Data.Name, false)
     SourceText := IsHas ? SourceText : Data.Name
     return SourceText
 }
 
 TextOpsSplit(Data, tableItem, index) {
     SourceText := TextGetSource(Data, tableItem, index)
-    IsHas := TryGetVariableValue(&SplitArgs, tableItem, index, Data.ArgsName, false)
+    IsHas := TryGetTabVarValue(&SplitArgs, tableItem, index, Data.ArgsName, false)
     SplitArgs := IsHas ? SplitArgs : Data.ArgsName
 
     if (Data.ArgsType == "内容分割")
@@ -28,9 +28,9 @@ TextOpsSplit(Data, tableItem, index) {
 
 TextOpsReplace(Data, tableItem, index) {
     SourceText := TextGetSource(Data, tableItem, index)
-    IsHas := TryGetVariableValue(&SearchText, tableItem, index, Data.Search, false)
+    IsHas := TryGetTabVarValue(&SearchText, tableItem, index, Data.Search, false)
     SearchText := IsHas ? SearchText : Data.Search
-    IsHas := TryGetVariableValue(&ReplaceText, tableItem, index, Data.Replace, false)
+    IsHas := TryGetTabVarValue(&ReplaceText, tableItem, index, Data.Replace, false)
     ReplaceText := IsHas ? ReplaceText : Data.Replace
 
     Res := StrReplace(SourceText, SearchText, ReplaceText)

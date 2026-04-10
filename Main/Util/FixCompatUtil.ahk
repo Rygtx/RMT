@@ -239,6 +239,11 @@ CompatSearchPro(filePath) {
             curFix := CompatSearchProConfig(Data) || curFix
         }
 
+        if (!ObjHasOwnProp(Data, "WinInfo")) {
+            Data.WinInfoStr := ""
+            curFix := true
+        }
+
         if (Data.TrueMacro != "") {
             Data.TrueMacro := CompatMacro(Data.TrueMacro, &isFix)
             curFix := curFix || isFix
@@ -415,6 +420,25 @@ CompatExVariable(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "ExVariable", "变量提取")
+    newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        curFix := false
+        if (!ObjHasOwnProp(Data, "WinInfo")) {
+            Data.WinInfoStr := ""
+            curFix := true
+        }
+
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+    }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
     return hasFix
 }
 

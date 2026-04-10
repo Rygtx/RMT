@@ -2,7 +2,7 @@
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv1.1F6"
+    MyGui.Title := "RMTv1.1F8"
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
     isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
@@ -731,7 +731,7 @@ AddSettingUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
     con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 710, posY - 5), GetLangArr(["微软截图",
-        "RMT截图"]))
+        "RMT截图", "SC截图"]))
     MySoftData.ScreenShotTypeCtrl := con
     MySoftData.ScreenShotTypeCtrl.Value := MySoftData.ScreenShotType
     conInfo := ItemConInfo(con, tableItem, 1)
@@ -989,5 +989,5 @@ CustomTrayMenu() {
     A_TrayMenu.ClickCount := 1
     A_TrayMenu.Default := GetLang("显示窗口")
     A_IconHidden := 0   ;0(可见) 和 1(隐藏)
-    TraySetIcon(, , true)
+    TraySetIcon("Images\Soft\rabit.ico")
 }

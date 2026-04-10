@@ -17,9 +17,9 @@ class TriggerKeyGui {
 
         this.MouseMoveAction := this.OnMouseMove.Bind(this)
         this.HoverCon := ""
-        this.SelectColor := "Background12ebeb"
+        this.SelectColor := "Background19c930"
         this.UnSelectColor := "-Background"
-        this.SelectHoverColor := "Background4fd1d1"
+        this.SelectHoverColor := "Background169727"
         this.UnSelectHoverColor := "Backgrounddadada"
 
     }
@@ -691,8 +691,8 @@ class TriggerKeyGui {
 
             PosX += 50
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), ",")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("逗号"))
-            this.ConMap.Set("逗号", con)
+            con.OnEvent("Click", (*) => this.OnCheckedKey(","))
+            this.ConMap.Set(",", con)
 
             PosX += 50
             con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), ".")

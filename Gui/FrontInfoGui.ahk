@@ -4,40 +4,54 @@ class FrontInfoGui {
     __new() {
         this.Gui := ""
         this.InfoAction := () => this.RefreshMouseInfo()
+        this.HideAction := ""
         this.SureAction := ""
-        this.frontInfoCon := ""
+        this.winInfoCon := ""
+        this.isFront := false   ;前台不支持句柄模式
         this.InfoTogCon := ""
         this.TopTogCon := ""
-        this.WinInfoCon := ""
         this.InfoTogArrCon := []
         this.InfoTextArrCon := []
     }
 
-    ShowGui(frontInfoCon) {
+    ShowGui(winInfoCon, isFront := false) {
         if (this.Gui != "") {
             this.Gui.Show()
         }
         else {
             this.AddGui()
         }
-        this.Init(frontInfoCon)
+        this.isFront := isFront
+        this.Init(winInfoCon)
         this.ToggleFunc(true)
     }
 
-    Init(frontInfoCon) {
-        this.frontInfoCon := frontInfoCon
+    Init(winInfoCon) {
+        this.winInfoCon := winInfoCon
         this.TopTogCon.Value := true
-        infoStr := frontInfoCon.Value
-        if (infoStr != "")
-            infoArr := StrSplit(infoStr, "⎖")
-        if (infoStr == "" || infoArr.Length != 3)
-            infoArr := ["", "", ""]
+        infoStr := winInfoCon.Value
+        if (InStr(infoStr, "❖")) {
+            idStr := StrReplace(infoStr, "❖", "")
+            infoArr := [idStr, "", "", ""]
+        }
+        else {
+            if (infoStr != "")
+                infoArr := StrSplit(infoStr, "⎖")
+            if (infoStr == "" || infoArr.Length != 3)
+                infoArr := ["", "", ""]
 
-        loop 3 {
+            infoArr.InsertAt(1, "")
+        }
+
+        loop 4 {
             this.InfoTogArrCon[A_Index].Value := infoArr[A_Index] != ""
             this.InfoTextArrCon[A_Index].Value := infoArr[A_Index]
         }
 
+        DLVariableArr := GetGuiVarArr()
+        this.VariCon.Delete()
+        this.VariCon.Add(DLVariableArr)
+        this.VariCon.Value := 1
         this.OnTogClick()
     }
 
@@ -54,10 +68,14 @@ class FrontInfoGui {
         this.TopTogCon := con
 
         PosX := 160
-        con := MyGui.Add("Edit", Format("x{} y{}", PosX, PosY - 5), "F1")
+        con := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 30), "F1")
         con.Enabled := false
         PosX += 30
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("确定信息"))
+
+        PosX := 400
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX, PosY - 4), "?")
+        Con.OnEvent("Click", this.OnClickTypeHelpBtn.Bind(this))
 
         PosY += 30
         PosX := 10
@@ -65,15 +83,39 @@ class FrontInfoGui {
 
         PosY += 25
         PosX := 10
-        this.WinInfoCon := MyGui.Add("Text", Format("x{} y{} w500 h90", PosX, PosY))
+        this.CurWinInfoCon := MyGui.Add("Text", Format("x{} y{} w800 h90", PosX, PosY))
 
         PosY += 95
+        PosX := 20
+        con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("句柄ID"))
+        con.OnEvent("Click", this.OnTogClick.Bind(this))
+        this.InfoTogArrCon.Push(con)
+        PosX := 95
+        con := MyGui.Add("Edit", Format("x{} y{} w360", PosX, PosY - 3), "")
+        this.InfoTextArrCon.Push(con)
+
+        PosY += 32
+        PosX := 175
+        this.VarConArr := []
+        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量:"))
+        this.VarConArr.Push(this.VariTipCon)
+
+        PosX += 45
+        this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), [])
+        this.VarConArr.Push(this.VariCon)
+
+        PosX += 135
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量值"))
+        btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
+        this.VarConArr.Push(btnCon)
+
+        PosY += 35
         PosX := 20
         con := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("标题"))
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w360", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
 
         PosY += 35
@@ -82,7 +124,7 @@ class FrontInfoGui {
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w360", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
 
         PosY += 35
@@ -91,19 +133,15 @@ class FrontInfoGui {
         con.OnEvent("Click", this.OnTogClick.Bind(this))
         this.InfoTogArrCon.Push(con)
         PosX := 95
-        con := MyGui.Add("Edit", Format("x{} y{} w320", PosX, PosY - 3), "")
+        con := MyGui.Add("Edit", Format("x{} y{} w360", PosX, PosY - 3), "")
         this.InfoTextArrCon.Push(con)
-
-        PosY += 30
-        PosX := 20
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("提示：宏仅当鼠标悬停窗口符合上述条件时触发"))
 
         PosX := 200
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 360))
+        MyGui.OnEvent("Close", this.OnClose.Bind(this))
+        MyGui.Show(Format("w{} h{}", 500, 400))
     }
 
     RefreshMouseInfo() {
@@ -113,9 +151,19 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             process := WinGetProcessName(winId)
-            tipStr := Format("{}{}`n{}{}`n{}{}", GetLang("标题："), title, GetLang("窗口类："), className, GetLang("进程名："),
+            tipStr := Format("{}{}`n{}{}`n{}{}`n{}{}", GetLang("句柄ID："), winId, GetLang("标题："), title, GetLang("窗口类："),
+            className, GetLang("进程名："),
             process)
-            this.WinInfoCon.Value := tipStr
+            this.CurWinInfoCon.Value := tipStr
+        }
+    }
+
+    OnClose(*) {
+        this.ToggleFunc(false)
+        if (this.HideAction != "") {
+            action := this.HideAction
+            action()
+            this.HideAction := ""
         }
     }
 
@@ -132,29 +180,47 @@ class FrontInfoGui {
 
     CheckIfValid() {
         if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox(GetLang("勾选标题后，标题内容不能为空"))
+            MsgBox(GetLang("勾选句柄ID后，句柄ID内容不能为空"), "", "Owner" this.Gui.Hwnd)
             return false
         }
 
-        if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox(GetLang("勾选窗口类后，窗口类内容不能为空"))
+        if (this.InfoTextArrCon[2].Value && this.InfoTextArrCon[2].Value == "") {
+            MsgBox(GetLang("勾选标题后，标题内容不能为空"), "", "Owner" this.Gui.Hwnd)
             return false
         }
 
-        if (this.InfoTextArrCon[1].Value && this.InfoTextArrCon[1].Value == "") {
-            MsgBox(GetLang("勾选进程名后，进程名内容不能为空"))
+        if (this.InfoTextArrCon[3].Value && this.InfoTextArrCon[3].Value == "") {
+            MsgBox(GetLang("勾选窗口类后，窗口类内容不能为空"), "", "Owner" this.Gui.Hwnd)
             return false
         }
+
+        if (this.InfoTextArrCon[4].Value && this.InfoTextArrCon[4].Value == "") {
+            MsgBox(GetLang("勾选进程名后，进程名内容不能为空"), "", "Owner" this.Gui.Hwnd)
+            return false
+        }
+
+        if (this.isFront && this.InfoTogArrCon[1].Value) {
+            if (InStr(this.InfoTextArrCon[1].Value, "{")) {
+                MsgBox(GetLang("前台窗口信息句柄ID不能使用变量"), "", "Owner" this.Gui.Hwnd)
+                return false
+            }
+        }
+
         return true
     }
 
     GetInfoStr() {
+        if (this.InfoTogArrCon[1].Value)
+            return "❖" this.InfoTextArrCon[1].Value
+
         Str := ""
-        loop 3 {
+        loop 4 {
+            if (A_Index == 1)
+                continue
             if (this.InfoTogArrCon[A_Index].Value) {
                 Str .= this.InfoTextArrCon[A_Index].Value
             }
-            if (A_Index != 3)
+            if (A_Index != 4)
                 Str .= "⎖"
         }
         if (Str == "⎖⎖")
@@ -167,9 +233,10 @@ class FrontInfoGui {
         if (!isValid)
             return
 
-        this.frontInfoCon.Value := this.GetInfoStr()
+        this.winInfoCon.Value := this.GetInfoStr()
         this.ToggleFunc(false)
         this.Gui.Hide()
+        this.OnClose()
         if (this.SureAction != "") {
             action := this.SureAction
             action()
@@ -185,9 +252,23 @@ class FrontInfoGui {
             this.Gui.Opt("-AlwaysOnTop")
         }
 
-        loop 3 {
-            Enable := this.InfoTogArrCon[A_Index].Value
-            this.InfoTextArrCon[A_Index].Enabled := Enable
+        isHwndID := this.InfoTogArrCon[1].Value
+        this.InfoTextArrCon[1].Enabled := isHwndID
+        loop this.VarConArr.Length {
+            con := this.VarConArr[A_Index]
+            con.Enabled := isHwndID
+        }
+        loop 4 {
+            if (A_Index == 1)
+                continue
+            if (isHwndID) {
+                this.InfoTogArrCon[A_Index].Value := false
+                this.InfoTextArrCon[A_Index].Enabled := false
+            }
+            else {
+                Enable := this.InfoTogArrCon[A_Index].Value
+                this.InfoTextArrCon[A_Index].Enabled := Enable
+            }
         }
     }
 
@@ -198,13 +279,38 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             process := WinGetProcessName(winId)
-            this.InfoTextArrCon[1].Value := title
-            this.InfoTextArrCon[2].Value := className
-            this.InfoTextArrCon[3].Value := process
-            loop 3 {
-                this.InfoTogArrCon[A_Index].Value := true
+            this.InfoTextArrCon[1].Value := winId
+            this.InfoTextArrCon[2].Value := title
+            this.InfoTextArrCon[3].Value := className
+            this.InfoTextArrCon[4].Value := process
+            loop 4 {
+                state := A_Index != 1
+                this.InfoTogArrCon[A_Index].Value := state
             }
             this.OnTogClick()
         }
+    }
+
+    OnClickTypeHelpBtn(*) {
+        str1 := GetLang("优先级：句柄ID > 标题 + 窗口类 + 进程名")
+        str2 := GetLang("句柄ID支持多ID任意适配")
+
+        str := Format("{}`n{}", str1, str2)
+        MsgBox(str, GetLang("窗口信息说明"), "Owner" this.Gui.Hwnd)
+    }
+
+    OnClickAddVarValueBtn() {
+        Symbol := this.InfoTextArrCon[1].Text == "" ? "" : "|"
+        VarStr := "{" this.VariCon.Text "}"
+        if (this.VariCon.Text == "") {
+            MsgBox("请勿添加空字符变量", "", "Owner" this.Gui.Hwnd)
+            return
+        }
+        if (InStr(this.InfoTextArrCon[1].Text, VarStr)) {
+            MsgBox("请勿重复添加变量", "", "Owner" this.Gui.Hwnd)
+            return
+        }
+
+        this.InfoTextArrCon[1].Text .= Symbol VarStr
     }
 }
