@@ -240,7 +240,7 @@ CompatSearchPro(filePath) {
         }
 
         if (!ObjHasOwnProp(Data, "WinInfo")) {
-            Data.WinInfoStr := ""
+            Data.WinInfo := ""
             curFix := true
         }
 
@@ -429,7 +429,7 @@ CompatExVariable(filePath) {
 
         curFix := false
         if (!ObjHasOwnProp(Data, "WinInfo")) {
-            Data.WinInfoStr := ""
+            Data.WinInfo := ""
             curFix := true
         }
 
