@@ -153,10 +153,10 @@ class MMProGui {
 
         this.RefreshConfigDLArr()
         this.PosVarXCon.Delete()
-        this.PosVarXCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.PosVarXCon.Add(this.DLVariableArr)
         this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
         this.PosVarYCon.Delete()
-        this.PosVarYCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.PosVarYCon.Add(this.DLVariableArr)
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
         this.IsRelativeCon.Value := this.Data.IsRelative

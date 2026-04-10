@@ -148,7 +148,7 @@ class OutputGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("输出")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Value := this.Data.OutputType

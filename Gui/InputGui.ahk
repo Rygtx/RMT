@@ -191,7 +191,7 @@ class InputGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("输入")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
         this.DLArrayArr := GetGuiArrNameArr()
         this.FileReadTypeArr := GetLangArr(["读取全部内容", "逐行读取", "指定行"])
         this.ExcelReadTypeArr := GetLangArr(["单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"])
@@ -211,12 +211,13 @@ class InputGui {
                 break
             }
         }
-        SetDLConValue(this.FileRowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.FileRow)
-        SetDLConValue(this.NameOrSerialCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.NameOrSerial)
-        SetDLConValue(this.RowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Row)
-        SetDLConValue(this.ColCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Col)
-        SetDLConValue(this.EndRowCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.EndRow)
-        SetDLConValue(this.EndColCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.EndCol)
+        DLValueArr := GetGuiVarArr(2)
+        SetDLConValue(this.FileRowCon, DLValueArr, this.Data.FileRow)
+        SetDLConValue(this.NameOrSerialCon, DLValueArr, this.Data.NameOrSerial)
+        SetDLConValue(this.RowCon, DLValueArr, this.Data.Row)
+        SetDLConValue(this.ColCon, DLValueArr, this.Data.Col)
+        SetDLConValue(this.EndRowCon, DLValueArr, this.Data.EndRow)
+        SetDLConValue(this.EndColCon, DLValueArr, this.Data.EndCol)
     }
 
     OnRefreshType(*) {
@@ -275,7 +276,7 @@ class InputGui {
 
         this.SaveTypeCon.Text := ResOnlyVar ? GetLang("变量") : GetLang("数组")
         ResArr := ResOnlyVar ? this.DLVariableArr : this.DLArrayArr
-        SetDLConValue(this.SaveNameCon, RemoveInVariable(ResArr, 1), this.SaveNameCon.Text)
+        SetDLConValue(this.SaveNameCon, GetGuiVarArr(), this.SaveNameCon.Text)
     }
 
     SetConArrVisible(ConArr, Visible) {

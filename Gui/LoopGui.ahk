@@ -181,12 +181,12 @@ class LoopGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("循环")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         CountVariableArr := this.DLVariableArr.Clone()
         CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
-        this.CountCon.Add(RemoveInVariable(CountVariableArr, 2))
+        this.CountCon.Add(GetGuiVarArr(2))
         this.CountCon.Text := this.Data.LoopCount == -1 ? GetLang("无限") : this.Data.LoopCount
 
         this.CondiCon.Value := this.Data.CondiType

@@ -48,7 +48,7 @@ class FrontInfoGui {
             this.InfoTextArrCon[A_Index].Value := infoArr[A_Index]
         }
 
-        DLVariableArr := GetGuiVarArr()
+        DLVariableArr := GetGuiVarArr(1)
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1

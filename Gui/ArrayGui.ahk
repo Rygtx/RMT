@@ -160,16 +160,16 @@ class ArrayGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("数组")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
         this.DLArrayArr := GetGuiArrNameArr()
 
         this.TypeCon.Text := GetLang(this.Data.Type)
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         SetDLConValue(this.NameCon, this.DLArrayArr, this.Data.Name)
-        SetDLConValue(this.MainIndexCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.MainIndex)
+        SetDLConValue(this.MainIndexCon, GetGuiVarArr(2), this.Data.MainIndex)
         this.InitArrCon.Text := GetArrayStr(this.Data.InitArr)
 
-        SetDLConValue(this.ArgsIndexCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.ArgsIndex)
+        SetDLConValue(this.ArgsIndexCon, GetGuiVarArr(2), this.Data.ArgsIndex)
         this.ArgsTypeCon.Text := GetLang(this.Data.ArgsType)
         this.ArgsNameCon.Text := this.Data.ArgsName
 
@@ -251,9 +251,9 @@ class ArrayGui {
         IsArgsVar := this.ArgsTypeCon.Text == GetLang("变量或值")
         IsResVar := this.SaveTypeCon.Text == GetLang("变量")
         ArgsArr := IsArgsVar ? this.DLVariableArr : this.DLArrayArr
-        ResArr := IsResVar ? this.DLVariableArr : this.DLArrayArr
+        ResArr := IsResVar ? GetGuiVarArr(0) : this.DLArrayArr
         SetDLConValue(this.ArgsNameCon, ArgsArr, this.ArgsNameCon.Text)
-        SetDLConValue(this.SaveNameCon, RemoveInVariable(ResArr, 1), this.SaveNameCon.Text)
+        SetDLConValue(this.SaveNameCon, ResArr, this.SaveNameCon.Text)
     }
 
     OnClickIndexHelpBtn(*) {

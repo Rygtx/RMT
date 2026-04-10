@@ -206,7 +206,7 @@ class SearchGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("搜索")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
         if (!this.CheckIfDataValid())
             return
 

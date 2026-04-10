@@ -92,10 +92,19 @@ SetGlobalData(macroStr, visitMap) {
     }
 }
 
-GetGuiVarArr() {
+;mode 0自定义 1-所有 2-循环次数 3-坐标 4-句柄ID 5-颜色
+GetGuiVarArr(Mode := 0) {
     ResultArr := []
     ResultMap := Map()
-    SpecialKeyArr := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr0 := []
+    SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
+    GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr2 := [GetLang("循环次数"), GetLang("宏循环次数")]
+    SpecialKeyArr3 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr4 := [GetLang("句柄ID")]
+    SpecialKeyArr5 := [GetLang("当前鼠标颜色")]
+    SpecialMap := Map(0, SpecialKeyArr0, 1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3, 4, SpecialKeyArr4, 5, SpecialKeyArr5)
+    SpecialKeyArr := SpecialMap[Mode]
 
     ; 添加全局变量（如果不存在）
     for Key in MySoftData.GlobalVariMap {
@@ -131,38 +140,6 @@ GetGuiVarArr() {
 
     ResultArr.Push(SpecialKeyArr*)
     return ResultArr
-}
-
-;mode 1:移除所有  2：移除坐标变量 3:移除循环计数变量
-RemoveInVariable(VarArr, Mode := 1) {
-    SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
-    SpecialKeyArr2 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y"), GetLang("句柄ID")]
-    SpecialKeyArr3 := [GetLang("句柄ID"), GetLang("循环次数"), GetLang("宏循环次数")]
-    SpecialMap := Map(1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3)
-    SpecialKeyArr := SpecialMap[Mode]
-
-    ; 创建一个新数组来存储结果
-    result := []
-
-    ; 第一个循环：遍历原始数组的每个值
-    for value in VarArr {
-        found := false
-
-        ; 第二个循环：检查这个值是否在特殊值数组中
-        for specialValue in SpecialKeyArr {
-            if value = specialValue {
-                found := true
-                break  ; 找到匹配项，跳出内层循环
-            }
-        }
-
-        ; 如果没有找到匹配项，则添加到结果数组
-        if (!found) {
-            result.Push(value)
-        }
-    }
-
-    return result
 }
 
 CheckVarNameIfValid(Name) {

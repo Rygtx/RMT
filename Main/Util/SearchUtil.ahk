@@ -118,7 +118,8 @@ SearchImage(Data, X1, Y1, X2, Y2, &ResX, &ResY) {
 }
 
 SearchColor(Data, X1, Y1, X2, Y2, &ResX, &ResY) {
-    color := "0X" Data.SearchColor
+    HasValue := TryGetVarValue(&Value, Data.SearchColor, false)
+    color := HasValue ? "0X" Value : "0X" Data.SearchColor
     Similar := Integer(-2.55 * Data.Similar + 255)
     return PixelSearch(&ResX, &ResY, X1, Y1, X2, Y2, color, Similar)
 }
@@ -145,10 +146,12 @@ SearchWinImage(Data, hwndList, X1, Y1, X2, Y2, &ResXList, &ResYList, &ResHwndLis
 
 SearchWinColor(Data, hwndList, X1, Y1, X2, Y2, &ResXList, &ResYList, &ResHwndList) {
     found := false
+    HasValue := TryGetVarValue(&Value, Data.SearchColor, false)
+    ColorStr := HasValue ? Value : Data.SearchColor
     ResXList := [], ResYList := [], ResHwndList := []
     for i, hwnd in hwndList {
         ResX := 0, ResY := 0
-        isFound := FindWinColor(&ResX, &ResY, Data.SearchColor, hwnd, X1, Y1, X2, Y2, Data.Similar)
+        isFound := FindWinColor(&ResX, &ResY, ColorStr, hwnd, X1, Y1, X2, Y2, Data.Similar)
         if (isFound) {
             found := true
             ResHwndList.Push(hwnd)

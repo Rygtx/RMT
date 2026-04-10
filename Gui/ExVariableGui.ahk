@@ -229,7 +229,7 @@ class ExVariableGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量提取")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         if (this.Data.ToggleArr.Length == 4) {
             this.Data.ToggleArr.Push(false)
@@ -241,7 +241,7 @@ class ExVariableGui {
         loop this.Data.ToggleArr.Length {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
+            this.VariableConArr[A_Index].Add(GetGuiVarArr())
             this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
         }
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
@@ -251,13 +251,13 @@ class ExVariableGui {
         this.OCRTypeCon.Value := this.Data.OCRType
 
         this.StartPosXCon.Delete()
-        this.StartPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosXCon.Add(GetGuiVarArr())
         this.StartPosYCon.Delete()
-        this.StartPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosYCon.Add(GetGuiVarArr())
         this.EndPosXCon.Delete()
-        this.EndPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosXCon.Add(GetGuiVarArr())
         this.EndPosYCon.Delete()
-        this.EndPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosYCon.Add(GetGuiVarArr())
         this.StartPosXCon.Text := this.Data.StartPosX
         this.StartPosYCon.Text := this.Data.StartPosY
         this.EndPosXCon.Text := this.Data.EndPosX

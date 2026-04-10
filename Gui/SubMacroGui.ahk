@@ -97,12 +97,12 @@ class SubMacroGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(2)
 
         this.TypeCon.Text := GetLang(this.Data.MacroType)
         this.CallTypeCon.Text := GetLang(this.Data.CallType)
         this.InsertCountCon.Delete()
-        this.InsertCountCon.Add(RemoveInVariable(this.DLVariableArr, 2))
+        this.InsertCountCon.Add(this.DLVariableArr)
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
 
         tableIndex := GetTableIndex(this.Data.MacroType)

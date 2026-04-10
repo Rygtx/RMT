@@ -19,7 +19,7 @@ class OperationSubGui {
             this.AddGui()
         }
 
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
         this.Index := Index
 
         ; 初始化变量列表下拉框

@@ -79,7 +79,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -89,15 +89,15 @@ class VariableGui {
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -107,7 +107,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -117,15 +117,15 @@ class VariableGui {
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -135,7 +135,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -146,15 +146,15 @@ class VariableGui {
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -164,7 +164,7 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
@@ -174,15 +174,15 @@ class VariableGui {
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
         }
 
@@ -199,23 +199,23 @@ class VariableGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         loop 4 {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
+            this.VariableConArr[A_Index].Add(GetGuiVarArr())
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
             this.OperaTypeConArr[A_Index].Value := this.Data.OperaTypeArr[A_Index]
             this.CopyVariableConArr[A_Index].Delete()
             this.CopyVariableConArr[A_Index].Add(this.DLVariableArr)
             this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
-            this.MinVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
+            this.MinVariableConArr[A_Index].Add(GetGuiVarArr())
             this.MinVariableConArr[A_Index].Text := GetLang(this.Data.MinVariableArr[A_Index])
             this.MaxVariableConArr[A_Index].Delete()
-            this.MaxVariableConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr, 2))
+            this.MaxVariableConArr[A_Index].Add(GetGuiVarArr())
             this.MaxVariableConArr[A_Index].Text := GetLang(this.Data.MaxVariableArr[A_Index])
         }
     }
@@ -235,10 +235,11 @@ class VariableGui {
         str1 := GetLang("循环次数：如指令上级存在 循环 指令，则该变量为该循环体执行的次数")
         str2 := GetLang("宏循环次数：配置整体执行的次数")
         str3 := GetLang("句柄ID：实时获取当前鼠标窗口句柄ID")
-        str4 := GetLang("当前鼠标坐标X：实时获取当前鼠标X")
-        str5 := GetLang("当前鼠标坐标Y：实时获取当前鼠标Y")
+        str4 := GetLang("当前鼠标颜色：实时获取当前鼠标指针下颜色")
+        str5 := GetLang("当前鼠标坐标X：实时获取当前鼠标X")
+        str6 := GetLang("当前鼠标坐标Y：实时获取当前鼠标Y")
 
-        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        str := Format("{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6)
         MsgBox(str, GetLang("变量信息说明"), "Owner" this.Gui.Hwnd)
     }
 
