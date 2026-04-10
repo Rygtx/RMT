@@ -227,13 +227,13 @@ class CompareGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.SaveToggleCon.Value := this.Data.SaveToggle
         this.SaveNameCon.Delete()
-        this.SaveNameCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.SaveNameCon.Add(GetGuiVarArr())
         this.SaveNameCon.Text := GetLang(this.Data.SaveName)
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
@@ -318,7 +318,6 @@ class CompareGui {
     OnTrueBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
@@ -332,7 +331,6 @@ class CompareGui {
     OnFalseBtnClick() {
         if (this.MacroGui == "") {
             this.MacroGui := MacroEditGui()
-            this.MacroGui.DLVariableArr := this.DLVariableArr
             this.MacroGui.SureFocusCon := this.FocusCon
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")

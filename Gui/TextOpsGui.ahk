@@ -161,17 +161,16 @@ class TextOpsGui {
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("文本处理")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
-        this.DLVariableArr := GetGuiVarArr()
         this.DLArrayArr := GetGuiArrNameArr()
-        ArgsNameArr := RemoveInVariable(this.DLVariableArr, 2)
+        ArgsNameArr := GetGuiVarArr(2)
         ArgsNameArr.InsertAt(1, GetLang("制表符"))
 
         this.TypeCon.Text := GetLang(this.Data.Type)
-        SetDLConValue(this.NameCon, RemoveInVariable(this.DLVariableArr, 1), this.Data.Name)
+        SetDLConValue(this.NameCon, GetGuiVarArr(), this.Data.Name)
         SetDLConValue(this.ArgsNameCon, ArgsNameArr, this.Data.ArgsName)
 
-        SetDLConValue(this.SearchCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Search)
-        SetDLConValue(this.ReplaceCon, RemoveInVariable(this.DLVariableArr, 2), this.Data.Replace)
+        SetDLConValue(this.SearchCon, GetGuiVarArr(2), this.Data.Search)
+        SetDLConValue(this.ReplaceCon, GetGuiVarArr(2), this.Data.Replace)
 
         this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
@@ -227,8 +226,8 @@ class TextOpsGui {
 
     OnRefreshDataType(*) {
         IsResVar := this.SaveTypeCon.Text == GetLang("变量")
-        ResArr := IsResVar ? this.DLVariableArr : this.DLArrayArr
-        SetDLConValue(this.SaveNameCon, RemoveInVariable(ResArr, 1), this.SaveNameCon.Text)
+        ResArr := IsResVar ? GetGuiVarArr() : this.DLArrayArr
+        SetDLConValue(this.SaveNameCon, ResArr, this.SaveNameCon.Text)
     }
 
     OnClickSureBtn() {

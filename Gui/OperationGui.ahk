@@ -91,7 +91,7 @@ class OperationGui {
             this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
             this.ExprConArr[A_Index].Value := GetLangStr(this.Data.ExpressionArr[A_Index], 1)
             this.UpdateNameConArr[A_Index].Delete()
-            this.UpdateNameConArr[A_Index].Add(RemoveInVariable(this.DLVariableArr))
+            this.UpdateNameConArr[A_Index].Add(this.DLVariableArr)
             this.UpdateNameConArr[A_Index].Text := GetLang(this.Data.UpdateNameArr[A_Index])
         }
     }

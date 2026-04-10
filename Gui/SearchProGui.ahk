@@ -337,16 +337,16 @@ class SearchProGui {
         this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
         this.HexColorCon.Value := this.Data.SearchColor
         this.TextCon.Delete()
-        this.TextCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.TextCon.Add(this.DLVariableArr)
         this.TextCon.Text := this.Data.SearchText
         this.StartPosXCon.Delete()
-        this.StartPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosXCon.Add(this.DLVariableArr)
         this.StartPosYCon.Delete()
-        this.StartPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.StartPosYCon.Add(this.DLVariableArr)
         this.EndPosXCon.Delete()
-        this.EndPosXCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosXCon.Add(this.DLVariableArr)
         this.EndPosYCon.Delete()
-        this.EndPosYCon.Add(RemoveInVariable(this.DLVariableArr, 3))
+        this.EndPosYCon.Add(this.DLVariableArr)
         this.StartPosXCon.Text := this.Data.StartPosX
         this.StartPosYCon.Text := this.Data.StartPosY
         this.EndPosXCon.Text := this.Data.EndPosX
@@ -361,16 +361,16 @@ class SearchProGui {
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
         this.ResultToggleCon.Value := this.Data.ResultToggle
         this.ResultSaveNameCon.Delete()
-        this.ResultSaveNameCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.ResultSaveNameCon.Add(this.DLVariableArr)
         this.ResultSaveNameCon.Text := this.Data.ResultSaveName
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
         this.CoordToogleCon.Value := this.Data.CoordToogle
         this.CoordXNameCon.Delete()
-        this.CoordXNameCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.CoordXNameCon.Add(this.DLVariableArr)
         this.CoordXNameCon.Text := this.Data.CoordXName
         this.CoordYNameCon.Delete()
-        this.CoordYNameCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.CoordYNameCon.Add(this.DLVariableArr)
         this.CoordYNameCon.Text := this.Data.CoordYName
 
         curType := this.SearchTypeCon.Value

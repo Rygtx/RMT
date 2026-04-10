@@ -174,7 +174,7 @@ class CompareProEditItemGui {
         this.EditType := EditType
         this.LogicalTypeCon.Text := logicStr == "" ? GetLang("且") : logicStr
         this.MacroCon.Value := macro
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
 
         VariNameArr := DataArr[1]
         CompareTypeArr := DataArr[2]

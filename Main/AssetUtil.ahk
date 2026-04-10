@@ -1347,44 +1347,30 @@ GetReplaceVarText(tableItem, tableIndex, text) {
     return ResText
 }
 
-TryGetVarValue(&Value, variableName, variTip := true) {
-    if (IsNumber(variableName)) {
-        Value := Number(variableName)
+TryGetVarValue(&Value, varName, variTip := true, tableVarMap := {}) {
+    if (IsNumber(varName)) {
+        Value := Number(varName)
         return true
     }
 
-    if (variableName == "当前鼠标坐标X" || variableName == "当前鼠标坐标Y") {
+    if (varName == "当前鼠标坐标X" || varName == "当前鼠标坐标Y") {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+        Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
         return true
     }
 
-    GlobalVariableMap := MySoftData.VariableMap
-    if (GlobalVariableMap.Has(variableName)) {
-        Value := GlobalVariableMap[variableName]
-        return true
-    }
-
-    if (variTip)
-        ShowNoVariableTip(variableName)
-    return false
-}
-
-TryGetTabVarValue(&Value, tableItem, index, variableName, variTip := true) {
-    if (IsNumber(variableName)) {
-        Value := Number(variableName)
-        return true
-    }
-
-    if (variableName == "当前鼠标坐标X" || variableName == "当前鼠标坐标Y") {
+    if (varName == "当前鼠标颜色") {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        Value := variableName == "当前鼠标坐标X" ? mouseX : mouseY
+
+        CoordMode("Pixel", "Screen")
+        Color := PixelGetColor(mouseX, mouseY, "Slow")
+        Value := StrReplace(Color, "0x", "")
         return true
     }
 
-    if (variableName == "句柄ID") {
+    if (varName == "句柄ID") {
         winId := 0
         try {
             CoordMode("Mouse", "Screen")
@@ -1394,21 +1380,25 @@ TryGetTabVarValue(&Value, tableItem, index, variableName, variTip := true) {
         return true
     }
 
-    TableVariableMap := tableItem.VariableMapArr[index]
-    if (TableVariableMap.Has(variableName)) {
-        Value := TableVariableMap[variableName]
+    if (tableVarMap.Has(varName)) {
+        Value := tableVarMap[varName]
         return true
     }
 
     GlobalVariableMap := MySoftData.VariableMap
-    if (GlobalVariableMap.Has(variableName)) {
-        Value := GlobalVariableMap[variableName]
+    if (GlobalVariableMap.Has(varName)) {
+        Value := GlobalVariableMap[varName]
         return true
     }
 
     if (variTip)
-        ShowNoVariableTip(variableName)
+        ShowNoVariableTip(varName)
     return false
+}
+
+TryGetTabVarValue(&Value, tableItem, index, varName, variTip := true) {
+    TableVariableMap := tableItem.VariableMapArr[index]
+    return TryGetVarValue(&Value, varName, variTip, TableVariableMap)
 }
 
 ShowNoVariableTip(variableName) {

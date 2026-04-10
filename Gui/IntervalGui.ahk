@@ -20,9 +20,9 @@ class IntervalGui {
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        this.DLVariableArr := GetGuiVarArr()
+        this.DLVariableArr := GetGuiVarArr(1)
         this.TimeVarCon.Delete()
-        this.TimeVarCon.Add(RemoveInVariable(this.DLVariableArr))
+        this.TimeVarCon.Add(GetGuiVarArr())
         this.TimeVarCon.Text := GetLang("空")
         if (cmdArr.Length == 2) {
             this.TimeVarCon.Text := cmdArr[2]
