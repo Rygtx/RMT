@@ -14,6 +14,10 @@ extern "C" IMAGEFINDER_API void* __cdecl CaptureWinMat(     // 窗口截图返�
 
 extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr);   // 释放Mat对象，防止内存泄漏
 
+extern "C" IMAGEFINDER_API int __cdecl SaveMatToFile(               // 保存Mat到图片文件
+    void* matPtr,               // Mat对象指针
+    const char* filePath);      // 保存路径（支持png/jpg/bmp等）
+
 extern "C" IMAGEFINDER_API int __cdecl FindWinColor(                // 窗口颜色匹配
     const char* colorStr,       // 颜色字符串，格式为"RRGGBB"
     int hwndInt,                // 窗口句柄

@@ -1,6 +1,8 @@
 ﻿#include "RMT_OpenCv.h"
 #include <opencv2/opencv.hpp>
 #include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "Dwmapi.lib")
 
 // 捕获屏幕指定区域的函数
 cv::Mat captureScreen(int x, int y, int width, int height)
@@ -39,81 +41,94 @@ cv::Mat captureScreen(int x, int y, int width, int height)
 }
 
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
-	HWND targetHwnd = (HWND)hwnd;
-	HDC hDesktopDC = ::CreateDCA("DISPLAY", NULL, NULL, NULL);
-	if (!hDesktopDC) return cv::Mat();
+    HWND targetHwnd = (HWND)hwnd;
+    if (!targetHwnd || !IsWindow(targetHwnd))
+        return cv::Mat();
 
-	RECT rcWin = { 0 };
-	int winWidth = 0, winHeight = 0;
+    // 与 wrap_DwmThumbnail 完全一致
+    const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
-	// 如果指定了窗口句柄，获取窗口尺寸
-	if (targetHwnd && targetHwnd != ::GetDesktopWindow()) {
-		GetWindowRect(targetHwnd, &rcWin);
-		winWidth = rcWin.right - rcWin.left;
-		winHeight = rcWin.bottom - rcWin.top;
-	}
-	else {
-		// 桌面截屏
-		winWidth = ::GetDeviceCaps(hDesktopDC, HORZRES);
-		winHeight = ::GetDeviceCaps(hDesktopDC, VERTRES);
-	}
+    HWND dstWin = CreateWindowExW(
+        WS_EX_TOOLWINDOW,
+        L"STATIC", L"",
+        WS_POPUP,
+        screenX, screenY,
+        10, 10,
+        nullptr, nullptr, nullptr, nullptr
+    );
+    if (!dstWin)
+        return cv::Mat();
 
-	// 如果没指定宽高，则默认截整个窗口
-	if (width <= 0) width = winWidth;
-	if (height <= 0) height = winHeight;
+    cv::Mat result;
 
-	// 创建完整窗口位图
-	HDC hWinDC = ::CreateCompatibleDC(hDesktopDC);
-	HBITMAP hWinBmp = ::CreateCompatibleBitmap(hDesktopDC, winWidth, winHeight);
-	HBITMAP hOldBmp = (HBITMAP)::SelectObject(hWinDC, hWinBmp);
+    HTHUMBNAIL thumbnail = nullptr;
+    HRESULT hr = DwmRegisterThumbnail(dstWin, targetHwnd, &thumbnail);
 
-	BOOL bret = FALSE;
-	int borderOffsetX = 0;		
-	if (targetHwnd && targetHwnd != ::GetDesktopWindow()) {
-		borderOffsetX = 8;	// 窗口好像有8px的边框  如果用户反馈有问题就去掉
-		bret = ::PrintWindow(targetHwnd, hWinDC, PW_RENDERFULLCONTENT);
-	}
-	if (!bret) {
-		// PrintWindow失败，回退到桌面截取
-		::BitBlt(hWinDC, 0, 0, winWidth, winHeight, hDesktopDC, rcWin.left, rcWin.top, SRCCOPY);
-	}
+    if (SUCCEEDED(hr)) {
+        SIZE size = {0};
+        hr = DwmQueryThumbnailSourceSize(thumbnail, &size);
 
-	// 将窗口位图上 (x, y, width, height) 区域复制到Mat
-	HDC hCaptureDC = ::CreateCompatibleDC(hDesktopDC);
-	HBITMAP hBitmap = ::CreateCompatibleBitmap(hDesktopDC, width, height);
-	HBITMAP hOldBitmap = (HBITMAP)::SelectObject(hCaptureDC, hBitmap);
-	
-	BitBlt(hCaptureDC, 0, 0, width, height, hWinDC, x + borderOffsetX, y, SRCCOPY);
+        if (SUCCEEDED(hr)) {
+            // 直接用 DWM 尺寸设置窗口大小（与原文一致）
+            SetWindowPos(dstWin, nullptr, 0, 0, size.cx, size.cy,
+                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 
-	// 创建OpenCV Mat用于剪切
-	cv::Mat mat(height, width, CV_8UC4);
-	BITMAPINFO bi = { 0 };
-	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bi.bmiHeader.biWidth = width;
-	bi.bmiHeader.biHeight = -height; // top-down
-	bi.bmiHeader.biPlanes = 1;
-	bi.bmiHeader.biBitCount = 32;
-	bi.bmiHeader.biCompression = BI_RGB;
+            ShowWindow(dstWin, SW_SHOW);  // 隐藏窗体无法获得 Thumbnail
 
-	if (::GetDIBits(hCaptureDC, hBitmap, 0, height, mat.data, &bi, DIB_RGB_COLORS) == 0) {
-		mat = cv::Mat();
-	}
+            // IsIconic 时 DWM 缩略图有内部偏移，需要补偿
+            const int offset = IsIconic(targetHwnd) ? 8 : 0;
 
-	// 清理资源
-	::SelectObject(hCaptureDC, hOldBitmap);
-	::DeleteObject(hBitmap);
-	::DeleteDC(hCaptureDC);
-	::SelectObject(hWinDC, hOldBmp);
-	::DeleteObject(hWinBmp);
-	::DeleteDC(hWinDC);
-	::DeleteDC(hDesktopDC);
+            DWM_THUMBNAIL_PROPERTIES dskThumbProps;
+            dskThumbProps.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE |
+                DWM_TNP_SOURCECLIENTAREAONLY | DWM_TNP_OPACITY;
+            dskThumbProps.fSourceClientAreaOnly = FALSE;
+            dskThumbProps.fVisible = TRUE;
+            dskThumbProps.opacity = 255;
+            dskThumbProps.rcDestination = RECT{ -offset, -offset, size.cx - offset, size.cy - offset };
 
-	// 测试保存
-	/*if (!mat.empty()) {
-		cv::imwrite("screenshot.png", mat);
-	}*/
+            hr = DwmUpdateThumbnailProperties(thumbnail, &dskThumbProps);
 
-	return mat;
+            if (SUCCEEDED(hr)) {
+                // PrintWindow 截取映射窗口
+                HDC hDC = GetWindowDC(nullptr);
+                HDC cDC = CreateCompatibleDC(hDC);
+                HBITMAP cBmp = CreateCompatibleBitmap(hDC, size.cx, size.cy);
+                HGDIOBJ oldBmp = SelectObject(cDC, cBmp);
+
+                BOOL bret = PrintWindow(dstWin, cDC, PW_RENDERFULLCONTENT);
+
+                if (bret) {
+                    result = cv::Mat(size.cy, size.cx, CV_8UC4);
+                    BITMAPINFO bi = { 0 };
+                    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                    bi.bmiHeader.biWidth = size.cx;
+                    bi.bmiHeader.biHeight = -(LONG)size.cy;
+                    bi.bmiHeader.biPlanes = 1;
+                    bi.bmiHeader.biBitCount = 32;
+                    bi.bmiHeader.biCompression = BI_RGB;
+
+                    GetDIBits(cDC, cBmp, 0, size.cy, result.data, &bi, DIB_RGB_COLORS);
+
+                    // 裁剪指定区域
+                    const long capWidth = (width <= 0) ? size.cx : width;
+                    const long capHeight = (height <= 0) ? size.cy : height;
+                    if ((x > 0 || y > 0 || capWidth < size.cx || capHeight < size.cy)
+                        && x >= 0 && y >= 0 && x + capWidth <= size.cx && y + capHeight <= size.cy) {
+                        result = result(cv::Rect(x, y, capWidth, capHeight)).clone();
+                    }
+                }
+
+                SelectObject(cDC, oldBmp);
+                DeleteObject(cBmp);
+                DeleteDC(cDC);
+                ReleaseDC(nullptr, hDC);
+            }
+        }
+        DwmUnregisterThumbnail(thumbnail);
+    }
+    DestroyWindow(dstWin);
+    return result;
 }
 
 // 计算两个矩形的交并比（IOU）
@@ -206,6 +221,23 @@ extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
 	if (matPtr) {
 		cv::Mat* mat = (cv::Mat*)matPtr;
 		delete mat;
+	}
+}
+
+// 保存Mat到文件
+int SaveMatToFile(void* matPtr, const char* filePath) {
+	if (!matPtr || !filePath)
+		return 0;
+
+	cv::Mat* mat = (cv::Mat*)matPtr;
+	if (mat->empty())
+		return 0;
+
+	try {
+		return cv::imwrite(filePath, *mat) ? 1 : 0;
+	}
+	catch (...) {
+		return 0;
 	}
 }
 
