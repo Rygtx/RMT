@@ -262,8 +262,10 @@ GetTimingInterval(Data) {
         return IntervalMap[Data.Type]
 
     interval := Data.HasOwnProp("CustomInterval") ? Data.CustomInterval : 3600
-    unit := Data.HasOwnProp("CustomUnit") ? Data.CustomUnit : 1 ; 1: Min, 2: Sec
-    return unit == 1 ? interval * 60 : interval
+    unit := Data.HasOwnProp("CustomUnit") ? Data.CustomUnit : 1 ; 0: Sec, 1: Min, 2: Hour, 3: Day, 4: Week
+    static MultiplierMap := Map(0, 1, 1, 60, 2, 3600, 3, 86400, 4, 604800)
+    multiplier := MultiplierMap.Has(unit) ? MultiplierMap[unit] : 60
+    return interval * multiplier
 }
 
 TimingCheckItemIfValid(tableItem, index) {

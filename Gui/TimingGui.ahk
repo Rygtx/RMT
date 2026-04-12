@@ -32,7 +32,7 @@ class TimingGui {
         this.EndTimeCon.Value := this.Data.EndTime
         this.TypeCon.Value := this.Data.Type
         this.CustomIntervalCon.Value := this.Data.CustomInterval
-        this.IntervalUnitCon.Value := this.Data.HasOwnProp("CustomUnit") ? this.Data.CustomUnit : 1
+        this.IntervalUnitCon.Value := this.Data.HasOwnProp("CustomUnit") ? this.Data.CustomUnit + 1 : 2
     }
 
     AddGui() {
@@ -64,7 +64,7 @@ class TimingGui {
         PosX += 80
         this.CustomIntervalCon := MyGui.Add("Edit", Format("x{} y{} w110", PosX, PosY - 3), "")
         PosX += 110
-        this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["分钟", "秒"]))
+        this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["秒", "分钟", "小时", "天", "周"]))
 
         PosX := 250
         PosY += 40
@@ -115,7 +115,7 @@ class TimingGui {
         Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmmss")
         Data.Type := this.TypeCon.Value
         Data.CustomInterval := this.CustomIntervalCon.Value
-        Data.CustomUnit := this.IntervalUnitCon.Value
+        Data.CustomUnit := this.IntervalUnitCon.Value - 1
         saveStr := JSON.stringify(Data, 0)
         IniWrite(saveStr, TimingFile, IniSection, Data.SerialStr)
         if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
