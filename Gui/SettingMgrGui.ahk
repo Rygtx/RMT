@@ -405,6 +405,7 @@ class SettingMgrGui {
         hasWork := CompatOperation(SettringDir "\OperationFile.ini") || hasWork
         hasWork := CompatBGMouse(SettringDir "\BGMouseFile.ini") || hasWork
         hasWork := CompatBGKey(SettringDir "\BGKeyFile.ini") || hasWork
+        hasWork := CompatTiming(SettringDir "\TimingFile.ini") || hasWork
         return hasWork
     }
 
