@@ -98,7 +98,7 @@ GetGuiVarArr(Mode := 0) {
     ResultMap := Map()
     SpecialKeyArr0 := []
     SpecialKeyArr1 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
-    GetLang("当前鼠标坐标Y")]
+    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
     SpecialKeyArr2 := [GetLang("循环次数"), GetLang("宏循环次数")]
     SpecialKeyArr3 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
     SpecialKeyArr4 := [GetLang("句柄ID")]

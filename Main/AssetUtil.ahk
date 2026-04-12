@@ -1367,6 +1367,26 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
         return true
     }
 
+    if (varName == GetLang("当前日期")) {
+        Value := FormatTime(A_Now, "yyyy-MM-dd")
+        return true
+    }
+
+    if (varName == GetLang("当前时间")) {
+        Value := FormatTime(A_Now, "HH:mm")
+        return true
+    }
+
+    if (varName == GetLang("当前时间(秒)")) {
+        Value := FormatTime(A_Now, "HH:mm:ss")
+        return true
+    }
+
+    if (varName == GetLang("当前秒")) {
+        Value := A_Sec
+        return true
+    }
+
     if (varName == "当前鼠标颜色") {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY

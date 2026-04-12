@@ -32,6 +32,7 @@ class TimingGui {
         this.EndTimeCon.Value := this.Data.EndTime
         this.TypeCon.Value := this.Data.Type
         this.CustomIntervalCon.Value := this.Data.CustomInterval
+        this.IntervalUnitCon.Value := this.Data.HasOwnProp("CustomUnit") ? this.Data.CustomUnit : 1
     }
 
     AddGui() {
@@ -43,12 +44,12 @@ class TimingGui {
         PosY := 15
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开始时间："))
         PosX += 80
-        this.StartTimeCon := MyGui.Add("DateTime", Format("x{} y{} w150", PosX, PosY - 3), "yyyy-MM-dd HH:mm")
+        this.StartTimeCon := MyGui.Add("DateTime", Format("x{} y{} w190", PosX, PosY - 3), "yyyy-MM-dd HH:mm:ss")
 
-        PosX += 170
+        PosX += 200
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("结束时间："))
         PosX += 80
-        this.EndTimeCon := MyGui.Add("DateTime", Format("x{} y{} w175 ChooseNone", PosX, PosY - 3), "yyyy-MM-dd HH:mm")
+        this.EndTimeCon := MyGui.Add("DateTime", Format("x{} y{} w220 ChooseNone", PosX, PosY - 3), "yyyy-MM-dd HH:mm:ss")
 
         PosX := 10
         PosY += 40
@@ -63,13 +64,13 @@ class TimingGui {
         PosX += 80
         this.CustomIntervalCon := MyGui.Add("Edit", Format("x{} y{} w110", PosX, PosY - 3), "")
         PosX += 110
-        this.IntervalUnitCon := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("分钟"))
+        this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["分钟", "秒"]))
 
-        PosX := 200
+        PosX := 250
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show(Format("w{} h{}", 525, 150))
+        MyGui.Show(Format("w{} h{}", 620, 150))
     }
 
     CheckIfValid() {
@@ -110,10 +111,11 @@ class TimingGui {
 
     SaveTimingData() {
         Data := this.Data
-        Data.StartTime := FormatTime(this.StartTimeCon.Value, "yyyyMMddHHmm")
-        Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmm")
+        Data.StartTime := FormatTime(this.StartTimeCon.Value, "yyyyMMddHHmmss")
+        Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmmss")
         Data.Type := this.TypeCon.Value
         Data.CustomInterval := this.CustomIntervalCon.Value
+        Data.CustomUnit := this.IntervalUnitCon.Value
         saveStr := JSON.stringify(Data, 0)
         IniWrite(saveStr, TimingFile, IniSection, Data.SerialStr)
         if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {

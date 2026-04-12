@@ -204,23 +204,23 @@ NormalizeTimingData(tableItem) {
 
 CalculateNextStamp(Data, baseStamp) {
     start := Data.StartStamp
-    spanMinutes := Floor((baseStamp - start) / 60)
+    spanSeconds := baseStamp - start
 
     switch Data.Type {
         case 1:
-            return spanMinutes < 0 ? start : 0
+            return spanSeconds < 0 ? start : 0
 
         case 2, 3, 4, 7:
             interval := GetTimingInterval(Data)
 
-            if (spanMinutes < 0)
+            if (spanSeconds < 0)
                 return start
 
-            count := Floor(spanMinutes / interval)
-            return start + (count + 1) * interval * 60
+            count := Floor(spanSeconds / interval)
+            return start + (count + 1) * interval
 
         case 5:
-            if (spanMinutes < 0)
+            if (spanSeconds < 0)
                 return start
 
             t := DateAdd("19700101000000", baseStamp, "Seconds")
@@ -257,8 +257,13 @@ TimeStrToStamp(timeStr) {
 }
 
 GetTimingInterval(Data) {
-    static IntervalMap := Map(2, 60, 3, 1440, 4, 10080)
-    return IntervalMap.Has(Data.Type) ? IntervalMap[Data.Type] : (Data.HasOwnProp("CustomInterval") ? Data.CustomInterval : 60)
+    static IntervalMap := Map(2, 3600, 3, 86400, 4, 604800)
+    if (IntervalMap.Has(Data.Type))
+        return IntervalMap[Data.Type]
+
+    interval := Data.HasOwnProp("CustomInterval") ? Data.CustomInterval : 3600
+    unit := Data.HasOwnProp("CustomUnit") ? Data.CustomUnit : 1 ; 1: Min, 2: Sec
+    return unit == 1 ? interval * 60 : interval
 }
 
 TimingCheckItemIfValid(tableItem, index) {
