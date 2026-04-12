@@ -40,6 +40,7 @@ cv::Mat captureScreen(int x, int y, int width, int height)
 	return mat;
 }
 
+// 后台截图参考: https://zhuanlan.zhihu.com/p/16194002981 
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
     HWND targetHwnd = (HWND)hwnd;
     if (!targetHwnd || !IsWindow(targetHwnd))
@@ -215,6 +216,30 @@ extern "C" IMAGEFINDER_API void* __cdecl CaptureWinMat(int hwnd, int x, int y, i
 
 	return mat;
 }
+
+// 和CaptureWinMat做对比测试的导出函数
+// extern "C" IMAGEFINDER_API void* __cdecl CaptureScreenMat(int x, int y, int width, int height) {
+// 	cv::Mat src = captureScreen(x, y, width, height);
+
+// 	if (src.empty()) {
+// 		return nullptr;
+// 	}
+
+// 	cv::Mat* mat = new cv::Mat();
+
+// 	if (src.channels() == 4) {
+// 		cv::cvtColor(src, *mat, cv::COLOR_BGRA2BGR);
+// 	}
+// 	else {
+// 		*mat = src.clone();
+// 	}
+
+// 	if (!mat->isContinuous()) {
+// 		*mat = mat->clone();
+// 	}
+
+// 	return mat;
+// }
 
 extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
 {
