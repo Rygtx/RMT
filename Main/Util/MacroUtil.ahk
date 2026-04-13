@@ -510,7 +510,7 @@ OnVariable(tableItem, cmd, index) {
         if (!Data.ToggleArr[A_Index])
             continue
         VariableName := Data.VariableArr[A_Index]
-        if (Data.OperaTypeArr[A_Index] == 4) {  ;删除
+        if (Data.OperaTypeArr[A_Index] == 5) {  ;删除
             DeleteNameArr.Push(VariableName)
             continue
         }
@@ -530,6 +530,12 @@ OnVariable(tableItem, cmd, index) {
         }
         if (Data.OperaTypeArr[A_Index] == 3) {  ;字符
             Value := Data.CopyVariableArr[A_Index]
+        }
+
+        if (Data.OperaTypeArr[A_Index] == 4) {   ;系统
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.CopyVariableArr[A_Index])
+            if (!hasValue)
+                return
         }
 
         VariableNameArr.Push(VariableName)

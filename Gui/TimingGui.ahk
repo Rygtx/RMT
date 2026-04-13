@@ -56,14 +56,14 @@ class TimingGui {
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("定时类型："))
         con.Focus()
         PosX += 80
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w100", PosX, PosY - 3), GetLangArr(["单次", "每小时", "每天", "每周",
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w120", PosX, PosY - 3), GetLangArr(["单次", "每小时", "每天", "每周",
             "每月", "软件启动时","自定义"]))
         this.TypeCon.OnEvent("Change", (*) => this.OnChangeType())
-        PosX += 170
+        PosX += 200
         this.IntervalLabelCon := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("每次间隔："))
         PosX += 80
         this.CustomIntervalCon := MyGui.Add("Edit", Format("x{} y{} w110", PosX, PosY - 3), "")
-        PosX += 110
+        PosX += 115
         this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["秒", "分钟", "小时", "天", "周"]))
 
         PosX := 250
