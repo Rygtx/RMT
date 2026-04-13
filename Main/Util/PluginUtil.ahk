@@ -128,17 +128,3 @@ FindWinImage(ResXPtr, ResYPtr, targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold)
         "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr,
         "Cdecl Int")
 }
-
-;测试RMT
-DebugRMT() {
-    ; 加载你的 DLL
-    asm := CLR_LoadLibrary(A_ScriptDir "\Plugins\RMT\RMT.dll")
-
-    ; 获取 RMT.Util 类型
-    type := asm.GetType("RMT.Util")
-
-    ; 调用静态方法 DebugFun
-    ; 参数说明: (方法名, 绑定标志, Binder, 参数数组, 文化信息)
-    ; 0x158 表示 Public | Static | InvokeMethod
-    type.InvokeMember("DebugFun", 0x158, 0, 0, 0)
-}
