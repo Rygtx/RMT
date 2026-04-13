@@ -786,3 +786,15 @@ class InputData {
         this.SaveName := "Data"     ;保存的变量名或数组名
     }
 }
+
+class CLRStatic {
+    __New(asm, typeName) {
+        this.asm := asm
+        this.type := asm.GetType(typeName)
+        this.flags := 0x158 ; Public | Static | InvokeMethod
+    }
+
+    __Call(method, params*) {
+        return this.type.InvokeMember(method, this.flags, 0, 0, params)
+    }
+}

@@ -169,8 +169,7 @@ PluginInit() {
     DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
     DllCall("LoadLibrary", "Str", IBPath)
 
-    RMTPath := A_ScriptDir "\Plugins\RMT.dll"
-    RMT_ASM := CLR_LoadLibrary(RMTPath)
+    RMT_ASM := CLR_LoadLibrary(A_ScriptDir "\Plugins\RMT\RMT.dll")   ;加载RMT程序集
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 }
 
