@@ -44,6 +44,8 @@ OnFinishMacro(tableItem, macro, index) {
         tableItem.ToggleStateArr[index] := false
     }
 
+    ReleaseAllCaches()
+
     itemState := tableItem.KilledArr[index] ? 3 : 0
     MySetTableItemState(tableItem.index, index, itemState)
 }

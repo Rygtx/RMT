@@ -10,6 +10,10 @@ FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
         "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
 }
 
+ReleaseAllCaches() {
+    DllCall("RMT_OpenCV.dll\ReleaseAllCaches", "Cdecl")
+}
+
 FindScreenText(&ResX, &ResY, X1, Y1, X2, Y2, text, mode) {
     result := GetScreenTextObjArr(X1, Y1, X2, Y2, mode)
     if (result == "" || !result)
