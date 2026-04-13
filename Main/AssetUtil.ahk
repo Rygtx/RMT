@@ -1355,7 +1355,13 @@ GetReplaceVarText(tableItem, tableIndex, text) {
 }
 
 TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
-    if (IsNumber(varName) && !RegExMatch(varName, "^[0-9A-Fa-f]{6}$")) {
+
+    if (RegExMatch(varName, "^[0-9A-Fa-f]{6}$")) {
+        Value := varName
+        return true
+    }
+
+    if (IsNumber(varName)) {
         Value := Number(varName)
         return true
     }
