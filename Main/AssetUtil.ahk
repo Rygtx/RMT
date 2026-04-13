@@ -1360,31 +1360,39 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
         return true
     }
 
-    if (varName == "当前鼠标坐标X" || varName == "当前鼠标坐标Y") {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-        Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
-        return true
-    }
-
-    if (varName == "当前鼠标颜色") {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        Value := StrReplace(Color, "0x", "")
-        return true
-    }
-
-    if (varName == "句柄ID") {
-        winId := 0
-        try {
+    switch varName {
+        case "当前鼠标坐标X", "当前鼠标坐标Y":
             CoordMode("Mouse", "Screen")
-            MouseGetPos &mouseX, &mouseY, &winId
-        }
-        Value := winId
-        return true
+            MouseGetPos &mouseX, &mouseY
+            Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
+            return true
+        case "当前日期":
+            Value := FormatTime(A_Now, "yyyy-MM-dd")
+            return true
+        case "当前时间":
+            Value := FormatTime(A_Now, "HH:mm")
+            return true
+        case "当前时间(秒)":
+            Value := FormatTime(A_Now, "HH:mm:ss")
+            return true
+        case "当前秒":
+            Value := A_Sec
+            return true
+        case "当前鼠标颜色":
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY
+            CoordMode("Pixel", "Screen")
+            Color := PixelGetColor(mouseX, mouseY, "Slow")
+            Value := StrReplace(Color, "0x", "")
+            return true
+        case "句柄ID":
+            winId := 0
+            try {
+                CoordMode("Mouse", "Screen")
+                MouseGetPos &mouseX, &mouseY, &winId
+            }
+            Value := winId
+            return true
     }
 
     if (tableVarMap.Has(varName)) {
