@@ -804,7 +804,7 @@ RMT默认初始化配置=RMT Default Setting
 类型：=Type:
 变量列表：=Variable List:
 计算结果=Result
-假定变量值为10，计算结果=Calculate with var=10
+假定所有变量均为10，计算结果=Calculate with var=10
 提示：实际运行时会使用真实的变量值=Note: Actual runtime uses real variable values.
 表达式不能为空=Expression cannot be empty.
 表达式错误：变量内容不能为空=Expression error: Variable content cannot be empty.

@@ -19,7 +19,7 @@ class OperationSubGui {
             this.AddGui()
         }
 
-        this.DLVariableArr := GetGuiVarArr(1)
+        this.DLVariableArr := GetGuiVarArr(6)
         this.Index := Index
 
         ; 初始化变量列表下拉框
@@ -76,8 +76,8 @@ class OperationSubGui {
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("变量："))
         PosX += 50
-        this.OperaVariableCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 100), [])
-        PosX += 105
+        this.OperaVariableCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 150), [])
+        PosX += 155
         Con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 4, 50), GetLang("添加"))
         Con.OnEvent("Click", (*) => this.OnVariableChanged())
 
@@ -170,7 +170,7 @@ class OperationSubGui {
             ; 计算包含变量的表达式
             try {
                 result := EvaluateExpression(testExpr)
-                MsgBox(Format("{}：{}{}", GetLang("假定变量值为10，计算结果"), result, "`n" GetLang("提示：实际运行时会使用真实的变量值")))
+                MsgBox(Format("{}：{}{}", GetLang("假定所有变量均为10，计算结果"), result, "`n" GetLang("提示：实际运行时会使用真实的变量值")))
             } catch Error as e {
                 MsgBox(Format(GetLang("表达式语法错误：{}"), e.Message))
             }
@@ -324,7 +324,7 @@ class OperationSubGui {
         ; ========== 步骤5：校验连续运算符（允许+-、--作为负数，不允许其他连续）==========
         ; 匹配连续的运算符（2个或更多），排除 +-、-+、--（负数的情况）
         ; 但也要排除变量后的情况：{var}+5 这种不校验
-        exprWithoutVar := RegExReplace(cleanExpr, "\{[^{}]+\}", "") ; 去掉变量后再检查
+        exprWithoutVar := RegExReplace(cleanExpr, "\{[^{}]+\}", "Var") ; 去掉变量后再检查
         if RegExMatch(exprWithoutVar, "[+\-*/%^]{2,}", &opMatch) {
             matched := opMatch[0]
             ; 允许 +-、-+、--（负数或正数前缀）

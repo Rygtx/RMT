@@ -198,6 +198,7 @@ class InputGui {
         ReadTypeArr := this.Data.Type == "文本文件" ? this.FileReadTypeArr : this.ExcelReadTypeArr
 
         this.TypeCon.Text := GetLang(this.Data.Type)
+        this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
         this.EncodingCon.Text := GetShowEncoding(this.Data.Encoding)
         this.PauseTypeCon.Text := GetLang(this.Data.PauseType)
         this.CancelTypeCon.Text := GetLang(this.Data.CancelType)

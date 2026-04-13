@@ -92,7 +92,7 @@ SetGlobalData(macroStr, visitMap) {
     }
 }
 
-;mode 0自定义 1-所有 2-循环次数 3-坐标 4-句柄ID 5-颜色
+;mode 0自定义 1-所有 2-循环次数 3-坐标 4-句柄ID 5-颜色 6-可运算变量
 GetGuiVarArr(Mode := 0) {
     ResultArr := []
     ResultMap := Map()
@@ -102,7 +102,8 @@ GetGuiVarArr(Mode := 0) {
     SpecialKeyArr3 := [GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
     SpecialKeyArr4 := [GetLang("句柄ID")]
     SpecialKeyArr5 := [GetLang("当前鼠标颜色")]
-    SpecialMap := Map(0, SpecialKeyArr0, 1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3, 4, SpecialKeyArr4, 5, SpecialKeyArr5)
+    SpecialKeyArr6 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialMap := Map(0, SpecialKeyArr0, 1, SpecialKeyArr1, 2, SpecialKeyArr2, 3, SpecialKeyArr3, 4, SpecialKeyArr4, 5, SpecialKeyArr5, 6, SpecialKeyArr6)
     SpecialKeyArr := SpecialMap[Mode]
 
     ; 添加全局变量（如果不存在）
