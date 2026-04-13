@@ -2,7 +2,18 @@
 #include <opencv2/opencv.hpp>
 #include <windows.h>
 #include <dwmapi.h>
+#include <unordered_map>
 #pragma comment(lib, "Dwmapi.lib")
+
+// 缩略图缓存结构
+struct ThumbnailCache {
+    HWND dstWin = nullptr;
+    HTHUMBNAIL thumbnail = nullptr;
+    SIZE sourceSize = { 0, 0 };
+};
+
+// 全局缓存：key = 目标窗口句柄
+static std::unordered_map<int, ThumbnailCache> g_thumbnailCache;
 
 // 捕获屏幕指定区域的函数
 cv::Mat captureScreen(int x, int y, int width, int height)
@@ -40,95 +51,121 @@ cv::Mat captureScreen(int x, int y, int width, int height)
 	return mat;
 }
 
-// 后台截图参考: https://zhuanlan.zhihu.com/p/16194002981 
+// 获取或创建缩略图缓存（内部辅助函数）
+static ThumbnailCache* GetOrCreateCache(HWND targetHwnd) {
+    int key = (int)(intptr_t)targetHwnd;
+
+    auto it = g_thumbnailCache.find(key);
+    if (it != g_thumbnailCache.end()) {
+        // 目标窗口已销毁，清理旧缓存重新创建
+        if (!IsWindow(targetHwnd)) {
+            if (it->second.thumbnail) DwmUnregisterThumbnail(it->second.thumbnail);
+            if (it->second.dstWin) DestroyWindow(it->second.dstWin);
+            g_thumbnailCache.erase(it);
+        } else {
+            return &it->second;
+        }
+    }
+
+    // 创建新缓存
+    const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+    HWND dstWin = CreateWindowExW(
+        WS_EX_TOOLWINDOW, L"STATIC", L"", WS_POPUP,
+        screenX, screenY, 10, 10,
+        nullptr, nullptr, nullptr, nullptr
+    );
+    if (!dstWin) return nullptr;
+
+    HTHUMBNAIL thumbnail = nullptr;
+    HRESULT hr = DwmRegisterThumbnail(dstWin, targetHwnd, &thumbnail);
+    if (FAILED(hr)) {
+        DestroyWindow(dstWin);
+        return nullptr;
+    }
+
+    SIZE size = { 0 };
+    hr = DwmQueryThumbnailSourceSize(thumbnail, &size);
+    if (FAILED(hr)) {
+        DwmUnregisterThumbnail(thumbnail);
+        DestroyWindow(dstWin);
+        return nullptr;
+    }
+
+    SetWindowPos(dstWin, nullptr, 0, 0, size.cx, size.cy,
+        SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+    ShowWindow(dstWin, SW_SHOW);
+
+    ThumbnailCache cache;
+    cache.dstWin = dstWin;
+    cache.thumbnail = thumbnail;
+    cache.sourceSize = size;
+    g_thumbnailCache[key] = std::move(cache);
+    return &g_thumbnailCache[key];
+}
+
+// 后台截图（使用缓存，避免每次创建/销毁窗口）
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
     HWND targetHwnd = (HWND)hwnd;
     if (!targetHwnd || !IsWindow(targetHwnd))
         return cv::Mat();
 
-    // 与 wrap_DwmThumbnail 完全一致
-    const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
-    const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    ThumbnailCache* cache = GetOrCreateCache(targetHwnd);
+    if (!cache) return cv::Mat();
 
-    HWND dstWin = CreateWindowExW(
-        WS_EX_TOOLWINDOW,
-        L"STATIC", L"",
-        WS_POPUP,
-        screenX, screenY,
-        10, 10,
-        nullptr, nullptr, nullptr, nullptr
-    );
-    if (!dstWin)
-        return cv::Mat();
+    const SIZE& size = cache->sourceSize;
+    HWND dstWin = cache->dstWin;
+    HTHUMBNAIL thumbnail = cache->thumbnail;
+
+    // IsIconic 时 DWM 缩略图有内部偏移，需要补偿
+    const int offset = IsIconic(targetHwnd) ? 8 : 0;
+
+    DWM_THUMBNAIL_PROPERTIES props;
+    props.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE |
+        DWM_TNP_SOURCECLIENTAREAONLY | DWM_TNP_OPACITY;
+    props.fSourceClientAreaOnly = FALSE;
+    props.fVisible = TRUE;
+    props.opacity = 255;
+    props.rcDestination = RECT{ -offset, -offset, size.cx - offset, size.cy - offset };
+
+    HRESULT hr = DwmUpdateThumbnailProperties(thumbnail, &props);
+    if (FAILED(hr)) return cv::Mat();
+
+    // PrintWindow 截取映射窗口
+    HDC hDC = GetWindowDC(nullptr);
+    HDC cDC = CreateCompatibleDC(hDC);
+    HBITMAP cBmp = CreateCompatibleBitmap(hDC, size.cx, size.cy);
+    HGDIOBJ oldBmp = SelectObject(cDC, cBmp);
 
     cv::Mat result;
+    BOOL bret = PrintWindow(dstWin, cDC, PW_RENDERFULLCONTENT);
 
-    HTHUMBNAIL thumbnail = nullptr;
-    HRESULT hr = DwmRegisterThumbnail(dstWin, targetHwnd, &thumbnail);
+    if (bret) {
+        result = cv::Mat(size.cy, size.cx, CV_8UC4);
+        BITMAPINFO bi = { 0 };
+        bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bi.bmiHeader.biWidth = size.cx;
+        bi.bmiHeader.biHeight = -(LONG)size.cy;
+        bi.bmiHeader.biPlanes = 1;
+        bi.bmiHeader.biBitCount = 32;
+        bi.bmiHeader.biCompression = BI_RGB;
 
-    if (SUCCEEDED(hr)) {
-        SIZE size = {0};
-        hr = DwmQueryThumbnailSourceSize(thumbnail, &size);
+        GetDIBits(cDC, cBmp, 0, size.cy, result.data, &bi, DIB_RGB_COLORS);
 
-        if (SUCCEEDED(hr)) {
-            // 直接用 DWM 尺寸设置窗口大小（与原文一致）
-            SetWindowPos(dstWin, nullptr, 0, 0, size.cx, size.cy,
-                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
-
-            ShowWindow(dstWin, SW_SHOW);  // 隐藏窗体无法获得 Thumbnail
-
-            // IsIconic 时 DWM 缩略图有内部偏移，需要补偿
-            const int offset = IsIconic(targetHwnd) ? 8 : 0;
-
-            DWM_THUMBNAIL_PROPERTIES dskThumbProps;
-            dskThumbProps.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE |
-                DWM_TNP_SOURCECLIENTAREAONLY | DWM_TNP_OPACITY;
-            dskThumbProps.fSourceClientAreaOnly = FALSE;
-            dskThumbProps.fVisible = TRUE;
-            dskThumbProps.opacity = 255;
-            dskThumbProps.rcDestination = RECT{ -offset, -offset, size.cx - offset, size.cy - offset };
-
-            hr = DwmUpdateThumbnailProperties(thumbnail, &dskThumbProps);
-
-            if (SUCCEEDED(hr)) {
-                // PrintWindow 截取映射窗口
-                HDC hDC = GetWindowDC(nullptr);
-                HDC cDC = CreateCompatibleDC(hDC);
-                HBITMAP cBmp = CreateCompatibleBitmap(hDC, size.cx, size.cy);
-                HGDIOBJ oldBmp = SelectObject(cDC, cBmp);
-
-                BOOL bret = PrintWindow(dstWin, cDC, PW_RENDERFULLCONTENT);
-
-                if (bret) {
-                    result = cv::Mat(size.cy, size.cx, CV_8UC4);
-                    BITMAPINFO bi = { 0 };
-                    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-                    bi.bmiHeader.biWidth = size.cx;
-                    bi.bmiHeader.biHeight = -(LONG)size.cy;
-                    bi.bmiHeader.biPlanes = 1;
-                    bi.bmiHeader.biBitCount = 32;
-                    bi.bmiHeader.biCompression = BI_RGB;
-
-                    GetDIBits(cDC, cBmp, 0, size.cy, result.data, &bi, DIB_RGB_COLORS);
-
-                    // 裁剪指定区域
-                    const long capWidth = (width <= 0) ? size.cx : width;
-                    const long capHeight = (height <= 0) ? size.cy : height;
-                    if ((x > 0 || y > 0 || capWidth < size.cx || capHeight < size.cy)
-                        && x >= 0 && y >= 0 && x + capWidth <= size.cx && y + capHeight <= size.cy) {
-                        result = result(cv::Rect(x, y, capWidth, capHeight)).clone();
-                    }
-                }
-
-                SelectObject(cDC, oldBmp);
-                DeleteObject(cBmp);
-                DeleteDC(cDC);
-                ReleaseDC(nullptr, hDC);
-            }
+        // 裁剪指定区域
+        const long capWidth = (width <= 0) ? size.cx : width;
+        const long capHeight = (height <= 0) ? size.cy : height;
+        if ((x > 0 || y > 0 || capWidth < size.cx || capHeight < size.cy)
+            && x >= 0 && y >= 0 && x + capWidth <= size.cx && y + capHeight <= size.cy) {
+            result = result(cv::Rect(x, y, capWidth, capHeight)).clone();
         }
-        DwmUnregisterThumbnail(thumbnail);
     }
-    DestroyWindow(dstWin);
+
+    SelectObject(cDC, oldBmp);
+    DeleteObject(cBmp);
+    DeleteDC(cDC);
+    ReleaseDC(nullptr, hDC);
     return result;
 }
 
@@ -247,6 +284,18 @@ extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
 		cv::Mat* mat = (cv::Mat*)matPtr;
 		delete mat;
 	}
+}
+
+// 释放所有缩略图缓存（搜图结束或切换时调用）
+extern "C" IMAGEFINDER_API void __cdecl ReleaseAllCaches(void)
+{
+	for (auto& pair : g_thumbnailCache) {
+		if (pair.second.thumbnail)
+			DwmUnregisterThumbnail(pair.second.thumbnail);
+		if (pair.second.dstWin)
+			DestroyWindow(pair.second.dstWin);
+	}
+	g_thumbnailCache.clear();
 }
 
 // 保存Mat到文件
