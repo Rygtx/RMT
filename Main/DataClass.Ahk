@@ -269,7 +269,7 @@ class SoftData {
         ;显示指令提示配置
         this.CMDTip := false
         this.CMDTipCtrl := ""
-        this.CMDPosX := A_ScreenWidth - 225
+        this.CMDPosX := A_ScreenWidth - 225 - 55    ;不知道为什么有55的偏移
         this.CMDPosY := 0
         this.CMDWidth := 225
         this.CMDHeight := 120

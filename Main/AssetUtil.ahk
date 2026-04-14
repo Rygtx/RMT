@@ -387,7 +387,7 @@ LoadMainSetting() {
     MySoftData.TableIndex := IniRead(IniFile, IniSection, "TableIndex", 1)
     MySoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
     MySoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
-    MySoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225)
+    MySoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225 - 55)
     MySoftData.CMDPosY := IniRead(IniFile, IniSection, "CMDPosY", 0)
     MySoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
     MySoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
