@@ -296,7 +296,6 @@ WM_MOUSEWHEEL(wParam, lParam, msg, hwnd) {
             if (!isDropped || !ctrl.Focused) {
                 return 0  ; 阻止处理未展开状态下的滚轮事件
             }
-            ; 如果下拉列表是展开的，允许滚轮滚动选项
         }
     }
     ; 其他控件允许正常处理

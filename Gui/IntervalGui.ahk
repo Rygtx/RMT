@@ -37,12 +37,12 @@ class IntervalGui {
         this.Gui := MyGui
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
-        PosX := 40
+        PosX := 35
         PosY := 20
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), GetLang("时间(毫秒)："))
 
         PosX += 90
-        this.TimeVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 130), [])
+        this.TimeVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 150), [])
 
         PosY += 40
         PosX := 110
