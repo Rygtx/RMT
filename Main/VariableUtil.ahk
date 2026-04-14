@@ -68,9 +68,6 @@ SetGlobalData(macroStr, visitMap) {
                 VariableMap[Data.CoordYName] := true
             }
         }
-        else if (IsLoop) {
-            VariableMap[GetLang("循环次数")] := true
-        }
         else if (IsArray) {
             SetArrayDataNewArr(Data)
             SetArrayDataNewVar(Data)

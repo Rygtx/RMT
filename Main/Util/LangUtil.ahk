@@ -177,8 +177,8 @@ GetLangCmd(Cmd, Mode) {
 
 ;mode 1多语言模式  2中文语言模式
 GetLangStr(Str, Mode) {
-    SpecialKeyArr1 := ["循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
-    SpecialKeyArr2 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr1 := GetLangKeyArr(GetSystemVarArr())
+    SpecialKeyArr2 := GetSystemVarArr()
     KeyArr := Mode == 1 ? SpecialKeyArr1 : SpecialKeyArr2
     action := Mode == 1 ? GetLang : GetLangKey
 
