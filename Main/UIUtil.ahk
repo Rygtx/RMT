@@ -662,11 +662,11 @@ AddRewardUI(index) {
 
 ; 系统托盘优化
 CustomTrayMenu() {
-    loop 50 {
+    loop 30 {
         if(WinExist("ahk_class Shell_TrayWnd")){
             break
         }
-        Sleep(100)
+        Sleep(1000)
     }
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
