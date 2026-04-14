@@ -139,11 +139,6 @@ GetGuiVarArr(Mode := 0) {
     return ResultArr
 }
 
-GetSystemVarArr() {
-   return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
-    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
-}
-
 CheckVarNameIfValid(Name) {
     if (Name == "") {
         MsgBox(Format(GetLang("结果变量名不规范：变量名不能为空")))
