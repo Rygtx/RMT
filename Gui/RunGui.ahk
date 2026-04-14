@@ -118,7 +118,7 @@ class RunGui {
         this.PathTextCon.Value := this.Data.RunPath
         this.BackPlayCon.Value := this.Data.BackPlay
 
-        DLVariableArr := GetGuiVarArr(1)
+        DLVariableArr := GetGuiVarArr(2)
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1

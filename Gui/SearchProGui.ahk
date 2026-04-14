@@ -194,7 +194,7 @@ class SearchProGui {
         PosX += 50
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("变量名"))
         this.ResultTogArr.Push(con)
-        PosX += 110
+        PosX += 130
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
         this.ResultTogArr.Push(con)
         PosX += 85
@@ -205,11 +205,11 @@ class SearchProGui {
         PosX := 20
         this.ResultToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ResultToggleCon.OnEvent("Click", this.OnChangeType.Bind(this))
-        this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 100), [])
+        this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 120), [])
         this.ResultTogArr.Push(this.ResultSaveNameCon)
-        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 135, PosY - 4, 70), 0)
+        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 155, PosY - 4, 70), 0)
         this.ResultTogArr.Push(this.TrueValueCon)
-        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 220, PosY - 4, 70), 0)
+        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 240, PosY - 4, 70), 0)
         this.ResultTogArr.Push(this.FalseValueCon)
 
         PosY := SplitPosY
@@ -297,7 +297,7 @@ class SearchProGui {
         PosX += 45
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("坐标X变量名"))
         this.CoordTogArr.Push(con)
-        PosX += 110
+        PosX += 130
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("坐标Y变量名"))
         this.CoordTogArr.Push(con)
 
@@ -305,9 +305,9 @@ class SearchProGui {
         PosX := 370
         this.CoordToogleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.CoordToogleCon.OnEvent("Click", this.OnChangeType.Bind(this))
-        this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 100), [])
+        this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordXNameCon)
-        this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 150, PosY - 3, 100), [])
+        this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 170, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordYNameCon)
 
         PosY += 35

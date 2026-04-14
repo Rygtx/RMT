@@ -60,20 +60,20 @@ class MouseMoveGui {
         PosY += 30
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置X:"))
         PosX += 80
-        this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70))
         this.PosXCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置Y:"))
         PosX += 80
-        this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70))
         this.PosYCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosY += 40
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度："))
         PosX += 80
-        this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), "90")
+        this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70), "90")
         this.SpeedCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120

@@ -179,7 +179,7 @@ class CompareGui {
 
         PosY += 60
         PosX := 10
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 320, 110), GetLang("结果保存到变量中"))
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 340, 110), GetLang("结果保存到变量中"))
 
         PosX := 55
         PosY += 25
@@ -196,7 +196,7 @@ class CompareGui {
         Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
         this.ResultConArr.Push(Con)
 
-        PosX += 110
+        PosX += 130
         Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
         this.ResultConArr.Push(Con)
 
@@ -208,9 +208,9 @@ class CompareGui {
         PosX := 20
         this.SaveToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.SaveToggleCon.OnEvent("Click", this.OnRefresh.Bind(this))
-        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 100), [])
-        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 145, PosY - 4, 70), 0)
-        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 225, PosY - 4, 70), 0)
+        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 165, PosY - 4, 70), 0)
+        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 245, PosY - 4, 70), 0)
         this.ResultConArr.Push(this.SaveNameCon)
         this.ResultConArr.Push(this.TrueValueCon)
         this.ResultConArr.Push(this.FalseValueCon)

@@ -174,7 +174,7 @@ class InputGui {
         this.ResultConArr.Push(this.SaveTypeCon)
 
         PosX += 105
-        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 150), [])
         this.ResultConArr.Push(this.SaveNameCon)
 
         PosY += 50

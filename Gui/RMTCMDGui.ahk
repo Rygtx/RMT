@@ -5,19 +5,13 @@ class RMTCMDGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-        this.CategoriesArr := [GetLang("图文"), GetLang("调试"), GetLang("输入控制"), GetLang("宏控制"), GetLang("软件自身"),
-         GetLang("窗口")]
+        this.CategoriesArr := [GetLang("全部"), GetLang("图文"), GetLang("输入控制"),
+        GetLang("宏控制"), GetLang("窗口"), GetLang("调试"), GetLang("软件自身")]
         this.CategoriesMap := Map(
             GetLang("图文"), [
                 GetLang("截图"),
                 GetLang("截图提取文本"),
                 GetLang("自由贴")
-            ],
-            GetLang("调试"), [
-                GetLang("开启变量监视"),
-                GetLang("关闭变量监视"),
-                GetLang("开启指令显示"),
-                GetLang("关闭指令显示"),
             ],
             GetLang("输入控制"), [
                 GetLang("启用键鼠"),
@@ -30,15 +24,21 @@ class RMTCMDGui {
                 GetLang("恢复所有宏"),
                 GetLang("终止所有宏")
             ],
+            GetLang("窗口"), [
+                GetLang("置顶或取消"),
+                GetLang("透明度")
+            ],
+            GetLang("调试"), [
+                GetLang("开启变量监视"),
+                GetLang("关闭变量监视"),
+                GetLang("开启指令显示"),
+                GetLang("关闭指令显示"),
+            ],
             GetLang("软件自身"), [
                 GetLang("关闭软件"),
                 GetLang("休眠"),
                 GetLang("重载")
             ],
-            GetLang("窗口"), [
-                GetLang("置顶或取消"),
-                GetLang("透明度")
-            ]
         )
     }
 
@@ -57,9 +57,11 @@ class RMTCMDGui {
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         cmdStr := cmdArr.Length >= 2 ? cmdArr[2] : GetLang("截图")
-        Category := this.GetCategoriesByCmdStr(cmdStr)
         menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 3 ? cmdArr[3] : 1
         TransparencyValue := cmdStr == GetLang("透明度") && cmdArr.Length >= 3 ? cmdArr[3] "%" : "20%"
+
+        this.InitCategoriesMap()
+        Category := GetLang("全部")
         CmdStrArr := this.CategoriesMap[Category]
 
         this.CategoryCon.Text := Category
@@ -90,7 +92,7 @@ class RMTCMDGui {
         PosX += 80
         this.CategoryCon := MyGui.Add(
             "DropDownList",
-            Format("x{} y{} w160 R16", PosX, PosY - 3),
+            Format("x{} y{} w180 R16", PosX, PosY - 3),
             this.CategoriesArr
         )
         this.CategoryCon.OnEvent("Change", this.OnTypeChane.Bind(this))
@@ -100,7 +102,7 @@ class RMTCMDGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("指令："))
         PosX += 80
         this.CmdTypeCon := MyGui.Add("DropDownList",
-            Format("x{} y{} w160 R16", PosX, PosY - 3), [])
+            Format("x{} y{} w180 R20", PosX, PosY - 3), [])
         this.CmdTypeCon.OnEvent("Change", this.OnCmdChange.Bind(this))
 
         PosY += 40
@@ -113,7 +115,7 @@ class RMTCMDGui {
         this.MenuRelateArrCon.Push(con)
 
         PosX += 80
-        this.MenuDLCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 5, 160), [])
+        this.MenuDLCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 5, 180), [])
         this.MenuRelateArrCon.Push(this.MenuDLCon)
 
         PosX := 15
@@ -125,7 +127,7 @@ class RMTCMDGui {
         PosX += 80
         this.TransparencyDLCon := MyGui.Add(
             "DropDownList",
-            Format("x{} y{} w{} R6", PosX, PosY - 5, 160),
+            Format("x{} y{} w{} R6", PosX, PosY - 5, 180),
             ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%"]
         )
         this.TransparencyDLCon.Value := 1
@@ -200,15 +202,17 @@ class RMTCMDGui {
         return CommandStr
     }
 
-    GetCategoriesByCmdStr(CmdStr) {
-        for Key in this.CategoriesMap {
-            CmdStrArr := this.CategoriesMap[Key]
-            loop CmdStrArr.Length {
-                if (CmdStrArr[A_Index] == CmdStr)
-                    return Key
+    InitCategoriesMap() {
+        if (this.CategoriesMap.Has(GetLang("全部")))
+            return
+
+        AllCmdArr := []
+        for Index, Value in this.CategoriesArr {
+            if (this.CategoriesMap.Has(Value)) {
+                CmdStrArr := this.CategoriesMap[Value]
+                AllCmdArr.Push(CmdStrArr*)
             }
         }
-
-        return GetLang("图文")
+        this.CategoriesMap.Set(GetLang("全部"), AllCmdArr)
     }
 }

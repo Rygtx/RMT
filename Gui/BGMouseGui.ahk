@@ -73,9 +73,9 @@ class BGMouseGui {
         PosY += 30
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
         PosX += 80
-        this.TargetTitleCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 190), "")
+        this.TargetTitleCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 220), "")
 
-        PosX += 200
+        PosX += 230
         btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLang("编辑"))
         btnCon.OnEvent("Click", this.OnClickEditBtn.Bind(this))
 
@@ -83,12 +83,12 @@ class BGMouseGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("鼠标按键:"))
         PosX += 80
-        this.MouseTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 70), GetLangArr(["左键",
+        this.MouseTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), GetLangArr(["左键",
             "中键", "右键",
             "滚轮"]))
         this.MouseTypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
-        PosX += 120
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("操作类型:"))
         PosX += 80
         this.OperateTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), GetLangArr(["点击",
@@ -101,7 +101,7 @@ class BGMouseGui {
         PosX += 80
         this.PosVarXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 100), [])
 
-        PosX += 120
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口坐标Y:"))
         PosX += 80
         this.PosVarYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 100), [])
@@ -110,8 +110,8 @@ class BGMouseGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("垂直滚动:"))
         PosX += 80
-        this.ScrollVCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 70), "")
-        PosX += 120
+        this.ScrollVCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
+        PosX += 150
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("水平滚动"))
         PosX += 80
         this.ScrollHCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
