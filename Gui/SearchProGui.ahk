@@ -721,8 +721,10 @@ class SearchProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
-        ))
+        str := Format("{}`n{}`n{}",
+            GetLang("1.左键拖拽改变位置"),
+            GetLang("2.上下左右方向键微调位置"),
+            GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
@@ -730,12 +732,12 @@ class SearchProGui {
         str1 := GetLang("屏幕搜索：在屏幕搜索目标")
         str2 := GetLang("窗口搜索：在符合目标的窗口搜索目标(支持后台)")
         str3 := GetLang("tip1：图片搜索：推荐32*32px，截取目标特征即可，不要包含会变化的背景")
-        str4 := GetLang("tip2：文本搜索：支持正则表达式，推荐32*32px以上和多文本，单字符识别不准确")
+        str4 := GetLang("tip2：文本搜索：支持正则表达式，推荐32*32px以上和多文本，单字符识别不准")
         str5 := GetLang("tip3：窗口搜索时：目标窗口需要激活或非激活状态，不可最小化")
-        str5 := GetLang("tip4：SC截图后如果调整大小，搜索范围需要手动选取")
-        str5 := GetLang("tip5：窗口搜索时：搜索范围需要手动选取")
+        str6 := GetLang("tip4：SC截图后如果调整大小，搜索范围需要手动选取")
+        str7 := GetLang("tip5：窗口搜索时：搜索范围需要手动选取")
 
-        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        str := Format("{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7)
         MsgBox(str, GetLang("搜索类型说明"))
     }
 
