@@ -235,7 +235,6 @@ CompatTiming(filePath) {
     return hasFix
 }
 
-
 CompatSearch(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
@@ -375,6 +374,12 @@ CompatOutput(filePath) {
         if (!ObjHasOwnProp(Data, "Encoding")) {
             Data.Encoding := "UTF-8"
             curFix := true
+        }
+
+        if (!ObjHasOwnProp(Data, "RowEndVar")) {
+            Data.RowEndVar := "1"
+            Data.ColEndVar := "1"
+            Data.ArrName := "Arr"
         }
 
         hasFix := hasFix || curFix

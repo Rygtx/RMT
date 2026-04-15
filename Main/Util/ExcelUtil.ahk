@@ -96,6 +96,114 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
     }
 }
 
+ExcelRangeRowToWrite(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, Arr) {
+    try {
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+            xlApp := ComObject("Excel.Application")
+            xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
+        }
+        if (IsInteger(sheetIdentifier))
+            sheetIdentifier := Integer(sheetIdentifier)
+        sheet := xlWorkbook.Sheets(sheetIdentifier)
+
+        if (Row == EndRow) {
+            loop EndCol - Col + 1 {
+                CurCol := Col + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(Row, CurCol).Value := Value
+            }
+        }
+        else if (Col == EndCol) {
+            loop EndRow - Row + 1 {
+                CurRow := Row + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(CurRow, Col).Value := Value
+            }
+        }
+        else {
+            loop EndCol - Col + 1 {
+                CurCol:= Col + A_Index - 1
+                CurColIndex := A_Index
+                loop EndRow - Row + 1 {
+                    CurRow := Row + A_Index - 1
+                    Value := Arr[CurColIndex][A_Index]
+                    sheet.Cells(CurRow, CurCol).Value := Value
+                }
+            }
+        }
+
+        sheet.Cells(row, col).Value := value
+        xlWorkbook.Save()
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("写入失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
+ExcelRangeColToWrite(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, Arr) {
+    try {
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+            xlApp := ComObject("Excel.Application")
+            xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
+        }
+        if (IsInteger(sheetIdentifier))
+            sheetIdentifier := Integer(sheetIdentifier)
+        sheet := xlWorkbook.Sheets(sheetIdentifier)
+
+        if (Row == EndRow) {
+            loop EndCol - Col + 1 {
+                CurCol := Col + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(Row, CurCol).Value := Value
+            }
+        }
+        else if (Col == EndCol) {
+            loop EndRow - Row + 1 {
+                CurRow := Row + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(CurRow, Col).Value := Value
+            }
+        }
+        else {
+            loop EndRow - Row + 1 {
+                CurRow := Row + A_Index - 1
+                CurRowIndex := A_Index
+                loop EndCol - Col + 1 {
+                    CurCol := Col + A_Index - 1
+                    Value := Arr[CurRowIndex][A_Index]
+                    sheet.Cells(CurRow, CurCol).Value := Value
+                }
+            }
+        }
+
+        sheet.Cells(row, col).Value := value
+        xlWorkbook.Save()
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("写入失败：") e.Message
+        return false
+    }
+    finally {
+        xlWorkbook.Close()
+        xlApp.Quit()
+    }
+}
+
 ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
     try {
         xlWorkbook := ComObjGet(wbPath)

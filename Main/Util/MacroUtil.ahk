@@ -345,19 +345,44 @@ OnOutput(tableItem, cmd, index) {
         FileObj.Close()
     }
     else if (Data.OutputType == 9) {    ;Excel
-        hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-        hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
+
         if (Data.ExcelType == 1) {
+            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
+            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
             if (hasRowValue && hasColValue)
                 ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
         }
         else if (Data.ExcelType == 2) {
+            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
             if (hasColValue)
                 ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, ColValue, Content)
         }
         else if (Data.ExcelType == 3) {
+            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.ColVar)
             if (hasRowValue)
                 ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
+        }
+        else if (Data.ExcelType == 4) {     ;指定区域-行
+            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
+            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
+            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.RowEndVar)
+            hasColEndValue := TryGetTabVarValue(&ColEndValue, tableItem, index, Data.ColEndVar)
+            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
+            if (hasRowValue && hasColValue && hasRowEndValue && hasColEndValue && hasArray) {
+                Arr := MySoftData.ArrayMap[Data.ArrName]
+                ExcelRangeRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, RowEndValue, ColEndValue, Arr)
+            }
+        }
+        else if (Data.ExcelType == 5) {     ;指定区域-列
+            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
+            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
+            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.RowEndVar)
+            hasColEndValue := TryGetTabVarValue(&ColEndValue, tableItem, index, Data.ColEndVar)
+            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
+            if (hasRowValue && hasColValue && hasRowEndValue && hasColEndValue && hasArray) {
+                Arr := MySoftData.ArrayMap[Data.ArrName]
+                ExcelRangeColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, RowEndValue, ColEndValue, Arr)
+            }
         }
     }
 }

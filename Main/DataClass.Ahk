@@ -507,10 +507,13 @@ class OutputData {
         this.OutputType := 1    ;sendtest  粘贴   粘贴
         this.Encoding := "UTF-8"    ;编码格式
         this.FilePath := ""
-        this.ExcelType := 1     ;1指定单元格    2 行号自增    3 列号自增
+        this.ExcelType := 1     ;1单元格    2 行号自增    3 列号自增  4指定区域-行 5指定区域-列
         this.NameOrSerial := 1
         this.RowVar := 1
         this.ColVar := 1
+        this.RowEndVar := 1
+        this.ColEndVar := 1
+        this.ArrName := "Arr"
     }
 }
 
@@ -784,17 +787,5 @@ class InputData {
 
         this.SaveType := "变量"     ;保存类型  变量或数组
         this.SaveName := "Data"     ;保存的变量名或数组名
-    }
-}
-
-class CLRStatic {
-    __New(asm, typeName) {
-        this.asm := asm
-        this.type := asm.GetType(typeName)
-        this.flags := 0x158 ; Public | Static | InvokeMethod
-    }
-
-    __Call(method, params*) {
-        return this.type.InvokeMember(method, this.flags, 0, 0, params)
     }
 }

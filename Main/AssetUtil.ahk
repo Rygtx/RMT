@@ -1336,20 +1336,37 @@ SaveMacroCMDData(Data) {
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {
-    matches := []  ; 初始化空数组
-    pos := 1  ; 从字符串开头开始搜索
+    matches := []      ; 存储变量名（不含花括号）
+    arrayMatches := [] ; 存储数组名（不含花括号和ε）
+    pos := 1
 
-    while (pos := RegExMatch(text, "\{(.*?)\}", &match, pos)) {
-        matches.Push(match[1])  ; 把花括号内的内容存入数组
-        pos += match.Len  ; 移动到匹配结束位置，继续搜索
+    ; 匹配 {xxx} 或 {εxxx}
+    while (pos := RegExMatch(text, "\{([^{}]*?)\}", &match, pos)) {
+        content := match[1]
+        if (RegExMatch(content, "^ε(.+)$", &arrMatch)) {     ; 以ε开头 -> 数组
+            arrayMatches.Push(arrMatch[1])
+        } else {        ; 普通变量
+            matches.Push(content)
+        }
+        pos += match.Len
     }
 
     ResText := text
+    ; 替换普通变量
     for index, value in matches {
         hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, false)
         if (hasValue)
             ResText := StrReplace(ResText, "{" value "}", variValue)
     }
+
+    ; 替换数组变量（去掉花括号和ε）
+    for index, arrName in arrayMatches {
+        if (MySoftData.ArrayMap.Has(arrName)) {
+            arrValue := GetArrayStr(MySoftData.ArrayMap[arrName])
+            ResText := StrReplace(ResText, "{ε" arrName "}", arrValue)
+        }
+    }
+
     return ResText
 }
 
@@ -1664,7 +1681,21 @@ GetCmdOnlyText(param) {
 SetDLConValue(Con, Arr, Text) {
     Con.Delete()
     Con.Add(Arr)
-    Con.Text := Text
+    if (Con.Type == "ComboBox") {
+        Con.Text := Text
+        return
+    }
+
+    if (Con.Type == "DDL") {
+        Con.Text := Arr.Length >= 1 ? Arr[1] : ""
+        loop Arr.Length {
+            if (Arr[A_Index] == Text) {
+                Con.Text := Text
+                break
+            }
+        }
+    }
+
 }
 
 GetNameAndValueByParamArr(&NameArr, &ValueArr, ParamArr) {
@@ -1722,6 +1753,6 @@ ChangeBrightness(isAdd) {
 }
 
 GetSystemVarArr() {
-   return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
+    return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
     GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
 }

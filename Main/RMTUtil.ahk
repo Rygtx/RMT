@@ -848,7 +848,18 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
         Data.FalseMacro := FullCopyMacro(Data.FalseMacro, CopyedMap)
     }
 
-    ;循环， 如果Pro
+    ;循环
+    if (ObjHasOwnProp(Data, "LoopBody")) {
+        Data.LoopBody := FullCopyMacro(Data.LoopBody, CopyedMap)
+    }
+
+    ;如果Pro
+    if (ObjHasOwnProp(Data, "MacroArr") && ObjHasOwnProp(Data, "DefaultMacro")) {
+        Data.DefaultMacro := FullCopyMacro(Data.DefaultMacro, CopyedMap)
+        loop Data.MacroArr.Length {
+            Data.MacroArr[A_Index] := FullCopyMacro(Data.MacroArr[A_Index], CopyedMap)
+        }
+    }
 
     SaveMacroCMDData(Data)
     res := GetCmdByParams(paramArr)
