@@ -28,3 +28,11 @@
 9. 属性 C/C++ 预处理器 预处理器定义 添加 IMAGEFINDER_EXPORTS
 
 10. 编译
+
+### 不用visual studio（IDE）
+
+1. 安装 Build Tools + C++ 桌面开发 (https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/)
+
+2. 仅安装 「使用 C++ 的桌面开发」
+
+3. 执行buildDll.bat，完成后在 Plugins\OpenCV\build\Release 目录下会生成 RMT_OpenCv.dll
