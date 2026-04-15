@@ -276,8 +276,8 @@ class InputGui {
         this.SetConArrVisible(this.ResultConArr, HasRes)
 
         this.SaveTypeCon.Text := ResOnlyVar ? GetLang("变量") : GetLang("数组")
-        ResArr := ResOnlyVar ? this.DLVariableArr : this.DLArrayArr
-        SetDLConValue(this.SaveNameCon, GetGuiVarArr(), this.SaveNameCon.Text)
+        ResArr := ResOnlyVar ? GetGuiVarArr() : this.DLArrayArr
+        SetDLConValue(this.SaveNameCon, ResArr, this.SaveNameCon.Text)
     }
 
     SetConArrVisible(ConArr, Visible) {

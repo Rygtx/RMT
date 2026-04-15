@@ -73,7 +73,8 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "循环", OnLoop,
         "文本处理", OnTextOps,
         "数组", OnArray,
-        "输入", OnInput
+        "输入", OnInput,
+        "文本文件", OnFileIO
     )
 
     cmdArr := SplitMacro(macro)
@@ -1068,5 +1069,26 @@ OnInput(tableItem, cmd, index) {
         case "继续&取消":
             InputContinueAndCencel(Data, tableItem, index)
 
+    }
+}
+
+OnFileIO(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    if (!FileExist(Data.FilePath)) {
+        MsgBox(GetLang("{}文件不存在"), Data.FilePath)
+        return
+    }
+
+    switch Data.OperType {
+        case "读取Excel":
+            ReadExcel(Data, tableItem, index)
+        case "写入Excel":
+            WriteExcel(Data, tableItem, index)
+        case "读取文本文件":
+            ReadTextFile(Data, tableItem, index)
+        case "写入文本文件":
+            WriteTextFile(Data, tableItem, index)
     }
 }

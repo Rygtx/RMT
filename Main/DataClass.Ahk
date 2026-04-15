@@ -515,6 +515,35 @@ class OutputData {
     }
 }
 
+class FileIOData {
+    __New() {
+        this.SerialStr := ""
+        this.OperType := "读取Excel"    ;1读取Excel 2写入Excel 3读取文本文件 4写入文本文件
+        this.Encoding := "UTF-8"        ;文本文件编码格式
+        this.FilePath := ""
+
+        ;读取Excel      "单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"
+        ;写入Excel      单元格    行号自增  列号自增  指定区域-行    指定区域-列
+        ;读取文本文件   读取全部内容, 逐行读取, 指定行
+        ;写入文本文件   覆盖写入， 追加写入, 指定行
+        this.OperMode := "单元格"
+        this.NameOrSerial := 1
+        this.RowVar := 1
+        this.ColVar := 1
+        this.RowEndVar := 1
+        this.ColEndVar := 1
+
+        this.TextRowVar := 1        ;文本文件指令行号
+
+        this.Content := "写入的内容" ;单元格时的写入内容
+        this.ArrName := "Arr"       ;写入区域时的数组
+
+        this.IsIgnoreExist := 0
+        this.SaveType := "变量"     ;保存类型  变量或数组
+        this.SaveName := "Data"
+    }
+}
+
 class SubMacroData {
     __New() {
         this.SerialStr := ""
@@ -771,7 +800,7 @@ class InputData {
         this.CancelType := "终止当前宏" ;   取消时  终止当前宏  终止所有宏
 
         ;文本文件  读取全部内容， 逐行读取 , 指定行     ; 行号
-        ;excel  指定列， 指定行， 指定单元格， 指定区域   ;表名或序号
+        ;excel  指定列， 指定行， 单元格， 指定区域   ;表名或序号
         ;单元格行号             ;单元格列号
         ;终止行号             ;终止列号
         this.FilePath := ""         ;文件路径
