@@ -365,23 +365,19 @@ OnOutput(tableItem, cmd, index) {
         else if (Data.ExcelType == 4) {     ;指定区域-行
             hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
             hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.RowEndVar)
-            hasColEndValue := TryGetTabVarValue(&ColEndValue, tableItem, index, Data.ColEndVar)
             hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasRowEndValue && hasColEndValue && hasArray) {
+            if (hasRowValue && hasColValue && hasArray) {
                 Arr := MySoftData.ArrayMap[Data.ArrName]
-                ExcelRangeRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, RowEndValue, ColEndValue, Arr)
+                ExcelRangeRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
             }
         }
         else if (Data.ExcelType == 5) {     ;指定区域-列
             hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
             hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.RowEndVar)
-            hasColEndValue := TryGetTabVarValue(&ColEndValue, tableItem, index, Data.ColEndVar)
             hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasRowEndValue && hasColEndValue && hasArray) {
+            if (hasRowValue && hasColValue && hasArray) {
                 Arr := MySoftData.ArrayMap[Data.ArrName]
-                ExcelRangeColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, RowEndValue, ColEndValue, Arr)
+                ExcelRangeColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
             }
         }
     }

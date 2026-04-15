@@ -376,10 +376,9 @@ CompatOutput(filePath) {
             curFix := true
         }
 
-        if (!ObjHasOwnProp(Data, "RowEndVar")) {
-            Data.RowEndVar := "1"
-            Data.ColEndVar := "1"
+        if (!ObjHasOwnProp(Data, "ArrName")) {
             Data.ArrName := "Arr"
+            curFix := true
         }
 
         hasFix := hasFix || curFix

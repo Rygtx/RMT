@@ -126,28 +126,13 @@ class OutputGui {
         this.ColVarCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 130, 30), [])
         this.ExcelConArr.Push(this.ColVarCon)
 
-        PosX := 10
-        PosY += 40
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("终止行号:"))
-        this.ExcelConArr.Push(con)
-        PosX += 80
-        this.RowEndCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 130), [])
-        this.ExcelConArr.Push(this.RowEndCon)
-
-        PosX += 160
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("终止列号:"))
-        this.ExcelConArr.Push(con)
-        PosX += 80
-        this.ColEndCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 130, 30), [])
-        this.ExcelConArr.Push(this.ColEndCon)
-
         PosY += 45
         PosX := 200
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 400))
+        MyGui.Show(Format("w{} h{}", 500, 350))
     }
 
     Init(cmd) {
@@ -168,17 +153,11 @@ class OutputGui {
         this.RowVarCon.Add(GetGuiVarArr(2))
         this.ColVarCon.Delete()
         this.ColVarCon.Add(GetGuiVarArr(2))
-        this.RowEndCon.Delete()
-        this.RowEndCon.Add(GetGuiVarArr(2))
-        this.ColEndCon.Delete()
-        this.ColEndCon.Add(GetGuiVarArr(2))
 
         this.ExcelTypeCon.Value := this.Data.ExcelType
         this.NameOrSerialCon.Value := this.Data.NameOrSerial
         this.RowVarCon.Text := this.Data.RowVar
         this.ColVarCon.Text := this.Data.ColVar
-        this.RowEndCon.Text := this.Data.RowEndVar
-        this.ColEndCon.Text := this.Data.ColEndVar
 
         this.OnOutTypeChange()
     
@@ -231,8 +210,6 @@ class OutputGui {
         ExcelType := this.ExcelTypeCon.Value
         this.RowVarCon.Enabled := ExcelType != 2
         this.ColVarCon.Enabled := ExcelType != 3
-        this.RowEndCon.Enabled := ExcelType == 4 || ExcelType == 5
-        this.ColEndCon.Enabled := ExcelType == 4 || ExcelType == 5
 
         isOnlyArr := showExcelConArr && (this.ExcelTypeCon.Value == 4 || this.ExcelTypeCon.Value == 5)
         this.TextCon.Enabled := !isOnlyArr
@@ -293,8 +270,6 @@ class OutputGui {
         this.Data.NameOrSerial := this.NameOrSerialCon.Value
         this.Data.RowVar := GetLangStr(this.RowVarCon.Text, 2)
         this.Data.ColVar := GetLangStr(this.ColVarCon.Text, 2)
-        this.Data.RowEndVar := GetLangStr(this.RowEndCon.Text, 2)
-        this.Data.ColEndVar := GetLangStr(this.ColEndCon.Text, 2)
         this.Data.ArrName := GetLangStr(this.VariCon.Text, 2)
         SaveMacroCMDData(this.Data)
     }

@@ -511,8 +511,6 @@ class OutputData {
         this.NameOrSerial := 1
         this.RowVar := 1
         this.ColVar := 1
-        this.RowEndVar := 1
-        this.ColEndVar := 1
         this.ArrName := "Arr"
     }
 }
