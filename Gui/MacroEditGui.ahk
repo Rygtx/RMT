@@ -54,7 +54,7 @@ class MacroEditGui {
         this.SubMacroLastIndex := 0
 
         this.CMDStrArr := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
-            "如果", "如果Pro", "运算", "运行", "数组", "文本处理", "后台鼠标", "后台按键", "RMT指令", "文件读写"])
+            "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键"])
 
         this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3", GetLang("搜索Pro"),
         "Icon4", GetLang("移动"), "Icon5", GetLang("移动Pro"),
@@ -62,7 +62,7 @@ class MacroEditGui {
         GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12", GetLang("如果"), "Icon13", GetLang("如果Pro"),
         "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
         "Icon2", GetLang("真"), "Icon18", GetLang("假"), "Icon19", GetLang("循环次数"), "Icon20", GetLang("条件"), "Icon21",
-        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25", 
+        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25",
         GetLang("文件读写"), "Icon26")
 
         this.InitSubGui()
@@ -189,8 +189,8 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\LoopCount.png")
             IL_Add(ImageListID, "Images\Soft\Condition.png")
             IL_Add(ImageListID, "Images\Soft\LoopBody.png")
-            IL_Add(ImageListID, "Images\Soft\TextOps.png")      
-            IL_Add(ImageListID, "Images\Soft\Arr.png")           
+            IL_Add(ImageListID, "Images\Soft\TextOps.png")
+            IL_Add(ImageListID, "Images\Soft\Arr.png")
             IL_Add(ImageListID, "Images\Soft\Input.png")
             IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26
         }
@@ -301,14 +301,25 @@ class MacroEditGui {
 
         PosX := 15
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("数组"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文件读写"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.ArrayGui))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.FileIOGui))
 
         PosX += 85
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文本处理"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextOpsGui))
+    
+        PosX := 15
+        PosY += 40
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("数组"))
+        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.ArrayGui))
+
+        PosX += 85
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("RMT指令"))
+        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
+        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RMTCMDGui))
 
         PosX := 15
         PosY += 40
@@ -320,17 +331,6 @@ class MacroEditGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("后台按键"))
         btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
         btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGKeyGui))
-
-        PosX := 15
-        PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("RMT指令"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RMTCMDGui))
-
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文件读写"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.FileIOGui))
 
         PosX := 200
         PosY := 10
