@@ -1,5 +1,20 @@
 #Requires AutoHotkey v2.0
 
+SetFileIOGlobalData(Data) {
+    CurType := Data.OperType
+    CurMode := Data.OperMode
+    IsRead := CurType == "读取Excel" || CurType == "读取文本文件"
+    IsExcelRange := CurMode == "指定区域-行" || CurMode == "指定区域-列"
+    IsVar := IsRead && !IsExcelRange
+    IsArr := IsRead && IsExcelRange
+
+    if (IsVar && Data.SaveName != "")
+        MySoftData.GlobalVariMap[Data.SaveName] := true
+
+    if (IsArr && Data.SaveName != "")
+        MySoftData.GlobalArrMap[Data.SaveName] := true
+}
+
 ReadExcel(Data, tableItem, index) {
     if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
         return

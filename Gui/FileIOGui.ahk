@@ -332,9 +332,6 @@ class FileIOGui {
     }
 
     CheckIfValid() {
-        IsFile := this.OperTypeCon.Text == GetLang("文本文件")
-        IsExcel := this.OperTypeCon.Text == GetLang("Excel")
-
         if (this.FilePathCon.Text == "") {
             MsgBox("文件路径不能为空")
             return false
