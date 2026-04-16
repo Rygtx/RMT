@@ -14,7 +14,7 @@ class FileIOGui {
             GetLang("读取文本文件"),
             GetLangArr(["读取全部内容", "逐行读取", "指定行"]),
             GetLang("写入文本文件"),
-            GetLangArr(["覆盖写入", "追加写入", "指定行"])
+            GetLangArr(["覆盖写入", "追加写入", "指定行", "行号自增"])
         )
     }
 
@@ -268,15 +268,16 @@ class FileIOGui {
         IsExcel := CurType == GetLang("读取Excel") || CurType == GetLang("写入Excel")
         IsText := CurType == GetLang("读取文本文件") || CurType == GetLang("写入文本文件")
 
-        IsExcelRange := CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列")
+        IsExcelRange := IsExcel && (CurMode == GetLang("指定行") || CurMode == GetLang("指定列") || CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列"))
+        IsTextRange := IsText && CurMode == GetLang("逐行读取")
         IsExcelResOnlyVar := IsRead && IsExcel && CurMode == GetLang("单元格")
-        IsTextResOnlyVar := IsRead && IsExcel && (CurMode == GetLang("读取全部内容") || CurMode == GetLang("指定行"))
+        IsTextResOnlyVar := IsRead && IsText && (CurMode == GetLang("读取全部内容") || CurMode == GetLang("指定行"))
         IsResOnlyVar := IsExcelResOnlyVar || IsTextResOnlyVar
 
         HasEncoding := IsText
-        HasTextRow := IsText && CurMode == GetLang("指定行")
+        HasTextRow := IsText && (CurMode == GetLang("指定行") || CurMode == GetLang("逐行读取") || CurMode == GetLang("行号自增"))
         HasExcel := IsExcel
-        HasExcelRegion := IsExcel && IsRead && IsExcelRange
+        HasExcelRegion := IsRead && (CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列"))
         HasRes := IsRead
         HasWriteArr := IsWrite && IsExcelRange
         HasWriteContent := IsWrite && !HasWriteArr

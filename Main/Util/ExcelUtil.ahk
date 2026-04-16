@@ -29,7 +29,7 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
     }
 }
 
-ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
+ExcelRowToWrite(wbPath, sheetIdentifier, row, col, value) {
     try {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
@@ -42,10 +42,10 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
-        row := 1
         loop {
-            if (sheet.Cells(A_Index, col).Text == "") {
-                row := A_Index
+            CurRow := row + A_Index - 1
+            if (sheet.Cells(CurRow, col).Text == "") {
+                row := CurRow
                 break
             }
         }
@@ -63,7 +63,7 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
     }
 }
 
-ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
+ExcelColToWrite(wbPath, sheetIdentifier, row, col,  value) {
     try {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
@@ -76,10 +76,10 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
-        col := 1
         loop {
-            if (sheet.Cells(row, A_Index).Text == "") {
-                col := A_Index
+            CurCol := col + A_Index - 1
+            if (sheet.Cells(row, CurCol).Text == "") {
+                col := CurCol
                 break
             }
         }

@@ -58,35 +58,26 @@ ReadExcel(Data, tableItem, index) {
 
 WriteExcel(Data, tableItem, index) {
     Content := GetReplaceVarText(tableItem, index, Data.Content)
+    hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
+    hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
+    if (!hasRowValue || !hasColValue)
+        return
 
     switch Data.OperMode {
         case "单元格":
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            if (hasRowValue && hasColValue)
-                ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
+            ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
         case "行号自增":
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            if (hasColValue)
-                ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, ColValue, Content)
+            ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
         case "列号自增":
-            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.ColVar)
-            if (hasRowValue)
-                ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
+            ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
         case "指定区域-行":
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasArray) {
-                Arr := MySoftData.ArrayMap[Data.ArrName]
+            hasArray := TryGetArrValue(&Arr, Data.ArrName)
+            if (hasArray) {
                 ExcelRangeRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
             }
         case "指定区域-列":
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasArray) {
-                Arr := MySoftData.ArrayMap[Data.ArrName]
+            hasArray := TryGetArrValue(&Arr, Data.ArrName)
+            if (hasArray) {
                 ExcelRangeColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
             }
     }
@@ -106,7 +97,7 @@ ReadTextFile(Data, tableItem, index) {
             if (hasRowValue) {
                 FileEncoding(Data.Encoding)
                 loop read, Data.FilePath {
-                    if (A_Index < Data.FileRow)
+                    if (A_Index < RowValue)
                         continue
                     ResArr.Push(A_LoopReadLine)
                 }
@@ -118,7 +109,7 @@ ReadTextFile(Data, tableItem, index) {
             if (hasRowValue) {
                 FileEncoding(Data.Encoding)
                 loop read, Data.FilePath {
-                    if (A_Index = Data.FileRow) {
+                    if (A_Index = RowValue) {
                         Content := A_LoopReadLine
                         break
                     }
@@ -141,13 +132,12 @@ WriteTextFile(Data, tableItem, index) {
             FileObj.Close()
         case "追加写入":
             FileObj := FileOpen(Data.FilePath, "a", Data.Encoding)
-            FileObj.WriteLine(Content)
+            FileObj.Write(Content)
             FileObj.Close()
         case "指定行":
             hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.TextRowVar)
             if (hasRowValue) {
                 RowValue := Integer(RowValue)
-
                 text := FileRead(Data.FilePath, Data.Encoding)
                 ; 分割成行（兼容 CRLF）
                 lines := StrSplit(text, "`n", "`r")
@@ -169,6 +159,42 @@ WriteTextFile(Data, tableItem, index) {
                 }
 
                 FileObj.Close()
+            }
+        case "行号自增":
+            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.TextRowVar)
+            if (hasRowValue) {
+                RowValue := Integer(RowValue)
+                text := FileRead(Data.FilePath, Data.Encoding)
+                ; 分割成行（兼容 CRLF）
+                lines := StrSplit(text, "`n", "`r")
+                HasWrite := false
+
+                loop lines.Length {
+                    CurRow := RowValue + A_Index - 1
+                    if (CurRow > lines.Length)
+                        break
+                    if (lines[CurRow] == "") {
+                        HasWrite := true
+                        lines[CurRow] := Content
+                        break
+                    }
+                }
+
+                if (!HasWrite)
+                    lines.Push(Content)
+
+                ; 重新写回文件（覆盖写）
+                FileObj := FileOpen(Data.FilePath, "w", Data.Encoding)
+                ; 写回所有行
+                for i, line in lines {
+                    if (i < lines.Length)
+                        FileObj.WriteLine(line)
+                    else
+                        FileObj.Write(line) ; 最后一行不强制换行
+                }
+
+                FileObj.Close()
+
             }
     }
 }

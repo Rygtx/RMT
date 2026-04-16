@@ -134,6 +134,17 @@ GetGuiArrNameArr() {
     return ResultArr
 }
 
+TryGetArrValue(&ResArr, ArrName, variTip := true) {
+    if (!MySoftData.ArrayMap.Has(ArrName)) {
+        if (variTip && MySoftData.NoVariableTip)
+            MsgBox(GetLang("当前环境不存在数组") ArrName)
+        return false
+    }
+
+    ResArr := MySoftData.ArrayMap[ArrName]
+    return true
+}
+
 GetCmdArray(Data, tableItem, index, variTip := true) {
     if (!MySoftData.ArrayMap.Has(Data.Name)) {
         if (variTip && MySoftData.NoVariableTip)
@@ -462,7 +473,7 @@ ArrayTrimRightNull(Arr) {
     loop {
         if (Arr.Length == 0 || Arr[Arr.Length] != "")
             return
-    
+
         Arr.Pop()
     }
 }
