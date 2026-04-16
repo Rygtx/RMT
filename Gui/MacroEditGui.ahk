@@ -62,7 +62,8 @@ class MacroEditGui {
         GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12", GetLang("如果"), "Icon13", GetLang("如果Pro"),
         "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
         "Icon2", GetLang("真"), "Icon18", GetLang("假"), "Icon19", GetLang("循环次数"), "Icon20", GetLang("条件"), "Icon21",
-        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25")
+        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25", 
+        GetLang("文件读写"), "Icon26")
 
         this.InitSubGui()
     }
@@ -164,7 +165,7 @@ class MacroEditGui {
         }
         else {
             this.AddGui()
-            ImageListID := IL_Create(25)
+            ImageListID := IL_Create(26)
             this.MacroTreeViewCon.SetImageList(ImageListID)
             IL_Add(ImageListID, "Images\Soft\Interval.png")
             IL_Add(ImageListID, "Images\Soft\Key.png")
@@ -188,9 +189,10 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\LoopCount.png")
             IL_Add(ImageListID, "Images\Soft\Condition.png")
             IL_Add(ImageListID, "Images\Soft\LoopBody.png")
-            IL_Add(ImageListID, "Images\Soft\TextOps.png")      ;todo 还没正式化
-            IL_Add(ImageListID, "Images\Soft\Arr.png")            ;todo 还没正式化
-            IL_Add(ImageListID, "Images\Soft\Input.png")            ;todo 还没正式化
+            IL_Add(ImageListID, "Images\Soft\TextOps.png")      
+            IL_Add(ImageListID, "Images\Soft\Arr.png")           
+            IL_Add(ImageListID, "Images\Soft\Input.png")
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26
         }
 
         MySoftData.RecordToggleCon := this.RecordMacroCon

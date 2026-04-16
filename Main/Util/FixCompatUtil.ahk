@@ -363,6 +363,8 @@ CompatOutput(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
+    FixTypeMap := Map("1", "发送内容", "2", "粘贴内容", "3", "临时提示", 
+        "4", "指令窗口", "5", "软件弹窗", "6", "系统语音", "7", "复制到剪切板")
     hasFix := CompatSerial(filePath, "Output", "输出")
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
@@ -371,14 +373,9 @@ CompatOutput(filePath) {
         if (Data == "")
             continue
         curFix := false
-        if (!ObjHasOwnProp(Data, "Encoding")) {
-            Data.Encoding := "UTF-8"
+        if (IsInteger(Data.OutputType) && FixTypeMap.Has(String(Data.OutputType))) {
             curFix := true
-        }
-
-        if (!ObjHasOwnProp(Data, "ArrName")) {
-            Data.ArrName := "Arr"
-            curFix := true
+            Data.OutputType := FixTypeMap[String(Data.OutputType)]
         }
 
         hasFix := hasFix || curFix

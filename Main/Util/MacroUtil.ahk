@@ -317,70 +317,28 @@ OnOutput(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
-    if (Data.OutputType == 1) {     ;send
+    if (Data.OutputType == "发送内容") {     ;send
         SendText(Content)
     }
-    else if (Data.OutputType == 2) {    ;粘贴文本
+    else if (Data.OutputType == "粘贴内容") {    ;粘贴文本
         A_Clipboard := Content
         Send "{Blind}^v"
     }
-    else if (Data.OutputType == 3) {    ;提示
+    else if (Data.OutputType == "临时提示") {    ;提示
         MyToolTipContent(Content)
     }
-    else if (Data.OutputType == 4) {    ;指令窗口
+    else if (Data.OutputType == "指令窗口") {    ;指令窗口
         MyCMDReportAciton(Content)
     }
-    else if (Data.OutputType == 5) {    ;弹窗
+    else if (Data.OutputType == "软件弹窗") {    ;弹窗
         MyMsgBoxContent(Content)
     }
-    else if (Data.OutputType == 6) {    ;语音
+    else if (Data.OutputType == "系统语音") {    ;语音
         spovice := ComObject("sapi.spvoice")
         spovice.Speak(Content)
     }
-    else if (Data.OutputType == 7) {    ;剪切板
+    else if (Data.OutputType == "复制到剪切板") {    ;剪切板
         A_Clipboard := Content
-    }
-    else if (Data.OutputType == 8) {    ;文本文件
-        FileObj := FileOpen(Data.FilePath, "a", Data.Encoding)
-        FileObj.WriteLine(Content)
-        FileObj.Close()
-    }
-    else if (Data.OutputType == 9) {    ;Excel
-
-        if (Data.ExcelType == 1) {
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            if (hasRowValue && hasColValue)
-                ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
-        }
-        else if (Data.ExcelType == 2) {
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            if (hasColValue)
-                ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, ColValue, Content)
-        }
-        else if (Data.ExcelType == 3) {
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            if (hasRowValue)
-                ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
-        }
-        else if (Data.ExcelType == 4) {     ;指定区域-行
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasArray) {
-                Arr := MySoftData.ArrayMap[Data.ArrName]
-                ExcelRangeRowToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
-            }
-        }
-        else if (Data.ExcelType == 5) {     ;指定区域-列
-            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-            hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-            hasArray := MySoftData.ArrayMap.Has(Data.ArrName)
-            if (hasRowValue && hasColValue && hasArray) {
-                Arr := MySoftData.ArrayMap[Data.ArrName]
-                ExcelRangeColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Arr)
-            }
-        }
     }
 }
 
@@ -1060,15 +1018,10 @@ OnInput(tableItem, cmd, index) {
             InputPopUp(Data, tableItem, index)
         case "状态":
             InputStateValue(Data, tableItem, index)
-        case "文本文件":
-            InputTextFile(Data, tableItem, index)
-        case "Excel":
-            InputExcel(Data, tableItem, index)
         case "继续":
             InputContinue(Data, tableItem, index)
         case "继续&取消":
             InputContinueAndCencel(Data, tableItem, index)
-
     }
 }
 
