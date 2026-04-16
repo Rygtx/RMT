@@ -10,7 +10,6 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
         }
-        xlApp.Calculate()   ; 关键
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
@@ -214,7 +213,7 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -225,7 +224,7 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         ResArr := []
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
-        xlApp.Calculate()
+        xlApp.Calculate()       ;Calculate会导致文件内容修改，不保存会提示
         if (IsInteger(SheetIdentifier))
             SheetIdentifier := Integer(SheetIdentifier)
         Sheet := xlWorkbook.Sheets(SheetIdentifier)
@@ -254,7 +253,7 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -294,7 +293,7 @@ ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -332,7 +331,7 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -370,7 +369,7 @@ ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }

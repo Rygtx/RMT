@@ -359,7 +359,7 @@ OnOutput(tableItem, cmd, index) {
                 ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, ColValue, Content)
         }
         else if (Data.ExcelType == 3) {
-            hasRowEndValue := TryGetTabVarValue(&RowEndValue, tableItem, index, Data.ColVar)
+            hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
             if (hasRowValue)
                 ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
         }
