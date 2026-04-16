@@ -74,7 +74,7 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "文本处理", OnTextOps,
         "数组", OnArray,
         "输入", OnInput,
-        "文本文件", OnFileIO
+        "文件读写", OnFileIO
     )
 
     cmdArr := SplitMacro(macro)
