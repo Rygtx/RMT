@@ -220,77 +220,77 @@ class MacroEditGui {
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosY := 10
-        PosX := 10
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 200, 530), GetLang("指令选项"))
+        PosX := 5
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 205, 530), GetLang("指令选项"))
 
         PosY += 20
-        PosX := 15
+        PosX := 10
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Interval.png", GetLang("间隔"), (*) => this.OnOpenSubGui(this.IntervalGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Key.png", GetLang("按键"), (*) => this.OnOpenSubGui(this.KeyGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Search.png", GetLang("搜索"), (*) => this.OnOpenSubGui(this.SearchGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\SearchPro.png", GetLang("搜索Pro"), (*) => this.OnOpenSubGui(this.SearchProGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Move.png", GetLang("移动"), (*) => this.OnOpenSubGui(this.MoveMoveGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\MovePro.png", GetLang("移动Pro"), (*) => this.OnOpenSubGui(this.MMProGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Input.png", GetLang("输入"), (*) => this.OnOpenSubGui(this.InputGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Output.png", GetLang("输出"), (*) => this.OnOpenSubGui(this.OutputGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Loop.png", GetLang("循环"), (*) => this.OnOpenSubGui(this.LoopGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Sub.png", GetLang("宏操作"), (*) => this.OnOpenSubGui(this.SubMacroGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Var.png", GetLang("变量"), (*) => this.OnOpenSubGui(this.VariableGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Extract.png", GetLang("变量提取"), (*) => this.OnOpenSubGui(this.ExVariableGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\If.png", GetLang("如果"), (*) => this.OnOpenSubGui(this.CompareGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\IfPro.png", GetLang("如果Pro"), (*) => this.OnOpenSubGui(this.CompareProGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Operation.png", GetLang("运算"), (*) => this.OnOpenSubGui(this.OperationGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Run.png", GetLang("运行"), (*) => this.OnOpenSubGui(this.RunGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\FileIO.png", GetLang("文件读写"), (*) => this.OnOpenSubGui(this.FileIOGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\TextOps.png", GetLang("文本处理"), (*) => this.OnOpenSubGui(this.TextOpsGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Arr.png", GetLang("数组"), (*) => this.OnOpenSubGui(this.ArrayGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\rabit.png", GetLang("RMT指令"), (*) => this.OnOpenSubGui(this.RMTCMDGui))
 
-        PosX := 15
+        PosX := 10
         PosY += 40
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Mouse.png", GetLang("后台鼠标"), (*) => this.OnOpenSubGui(this.BGMouseGui))
-        PosX += 100
+        PosX += 105
         this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Key.png", GetLang("后台按键"), (*) => this.OnOpenSubGui(this.BGKeyGui))
 
         PosX := 225
-        PosY := 10
+        PosY := 15
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("编辑模式："))
         PosX += 70
         this.EditModeCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY - 3), GetLangArr(["逻辑树", "文本"]))
