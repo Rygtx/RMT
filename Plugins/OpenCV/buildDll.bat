@@ -17,12 +17,16 @@ set "OUT_DIR=%BUILD_DIR%\Release"
 
 :: ---- 查找 MSVC 编译器（支持 VS 2015~2026）----
 set "VCTOOLS="
-for %%v in (18 17 16 15) do (
+for %%v in (18 17 16 15 2019 2017) do (
     if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\%%v\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
         set "VCTOOLS=%ProgramFiles(x86)%\Microsoft Visual Studio\%%v\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
     )
     if exist "%ProgramFiles%\Microsoft Visual Studio\%%v\Community\VC\Auxiliary\Build\vcvars64.bat" (
         set "VCTOOLS=%ProgramFiles%\Microsoft Visual Studio\%%v\Community\VC\Auxiliary\Build\vcvars64.bat"
+    )
+    :: 部分路径是这样的
+    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\%%v\Community\VC\Auxiliary\Build\vcvars64.bat" (
+        set "VCTOOLS=%ProgramFiles(x86)%\Microsoft Visual Studio\%%v\Community\VC\Auxiliary\Build\vcvars64.bat"
     )
 )
 if defined VCTOOLS (

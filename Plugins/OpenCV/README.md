@@ -33,6 +33,6 @@
 
 1. 安装 Build Tools + C++ 桌面开发 (https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/)
 
-2. 仅安装 「使用 C++ 的桌面开发」
+2. 安装 「使用 C++ 的桌面开发」和 当前电脑对应的SDK
 
 3. 执行buildDll.bat，完成后在 Plugins\OpenCV\build\Release 目录下会生成 RMT_OpenCv.dll

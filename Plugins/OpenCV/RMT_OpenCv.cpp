@@ -432,8 +432,8 @@ extern "C" IMAGEFINDER_API int __cdecl FindScreenImage(
 
 	// 2. 转换为灰度图（提高处理速度）
 	cv::Mat grayLarge, graySmall;
-	// 相似度98及其以上，不做灰度处理
-	if (matchThreshold >= 98)
+	// 相似度95及其以上，不做灰度处理
+	if (matchThreshold >= 95)
 	{
 		grayLarge = capturedImage;
 		graySmall = templateImage;
@@ -537,7 +537,7 @@ extern "C" IMAGEFINDER_API int __cdecl FindWinImage(
 
 	// 3. 转灰度（非高分相似度）
 	cv::Mat grayLarge, graySmall;
-	if (matchThreshold >= 98)
+	if (matchThreshold >= 95)
 	{
 		grayLarge = capturedImage;
 		graySmall = templateImage;
