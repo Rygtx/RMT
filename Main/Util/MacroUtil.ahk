@@ -139,7 +139,8 @@ OnCompare(tableItem, cmd, index) {
             continue
 
         CompareType := Data.CompareTypeArr[A_Index]
-        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[A_Index])
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[
+            A_Index])
         if (!hasComparison)
             return
 
@@ -181,7 +182,8 @@ OnComparePro(tableItem, cmd, index) {
         result := LogicType == 1 ? true : false
         loop NameArr.Length {
             CompareType := CompareTypeArr[A_Index]
-            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, NameArr[A_Index], VariableArr[A_Index])
+            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, NameArr[A_Index], VariableArr[
+                A_Index])
             if (!hasComparison) {
                 return
             }
@@ -271,6 +273,7 @@ OnOutput(tableItem, cmd, index) {
     }
     else if (Data.OutputType == "粘贴内容") {    ;粘贴文本
         A_Clipboard := Content
+        ClipWait
         Send "{Blind}^v"
     }
     else if (Data.OutputType == "临时提示") {    ;提示
@@ -338,7 +341,8 @@ GetLoopState(tableItem, cmd, index, Data) {
         if (!Data.ToggleArr[A_Index])
             continue
         CompareType := Data.CompareTypeArr[A_Index]
-        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[A_Index])
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[
+            A_Index])
         if (!hasComparison) {
             result := false
             break
