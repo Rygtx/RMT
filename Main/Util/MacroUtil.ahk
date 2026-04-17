@@ -139,36 +139,9 @@ OnCompare(tableItem, cmd, index) {
             continue
 
         CompareType := Data.CompareTypeArr[A_Index]
-        if (CompareType == 7) {        ;变量是否存在
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
-            currentComparison := hasValue
-        }
-        else {
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
-            if (!hasValue)
-                return
-            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
-                OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
-                hasOtherValue := true
-            }
-            else {
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
-            }
-
-            if (!hasOtherValue)
-                return
-
-            switch Data.CompareTypeArr[A_Index] {
-                case 1: currentComparison := Value > OtherValue
-                case 2: currentComparison := Value >= OtherValue
-                case 3: currentComparison := Value == OtherValue
-                case 4: currentComparison := Value <= OtherValue
-                case 5: currentComparison := Value < OtherValue
-                case 6: currentComparison := CheckContainText(Value, OtherValue)
-                case 8: currentComparison := RegExMatch(Value, OtherValue)
-            }
-        }
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[A_Index])
+        if (!hasComparison)
+            return
 
         if (Data.LogicalType == 1) {
             result := result && currentComparison
@@ -208,34 +181,9 @@ OnComparePro(tableItem, cmd, index) {
         result := LogicType == 1 ? true : false
         loop NameArr.Length {
             CompareType := CompareTypeArr[A_Index]
-            if (CompareType == 7) {
-                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index], false)
-                currentComparison := hasValue
-            }
-            else {
-                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index])
-                if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
-                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index], false)
-                    OtherValue := hasOtherValue ? OtherValue : VariableArr[A_Index]
-                    hasOtherValue := true
-                }
-                else {
-                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index])
-                }
-
-                if (!hasValue || !hasOtherValue) {
-                    return
-                }
-
-                switch CompareTypeArr[A_Index] {
-                    case 1: currentComparison := Value > OtherValue
-                    case 2: currentComparison := Value >= OtherValue
-                    case 3: currentComparison := Value == OtherValue
-                    case 4: currentComparison := Value <= OtherValue
-                    case 5: currentComparison := Value < OtherValue
-                    case 6: currentComparison := CheckContainText(Value, OtherValue)
-                    case 8: currentComparison := RegExMatch(Value, OtherValue)
-                }
+            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, NameArr[A_Index], VariableArr[A_Index])
+            if (!hasComparison) {
+                return
             }
 
             if (LogicType == 1) {
@@ -390,35 +338,10 @@ GetLoopState(tableItem, cmd, index, Data) {
         if (!Data.ToggleArr[A_Index])
             continue
         CompareType := Data.CompareTypeArr[A_Index]
-        if (CompareType == 7) {        ;变量是否存在
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
-            currentComparison := hasValue
-        }
-        else {
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
-            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;字符包含的时候可以直接使用字符
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
-                OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
-                hasOtherValue := true
-            }
-            else {
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
-            }
-
-            if (!hasValue || !hasOtherValue) {
-                result := false
-                break
-            }
-
-            switch Data.CompareTypeArr[A_Index] {
-                case 1: currentComparison := Value > OtherValue
-                case 2: currentComparison := Value >= OtherValue
-                case 3: currentComparison := Value == OtherValue
-                case 4: currentComparison := Value <= OtherValue
-                case 5: currentComparison := Value < OtherValue
-                case 6: currentComparison := CheckContainText(Value, OtherValue)
-                case 8: currentComparison := RegExMatch(Value, OtherValue)
-            }
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[A_Index])
+        if (!hasComparison) {
+            result := false
+            break
         }
 
         if (Data.LogicType == 1) {

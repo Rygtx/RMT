@@ -1757,3 +1757,39 @@ GetSystemVarArr() {
     return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
     GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
 }
+
+DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
+    if (CompareType == 7) {
+        hasValue := TryGetTabVarValue(&Value, tableItem, index, Name, false)
+        currentComparison := hasValue
+        return true
+    }
+
+    hasValue := TryGetTabVarValue(&Value, tableItem, index, Name)
+    if (!hasValue)
+        return false
+
+    if (CompareType == 3 || CompareType == 6 || CompareType == 8) {
+        hasOtherValue := TryGetTabVarValue(&OtherVal, tableItem, index, OtherValue, false)
+        OtherVal := hasOtherValue ? OtherVal : OtherValue
+        hasOtherValue := true
+    }
+    else {
+        hasOtherValue := TryGetTabVarValue(&OtherVal, tableItem, index, OtherValue)
+    }
+
+    if (!hasOtherValue)
+        return false
+
+    switch CompareType {
+        case 1: currentComparison := Value > OtherVal
+        case 2: currentComparison := Value >= OtherVal
+        case 3: currentComparison := Value == OtherVal
+        case 4: currentComparison := Value <= OtherVal
+        case 5: currentComparison := Value < OtherVal
+        case 6: currentComparison := CheckContainText(Value, OtherVal)
+        case 8: currentComparison := RegExMatch(Value, OtherVal)
+        default: currentComparison := false
+    }
+    return true
+}
