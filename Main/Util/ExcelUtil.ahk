@@ -5,7 +5,7 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
@@ -34,7 +34,7 @@ ExcelRowToWrite(wbPath, sheetIdentifier, row, col, value) {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
@@ -57,9 +57,11 @@ ExcelRowToWrite(wbPath, sheetIdentifier, row, col, value) {
         MsgBox GetLang("写入失败：") e.Message
         return false
     }
-    if (!xlApp.Visible) {
-        xlWorkbook.Close()
-        xlApp.Quit()
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -68,7 +70,7 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, col,  value) {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
@@ -91,9 +93,11 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, col,  value) {
         MsgBox GetLang("写入失败：") e.Message
         return false
     }
-    if (!xlApp.Visible) {
-        xlWorkbook.Close()
-        xlApp.Quit()
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -102,7 +106,7 @@ ExcelRangeRowToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+             xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
@@ -137,9 +141,11 @@ ExcelRangeRowToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         MsgBox GetLang("写入失败：") e.Message
         return false
     }
-    if (!xlApp.Visible) {
-        xlWorkbook.Close()
-        xlApp.Quit()
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -148,7 +154,7 @@ ExcelRangeColToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
@@ -183,9 +189,11 @@ ExcelRangeColToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         MsgBox GetLang("写入失败：") e.Message
         return false
     }
-    if (!xlApp.Visible) {
-        xlWorkbook.Close()
-        xlApp.Quit()
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
