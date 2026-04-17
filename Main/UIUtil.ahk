@@ -584,8 +584,9 @@ AddHelpUI(index) {
 
     posY += 30
     posX := MySoftData.TabPosX + 15
+    LinkStr := A_WorkingDir "\RMT帮助文档.html"
     AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("操作说明文档："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="https://zclucas.github.io/RMT/">{}</a>', GetLang("快速上手，指令手册、常见问题、常见报错、更新日志等")), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="{}">{}</a>', LinkStr, GetLang("快速上手，指令手册、常见问题、常见报错、更新日志等")), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
