@@ -735,19 +735,19 @@ class BGKeyGui {
         this.KeyTypeCon.Value := 1
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击时长:"))
+        this.HoldTimeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击时长:"))
         PosX += 70
         this.HoldTimeCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 50)
         this.HoldTimeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数："))
+        this.KeyCountTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数："))
         PosX += 70
         this.KeyCountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 1)
         this.KeyCountCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔："))
+        this.PerIntervalTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔："))
         PosX += 70
         this.PerIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 100)
         this.PerIntervalCon.OnEvent("Change", (*) => this.OnChangeEditValue())
@@ -823,12 +823,15 @@ class BGKeyGui {
 
     Refresh() {
         isShowHoldTime := this.KeyTypeCon.Value == 3
-        isShowCount := isShowHoldTime && this.KeyCountCon.Value != 1
-        isShowInterval := isShowCount && this.PerIntervalCon.Value != 0
+        isShowCount := isShowHoldTime
+        isShowInterval := isShowCount && this.KeyCountCon.Value != 1
 
-        this.HoldTimeCon.Enabled := isShowHoldTime
-        this.KeyCountCon.Enabled := isShowHoldTime
-        this.PerIntervalCon.Enabled := isShowCount
+        this.HoldTimeTipCon.Visible := isShowHoldTime
+        this.HoldTimeCon.Visible := isShowHoldTime
+        this.KeyCountTipCon.Visible := isShowCount
+        this.KeyCountCon.Visible := isShowCount
+        this.PerIntervalTipCon.Visible := isShowInterval
+        this.PerIntervalCon.Visible := isShowInterval
     }
 
     RefreshCheckCon() {

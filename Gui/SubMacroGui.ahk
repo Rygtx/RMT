@@ -70,7 +70,7 @@ class SubMacroGui {
         this.CallTypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
         PosX += 140
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("插入次数："))
+        this.InsertCountTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("插入次数："))
 
         PosX += 65
         this.InsertCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 130), [])
@@ -164,8 +164,9 @@ class SubMacroGui {
             this.DropDownIndexCon.Delete()
         }
 
-        EnableInsert := this.CallTypeCon.Value == 1
-        this.InsertCountCon.Enabled := EnableInsert
+        ShowInsert := this.CallTypeCon.Value == 1
+        this.InsertCountTipCon.Visible := ShowInsert
+        this.InsertCountCon.Visible := ShowInsert
     }
 
     OnClickSureBtn() {

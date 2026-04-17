@@ -91,7 +91,7 @@ class ExVariableGui {
 
         PosX := 10
         PosY += 30
-        con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 95), GetLang("屏幕提取选项:"))
+        con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 95), GetLang("提取选项:"))
 
         PosX := 20
         PosY += 25
@@ -281,10 +281,10 @@ class ExVariableGui {
     }
 
     OnTypeChange(*) {
-        isScreen := this.ExtractTypeCon.Value == 1
+        IsOcr := this.ExtractTypeCon.Value == 1 || this.ExtractTypeCon.Value == 3
         isWin := this.ExtractTypeCon.Value == 3
         for index, value in this.OCROptConArr {
-            value.Enabled := isScreen
+            value.Enabled := IsOcr
         }
 
         for index, value in this.WinInfoArr {
