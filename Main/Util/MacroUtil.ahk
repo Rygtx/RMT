@@ -263,6 +263,7 @@ OnMMPro(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
+    Data.Count := Data.IsGameView ? data.Count : 1
     loop Data.Count {
         WaitIfPaused(tableItem, index)
 
@@ -388,14 +389,14 @@ GetLoopState(tableItem, cmd, index, Data) {
     loop 4 {
         if (!Data.ToggleArr[A_Index])
             continue
-
-        if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
+        CompareType := Data.CompareTypeArr[A_Index]
+        if (CompareType == 7) {        ;变量是否存在
             hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
             currentComparison := hasValue
         }
         else {
             hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
-            if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
+            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;字符包含的时候可以直接使用字符
                 hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
                 OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
                 hasOtherValue := true
@@ -416,6 +417,7 @@ GetLoopState(tableItem, cmd, index, Data) {
                 case 4: currentComparison := Value <= OtherValue
                 case 5: currentComparison := Value < OtherValue
                 case 6: currentComparison := CheckContainText(Value, OtherValue)
+                case 8: currentComparison := RegExMatch(Value, OtherValue)
             }
         }
 

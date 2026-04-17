@@ -91,7 +91,7 @@ class LoopGui {
 
         con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
@@ -110,7 +110,7 @@ class LoopGui {
 
         con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
@@ -129,7 +129,7 @@ class LoopGui {
 
         con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
@@ -148,7 +148,7 @@ class LoopGui {
 
         con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)

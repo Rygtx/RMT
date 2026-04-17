@@ -408,7 +408,7 @@ class SearchData {
         this.EndPosY := A_ScreenHeight
         this.SearchCount := 1
         this.SearchInterval := 1000
-        this.MouseActionType := 1   ;   1无动作 2移动到目标 3移动到目标点击
+        this.MouseActionType := 2   ;   1无动作 2移动到目标 3移动到目标点击
         this.Speed := 90
         this.ClickCount := 1
         this.ConfigArr := []    ;配置数组，不同的分辨率

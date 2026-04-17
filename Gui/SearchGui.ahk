@@ -120,7 +120,7 @@ class SearchGui {
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 155),
         GetLangArr(["无动作",
             "移动至目标", "移动至目标点击1次", "移动至目标点击2次"]))
-        this.MouseActionTypeCon.Value := 1
+        this.MouseActionTypeCon.Value := 2
 
         PosY += 35
         PosX := 10
@@ -442,20 +442,20 @@ class SearchGui {
         showImageTip := isImage && this.Data.SearchImagePath == ""
         showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageSelectBtn.Enabled := isImage
-        this.ImageShotBtn.Enabled := isImage
-        this.ImageTipCon.Enabled := isImage
+        this.ImageSelectBtn.Visible := isImage
+        this.ImageShotBtn.Visible := isImage
+        this.ImageTipCon.Visible := isImage
 
-        this.HexColorCon.Enabled := isColor
-        this.ColorTipCon.Enabled := isColor
+        this.HexColorCon.Visible := isColor
+        this.ColorTipCon.Visible := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
             this.HexColorTipCon.Redraw()
         }
 
-        this.TextCon.Enabled := isText
-        this.TextTipCon.Enabled := isText
+        this.TextCon.Visible := isText
+        this.TextTipCon.Visible := isText
         this.MousePosCon.Focus()
     }
 

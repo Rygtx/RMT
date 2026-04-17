@@ -876,31 +876,31 @@ class SearchProGui {
         isInfinite := this.SearchCountCon.Text == GetLang("无限")
         showColorTip := isColor && RegExMatch(this.HexColorCon.Text, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageSelectBtn.Enabled := isImage
-        this.ScreenshotBtn.Enabled := isImage
-        this.SearchImageTypeCon.Enabled := isImage && A_PtrSize == 8
-        this.SearchImageTypeTipCon.Enabled := isImage
-        this.ImageCon.Enabled := isImage
+        this.ImageSelectBtn.Visible := isImage
+        this.ScreenshotBtn.Visible := isImage
+        this.SearchImageTypeCon.Visible := isImage && A_PtrSize == 8
+        this.SearchImageTypeTipCon.Visible := isImage
+        this.ImageCon.Visible := isImage
         if (A_PtrSize != 8)
             this.SearchImageTypeCon.Value := 2
 
-        this.HexColorCon.Enabled := isColor
-        this.ColorLabelCon.Enabled := isColor
+        this.HexColorCon.Visible := isColor
+        this.ColorLabelCon.Visible := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
             this.HexColorTipCon.Redraw()
         }
 
-        this.TextCon.Enabled := isText
-        this.OCRLabelCon.Enabled := isText
-        this.OCRTypeCon.Enabled := isText
-        this.TextTipCon.Enabled := isText
+        this.TextCon.Visible := isText
+        this.OCRLabelCon.Visible := isText
+        this.OCRTypeCon.Visible := isText
+        this.TextTipCon.Visible := isText
         this.MousePosCon.Focus()
 
-        this.SetConArrState(this.SimilarArr, !isText)
-        this.SetConArrState(this.WinInfoArr, isWin)
-        this.SetConArrState(this.FalseConArr, !isInfinite)
+        this.SetConArrState(this.SimilarArr, false, !isText)
+        this.SetConArrState(this.WinInfoArr, false, isWin)
+        this.SetConArrState(this.FalseConArr, true, !isInfinite)
 
         if (!this.LastIsWin && isWin) {
             SetDLConValue(this.MouseActionTypeCon, GetLangArr(["无动作", "后台鼠标至目标点击", "后台鼠标至目标双击"]), GetLang("无动作"))
@@ -911,26 +911,29 @@ class SearchProGui {
 
         CountValue := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
         isCount := IsNumber(CountValue) && (CountValue == -1 || CountValue > 1)
-        this.SetConArrState(this.CountTogArr, isCount)
+        this.SetConArrState(this.CountTogArr, false, isCount)
 
         isMouseSpeed := this.MouseActionTypeCon.Value != 1 && !isWin
-        this.SetConArrState(this.MouseSpeedArr, isMouseSpeed)
+        this.SetConArrState(this.MouseSpeedArr, false, isMouseSpeed)
 
         isMouseClick := this.MouseActionTypeCon.Value == 3 && !isWin
-        this.SetConArrState(this.MouseClickArr, isMouseClick)
+        this.SetConArrState(this.MouseClickArr, false, isMouseClick)
 
         isSaveResult := this.ResultToggleCon.Value
-        this.SetConArrState(this.ResultTogArr, isSaveResult)
+        this.SetConArrState(this.ResultTogArr, true, isSaveResult)
 
         isCoord := this.CoordToogleCon.Value
-        this.SetConArrState(this.CoordTogArr, isCoord)
+        this.SetConArrState(this.CoordTogArr, true, isCoord)
 
         this.LastIsWin := isWin
     }
 
-    SetConArrState(ConArr, state) {
+    SetConArrState(ConArr, isEnabled, state) {
         for Value in ConArr {
-            Value.Enabled := state
+            if (isEnabled)
+                Value.Enabled := state
+            else
+                Value.Visible := state
         }
     }
 

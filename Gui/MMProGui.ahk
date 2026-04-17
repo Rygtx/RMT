@@ -81,11 +81,6 @@ class MMProGui {
         PosX += 230
         con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 4, 50, 30), GetLang("编辑"))
         con.OnEvent("Click", this.OnEditScreenRule.Bind(this))
-        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "+")
-        ; con.OnEvent("Click", (*) => this.OnAddConfig())
-        ; PosX += 30
-        ; con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 3, 25, 25), "-")
-        ; con.OnEvent("Click", (*) => this.OnRemoveConfig())
 
         PosY += 35
         PosX := 10
@@ -114,12 +109,12 @@ class MMProGui {
 
         PosX := 10
         PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动次数:"))
+        this.CountTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动次数:"))
         PosX += 80
         this.CountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), 1)
 
         PosX := 240
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
+        this.IntervalTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
         PosX += 80
         this.IntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), 1000)
 
@@ -389,13 +384,17 @@ class MMProGui {
             this.IsRelativeCon.Enabled := false
             this.ActionTypeCon.Enabled := false
             this.SpeedCon.Enabled := false
-
         }
         else {
             this.IsRelativeCon.Enabled := true
             this.ActionTypeCon.Enabled := true
             this.SpeedCon.Enabled := true
         }
+
+        this.CountTipCon.Visible := isGameView
+        this.CountCon.Visible := isGameView
+        this.IntervalTipCon.Visible := isGameView
+        this.IntervalCon.Visible := isGameView
     }
 
     OnSureTarget(PosX, PosY, Color) {

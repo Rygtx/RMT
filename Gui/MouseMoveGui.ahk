@@ -39,7 +39,7 @@ class MouseMoveGui {
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
-        PosX += 90
+        PosX += 120
         btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
@@ -47,7 +47,7 @@ class MouseMoveGui {
         PosX := 10
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("F1:选取当前坐标"))
 
-        PosX += 160
+        PosX += 200
         Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("定位取色器"))
         Con.OnEvent("Click", this.OnClickTargeterBtn.Bind(this))
         Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 102, PosY), "?")
