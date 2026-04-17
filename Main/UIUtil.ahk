@@ -191,6 +191,10 @@ AddOperBtnUI() {
     ReloadBtnCtrl.OnEvent("Click", MenuReload)
     posY += 40
 
+    posY := 505
+    btnHelp := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("帮助"))
+    btnHelp.OnEvent("Click", (*) => Run(A_WorkingDir "\RMT帮助文档.html"))
+
     posY := 540
     MySoftData.BtnSave := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("应用并保存"))
     MySoftData.BtnSave.OnEvent("Click", OnSaveSetting)
