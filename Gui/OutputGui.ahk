@@ -151,7 +151,7 @@ class OutputGui {
 
     SaveOutputData() {
         this.Data.Text := GetLangStr(this.TextCon.Value, 2)
-        this.Data.OutputType := GetLangKey(this.OutputTypeCon.Value)
+        this.Data.OutputType := GetLangKey(this.OutputTypeCon.Text)
         SaveMacroCMDData(this.Data)
     }
 }
