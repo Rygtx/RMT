@@ -47,7 +47,7 @@ class ArrayGui {
         PosX += 125
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数组名："))
         PosX += 65
-        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
 
         PosX += 120
         this.MainIndexConArr := []
@@ -122,7 +122,7 @@ class ArrayGui {
             this.ArgsDataConArr.Push(this.ArgsTypeCon)
 
             PosX += 105
-            this.ArgsNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.ArgsNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
             this.ArgsNameCon.GetPos(&x)
             this.ArgsNameCon.OriPosX := x
             this.ArgsConArr.Push(this.ArgsNameCon)
@@ -144,7 +144,7 @@ class ArrayGui {
             this.ResultConArr.Push(this.SaveTypeCon)
 
             PosX += 105
-            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
             this.ResultConArr.Push(this.SaveNameCon)
         }
 

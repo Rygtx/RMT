@@ -102,6 +102,15 @@ RefreshToolUI() {
     ToolCheckInfo.ToolMouseWinPosCtrl.Value := ToolCheckInfo.WinPosStr
 }
 
+; 添加控件到表格中，自动记录位置信息
+AddTableControl(Type, Options, Text, tableItem, FoldIndex := 1) {
+    global MySoftData
+    con := MySoftData.MyGui.Add(Type, Options, Text)
+    conInfo := ItemConInfo(con, tableItem, FoldIndex)
+    tableItem.AllConArr.Push(conInfo)
+    return con
+}
+
 ;UI元素相关函数
 AddUI() {
     global MySoftData
@@ -182,6 +191,10 @@ AddOperBtnUI() {
     ReloadBtnCtrl.OnEvent("Click", MenuReload)
     posY += 40
 
+    posY := 505
+    btnHelp := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("帮助"))
+    btnHelp.OnEvent("Click", (*) => Run(A_WorkingDir "\RMT帮助文档.html"))
+
     posY := 540
     MySoftData.BtnSave := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("应用并保存"))
     MySoftData.BtnSave.OnEvent("Click", OnSaveSetting)
@@ -207,212 +220,122 @@ AddToolUI(index) {
     posX := MySoftData.TabPosX
     ; 配置规则说明
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("变量监视器："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 120, posY - 3, 130), GetLang("打开监视器"))
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("变量监视器："), tableItem)
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 120, posY - 3, 130), GetLang("打开监视器"), tableItem)
     con.OnEvent("Click", (*) => MyVarListenGui.ShowGui())
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("鼠标信息："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("鼠标信息："), tableItem)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ToolCheckHotkey)
     CtrlType := isHotKey ? "Hotkey" : "Text"
-    con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolCheckHotkey)
-    con.Enabled := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolCheckHotkey, tableItem).Enabled := false
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 260, posY, 60), GetLang("开关"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 260, posY, 60), GetLang("开关"), tableItem)
     ToolCheckInfo.ToolCheckCtrl := con
     ToolCheckInfo.ToolCheckCtrl.Value := ToolCheckInfo.IsToolCheck
     ToolCheckInfo.ToolCheckCtrl.OnEvent("Click", OnToolCheckHotkey)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 400, posY, 60), GetLang("窗口置顶"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 400, posY, 60), GetLang("窗口置顶"), tableItem)
     ToolCheckInfo.AlwaysOnTopCtrl := con
     ToolCheckInfo.AlwaysOnTopCtrl.Value := false
     ToolCheckInfo.AlwaysOnTopCtrl.OnEvent("Click", OnToolAlwaysOnTop)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("屏幕坐标："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.PosStr)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("屏幕坐标："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.PosStr, tableItem)
     ToolCheckInfo.ToolMousePosCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 400, posY), GetLang("窗口坐标："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.WinPosStr)
+    AddTableControl("Text", Format("x{} y{}", posX + 400, posY), GetLang("窗口坐标："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.WinPosStr, tableItem)
     ToolCheckInfo.ToolMouseWinPosCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("进程窗口标题："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessTile)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("进程窗口标题："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessTile, tableItem)
     ToolCheckInfo.ToolProcessTileCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 400, posY), GetLang("进程名："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.ProcessName)
+    AddTableControl("Text", Format("x{} y{}", posX + 400, posY), GetLang("进程名："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.ProcessName, tableItem)
     ToolCheckInfo.ToolProcessNameCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("进程窗口类："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessClass)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("进程窗口类："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessClass, tableItem)
     ToolCheckInfo.ToolProcessClassCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 400, posY), GetLang("进程PID:"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.ProcessPid)
+    AddTableControl("Text", Format("x{} y{}", posX + 400, posY), GetLang("进程PID:"), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.ProcessPid, tableItem)
     ToolCheckInfo.ToolProcessPidCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("句柄Id:"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessId)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("句柄Id:"), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 120, posY - 5), ToolCheckInfo.ProcessId, tableItem)
     ToolCheckInfo.ToolProcessIdCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 400, posY), GetLang("位置颜色："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.Color)
+    AddTableControl("Text", Format("x{} y{}", posX + 400, posY), GetLang("位置颜色："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w240", posX + 480, posY - 5), ToolCheckInfo.Color, tableItem)
     ToolCheckInfo.ToolColorCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("截图和自由贴："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("截图和自由贴："), tableItem)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ScreenShotHotKey)
     CtrlType := isHotKey ? "Hotkey" : "Text"
-    con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ScreenShotHotKey
-    )
-    con.Enabled := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ScreenShotHotKey, tableItem).Enabled := false
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 260, posY - 5, 100), GetLang("截图"))
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 260, posY - 5, 100), GetLang("截图"), tableItem)
     con.OnEvent("Click", OnToolScreenShot)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.FreePasteHotKey)
     CtrlType := isHotKey ? "Hotkey" : "Text"
-    con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX + 400, posY - 3, 130), ToolCheckInfo.FreePasteHotKey
-    )
-    con.Enabled := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 400, posY - 3, 130), ToolCheckInfo.FreePasteHotKey, tableItem).Enabled := false
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 540, posY - 5, 100), GetLang("自由贴"))
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 540, posY - 5, 100), GetLang("自由贴"), tableItem)
     con.OnEvent("Click", OnToolFreePaste)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("指令录制："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("指令录制："), tableItem)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ToolRecordMacroHotKey)
     CtrlType := isHotKey ? "Hotkey" : "Text"
-    con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolRecordMacroHotKey
-    )
-    con.Enabled := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolRecordMacroHotKey, tableItem).Enabled := false
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 260, posY, 60), GetLang("开关"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 260, posY, 60), GetLang("开关"), tableItem)
     ToolCheckInfo.ToolCheckRecordMacroCtrl := con
     ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := ToolCheckInfo.IsToolRecord
     ToolCheckInfo.ToolCheckRecordMacroCtrl.OnEvent("Click", OnHotToolRecordMacro.Bind(false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("图片文本提取："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("图片文本提取："), tableItem)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ToolTextFilterHotKey)
     CtrlType := isHotKey ? "Hotkey" : "Text"
-    con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolTextFilterHotKey
-    )
-    con.Enabled := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ToolTextFilterHotKey, tableItem).Enabled := false
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 260, posY - 5, 100), GetLang("截图提取文本"))
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 260, posY - 5, 100), GetLang("截图提取文本"), tableItem)
     con.OnEvent("Click", OnToolTextFilterScreenShot)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 400, posY - 5, 120), GetLang("从图片提取文本"))
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 400, posY - 5, 120), GetLang("从图片提取文本"), tableItem)
     con.OnEvent("Click", OnToolTextFilterSelectImage)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 35
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("相关选项："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("相关选项："), tableItem)
 
-    con := MyGui.Add("Text", Format("x{} y{} w{}", PosX + 120, PosY, 110), GetLang("文本识别模型："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{}", PosX + 120, PosY, 110), GetLang("文本识别模型："), tableItem)
 
-    con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 260, PosY - 5, 100), GetLangArr(["中文", "英文"]))
+    con := AddTableControl("DropDownList", Format("x{} y{} w{}", PosX + 260, PosY - 5, 100), GetLangArr(["中文", "英文"]), tableItem)
     ToolCheckInfo.OCRTypeCtrl := con
     ToolCheckInfo.OCRTypeCtrl.Value := ToolCheckInfo.OCRTypeValue
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 20, posY), GetLang("录制的指令或提取的文本内容："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("录制的指令或提取的文本内容："), tableItem)
 
-    con := MyGui.Add("Button", Format("x{} y{} w{} h{}", posX + 260, posY - 5, 80, 25), GetLang("清空内容"))
+    con := AddTableControl("Button", Format("x{} y{} w{} h{}", posX + 260, posY - 5, 80, 25), GetLang("清空内容"), tableItem)
     con.OnEvent("Click", OnClearToolText)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
-    con := ToolCheckInfo.ToolTextCtrl := MyGui.Add("Edit", Format("x{} y{} w{} h{}", posX + 20, posY, 800, 100), "")
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    con := ToolCheckInfo.ToolTextCtrl := AddTableControl("Edit", Format("x{} y{} w{} h{}", posX + 20, posY, 800, 100), "", tableItem)
 
     posY += 20
     MySoftData.TableInfo[index].underPosY := posY
@@ -427,318 +350,188 @@ AddSettingUI(index) {
 
     posY += 30
     posX := MySoftData.TabPosX
-    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("快捷键修改"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    con := AddTableControl("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("快捷键修改"), tableItem)
     tableItem.AllGroup.Push(con)
 
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件休眠："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件休眠："), tableItem)
     CtrlType := GetHotKeyCtrlType(MySoftData.SuspendHotkey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MySoftData.SuspendHotkey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MySoftData.SuspendHotkey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), MySoftData.SuspendHotkey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), MySoftData.SuspendHotkey, tableItem)
     MySoftData.SuspendHotkeyCtrl := con
     MySoftData.SuspendHotkeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} w50", posX + 235, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.SuspendHotkeyCtrl, true))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("暂停宏："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("暂停宏："), tableItem)
     CtrlType := GetHotKeyCtrlType(MySoftData.PauseHotkey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MySoftData.PauseHotkey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MySoftData.PauseHotkey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), MySoftData.PauseHotkey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), MySoftData.PauseHotkey, tableItem)
     MySoftData.PauseHotkeyCtrl := con
     MySoftData.PauseHotkeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.PauseHotkeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("终止宏："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 605, posY), GetLang("终止宏："), tableItem)
     CtrlType := GetHotKeyCtrlType(MySoftData.KillMacroHotkey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), MySoftData.KillMacroHotkey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), MySoftData.KillMacroHotkey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY), MySoftData.KillMacroHotkey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 680, posY), MySoftData.KillMacroHotkey, tableItem)
     MySoftData.KillMacroHotkeyCtrl := con
     MySoftData.KillMacroHotkeyCtrl.Visible := false
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, MySoftData.KillMacroHotkeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令录制："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令录制："), tableItem)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolRecordMacroHotKey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4),
-    ToolCheckInfo.ToolRecordMacroHotKey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), ToolCheckInfo.ToolRecordMacroHotKey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.ToolRecordMacroHotKey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.ToolRecordMacroHotKey, tableItem)
     ToolCheckInfo.ToolRecordMacroHotKeyCtrl := con
     ToolCheckInfo.ToolRecordMacroHotKeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolRecordMacroHotKeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("文本提取："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("文本提取："), tableItem)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolTextFilterHotKey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4),
-    ToolCheckInfo.ToolTextFilterHotKey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), ToolCheckInfo.ToolTextFilterHotKey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolTextFilterHotKey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolTextFilterHotKey, tableItem)
     ToolCheckInfo.ToolTextFilterHotKeyCtrl := con
     ToolCheckInfo.ToolTextFilterHotKeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolTextFilterHotKeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 605, posY), GetLang("屏幕截图："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 605, posY), GetLang("屏幕截图："), tableItem)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ScreenShotHotKey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4),
-    ToolCheckInfo.ScreenShotHotKey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), ToolCheckInfo.ScreenShotHotKey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 680, posY), ToolCheckInfo.ScreenShotHotKey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 680, posY), ToolCheckInfo.ScreenShotHotKey, tableItem)
     ToolCheckInfo.ScreenShotHotKeyCtrl := con
     ToolCheckInfo.ScreenShotHotKeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ScreenShotHotKeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("自由贴："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("自由贴："), tableItem)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.FreePasteHotKey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4),
-    ToolCheckInfo.FreePasteHotKey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), ToolCheckInfo.FreePasteHotKey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.FreePasteHotKey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), ToolCheckInfo.FreePasteHotKey, tableItem)
     ToolCheckInfo.FreePasteHotKeyCtrl := con
     ToolCheckInfo.FreePasteHotKeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.FreePasteHotKeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("鼠标信息："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("鼠标信息："), tableItem)
     CtrlType := GetHotKeyCtrlType(ToolCheckInfo.ToolCheckHotkey)
-    showCon := MyGui.Add(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4),
-    ToolCheckInfo.ToolCheckHotkey)
+    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), ToolCheckInfo.ToolCheckHotkey, tableItem)
     showCon.Enabled := false
-    conInfo := ItemConInfo(showCon, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolCheckHotkey)
+    con := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), ToolCheckInfo.ToolCheckHotkey, tableItem)
     ToolCheckInfo.ToolCheckHotKeyCtrl := con
     ToolCheckInfo.ToolCheckHotKeyCtrl.Visible := false
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"))
+    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
     con.OnEvent("Click", OnOpenEditHotkeyGui.Bind(showCon, ToolCheckInfo.ToolCheckHotKeyCtrl, false))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     posX := MySoftData.TabPosX
-    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("数值选项"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    con := AddTableControl("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("数值选项"), tableItem)
     tableItem.AllGroup.Push(con)
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("按住时间浮动(%)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("按住时间浮动(%)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat, tableItem)
     MySoftData.HoldFloatCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("每次间隔浮动(%)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.PreIntervalFloat)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("每次间隔浮动(%)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.PreIntervalFloat, tableItem)
     MySoftData.PreIntervalFloatCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("间隔指令浮动(%)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.IntervalFloat)
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("间隔指令浮动(%)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.IntervalFloat, tableItem)
     MySoftData.IntervalFloatCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("坐标X浮动(px)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.CoordXFloat)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("坐标X浮动(px)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.CoordXFloat, tableItem)
     MySoftData.CoordXFloatCon := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("坐标Y浮动(px)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.CoordYFloat)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("坐标Y浮动(px)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MySoftData.CoordYFloat, tableItem)
     MySoftData.CoordYFloatCon := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(0~10)："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.MutiThreadNum)
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(0~10)："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.MutiThreadNum, tableItem)
     MySoftData.MutiThreadNumCtrl := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件背景颜色："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件背景颜色："), tableItem)
+    con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.SoftBGColor, tableItem)
     MySoftData.SoftBGColorCon := con
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("开关选项"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    con := AddTableControl("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("开关选项"), tableItem)
     tableItem.AllGroup.Push(con)
     posY += 30
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("开机自启"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("开机自启"), tableItem)
     MySoftData.BootStartCtrl := con
     MySoftData.BootStartCtrl.Value := MySoftData.IsBootStart
     MySoftData.BootStartCtrl.OnEvent("Click", OnBootStartChanged)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{} -Wrap w15", posX + 315, posY), "")
+    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 315, posY), "", tableItem)
     MySoftData.CMDTipCtrl := con
     MySoftData.CMDTipCtrl.Value := MySoftData.CMDTip
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Button", Format("x{} y{}", posX + 315 + 15, posY - 5), GetLang("指令显示"))
+    con := AddTableControl("Button", Format("x{} y{}", posX + 315 + 15, posY - 5), GetLang("指令显示"), tableItem)
     con.OnEvent("Click", (*) => OnEditCMDTipGui())
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("录制选项"))
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("录制选项"), tableItem)
     con.OnEvent("Click", OnClickToolRecordSettingBtn)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("无变量提醒"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("无变量提醒"), tableItem)
     MySoftData.NoVariableTipCtrl := con
     MySoftData.NoVariableTipCtrl.Value := MySoftData.NoVariableTip
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("菜单轮位置固定"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("菜单轮位置固定"), tableItem)
     MySoftData.FixedMenuWheelCtrl := con
     MySoftData.FixedMenuWheelCtrl.Value := MySoftData.FixedMenuWheel
     MySoftData.FixedMenuWheelCtrl.OnEvent("Click", OnMenuWheelPosChanged)
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"))
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"), tableItem)
     MySoftData.SplitLineCtrl := con
     MySoftData.SplitLineCtrl.Value := MySoftData.ShowSplitLine
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
-    con := MyGui.Add("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("下拉框选项"))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    con := AddTableControl("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
     ;语言/Lang： 如果外国人打开中文的话，或者中国人打开英语，方便都能找到调整的选项
     posY += 30
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：")
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 100, posY - 5), [])
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：", tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w100", posX + 100, posY - 5), [], tableItem)
     MySoftData.LangCtrl := con
     MySoftData.LangCtrl.Delete()
     MySoftData.LangCtrl.Add(MySoftData.LangArr)
     MySoftData.LangCtrl.Text := MySoftData.Lang
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 315, posY), GetLang("软件字体："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("DropDownList", Format("x{} y{} w180", posX + 390, posY - 5), [])
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("软件字体："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w180", posX + 390, posY - 5), [], tableItem)
     MySoftData.FontTypeCtrl := con
     MySoftData.FontTypeCtrl.Delete()
     MySoftData.FontTypeCtrl.Add(MySoftData.FontList)
     MySoftData.FontTypeCtrl.Text := MySoftData.FontType
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
-    con := MyGui.Add("Text", Format("x{} y{}", posX + 635, posY), GetLang("截图方式："))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("DropDownList", Format("x{} y{} w100", posX + 710, posY - 5), GetLangArr(["微软截图",
-        "RMT截图", "SC截图"]))
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("截图方式："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w100", posX + 710, posY - 5), GetLangArr(["微软截图",
+        "RMT截图", "SC截图"]), tableItem)
     MySoftData.ScreenShotTypeCtrl := con
     MySoftData.ScreenShotTypeCtrl.Value := MySoftData.ScreenShotType
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 70
-    tableItem := MySoftData.TableInfo[index]
     tableItem.UnderPosY := posY
 }
 
@@ -751,183 +544,91 @@ AddHelpUI(index) {
 
     posY += 40
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 25),
-    GetLang("免责声明"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 25), GetLang("免责声明"), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 14, 600, 2)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 35),
-    GetLang("本文件是对 GNU Affero General Public License v3.0 的补充说明，不影响原协议效力"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{} Center", posX, posY, 700, 35), GetLang("本文件是对 GNU Affero General Public License v3.0 的补充说明，不影响原协议效力"), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 10, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 40
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
-    GetLang('1. 本软件按"原样"提供，开发者不承担因使用、修改或分发导致的任何法律责任。'))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25), GetLang('1. 本软件按"原样"提供，开发者不承担因使用、修改或分发导致的任何法律责任。'), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
-    GetLang("2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25), GetLang("2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。"), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25),
-    GetLang("3. 使用者需自行承担所有风险，开发者对因违反法律或第三方条款导致的后果概不负责。"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 25), GetLang("3. 使用者需自行承担所有风险，开发者对因违反法律或第三方条款导致的后果概不负责。"), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 25
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 50),
-    GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 50), GetLang("4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。"), tableItem)
     con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 50
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", posX, posY, 800, 35),
-    GetLang("若不同意上述条款，请立即停止使用本软件。"))
+    con := AddTableControl("Text", Format("x{} y{} w{} h{} Center", posX, posY, 800, 35), GetLang("若不同意上述条款，请立即停止使用本软件。"), tableItem)
     con.SetFont((Format("cRed  S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
 
     posY += 50
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("更新视频合集："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    Format('<a href="https://www.bilibili.com/video/BV1oWVRzaEzk">{}</a>', GetLang("版本更新视频，直播交流问答")))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("更新视频合集："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="https://www.bilibili.com/video/BV1oWVRzaEzk">{}</a>', GetLang("版本更新视频，直播交流问答")), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("操作说明文档："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    Format('<a href="https://zclucas.github.io/RMT/">{}</a>', GetLang("快速上手，指令手册、常见问题、常见报错、更新日志等")))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    LinkStr := A_WorkingDir "\RMT帮助文档.html"
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("操作说明文档："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="{}">{}</a>', LinkStr, GetLang("快速上手，指令手册、常见问题、常见报错、更新日志等")), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("配置共享仓库："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    Format('<a href="https://zclucas.github.io/RMT-Setting/">{}</a>', GetLang("案例学习、获取他人分享的宏配置（支持下载导入）")))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("配置共享仓库："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="https://zclucas.github.io/RMT-Setting/">{}</a>', GetLang("案例学习、获取他人分享的宏配置（支持下载导入）")), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("国内开源网址："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    '<a href="https://gitee.com/fateman/RMT">https://gitee.com/fateman/RMT</a>')
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("国内开源网址："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), '<a href="https://gitee.com/fateman/RMT">https://gitee.com/fateman/RMT</a>', tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("国外开源网址："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    '<a href="https://github.com/zclucas/RMT">https://github.com/zclucas/RMT</a>')
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("国外开源网址："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), '<a href="https://github.com/zclucas/RMT">https://github.com/zclucas/RMT</a>', tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("软件检查更新："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30),
-    GetLang("浏览开源网址，查看右侧发行版处即可知道软件最新版本"))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("软件检查更新："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), GetLang("浏览开源网址，查看右侧发行版处即可知道软件最新版本"), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("软件交流渠道："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30),
-    '<a href="https://qm.qq.com/q/DgpDumEPzq">QQ群（837661891）</a>、<a href="https://pd.qq.com/s/5wyjvj7zw">QQ频道</a>、<a href="https://github.com/zclucas/RMT/discussions">GitHub 论坛</a>、<a href="https://discord.gg/m8ewvgtzat">Discord</a>'
-    )
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("软件交流渠道："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30), '<a href="https://qm.qq.com/q/DgpDumEPzq">QQ群（837661891）</a>、<a href="https://pd.qq.com/s/5wyjvj7zw">QQ频道</a>、<a href="https://github.com/zclucas/RMT/discussions">GitHub 论坛</a>、<a href="https://discord.gg/m8ewvgtzat">Discord</a>', tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("软件反馈表格："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("软件反馈表格："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     str1 := Format('<a href="https://docs.qq.com/sheet/DVWJIdEVMV1pHUVJj">{}</a>', GetLang("bug文档"))
     str2 := Format('<a href="https://docs.qq.com/sheet/DVWRQaXBFUVV5bERo">{}</a>', GetLang("需求文档"))
     str3 := Format('<a href="https://docs.qq.com/sheet/DVVNwWHJEd3NOWXhR?tab=BB08J2">{}</a>', GetLang("使用备注"))
     str4 := GetLang("（仅交流群成员有编辑权限）")
-    con := MyGui.Add("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30),
-    Format("{}、{}、{}{}", str1, str2, str3, str4))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 700, 30), Format("{}、{}、{}{}", str1, str2, str3, str4), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30),
-    GetLang("软件开源协议："))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), "AGPL-3.0")
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("软件开源协议："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), "AGPL-3.0", tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 35
-    MySoftData.TableInfo[index].underPosY := posY
+    tableItem.underPosY := posY
 }
 
 ;打赏
@@ -944,44 +645,34 @@ AddRewardUI(index) {
     str2 := Format(GetLang("至今已为您执行 {:} 次宏指令。"), countStr)
     str3 := GetLang("诚邀本月打赏成为若梦兔的 “守护者”，一起让若梦兔走得更远。")
     str := Format("{}`n{}`n{}", str1, str2, str3)
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 80), str)
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 800, 80), str, tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 100
     posX := MySoftData.TabPosX + 100
-    con := MyGui.Add("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\WeiXin.png")
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), GetLang("微信打赏"))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\WeiXin.png", tableItem)
+    AddTableControl("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), GetLang("微信打赏"), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posX += 450
-    con := MyGui.Add("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\ZhiFuBao.png")
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), GetLang("支付宝打赏"))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    AddTableControl("Picture", Format("x{} y{} w{} h{} center", posX, posY, 220, 220), "Images\Soft\ZhiFuBao.png", tableItem)
+    AddTableControl("Text", Format("x{} y{} w{} h{} center", posX, posY + 230, 220, 50), GetLang("支付宝打赏"), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 300
     posX := MySoftData.TabPosX + 15
-    con := MyGui.Add("Text", Format("x{} y{} w{} h{}", posX, posY, 860, 80), Format("{}`n{}", GetLang(
-        "当然，如果你暂时不方便，分享给朋友也是很棒的支持~"), GetLang("开发不易，感谢你的每一份温暖！")))
-    con.SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
-    conInfo := ItemConInfo(con, tableItem, 1)
-    tableItem.AllConArr.Push(conInfo)
+    str := Format("{}`n{}", GetLang("当然，如果你暂时不方便，分享给朋友也是很棒的支持~"), GetLang("开发不易，感谢你的每一份温暖！"))
+    AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 860, 80), str, tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
     posY += 35
-    MySoftData.TableInfo[index].underPosY := posY
+    tableItem.underPosY := posY
 }
 
 ; 系统托盘优化
 CustomTrayMenu() {
+    loop 30 {
+        if(WinExist("ahk_class Shell_TrayWnd")){
+            break
+        }
+        Sleep(1000)
+    }
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Delete("&Pause Script")

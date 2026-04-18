@@ -5,12 +5,11 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
         }
-        xlApp.Calculate()   ; 关键
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
@@ -23,17 +22,19 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
-ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
+ExcelRowToWrite(wbPath, sheetIdentifier, row, col, value) {
     try {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
@@ -41,10 +42,10 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
-        row := 1
         loop {
-            if (sheet.Cells(A_Index, col).Text == "") {
-                row := A_Index
+            CurRow := row + A_Index - 1
+            if (sheet.Cells(CurRow, col).Text == "") {
+                row := CurRow
                 break
             }
         }
@@ -57,17 +58,19 @@ ExcelRowToWrite(wbPath, sheetIdentifier, col, value) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
-ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
+ExcelColToWrite(wbPath, sheetIdentifier, row, col,  value) {
     try {
         xlWorkbook := ComObjGet(wbPath)
         xlApp := xlWorkbook.Application
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
             xlApp := ComObject("Excel.Application")
             xlWorkbook := xlApp.Workbooks.Open(wbPath, 0, false)  ; 非只读模式打开
@@ -75,10 +78,10 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
         if (IsInteger(sheetIdentifier))
             sheetIdentifier := Integer(sheetIdentifier)
         sheet := xlWorkbook.Sheets(sheetIdentifier)
-        col := 1
         loop {
-            if (sheet.Cells(row, A_Index).Text == "") {
-                col := A_Index
+            CurCol := col + A_Index - 1
+            if (sheet.Cells(row, CurCol).Text == "") {
+                col := CurCol
                 break
             }
         }
@@ -91,8 +94,106 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, value) {
         return false
     }
     finally {
-        xlWorkbook.Close()
-        xlApp.Quit()
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
+    }
+}
+
+ExcelRangeRowToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
+    try {
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        if (!xlApp.Visible) {
+             xlWorkbook.Close(false)
+            xlApp.Quit()
+            xlApp := ComObject("Excel.Application")
+            xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
+        }
+        if (IsInteger(sheetIdentifier))
+            sheetIdentifier := Integer(sheetIdentifier)
+        sheet := xlWorkbook.Sheets(sheetIdentifier)
+
+        IsDoubleArr := Arr.Length >= 1 && IsObject(Arr[1])
+        if (!IsDoubleArr) {
+            loop Arr.Length {
+                CurCol := Col + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(Row, CurCol).Value := Value
+            }
+        }
+        else {
+            loop Arr.Length {
+                CurRow := Row + A_Index - 1
+                SubArr := Arr[A_Index]
+                loop SubArr.Length {
+                    CurCol := Col + A_Index - 1
+                    sheet.Cells(CurRow, CurCol).Value := SubArr[A_Index]
+                }
+            }
+        }
+
+        xlWorkbook.Save()
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("写入失败：") e.Message
+        return false
+    }
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
+    }
+}
+
+ExcelRangeColToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
+    try {
+        xlWorkbook := ComObjGet(xlPath)
+        xlApp := xlWorkbook.Application
+        if (!xlApp.Visible) {
+            xlWorkbook.Close(false)
+            xlApp.Quit()
+            xlApp := ComObject("Excel.Application")
+            xlWorkbook := xlApp.Workbooks.Open(xlPath, 0, false)  ; 非只读模式打开
+        }
+        if (IsInteger(sheetIdentifier))
+            sheetIdentifier := Integer(sheetIdentifier)
+        sheet := xlWorkbook.Sheets(sheetIdentifier)
+
+        IsDoubleArr := Arr.Length >= 1 && IsObject(Arr[1])
+        if (!IsDoubleArr) {
+            loop Arr.Length {
+                CurRow := Row + A_Index - 1
+                Value := IsObject(Arr[A_Index]) ? GetArrayStr(Arr[A_Index]) : Arr[A_Index]
+                sheet.Cells(CurRow, Col).Value := Value
+            }
+        }
+        else {
+            loop Arr.Length {
+                CurCol := Col + A_Index - 1
+                SubArr := Arr[A_Index]
+                loop SubArr.Length {
+                    CurRow := Row + A_Index - 1
+                    sheet.Cells(CurRow, CurCol).Value := SubArr[A_Index]
+                }
+            }
+        }
+
+        xlWorkbook.Save()
+        return true
+    }
+    catch as e {
+        MsgBox GetLang("写入失败：") e.Message
+        return false
+    }
+    finally {
+        if (!xlApp.Visible) {
+            xlWorkbook.Close()
+            xlApp.Quit()
+        }
     }
 }
 
@@ -120,7 +221,7 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -131,7 +232,7 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         ResArr := []
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
-        xlApp.Calculate()
+        xlApp.Calculate()       ;Calculate会导致文件内容修改，不保存会提示
         if (IsInteger(SheetIdentifier))
             SheetIdentifier := Integer(SheetIdentifier)
         Sheet := xlWorkbook.Sheets(SheetIdentifier)
@@ -160,7 +261,7 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -200,7 +301,7 @@ ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -238,7 +339,7 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
@@ -276,7 +377,7 @@ ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
     }
     finally {
         if (!xlApp.Visible) {
-            xlWorkbook.Close()
+            xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }

@@ -194,7 +194,7 @@ class SearchProGui {
         PosX += 50
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("变量名"))
         this.ResultTogArr.Push(con)
-        PosX += 110
+        PosX += 130
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
         this.ResultTogArr.Push(con)
         PosX += 85
@@ -205,11 +205,11 @@ class SearchProGui {
         PosX := 20
         this.ResultToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.ResultToggleCon.OnEvent("Click", this.OnChangeType.Bind(this))
-        this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 100), [])
+        this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 120), [])
         this.ResultTogArr.Push(this.ResultSaveNameCon)
-        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 135, PosY - 4, 70), 0)
+        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 155, PosY - 4, 70), 0)
         this.ResultTogArr.Push(this.TrueValueCon)
-        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 220, PosY - 4, 70), 0)
+        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 240, PosY - 4, 70), 0)
         this.ResultTogArr.Push(this.FalseValueCon)
 
         PosY := SplitPosY
@@ -297,7 +297,7 @@ class SearchProGui {
         PosX += 45
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("坐标X变量名"))
         this.CoordTogArr.Push(con)
-        PosX += 110
+        PosX += 130
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("坐标Y变量名"))
         this.CoordTogArr.Push(con)
 
@@ -305,9 +305,9 @@ class SearchProGui {
         PosX := 370
         this.CoordToogleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
         this.CoordToogleCon.OnEvent("Click", this.OnChangeType.Bind(this))
-        this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 100), [])
+        this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordXNameCon)
-        this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 150, PosY - 3, 100), [])
+        this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 170, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordYNameCon)
 
         PosY += 35
@@ -721,21 +721,22 @@ class SearchProGui {
     }
 
     OnClickTargeterHelpBtn(*) {
-        str := Format("{}`n{}`n{}", GetLang("1.左键拖拽改变位置"), GetLang("2.上下左右方向键微调位置"), GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"
-        ))
+        str := Format("{}`n{}`n{}",
+            GetLang("1.左键拖拽改变位置"),
+            GetLang("2.上下左右方向键微调位置"),
+            GetLang("3.左键双击或回车键关闭取色器，同时确定点位信息"))
         MsgBox(str, GetLang("定位取色器操作说明"))
     }
 
     OnClickTypeHelpBtn(*) {
         str1 := GetLang("屏幕搜索：在屏幕搜索目标")
-        str2 := GetLang("窗口搜索：在符合目标的窗口搜索目标(支持后台)")
+        str2 := GetLang("窗口搜索：在符合目标的窗口搜索目标(支持后台，最小化)")
         str3 := GetLang("tip1：图片搜索：推荐32*32px，截取目标特征即可，不要包含会变化的背景")
-        str4 := GetLang("tip2：文本搜索：支持正则表达式，推荐32*32px以上和多文本，单字符识别不准确")
-        str5 := GetLang("tip3：窗口搜索时：目标窗口需要激活或非激活状态，不可最小化")
-        str5 := GetLang("tip4：SC截图后如果调整大小，搜索范围需要手动选取")
-        str5 := GetLang("tip5：窗口搜索时：搜索范围需要手动选取")
+        str4 := GetLang("tip2：文本搜索：支持正则表达式，推荐32*32px以上和多文本，单字符识别不准")
+        str5 := GetLang("tip3：SC截图后如果调整大小，搜索范围需要手动选取")
+        str6 := GetLang("tip4：窗口搜索时：搜索范围需要手动选取")
 
-        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        str := Format("{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6)
         MsgBox(str, GetLang("搜索类型说明"))
     }
 
@@ -875,31 +876,31 @@ class SearchProGui {
         isInfinite := this.SearchCountCon.Text == GetLang("无限")
         showColorTip := isColor && RegExMatch(this.HexColorCon.Text, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageSelectBtn.Enabled := isImage
-        this.ScreenshotBtn.Enabled := isImage
-        this.SearchImageTypeCon.Enabled := isImage && A_PtrSize == 8
-        this.SearchImageTypeTipCon.Enabled := isImage
-        this.ImageCon.Enabled := isImage
+        this.ImageSelectBtn.Visible := isImage
+        this.ScreenshotBtn.Visible := isImage
+        this.SearchImageTypeCon.Visible := isImage && A_PtrSize == 8
+        this.SearchImageTypeTipCon.Visible := isImage
+        this.ImageCon.Visible := isImage
         if (A_PtrSize != 8)
             this.SearchImageTypeCon.Value := 2
 
-        this.HexColorCon.Enabled := isColor
-        this.ColorLabelCon.Enabled := isColor
+        this.HexColorCon.Visible := isColor
+        this.ColorLabelCon.Visible := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
             this.HexColorTipCon.Redraw()
         }
 
-        this.TextCon.Enabled := isText
-        this.OCRLabelCon.Enabled := isText
-        this.OCRTypeCon.Enabled := isText
-        this.TextTipCon.Enabled := isText
+        this.TextCon.Visible := isText
+        this.OCRLabelCon.Visible := isText
+        this.OCRTypeCon.Visible := isText
+        this.TextTipCon.Visible := isText
         this.MousePosCon.Focus()
 
-        this.SetConArrState(this.SimilarArr, !isText)
-        this.SetConArrState(this.WinInfoArr, isWin)
-        this.SetConArrState(this.FalseConArr, !isInfinite)
+        this.SetConArrState(this.SimilarArr, false, !isText)
+        this.SetConArrState(this.WinInfoArr, false, isWin)
+        this.SetConArrState(this.FalseConArr, true, !isInfinite)
 
         if (!this.LastIsWin && isWin) {
             SetDLConValue(this.MouseActionTypeCon, GetLangArr(["无动作", "后台鼠标至目标点击", "后台鼠标至目标双击"]), GetLang("无动作"))
@@ -910,26 +911,29 @@ class SearchProGui {
 
         CountValue := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
         isCount := IsNumber(CountValue) && (CountValue == -1 || CountValue > 1)
-        this.SetConArrState(this.CountTogArr, isCount)
+        this.SetConArrState(this.CountTogArr, false, isCount)
 
         isMouseSpeed := this.MouseActionTypeCon.Value != 1 && !isWin
-        this.SetConArrState(this.MouseSpeedArr, isMouseSpeed)
+        this.SetConArrState(this.MouseSpeedArr, false, isMouseSpeed)
 
         isMouseClick := this.MouseActionTypeCon.Value == 3 && !isWin
-        this.SetConArrState(this.MouseClickArr, isMouseClick)
+        this.SetConArrState(this.MouseClickArr, false, isMouseClick)
 
         isSaveResult := this.ResultToggleCon.Value
-        this.SetConArrState(this.ResultTogArr, isSaveResult)
+        this.SetConArrState(this.ResultTogArr, true, isSaveResult)
 
         isCoord := this.CoordToogleCon.Value
-        this.SetConArrState(this.CoordTogArr, isCoord)
+        this.SetConArrState(this.CoordTogArr, true, isCoord)
 
         this.LastIsWin := isWin
     }
 
-    SetConArrState(ConArr, state) {
+    SetConArrState(ConArr, isEnabled, state) {
         for Value in ConArr {
-            Value.Enabled := state
+            if (isEnabled)
+                Value.Enabled := state
+            else
+                Value.Visible := state
         }
     }
 

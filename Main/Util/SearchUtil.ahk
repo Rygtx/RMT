@@ -189,7 +189,7 @@ HandleSearchResult(tableItem, Data, index, ResXList, ResYList, ResHwndList) {
         ResX := ResXList[A_Index]
         ResY := ResYList[A_Index]
         Pos := [ResX, ResY]
-        hwnd := ResHwndList.Length > A_Index ? ResHwndList[A_Index] : 0
+        hwnd := ResHwndList.Length >= A_Index ? ResHwndList[A_Index] : 0
 
         ; 计算图片中心点
         if (Data.SearchType == 1) {

@@ -10,28 +10,7 @@ class SearchGui {
         this.PosAction := () => this.RefreshMouseInfo()
         this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
         this.CheckClipboardAction := () => this.CheckClipboard()
-        this.SelectToggleCon := ""
-        this.ImageTipCon := ""
-        this.ColorTipCon := ""
-        this.TextTipCon := ""
         this.Data := ""
-        this.MousePosCon := ""
-        this.MouseColorCon := ""
-        this.MouseColorTipCon := ""
-        this.StartPosXCon := ""
-        this.StartPosYCon := ""
-        this.EndPosXCon := ""
-        this.EndPosYCon := ""
-        this.ImageCon := ""
-        this.ImageBtn := ""
-        this.ScreenshotBtn := ""
-        this.HexColorCon := ""
-        this.HexColorTipCon := ""
-        this.TextCon := ""
-        this.TrueMacroCon := ""
-        this.FalseMacroCon := ""
-        this.SearchTypeCon := ""
-        this.MouseActionTypeCon := ""
         this.MacroGui := ""
     }
 
@@ -141,7 +120,7 @@ class SearchGui {
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 155),
         GetLangArr(["无动作",
             "移动至目标", "移动至目标点击1次", "移动至目标点击2次"]))
-        this.MouseActionTypeCon.Value := 1
+        this.MouseActionTypeCon.Value := 2
 
         PosY += 35
         PosX := 10
@@ -159,11 +138,11 @@ class SearchGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 80, 30), GetLang("选择图片"))
         btnCon.OnEvent("Click", (*) => this.OnClickSetPicBtn())
         btnCon.Focus()
-        this.ImageBtn := btnCon
+        this.ImageSelectBtn := btnCon
         PosY += 35
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 80, 30), GetLang("截图"))
-        btnCon.OnEvent("Click", (*) => this.OnScreenShotBtnClick())
-        this.ScreenshotBtn := btnCon
+        btnCon.OnEvent("Click", (*) => this.OnImageShotBtnClick())
+        this.ImageShotBtn := btnCon
         PosY -= 55
         PosX := 415
         this.ImageCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", PosX, PosY, 80, 80), "")
@@ -173,21 +152,21 @@ class SearchGui {
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索文本："))
         PosX += 80
         this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), GetLang("检索文本"))
-        PosY += 35
+        PosY += 40
         TempPosY := PosY
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("找到后的指令：（可选）"))
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 25), GetLang("找到后的指令：（可选）"))
         PosX += 180
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 20), GetLang("编辑指令"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 25), GetLang("编辑指令"))
         btnCon.OnEvent("Click", (*) => this.OnEditFoundMacroBtnClick())
         PosY += 20
         PosX := 10
         this.TrueMacroCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 280, 80), "")
         PosY := TempPosY
         PosX := 330
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 25), GetLang("未找到后的指令：（可选）"))
         PosX += 180
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 20), GetLang("编辑指令"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 25), GetLang("编辑指令"))
         btnCon.OnEvent("Click", (*) => this.OnEditUnFoundMacroBtnClick())
         PosY += 20
         PosX := 330
@@ -305,14 +284,14 @@ class SearchGui {
             SetTimer this.PosAction, 100
             Hotkey("!l", MacroAction, "On")
             Hotkey("F1", (*) => this.OnF1(), "On")
-            Hotkey("F2", (*) => this.OnScreenShotBtnClick(), "On")
+            Hotkey("F2", (*) => this.OnImageShotBtnClick(), "On")
             Hotkey("F3", (*) => this.SureColor(), "On")
         }
         else {
             SetTimer this.PosAction, 0
             Hotkey("!l", MacroAction, "Off")
             Hotkey("F1", (*) => this.OnF1(), "Off")
-            Hotkey("F2", (*) => this.OnScreenShotBtnClick(), "Off")
+            Hotkey("F2", (*) => this.OnImageShotBtnClick(), "Off")
             Hotkey("F3", (*) => this.SureColor(), "Off")
         }
     }
@@ -347,7 +326,7 @@ class SearchGui {
         this.Data.SearchImagePath := path
     }
 
-    OnScreenShotBtnClick() {
+    OnImageShotBtnClick() {
         if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
             A_Clipboard := ""  ; 清空剪贴板
             Run("ms-screenclip:")
@@ -463,20 +442,20 @@ class SearchGui {
         showImageTip := isImage && this.Data.SearchImagePath == ""
         showColorTip := isColor && RegExMatch(this.HexColorCon.Value, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageBtn.Enabled := isImage
-        this.ScreenshotBtn.Enabled := isImage
-        this.ImageTipCon.Enabled := isImage
+        this.ImageSelectBtn.Visible := isImage
+        this.ImageShotBtn.Visible := isImage
+        this.ImageTipCon.Visible := isImage
 
-        this.HexColorCon.Enabled := isColor
-        this.ColorTipCon.Enabled := isColor
+        this.HexColorCon.Visible := isColor
+        this.ColorTipCon.Visible := isColor
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Value))
             this.HexColorTipCon.Redraw()
         }
 
-        this.TextCon.Enabled := isText
-        this.TextTipCon.Enabled := isText
+        this.TextCon.Visible := isText
+        this.TextTipCon.Visible := isText
         this.MousePosCon.Focus()
     }
 

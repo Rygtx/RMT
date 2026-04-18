@@ -181,6 +181,60 @@ CompatCMD(filePath) {
     return hasFix
 }
 
+CompatTiming(filePath) {
+    hasFix := false
+    if (!FileExist(FilePath))
+        return hasFix
+
+    newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        curFix := false
+        ; Upgrade 12-char timestamps to 14-char
+        if (StrLen(Data.StartTime) == 12) {
+            Data.StartTime .= "00"
+            curFix := true
+        }
+        if (Data.EndTime != "" && StrLen(Data.EndTime) == 12) {
+            Data.EndTime .= "00"
+            curFix := true
+        }
+
+        ; Ensure CustomUnit exists
+        if (!ObjHasOwnProp(Data, "CustomUnit")) {
+            Data.CustomUnit := 1 ; Default to Minutes
+            curFix := true
+        }
+
+        ; Force re-calculation of relative stamps
+        if (curFix || Data.HasOwnProp("StartStamp")) {
+            if (Data.HasOwnProp("StartStamp")) {
+                Data.DeleteProp("StartStamp")
+                curFix := true
+            }
+            if (Data.HasOwnProp("EndStamp")) {
+                Data.DeleteProp("EndStamp")
+                curFix := true
+            }
+            if (Data.HasOwnProp("NextStamp")) {
+                Data.DeleteProp("NextStamp")
+                curFix := true
+            }
+        }
+
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+    }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
+    return hasFix
+}
+
 CompatSearch(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
@@ -240,7 +294,7 @@ CompatSearchPro(filePath) {
         }
 
         if (!ObjHasOwnProp(Data, "WinInfo")) {
-            Data.WinInfoStr := ""
+            Data.WinInfo := ""
             curFix := true
         }
 
@@ -309,6 +363,8 @@ CompatOutput(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
+    FixTypeMap := Map("1", "发送内容", "2", "粘贴内容", "3", "临时提示", 
+        "4", "指令窗口", "5", "软件弹窗", "6", "系统语音", "7", "复制到剪切板")
     hasFix := CompatSerial(filePath, "Output", "输出")
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
@@ -317,9 +373,9 @@ CompatOutput(filePath) {
         if (Data == "")
             continue
         curFix := false
-        if (!ObjHasOwnProp(Data, "Encoding")) {
-            Data.Encoding := "UTF-8"
+        if (IsInteger(Data.OutputType) && FixTypeMap.Has(String(Data.OutputType))) {
             curFix := true
+            Data.OutputType := FixTypeMap[String(Data.OutputType)]
         }
 
         hasFix := hasFix || curFix
@@ -429,7 +485,7 @@ CompatExVariable(filePath) {
 
         curFix := false
         if (!ObjHasOwnProp(Data, "WinInfo")) {
-            Data.WinInfoStr := ""
+            Data.WinInfo := ""
             curFix := true
         }
 

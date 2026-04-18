@@ -39,7 +39,7 @@ class MouseMoveGui {
         con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
         con.Enabled := false
 
-        PosX += 90
+        PosX += 120
         btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
@@ -47,7 +47,7 @@ class MouseMoveGui {
         PosX := 10
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("F1:选取当前坐标"))
 
-        PosX += 160
+        PosX += 200
         Con := MyGui.Add("Button", Format("x{} y{} w100", PosX, PosY), GetLang("定位取色器"))
         Con.OnEvent("Click", this.OnClickTargeterBtn.Bind(this))
         Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 102, PosY), "?")
@@ -60,20 +60,20 @@ class MouseMoveGui {
         PosY += 30
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置X:"))
         PosX += 80
-        this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70))
         this.PosXCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("坐标位置Y:"))
         PosX += 80
-        this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50))
+        this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70))
         this.PosYCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosY += 40
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度："))
         PosX += 80
-        this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), "90")
+        this.SpeedCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 70), "90")
         this.SpeedCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120

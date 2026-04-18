@@ -61,7 +61,7 @@ class VariableGui {
             MyGui.Add("Text", Format("x{} y{} w{} h{} Center", PosX, PosY, 80, 20), GetLang("变量名"))
 
             PosX += 125
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("操作类型"))
+            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("变量类型"))
 
             PosX += 110
             MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("选择/输入"))
@@ -79,25 +79,25 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
             con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 2, 80), GetLangArr(["数值", "随机数值", "字符",
-                "删除"]))
+                "系统", "删除"]))
             con.OnEvent("Change", (*) => this.OnRefresh())
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -107,25 +107,25 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
             con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 2, 80), GetLangArr(["数值", "随机数值", "字符",
-                "删除"]))
+                "系统", "删除"]))
             con.OnEvent("Change", (*) => this.OnRefresh())
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -135,26 +135,25 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
-            con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 2, 80), GetLangArr(GetLangArr(["数值",
-                "随机数值", "字符",
-                "删除"])))
+            con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 2, 80), GetLangArr(["数值", "随机数值", "字符",
+                "系统", "删除"]))
             con.OnEvent("Change", (*) => this.OnRefresh())
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
 
             PosX := 10
@@ -164,25 +163,25 @@ class VariableGui {
             this.ToggleConArr.Push(con)
 
             PosX += 50
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.VariableConArr.Push(con)
 
             PosX += 125
             con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 2, 80), GetLangArr(["数值", "随机数值", "字符",
-                "删除"]))
+                "系统", "删除"]))
             con.OnEvent("Change", (*) => this.OnRefresh())
             this.OperaTypeConArr.Push(con)
 
             PosX += 90
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.CopyVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MinVariableConArr.Push(con)
 
             PosX += 130
-            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 2, 120), [])
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R10", PosX, PosY - 2, 120), [])
             this.MaxVariableConArr.Push(con)
         }
 
@@ -209,7 +208,7 @@ class VariableGui {
             this.VariableConArr[A_Index].Text := GetLang(this.Data.VariableArr[A_Index])
             this.OperaTypeConArr[A_Index].Value := this.Data.OperaTypeArr[A_Index]
             this.CopyVariableConArr[A_Index].Delete()
-            this.CopyVariableConArr[A_Index].Add(this.DLVariableArr)
+            this.CopyVariableConArr[A_Index].Add(this.GetGuiVarArrByType(this.Data.OperaTypeArr[A_Index]))
             this.CopyVariableConArr[A_Index].Text := GetLang(this.Data.CopyVariableArr[A_Index])
             this.MinVariableConArr[A_Index].Delete()
             this.MinVariableConArr[A_Index].Add(GetGuiVarArr())
@@ -220,14 +219,37 @@ class VariableGui {
         }
     }
 
+    GetGuiVarArrByType(type) {
+        switch type {
+            case 1:
+                return GetGuiVarArr()
+            case 2:
+                return []
+            case 3:
+                return []
+            case 4:
+                return GetSystemVarArr()
+            case 5:
+                return []
+        }
+        return []
+    }
+
     OnRefresh() {
         loop 4 {
             OperaTypeValue := this.OperaTypeConArr[A_Index].Value
-            EnableCopy := OperaTypeValue == 1 || OperaTypeValue == 3
+            EnableCopy := OperaTypeValue == 1 || OperaTypeValue == 3 || OperaTypeValue == 4
             EnableMinMax := OperaTypeValue == 2
-            this.CopyVariableConArr[A_Index].Enabled := EnableCopy
+            CurCopyCon := this.CopyVariableConArr[A_Index]
+            CurCopyCon.Enabled := EnableCopy
             this.MinVariableConArr[A_Index].Enabled := EnableMinMax
             this.MaxVariableConArr[A_Index].Enabled := EnableMinMax
+
+            CurValue := GetLang(CurCopyCon.Text)
+            DLArr := this.GetGuiVarArrByType(OperaTypeValue)
+            CurCopyCon.Delete()
+            CurCopyCon.Add(this.GetGuiVarArrByType(OperaTypeValue))
+            CurCopyCon.Text := CurValue
         }
     }
 
@@ -235,12 +257,16 @@ class VariableGui {
         str1 := GetLang("循环次数：如指令上级存在 循环 指令，则该变量为该循环体执行的次数")
         str2 := GetLang("宏循环次数：配置整体执行的次数")
         str3 := GetLang("句柄ID：实时获取当前鼠标窗口句柄ID")
-        str4 := GetLang("当前鼠标颜色：实时获取当前鼠标指针下颜色")
+        str4 := GetLang("当前鼠标颜色：实时获取当前鼠标指针下颜色（形如EEFF44）")
         str5 := GetLang("当前鼠标坐标X：实时获取当前鼠标X")
         str6 := GetLang("当前鼠标坐标Y：实时获取当前鼠标Y")
+        str7 := GetLang("当前日期：实时获取当前日期（形如2026-04-12）")
+        str8 := GetLang("当前时间：实时获取当前时间（形如19:46）")
+        str9 := GetLang("当前时间秒：实时获取当前时间(秒)（形如19:46:58）")
+        str10 := GetLang("当前秒：实时获取当前秒（形如58）")
 
-        str := Format("{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6)
-        MsgBox(str, GetLang("变量信息说明"), "Owner" this.Gui.Hwnd)
+        str := Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9, str10)
+        MsgBox(str, GetLang("系统变量说明"), "Owner" this.Gui.Hwnd)
     }
 
     OnClickSureBtn() {
@@ -284,7 +310,7 @@ class VariableGui {
                         if (isNumSpan)
                             CurVarRemark .= this.MinVariableConArr[A_Index].Text "~" this.MaxVariableConArr[A_Index].Text
                     }
-                    else if (this.OperaTypeConArr[A_Index].Value == 4) {
+                    else if (this.OperaTypeConArr[A_Index].Value == 5) {
                         CurVarRemark .= GetLang("删除")
                     }
                     Remark .= CurVarRemark "&"

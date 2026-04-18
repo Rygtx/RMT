@@ -21,6 +21,7 @@
 #Include TextOpsGui.ahk
 #Include ArrayGui.ahk
 #Include InputGui.ahk
+#Include FileIOGui.ahk
 
 class MacroEditGui {
     __new() {
@@ -53,7 +54,19 @@ class MacroEditGui {
         this.SubMacroLastIndex := 0
 
         this.CMDStrArr := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输入", "输出", "循环", "宏操作", "变量", "变量提取",
-            "如果", "如果Pro", "运算", "运行", "数组", "文本处理", "后台鼠标", "后台按键", "RMT指令"])
+            "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标", "后台按键"])
+
+        this.CMDIconFileArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png",
+            "Images\Soft\Search.png", "Images\Soft\SearchPro.png",
+            "Images\Soft\Move.png", "Images\Soft\MovePro.png",
+            "Images\Soft\Input.png", "Images\Soft\Output.png",
+            "Images\Soft\Loop.png", "Images\Soft\Sub.png",
+            "Images\Soft\Var.png", "Images\Soft\Extract.png",
+            "Images\Soft\If.png", "Images\Soft\IfPro.png",
+            "Images\Soft\Operation.png", "Images\Soft\Run.png",
+            "Images\Soft\FileIO.png", "Images\Soft\TextOps.png",
+            "Images\Soft\Arr.png", "Images\Soft\rabit.png",
+            "Images\Soft\Mouse.png", "Images\Soft\Key.png"]
 
         this.IconMap := Map(GetLang("间隔"), "Icon1", GetLang("按键"), "Icon2", GetLang("搜索"), "Icon3", GetLang("搜索Pro"),
         "Icon4", GetLang("移动"), "Icon5", GetLang("移动Pro"),
@@ -61,7 +74,8 @@ class MacroEditGui {
         GetLang("变量"), "Icon11", GetLang("变量提取"), "Icon12", GetLang("如果"), "Icon13", GetLang("如果Pro"),
         "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
         "Icon2", GetLang("真"), "Icon18", GetLang("假"), "Icon19", GetLang("循环次数"), "Icon20", GetLang("条件"), "Icon21",
-        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25")
+        GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25",
+        GetLang("文件读写"), "Icon26")
 
         this.InitSubGui()
     }
@@ -150,6 +164,10 @@ class MacroEditGui {
         this.InputGui := InputGui()
         this.InputGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
         this.SubGuiMap.Set(GetLang("输入"), this.InputGui)
+
+        this.FileIOGui := FileIOGui()
+        this.FileIOGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr)
+        this.SubGuiMap.Set(GetLang("文件读写"), this.FileIOGui)
     }
 
     ShowGui(CommandStr, ShowSaveBtn) {
@@ -159,7 +177,7 @@ class MacroEditGui {
         }
         else {
             this.AddGui()
-            ImageListID := IL_Create(25)
+            ImageListID := IL_Create(26)
             this.MacroTreeViewCon.SetImageList(ImageListID)
             IL_Add(ImageListID, "Images\Soft\Interval.png")
             IL_Add(ImageListID, "Images\Soft\Key.png")
@@ -183,9 +201,10 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\LoopCount.png")
             IL_Add(ImageListID, "Images\Soft\Condition.png")
             IL_Add(ImageListID, "Images\Soft\LoopBody.png")
-            IL_Add(ImageListID, "Images\Soft\TextOps.png")      ;todo 还没正式化
-            IL_Add(ImageListID, "Images\Soft\Arr.png")            ;todo 还没正式化
-            IL_Add(ImageListID, "Images\Soft\Input.png")            ;todo 还没正式化
+            IL_Add(ImageListID, "Images\Soft\TextOps.png")
+            IL_Add(ImageListID, "Images\Soft\Arr.png")
+            IL_Add(ImageListID, "Images\Soft\Input.png")
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26
         }
 
         MySoftData.RecordToggleCon := this.RecordMacroCon
@@ -201,134 +220,106 @@ class MacroEditGui {
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosY := 10
-        PosX := 10
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 170, 530), GetLang("指令选项"))
+        PosX := 5
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 205, 530), GetLang("指令选项"))
 
         PosY += 20
-        PosX := 15
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("间隔"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.IntervalGui))
+        PosX := 10
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Interval.png", 
+        GetLang("间隔"), (*) => this.OnOpenSubGui(this.IntervalGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Key.png", 
+        GetLang("按键"), (*) => this.OnOpenSubGui(this.KeyGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("按键"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.KeyGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("搜索"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SearchGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Search.png", 
+        GetLang("搜索"), (*) => this.OnOpenSubGui(this.SearchGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\SearchPro.png", 
+        GetLang("搜索Pro"), (*) => this.OnOpenSubGui(this.SearchProGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("搜索Pro"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SearchProGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("移动"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.MoveMoveGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Move.png", 
+        GetLang("移动"), (*) => this.OnOpenSubGui(this.MoveMoveGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\MovePro.png", 
+        GetLang("移动Pro"), (*) => this.OnOpenSubGui(this.MMProGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("移动Pro"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.MMProGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("输入"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.InputGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Input.png", 
+        GetLang("输入"), (*) => this.OnOpenSubGui(this.InputGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Output.png", 
+        GetLang("输出"), (*) => this.OnOpenSubGui(this.OutputGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("输出"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.OutputGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("循环"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.LoopGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Loop.png", 
+        GetLang("循环"), (*) => this.OnOpenSubGui(this.LoopGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Sub.png", 
+        GetLang("宏操作"), (*) => this.OnOpenSubGui(this.SubMacroGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("宏操作"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.SubMacroGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("变量"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.VariableGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Var.png", 
+        GetLang("变量"), (*) => this.OnOpenSubGui(this.VariableGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Extract.png", 
+        GetLang("变量提取"), (*) => this.OnOpenSubGui(this.ExVariableGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("变量提取"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.ExVariableGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("如果"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.CompareGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\If.png", 
+        GetLang("如果"), (*) => this.OnOpenSubGui(this.CompareGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\IfPro.png", 
+        GetLang("如果Pro"), (*) => this.OnOpenSubGui(this.CompareProGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("如果Pro"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.CompareProGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("运算"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.OperationGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Operation.png", 
+        GetLang("运算"), (*) => this.OnOpenSubGui(this.OperationGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Run.png", 
+        GetLang("运行"), (*) => this.OnOpenSubGui(this.RunGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("运行"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RunGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("数组"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.ArrayGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\FileIO.png", 
+        GetLang("文件读写"), (*) => this.OnOpenSubGui(this.FileIOGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\TextOps.png", 
+        GetLang("文本处理"), (*) => this.OnOpenSubGui(this.TextOpsGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("文本处理"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.TextOpsGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("后台鼠标"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGMouseGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Arr.png", 
+        GetLang("数组"), (*) => this.OnOpenSubGui(this.ArrayGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\rabit.png", 
+        GetLang("RMT指令"), (*) => this.OnOpenSubGui(this.RMTCMDGui))
 
-        PosX += 85
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("后台按键"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.BGKeyGui))
-
-        PosX := 15
+        PosX := 10
         PosY += 40
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 30, 75), GetLang("RMT指令"))
-        btnCon.SetFont((Format("S{} W{} Q{}", 11, 400, 5)))
-        btnCon.OnEvent("Click", (*) => this.OnOpenSubGui(this.RMTCMDGui))
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Mouse.png", 
+        GetLang("后台鼠标"), (*) => this.OnOpenSubGui(this.BGMouseGui))
+        PosX += 105
+        this.AddIconBtn(MyGui, PosX, PosY, "Images\Soft\Key.png", 
+        GetLang("后台按键"), (*) => this.OnOpenSubGui(this.BGKeyGui))
 
-        PosX := 200
-        PosY := 10
+        PosX := 225
+        PosY := 15
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("编辑模式："))
         PosX += 70
         this.EditModeCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY - 3), GetLangArr(["逻辑树", "文本"]))
         this.EditModeCon.Value := 1
         this.EditModeCon.OnEvent("Change", this.OnChangeEditMode.Bind(this))
 
-        PosX := 400
+        PosX := 430
         this.RecordMacroCon := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("指令录制"))
         this.RecordMacroCon.Value := false
         this.RecordMacroCon.OnEvent("Click", this.OnClickRecordTog.Bind(this))
@@ -339,11 +330,11 @@ class MacroEditGui {
         )
         con.Enabled := false
 
-        PosX := 190
+        PosX := 215
         PosY += 25
         MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 720, 460), GetLang("当前宏指令"))
         PosY += 20
-        this.MacroTreeViewCon := MyGui.Add("TreeView", Format("x{} y{} w{} h{}", PosX + 5, PosY, 705, 435),
+        this.MacroTreeViewCon := MyGui.Add("TreeView", Format("x{} y{} w{} h{}", PosX + 5, PosY, 710, 435),
         "")
         this.MacroTreeViewCon.OnEvent("ContextMenu", this.ShowContextMenu.Bind(this))  ; 右键菜单事件
         this.MacroTreeViewCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))  ; 双击编辑指令
@@ -351,7 +342,7 @@ class MacroEditGui {
         this.MacroEditTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX + 5, PosY, 705, 435), "")
         this.MacroEditTextCon.Visible := false
 
-        PosX := 190
+        PosX := 215
         PosY := 500
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("退格"))
         btnCon.OnEvent("Click", (*) => this.Backspace())
@@ -368,7 +359,17 @@ class MacroEditGui {
         this.SaveBtnCtrl := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("应用并保存"))
         this.SaveBtnCtrl.OnEvent("Click", (*) => this.OnSaveBtnClick())
 
-        MyGui.Show(Format("w{} h{}", 920, 570))
+        MyGui.Show(Format("w{} h{}", 945, 570))
+    }
+
+    AddIconBtn(MyGui, PosX, PosY, ImgFile, LabelText, ClickAction) {
+        IconSize := 16
+        BtnW := 75
+        ImgY := PosY + (30 - IconSize) // 2
+        MyGui.Add("Picture", Format("x{} y{} w{} h{}", PosX, ImgY, IconSize, IconSize), ImgFile)
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX + IconSize, PosY, 30, BtnW), LabelText)
+        btnCon.SetFont(Format("S{} W{} Q{}", 11, 400, 5))
+        btnCon.OnEvent("Click", ClickAction)
     }
 
     InitGuiMenu() {
@@ -535,13 +536,15 @@ class MacroEditGui {
 
             this.ContextMenu.Add()  ; 分隔线
             subMenu := Menu()
-            for value in this.CMDStrArr {
+            for index, value in this.CMDStrArr {
                 subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Pre_" value))
+                subMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
             this.ContextMenu.Add(GetLang("上方插入"), subMenu)  ; 将子菜单添加到主菜单
             subMenu := Menu()
-            for value in this.CMDStrArr {
+            for index, value in this.CMDStrArr {
                 subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Next_" value))
+                subMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
             this.ContextMenu.Add(GetLang("下方插入"), subMenu)  ; 将子菜单添加到主菜单
 
@@ -559,8 +562,9 @@ class MacroEditGui {
             this.BranchContextMenu := Menu()
 
             subMenu := Menu()
-            for value in this.CMDStrArr {
+            for index, value in this.CMDStrArr {
                 subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Add_" value))
+                subMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
             this.BranchContextMenu.Add(GetLang("添加指令"), subMenu)  ; 将子菜单添加到主菜单
 

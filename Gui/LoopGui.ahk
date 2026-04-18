@@ -11,14 +11,10 @@ class LoopGui {
         this.FocusCon := ""
 
         this.Data := ""
-        this.CountCon := ""
-        this.CondiCon := ""
-        this.LogicCon := ""
         this.ToggleConArr := []
         this.NameConArr := []
         this.CompareTypeConArr := []
         this.VariableConArr := []
-        this.LoopBodyCon := ""
     }
 
     ShowGui(cmd) {
@@ -60,25 +56,25 @@ class LoopGui {
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY - 2, 80, 20), GetLang("循环次数:"))
 
         PosX += 80
-        this.CountCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 120), [])
+        this.CountCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 150), [])
 
         PosX := 10
         PosY += 30
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 420, 200), GetLang("循环条件:"))
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 445, 200), GetLang("循环条件:"))
 
         PosX := 20
         PosY += 25
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("类型:"))
 
         PosX += 45
-        this.CondiCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 120), GetLangArr(["无", "继续条件",
+        this.CondiCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 140), GetLangArr(["无", "继续条件",
             "退出条件"]))
         this.CondiCon.OnEvent("Change", (*) => this.OnRefresh())
 
-        PosX += 180
+        PosX += 220
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("条件逻辑关系:"))
         PosX += 100
-        this.LogicCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 50), GetLangArr(["且", "或"]))
+        this.LogicCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 60), GetLangArr(["且", "或"]))
 
         PosY += 30
         PosX := 30
@@ -86,17 +82,17 @@ class LoopGui {
         this.ToggleConArr.Push(con)
         con.Value := 1
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 140), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 180, PosY - 3, 90), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 275, PosY - 3, 140), [])
         this.VariableConArr.Push(con)
 
         PosY += 35
@@ -105,17 +101,17 @@ class LoopGui {
         this.ToggleConArr.Push(con)
         con.Value := 1
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 140), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 180, PosY - 3, 90), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 275, PosY - 3, 140), [])
         this.VariableConArr.Push(con)
 
         PosY += 35
@@ -124,17 +120,17 @@ class LoopGui {
         this.ToggleConArr.Push(con)
         con.Value := 1
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 140), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 180, PosY - 3, 90), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 275, PosY - 3, 140), [])
         this.VariableConArr.Push(con)
 
         PosY += 35
@@ -143,24 +139,24 @@ class LoopGui {
         this.ToggleConArr.Push(con)
         con.Value := 1
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 140), [])
         this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 180, PosY - 3, 90), GetLangArr(["大于", "大于等于",
             "等于", "小于等于",
-            "小于", "字符包含", "变量存在"]))
+            "小于", "字符包含", "变量存在", "正则匹配"]))
         con.Value := 1
         con.OnEvent("Change", (*) => this.OnRefresh())
         this.CompareTypeConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
+        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 275, PosY - 3, 140), [])
         this.VariableConArr.Push(con)
 
         PosY += 45
         PosX := 20
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), GetLang("循环体:"))
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 5), GetLang("循环体:"))
         PosX += 60
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 80, 25), GetLang("编辑"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 70, 30), GetLang("编辑"))
         con.OnEvent("Click", this.OnEditMacroBtnClick.Bind(this))
         PosY += 30
         PosX := 10
@@ -183,10 +179,10 @@ class LoopGui {
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
 
-        CountVariableArr := this.DLVariableArr.Clone()
+        CountVariableArr := GetGuiVarArr(2)
         CountVariableArr.Push(GetLang("无限"))
         this.CountCon.Delete()
-        this.CountCon.Add(GetGuiVarArr(2))
+        this.CountCon.Add(CountVariableArr)
         this.CountCon.Text := this.Data.LoopCount == -1 ? GetLang("无限") : this.Data.LoopCount
 
         this.CondiCon.Value := this.Data.CondiType

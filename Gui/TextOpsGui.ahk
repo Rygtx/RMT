@@ -83,7 +83,7 @@ class TextOpsGui {
         PosX := 275
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY - 3, 75), GetLang("文本来源:"))
         PosX += 75
-        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 150), [])
+        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 150), [])
 
         PosY += 30
         PosX := 10
@@ -143,7 +143,7 @@ class TextOpsGui {
             this.ResultConArr.Push(this.SaveTypeCon)
 
             PosX += 105
-            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 100), [])
+            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
             this.ResultConArr.Push(this.SaveNameCon)
         }
 

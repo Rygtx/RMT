@@ -169,8 +169,8 @@ PluginInit() {
     DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
     DllCall("LoadLibrary", "Str", IBPath)
 
-    RMTPath := A_ScriptDir "\Plugins\RMT.dll"
-    RMT_ASM := CLR_LoadLibrary(RMTPath)
+    RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
+    RMT_ASM := CLR_LoadLibrary(RMTPath)   ;加载RMT程序集
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 }
 
@@ -260,6 +260,7 @@ InitFilePath() {
     FileInstall("Images\Soft\Arr.png", "Images\Soft\Arr.png", 1)
     FileInstall("Images\Soft\Input.png", "Images\Soft\Input.png", 1)
     FileInstall("Images\Soft\TextOps.png", "Images\Soft\TextOps.png", 1)
+    FileInstall("Images\Soft\FileIO.png", "Images\Soft\FileIO.png", 1)
 
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
@@ -284,6 +285,7 @@ InitFilePath() {
     global OperationFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\OperationFile.ini"
     global BGMouseFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
     global InputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\InputFile.ini"
+    global FileIOFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
 }
 
 SubMacroStopAction(tableIndex, itemIndex) {
@@ -848,7 +850,18 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
         Data.FalseMacro := FullCopyMacro(Data.FalseMacro, CopyedMap)
     }
 
-    ;循环， 如果Pro
+    ;循环
+    if (ObjHasOwnProp(Data, "LoopBody")) {
+        Data.LoopBody := FullCopyMacro(Data.LoopBody, CopyedMap)
+    }
+
+    ;如果Pro
+    if (ObjHasOwnProp(Data, "MacroArr") && ObjHasOwnProp(Data, "DefaultMacro")) {
+        Data.DefaultMacro := FullCopyMacro(Data.DefaultMacro, CopyedMap)
+        loop Data.MacroArr.Length {
+            Data.MacroArr[A_Index] := FullCopyMacro(Data.MacroArr[A_Index], CopyedMap)
+        }
+    }
 
     SaveMacroCMDData(Data)
     res := GetCmdByParams(paramArr)

@@ -269,7 +269,7 @@ class SoftData {
         ;显示指令提示配置
         this.CMDTip := false
         this.CMDTipCtrl := ""
-        this.CMDPosX := A_ScreenWidth - 225
+        this.CMDPosX := A_ScreenWidth - 225 - 55    ;不知道为什么有55的偏移
         this.CMDPosY := 0
         this.CMDWidth := 225
         this.CMDHeight := 120
@@ -408,7 +408,7 @@ class SearchData {
         this.EndPosY := A_ScreenHeight
         this.SearchCount := 1
         this.SearchInterval := 1000
-        this.MouseActionType := 1   ;   1无动作 2移动到目标 3移动到目标点击
+        this.MouseActionType := 2   ;   1无动作 2移动到目标 3移动到目标点击
         this.Speed := 90
         this.ClickCount := 1
         this.ConfigArr := []    ;配置数组，不同的分辨率
@@ -504,13 +504,36 @@ class OutputData {
     __New() {
         this.SerialStr := ""
         this.Text := GetLang("将要输出的文本")
-        this.OutputType := 1    ;sendtest  粘贴   粘贴
-        this.Encoding := "UTF-8"    ;编码格式
+        this.OutputType := "发送内容"   ;sendtest  粘贴   粘贴
+    }
+}
+
+class FileIOData {
+    __New() {
+        this.SerialStr := ""
+        this.OperType := "读取Excel"    ;1读取Excel 2写入Excel 3读取文本文件 4写入文本文件
+        this.Encoding := "UTF-8"        ;文本文件编码格式
         this.FilePath := ""
-        this.ExcelType := 1     ;1指定单元格    2 行号自增    3 列号自增
+
+        ;读取Excel      "单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"
+        ;写入Excel      单元格    行号自增  列号自增  指定区域-行    指定区域-列
+        ;读取文本文件   读取全部内容, 逐行读取, 指定行
+        ;写入文本文件   覆盖写入， 追加写入, 指定行
+        this.OperMode := "单元格"
         this.NameOrSerial := 1
         this.RowVar := 1
         this.ColVar := 1
+        this.RowEndVar := 1
+        this.ColEndVar := 1
+
+        this.TextRowVar := 1        ;文本文件指令行号
+
+        this.Content := "写入的内容" ;单元格时的写入内容
+        this.ArrName := "Arr"       ;写入区域时的数组
+
+        this.IsIgnoreExist := 0
+        this.SaveType := "变量"     ;保存类型  变量或数组
+        this.SaveName := "Data"
     }
 }
 
@@ -640,6 +663,7 @@ class TimingData {
         this.EndTime := ""
         this.Type := 1  ;1单次 2每小时 3每天 4每周 5每月 6自定义
         this.CustomInterval := "10"
+        this.CustomUnit := 1            ; 0: 秒 1: 分钟 2: 小時 3: 天 4: 週
         this.NextTriggerTime := ""
     }
 }
@@ -762,26 +786,10 @@ class SerialData {
 class InputData {
     __New() {
         this.SerialStr := ""
-        this.IsIgnoreExist := 0
-        this.Type := "文本文件"     ;弹窗 状态 文本文件 excel 继续 继续&取消
-        this.Encoding := "UTF-8"    ;编码格式
-        this.PauseType := "暂停当前宏"  ;交互时：不暂停 暂停当前宏  暂停所有宏
-        this.CancelType := "终止当前宏" ;   取消时  终止当前宏  终止所有宏
-
-        ;文本文件  读取全部内容， 逐行读取 , 指定行     ; 行号
-        ;excel  指定列， 指定行， 指定单元格， 指定区域   ;表名或序号
-        ;单元格行号             ;单元格列号
-        ;终止行号             ;终止列号
-        this.FilePath := ""         ;文件路径
-        this.ReadType := "读取全部内容"
-        this.FileRow := "1"         ;文件行号
-        this.NameOrSerial := "1"     ;名或序号
-        this.Row := "1"
-        this.Col := "1"
-        this.EndRow := "5"
-        this.EndCol := "5"
-
-        this.SaveType := "变量"     ;保存类型  变量或数组
-        this.SaveName := "Data"     ;保存的变量名或数组名
+        this.Type := "弹窗"                 ;弹窗 状态 继续 继续&取消
+        this.PauseType := "暂停当前宏"      ;交互时：不暂停 暂停当前宏  暂停所有宏
+        this.CancelType := "终止当前宏"     ;取消时  终止当前宏  终止所有宏
+        this.IsIgnoreExist := false         ;变量存在忽略
+        this.SaveName := "Data"             ;保存的变量名或数组名
     }
 }

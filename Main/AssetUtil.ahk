@@ -13,6 +13,7 @@
 #Include Util\ExpressUtil.ahk
 #Include Util\InputUtil.ahk
 #Include Util\SearchUtil.ahk
+#Include Util\FileIOUtil.ahk
 #Include Util\MacroUtil.ahk
 #Include Util\PluginUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
@@ -84,6 +85,13 @@ GetHwndList(infoStr) {
         return HwndList
 
     HwndList := WinGetList(paramStr)
+
+    loop HwndList.Length {
+        index := HwndList.Length - A_Index + 1
+        if (HwndList[index] == 0)
+            HwndList.RemoveAt(index)
+    }
+
     return HwndList
 }
 
@@ -289,7 +297,6 @@ WM_MOUSEWHEEL(wParam, lParam, msg, hwnd) {
             if (!isDropped || !ctrl.Focused) {
                 return 0  ; 阻止处理未展开状态下的滚轮事件
             }
-            ; 如果下拉列表是展开的，允许滚轮滚动选项
         }
     }
     ; 其他控件允许正常处理
@@ -312,12 +319,12 @@ InitData() {
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
         "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile,
-        "输入", InputFile)
+        "输入", InputFile, "文件读写", FileIOFile)
     MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
         "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
-        "输入", InputData)
+        "输入", InputData, "文件读写", FileIOData)
 }
 
 InitLogitechGHubNew() {
@@ -381,7 +388,7 @@ LoadMainSetting() {
     MySoftData.TableIndex := IniRead(IniFile, IniSection, "TableIndex", 1)
     MySoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
     MySoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
-    MySoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225)
+    MySoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225 - 55)
     MySoftData.CMDPosY := IniRead(IniFile, IniSection, "CMDPosY", 0)
     MySoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
     MySoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
@@ -1330,54 +1337,85 @@ SaveMacroCMDData(Data) {
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {
-    matches := []  ; 初始化空数组
-    pos := 1  ; 从字符串开头开始搜索
+    matches := []      ; 存储变量名（不含花括号）
+    arrayMatches := [] ; 存储数组名（不含花括号和ε）
+    pos := 1
 
-    while (pos := RegExMatch(text, "\{(.*?)\}", &match, pos)) {
-        matches.Push(match[1])  ; 把花括号内的内容存入数组
-        pos += match.Len  ; 移动到匹配结束位置，继续搜索
+    ; 匹配 {xxx} 或 {εxxx}
+    while (pos := RegExMatch(text, "\{([^{}]*?)\}", &match, pos)) {
+        content := match[1]
+        if (RegExMatch(content, "^ε(.+)$", &arrMatch)) {     ; 以ε开头 -> 数组
+            arrayMatches.Push(arrMatch[1])
+        } else {        ; 普通变量
+            matches.Push(content)
+        }
+        pos += match.Len
     }
 
     ResText := text
+    ; 替换普通变量
     for index, value in matches {
         hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, false)
         if (hasValue)
             ResText := StrReplace(ResText, "{" value "}", variValue)
     }
+
+    ; 替换数组变量（去掉花括号和ε）
+    for index, arrName in arrayMatches {
+        if (MySoftData.ArrayMap.Has(arrName)) {
+            arrValue := GetArrayStr(MySoftData.ArrayMap[arrName])
+            ResText := StrReplace(ResText, "{ε" arrName "}", arrValue)
+        }
+    }
+
     return ResText
 }
 
-TryGetVarValue(&Value, varName, variTip := true, tableVarMap := {}) {
+TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
+
+    if (RegExMatch(varName, "^[0-9A-Fa-f]{6}$")) {
+        Value := varName
+        return true
+    }
+
     if (IsNumber(varName)) {
         Value := Number(varName)
         return true
     }
 
-    if (varName == "当前鼠标坐标X" || varName == "当前鼠标坐标Y") {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-        Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
-        return true
-    }
-
-    if (varName == "当前鼠标颜色") {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        Value := StrReplace(Color, "0x", "")
-        return true
-    }
-
-    if (varName == "句柄ID") {
-        winId := 0
-        try {
+    switch varName {
+        case "当前鼠标坐标X", "当前鼠标坐标Y":
             CoordMode("Mouse", "Screen")
-            MouseGetPos &mouseX, &mouseY, &winId
-        }
-        Value := winId
-        return true
+            MouseGetPos &mouseX, &mouseY
+            Value := varName == "当前鼠标坐标X" ? mouseX : mouseY
+            return true
+        case "当前日期":
+            Value := FormatTime(A_Now, "yyyy-MM-dd")
+            return true
+        case "当前时间":
+            Value := FormatTime(A_Now, "HH:mm")
+            return true
+        case "当前时间(秒)":
+            Value := FormatTime(A_Now, "HH:mm:ss")
+            return true
+        case "当前秒":
+            Value := A_Sec
+            return true
+        case "当前鼠标颜色":
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY
+            CoordMode("Pixel", "Screen")
+            Color := PixelGetColor(mouseX, mouseY, "Slow")
+            Value := StrReplace(Color, "0x", "")
+            return true
+        case "句柄ID":
+            winId := 0
+            try {
+                CoordMode("Mouse", "Screen")
+                MouseGetPos &mouseX, &mouseY, &winId
+            }
+            Value := winId
+            return true
     }
 
     if (tableVarMap.Has(varName)) {
@@ -1644,7 +1682,21 @@ GetCmdOnlyText(param) {
 SetDLConValue(Con, Arr, Text) {
     Con.Delete()
     Con.Add(Arr)
-    Con.Text := Text
+    if (Con.Type == "ComboBox") {
+        Con.Text := Text
+        return
+    }
+
+    if (Con.Type == "DDL") {
+        Con.Text := Arr.Length >= 1 ? Arr[1] : ""
+        loop Arr.Length {
+            if (Arr[A_Index] == Text) {
+                Con.Text := Text
+                break
+            }
+        }
+    }
+
 }
 
 GetNameAndValueByParamArr(&NameArr, &ValueArr, ParamArr) {
@@ -1699,4 +1751,45 @@ ChangeBrightness(isAdd) {
     for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
         item.WmiSetBrightness(1, Value)
     }
+}
+
+GetSystemVarArr() {
+    return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
+    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
+}
+
+DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
+    if (CompareType == 7) {
+        hasValue := TryGetTabVarValue(&Value, tableItem, index, Name, false)
+        currentComparison := hasValue
+        return true
+    }
+
+    hasValue := TryGetTabVarValue(&Value, tableItem, index, Name)
+    if (!hasValue)
+        return false
+
+    if (CompareType == 3 || CompareType == 6 || CompareType == 8) {
+        hasOtherValue := TryGetTabVarValue(&OtherVal, tableItem, index, OtherValue, false)
+        OtherVal := hasOtherValue ? OtherVal : OtherValue
+        hasOtherValue := true
+    }
+    else {
+        hasOtherValue := TryGetTabVarValue(&OtherVal, tableItem, index, OtherValue)
+    }
+
+    if (!hasOtherValue)
+        return false
+
+    switch CompareType {
+        case 1: currentComparison := Value > OtherVal
+        case 2: currentComparison := Value >= OtherVal
+        case 3: currentComparison := Value == OtherVal
+        case 4: currentComparison := Value <= OtherVal
+        case 5: currentComparison := Value < OtherVal
+        case 6: currentComparison := CheckContainText(Value, OtherVal)
+        case 8: currentComparison := RegExMatch(Value, OtherVal)
+        default: currentComparison := false
+    }
+    return true
 }

@@ -11,7 +11,7 @@ LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显�
     "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏",
     "菜单宏", "定时宏", "宏", "插入到当前宏", "触发", "暂停", "取消暂停", "终止", "制表符", "弹窗", "状态", "文本文件", "继续", "继续&取消",
     "暂停当前宏", "暂停所有宏", "终止当前宏", "终止所有宏", "读取全部内容", "逐行读取", "指定行", "单元格", "指定行", "指定列", "指定区域-行",
-    "指定区域-列"]
+    "指定区域-列", "文件读写", "发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板"]
 LangValueMap := Map()   ;部分文本需要反向映射
 
 LangInitSetting() {
@@ -177,8 +177,8 @@ GetLangCmd(Cmd, Mode) {
 
 ;mode 1多语言模式  2中文语言模式
 GetLangStr(Str, Mode) {
-    SpecialKeyArr1 := ["循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y"]
-    SpecialKeyArr2 := [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("当前鼠标坐标X"), GetLang("当前鼠标坐标Y")]
+    SpecialKeyArr1 := GetLangKeyArr(GetSystemVarArr())
+    SpecialKeyArr2 := GetSystemVarArr()
     KeyArr := Mode == 1 ? SpecialKeyArr1 : SpecialKeyArr2
     action := Mode == 1 ? GetLang : GetLangKey
 

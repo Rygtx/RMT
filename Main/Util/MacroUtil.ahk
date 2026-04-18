@@ -44,6 +44,8 @@ OnFinishMacro(tableItem, macro, index) {
         tableItem.ToggleStateArr[index] := false
     }
 
+    ReleaseAllCaches()
+
     itemState := tableItem.KilledArr[index] ? 3 : 0
     MySetTableItemState(tableItem.index, index, itemState)
 }
@@ -71,7 +73,8 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "循环", OnLoop,
         "文本处理", OnTextOps,
         "数组", OnArray,
-        "输入", OnInput
+        "输入", OnInput,
+        "文件读写", OnFileIO
     )
 
     cmdArr := SplitMacro(macro)
@@ -136,36 +139,10 @@ OnCompare(tableItem, cmd, index) {
             continue
 
         CompareType := Data.CompareTypeArr[A_Index]
-        if (CompareType == 7) {        ;变量是否存在
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
-            currentComparison := hasValue
-        }
-        else {
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
-            if (!hasValue)
-                return
-            if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
-                OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
-                hasOtherValue := true
-            }
-            else {
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
-            }
-
-            if (!hasOtherValue)
-                return
-
-            switch Data.CompareTypeArr[A_Index] {
-                case 1: currentComparison := Value > OtherValue
-                case 2: currentComparison := Value >= OtherValue
-                case 3: currentComparison := Value == OtherValue
-                case 4: currentComparison := Value <= OtherValue
-                case 5: currentComparison := Value < OtherValue
-                case 6: currentComparison := CheckContainText(Value, OtherValue)
-                case 8: currentComparison := RegExMatch(Value, OtherValue)
-            }
-        }
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[
+            A_Index])
+        if (!hasComparison)
+            return
 
         if (Data.LogicalType == 1) {
             result := result && currentComparison
@@ -205,34 +182,10 @@ OnComparePro(tableItem, cmd, index) {
         result := LogicType == 1 ? true : false
         loop NameArr.Length {
             CompareType := CompareTypeArr[A_Index]
-            if (CompareType == 7) {
-                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index], false)
-                currentComparison := hasValue
-            }
-            else {
-                hasValue := TryGetTabVarValue(&Value, tableItem, index, NameArr[A_Index])
-                if (CompareType == 3 || CompareType == 6 || CompareType == 8) {  ;等于、字符包含、正则匹配的时候可以直接使用字符
-                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index], false)
-                    OtherValue := hasOtherValue ? OtherValue : VariableArr[A_Index]
-                    hasOtherValue := true
-                }
-                else {
-                    hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, VariableArr[A_Index])
-                }
-
-                if (!hasValue || !hasOtherValue) {
-                    return
-                }
-
-                switch CompareTypeArr[A_Index] {
-                    case 1: currentComparison := Value > OtherValue
-                    case 2: currentComparison := Value >= OtherValue
-                    case 3: currentComparison := Value == OtherValue
-                    case 4: currentComparison := Value <= OtherValue
-                    case 5: currentComparison := Value < OtherValue
-                    case 6: currentComparison := CheckContainText(Value, OtherValue)
-                    case 8: currentComparison := RegExMatch(Value, OtherValue)
-                }
+            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, NameArr[A_Index], VariableArr[
+                A_Index])
+            if (!hasComparison) {
+                return
             }
 
             if (LogicType == 1) {
@@ -260,6 +213,7 @@ OnMMPro(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
+    Data.Count := Data.IsGameView ? data.Count : 1
     loop Data.Count {
         WaitIfPaused(tableItem, index)
 
@@ -314,49 +268,29 @@ OnOutput(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
-    if (Data.OutputType == 1) {     ;send
+    if (Data.OutputType == "发送内容") {     ;send
         SendText(Content)
     }
-    else if (Data.OutputType == 2) {    ;粘贴文本
+    else if (Data.OutputType == "粘贴内容") {    ;粘贴文本
         A_Clipboard := Content
+        ClipWait
         Send "{Blind}^v"
     }
-    else if (Data.OutputType == 3) {    ;提示
+    else if (Data.OutputType == "临时提示") {    ;提示
         MyToolTipContent(Content)
     }
-    else if (Data.OutputType == 4) {    ;指令窗口
+    else if (Data.OutputType == "指令窗口") {    ;指令窗口
         MyCMDReportAciton(Content)
     }
-    else if (Data.OutputType == 5) {    ;弹窗
+    else if (Data.OutputType == "软件弹窗") {    ;弹窗
         MyMsgBoxContent(Content)
     }
-    else if (Data.OutputType == 6) {    ;语音
+    else if (Data.OutputType == "系统语音") {    ;语音
         spovice := ComObject("sapi.spvoice")
         spovice.Speak(Content)
     }
-    else if (Data.OutputType == 7) {    ;剪切板
+    else if (Data.OutputType == "复制到剪切板") {    ;剪切板
         A_Clipboard := Content
-    }
-    else if (Data.OutputType == 8) {    ;文本文件
-        FileObj := FileOpen(Data.FilePath, "a", Data.Encoding)
-        FileObj.WriteLine(Content)
-        FileObj.Close()
-    }
-    else if (Data.OutputType == 9) {    ;Excel
-        hasRowValue := TryGetTabVarValue(&RowValue, tableItem, index, Data.RowVar)
-        hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
-        if (Data.ExcelType == 1) {
-            if (hasRowValue && hasColValue)
-                ExcelCellToWrite(Data.FilePath, Data.NameOrSerial, RowValue, ColValue, Content)
-        }
-        else if (Data.ExcelType == 2) {
-            if (hasColValue)
-                ExcelRowToWrite(Data.FilePath, Data.NameOrSerial, ColValue, Content)
-        }
-        else if (Data.ExcelType == 3) {
-            if (hasRowValue)
-                ExcelColToWrite(Data.FilePath, Data.NameOrSerial, RowValue, Content)
-        }
     }
 }
 
@@ -406,35 +340,12 @@ GetLoopState(tableItem, cmd, index, Data) {
     loop 4 {
         if (!Data.ToggleArr[A_Index])
             continue
-
-        if (Data.CompareTypeArr[A_Index] == 7) {        ;变量是否存在
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index], false)
-            currentComparison := hasValue
-        }
-        else {
-            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.NameArr[A_Index])
-            if (Data.CompareTypeArr[A_Index] == 6) {  ;字符包含的时候可以直接使用字符
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index], false)
-                OtherValue := hasOtherValue ? OtherValue : Data.VariableArr[A_Index]
-                hasOtherValue := true
-            }
-            else {
-                hasOtherValue := TryGetTabVarValue(&OtherValue, tableItem, index, Data.VariableArr[A_Index])
-            }
-
-            if (!hasValue || !hasOtherValue) {
-                result := false
-                break
-            }
-
-            switch Data.CompareTypeArr[A_Index] {
-                case 1: currentComparison := Value > OtherValue
-                case 2: currentComparison := Value >= OtherValue
-                case 3: currentComparison := Value == OtherValue
-                case 4: currentComparison := Value <= OtherValue
-                case 5: currentComparison := Value < OtherValue
-                case 6: currentComparison := CheckContainText(Value, OtherValue)
-            }
+        CompareType := Data.CompareTypeArr[A_Index]
+        hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Data.NameArr[A_Index], Data.VariableArr[
+            A_Index])
+        if (!hasComparison) {
+            result := false
+            break
         }
 
         if (Data.LogicType == 1) {
@@ -510,7 +421,7 @@ OnVariable(tableItem, cmd, index) {
         if (!Data.ToggleArr[A_Index])
             continue
         VariableName := Data.VariableArr[A_Index]
-        if (Data.OperaTypeArr[A_Index] == 4) {  ;删除
+        if (Data.OperaTypeArr[A_Index] == 5) {  ;删除
             DeleteNameArr.Push(VariableName)
             continue
         }
@@ -530,6 +441,12 @@ OnVariable(tableItem, cmd, index) {
         }
         if (Data.OperaTypeArr[A_Index] == 3) {  ;字符
             Value := Data.CopyVariableArr[A_Index]
+        }
+
+        if (Data.OperaTypeArr[A_Index] == 4) {   ;系统
+            hasValue := TryGetTabVarValue(&Value, tableItem, index, Data.CopyVariableArr[A_Index])
+            if (!hasValue)
+                return
         }
 
         VariableNameArr.Push(VariableName)
@@ -1030,14 +947,30 @@ OnInput(tableItem, cmd, index) {
             InputPopUp(Data, tableItem, index)
         case "状态":
             InputStateValue(Data, tableItem, index)
-        case "文本文件":
-            InputTextFile(Data, tableItem, index)
-        case "Excel":
-            InputExcel(Data, tableItem, index)
         case "继续":
             InputContinue(Data, tableItem, index)
         case "继续&取消":
             InputContinueAndCencel(Data, tableItem, index)
+    }
+}
 
+OnFileIO(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    if (!FileExist(Data.FilePath)) {
+        MsgBox(GetLang("{}文件不存在"), Data.FilePath)
+        return
+    }
+
+    switch Data.OperType {
+        case "读取Excel":
+            ReadExcel(Data, tableItem, index)
+        case "写入Excel":
+            WriteExcel(Data, tableItem, index)
+        case "读取文本文件":
+            ReadTextFile(Data, tableItem, index)
+        case "写入文本文件":
+            WriteTextFile(Data, tableItem, index)
     }
 }

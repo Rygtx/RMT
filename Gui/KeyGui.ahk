@@ -962,21 +962,25 @@ class KeyGui {
             "松开", "点击"]))
         this.KeyTypeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
         this.KeyTypeCon.Value := 1
+                
+        PosX += 85
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX, PosY - 4), "?")
+        Con.OnEvent("Click", this.OnClickTypeHelpBtn.Bind(this))
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击时长:"))
+        this.HoldTimeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击时长:"))
         PosX += 70
         this.HoldTimeCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 50)
         this.HoldTimeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数："))
+        this.KeyCountTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("点击次数："))
         PosX += 70
         this.KeyCountCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 1)
         this.KeyCountCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 130
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔："))
+        this.PerIntervalTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("每次间隔："))
         PosX += 70
         this.PerIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 50), 100)
         this.PerIntervalCon.OnEvent("Change", (*) => this.OnChangeEditValue())
@@ -1086,24 +1090,35 @@ class KeyGui {
     }
 
     UpdateCommandStr() {
-        isShowHoldTime := this.KeyTypeCon.Value == 3
-        isShowCount := isShowHoldTime && this.KeyCountCon.Value != 1
-        isShowInterval := isShowCount && this.PerIntervalCon.Value != 0
+        hasHoldTime := this.KeyTypeCon.Value == 3
+        hasCount := hasHoldTime && this.KeyCountCon.Value != 1
+        hasInterval := hasCount && this.PerIntervalCon.Value != 0
 
         CommandStr := GetLang("按键")
         CommandStr .= "_" this.KeyStr
         CommandStr .= "_" this.KeyTypeCon.Text
-        if (isShowHoldTime) {
+        if (hasHoldTime) {
             CommandStr .= "_" this.HoldTimeCon.Value
         }
-        if (isShowCount) {
+        if (hasCount) {
             CommandStr .= "_" this.KeyCountCon.Value
         }
-        if (isShowInterval) {
+        if (hasInterval) {
             CommandStr .= "_" this.PerIntervalCon.Value
         }
 
         this.CommandStr := CommandStr
+    }
+
+    OnClickTypeHelpBtn(*) {
+        str1 := GetLang("按下，松开是不消耗时间的，可以理解为瞬发")
+        str2 := GetLang("指令按下a，不是连续不间断的输入a（物理键盘上长按a，系统会经过处理，不断的松开，然后再按下）")
+        str3 := GetLang("按下后建议搭配一个松开，如果不松开再次按下，后续按下指令可能无效（卡键）")
+        str4 := GetLang("点击时间小于200表现为点击， 大于250表现为长按")
+        str5 := GetLang("点击消耗的时间：（点击时间+每次间隔）*点击次数 - 每次间隔")
+
+        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+        MsgBox(str, GetLang("按键类型说明"))
     }
 
     OnChangeEditValue() {
@@ -1115,12 +1130,18 @@ class KeyGui {
         this.UpdateCommandStr()
 
         isShowHoldTime := this.KeyTypeCon.Value == 3
-        isShowCount := isShowHoldTime && this.KeyCountCon.Value != 1
-        isShowInterval := isShowCount && this.PerIntervalCon.Value != 0
+        isShowCount := isShowHoldTime
+        isShowInterval := isShowCount && this.KeyCountCon.Value != 1
 
-        this.HoldTimeCon.Enabled := isShowHoldTime
-        this.KeyCountCon.Enabled := isShowHoldTime
-        this.PerIntervalCon.Enabled := isShowCount
+        this.HoldTimeTipCon.Visible := isShowHoldTime
+        this.HoldTimeCon.Visible := isShowHoldTime
+        
+        this.KeyCountTipCon.Visible := isShowCount
+        this.KeyCountCon.Visible := isShowCount
+        
+        this.PerIntervalTipCon.Visible := isShowInterval
+        this.PerIntervalCon.Visible := isShowInterval
+    
         this.CommandStrCon.Value := Format("{}{}", GetLang("当前指令："), this.CommandStr)
     }
 

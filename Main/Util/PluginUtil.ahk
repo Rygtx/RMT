@@ -7,7 +7,12 @@ FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindWinColor", "AStr", colorStr, "Int", hwnd, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr,
+        "Cdecl Int")
+}
+
+ReleaseAllCaches() {
+    DllCall("RMT_OpenCV.dll\ReleaseAllCaches", "Cdecl")
 }
 
 FindScreenText(&ResX, &ResY, X1, Y1, X2, Y2, text, mode) {
@@ -109,7 +114,8 @@ FindScreenImage(ResXPtr, ResYPtr, targetPath, X1, Y1, X2, Y2, matchThreshold) {
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindScreenImage", "AStr", targetPath, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr,
+        "Cdecl Int")
 }
 
 ; OpenCV窗口图片识别    返回窗口的坐标
@@ -119,5 +125,6 @@ FindWinImage(ResXPtr, ResYPtr, targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold)
     searchW := X2 - X1
     searchH := Y2 - Y1
     return DllCall("RMT_OpenCV.dll\FindWinImage", "AStr", targetPath, "Int", hwnd, "Int", searchX,
-        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr, "Cdecl Int")
+        "Int", searchY, "Int", searchW, "Int", searchH, "Int", matchThreshold, "Int*", ResXPtr, "Int*", ResYPtr,
+        "Cdecl Int")
 }

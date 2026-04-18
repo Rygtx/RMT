@@ -24,6 +24,7 @@
 #Include ..\Gui\InputBtnGui.ahk
 #Include ..\Gui\ThankUIUtil.ahk
 #Include ..\Gui\TabItemUIUtil.ahk
+
 SetWorkingDir A_ScriptDir
 DetectHiddenWindows true
 Persistent
