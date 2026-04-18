@@ -627,7 +627,7 @@ AddHelpUI(index) {
     AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("软件开源协议："), tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
     AddTableControl("Text", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), "AGPL-3.0", tableItem).SetFont((Format("S{} W{} Q{}", 12, 600, 0)))
 
-    posY += 35
+    ; posY += 35
     tableItem.underPosY := posY
 }
 

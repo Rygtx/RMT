@@ -97,7 +97,7 @@ class FileIOGui {
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 5, 80), GetLang("表名或序号:"))
         this.ExcelConArr.Push(con)
         PosX += 80
-        this.NameOrSerialCon := MyGui.Add("ComboBox", Format("x{} y{} w{} h{}", PosX, PosY, 150, 30), [])
+        this.NameOrSerialCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY, 150), [])
         this.ExcelConArr.Push(this.NameOrSerialCon)
 
         PosX := 20
