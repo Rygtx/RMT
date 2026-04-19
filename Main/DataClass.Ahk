@@ -663,7 +663,7 @@ class TimingData {
         this.EndTime := ""
         this.Type := 1  ;1单次 2每小时 3每天 4每周 5每月 6自定义
         this.CustomInterval := "10"
-        this.CustomUnit := 1            ; 0: 秒 1: 分钟 2: 小時 3: 天 4: 週
+        this.CustomUnit := 2            ; 1: 秒 2: 分钟 3: 小時 4: 天 5: 週
         this.NextTriggerTime := ""
     }
 }
