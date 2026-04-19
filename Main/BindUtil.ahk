@@ -399,6 +399,18 @@ OnFinishRecordMacro() {
     A_Clipboard := macroLineStr
 }
 
+OnClickKeyDownDownHelpBtn(*) {
+    str1 := GetLang("当宏按键已经处于按下状态，再次触发按下指令时特别处理")
+    str2 := GetLang("自动松开：再次按下前，先松开该按键（确保指令正常执行）")
+    str3 := GetLang("忽略重复按下：保持按键之前的状态，忽略后续的按下指令")
+    str4 := GetLang("允许重复按下：再次按下宏按键（罗技按键可能卡死）")
+    str5 := GetLang("Tip1：按下时再次按下，真实键盘无法触发这个行为，这个行为通常是无效的")
+    str6 := GetLang("Tip2：按下时再次按下，按键检测网站可能无法检测，但记事本中可以有效输出")
+
+    str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+    MsgBox(str, GetLang("按下时按下说明"))
+}
+
 ;绑定热键
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr

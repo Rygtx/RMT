@@ -16,11 +16,8 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
                 continue
             }
 
-            try {   ;按下前已经按下的话先松开
-                state := GetKeyState(key)
-                if (state == 1)
-                    Action(key, 0, tableItem, index)  ; 松开
-            }
+            if (HandleKeyDownDown(key, tableItem, index, Action))   ;按下时按下特殊处理
+                continue
 
             Action(key, 1, tableItem, index)  ; 按下
         }
@@ -232,4 +229,21 @@ ChangeBrightness(isAdd) {
     for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
         item.WmiSetBrightness(1, Value)
     }
+}
+
+;处理宏按键：按下时按下
+HandleKeyDownDown(key, tableItem, index, Action) {
+    isSkip := false
+    try {   ;按下前已经按下的话先松开
+        state := GetKeyState(key)
+        if (state == 1) {
+            if (MySoftData.KeyDownDownType == 1)    ; 1自动松开
+                Action(key, 0, tableItem, index)
+            else if (MySoftData.KeyDownDownType == 2)   ;2忽略后续按下
+                isSkip := true
+            else if (MySoftData.KeyDownDownType == 3) { ;3允许该行为，不做任何干预
+            }
+        }
+    }
+    return isSkip
 }
