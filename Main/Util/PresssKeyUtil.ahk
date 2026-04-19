@@ -13,6 +13,13 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
             if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
                 RealAction := SendNormalKey
 
+            ;按下前已经按下的话先松开
+            try {
+                state := GetKeyState(key)
+                if (state)
+                    RealAction(key, 0, tableItem, index)  ; 松开
+            }
+
             RealAction(key, 1, tableItem, index)  ; 按下
         }
     }
@@ -28,7 +35,7 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
                 continue
             if (Action == SendLogicKey && LogicNoKeyMap.Has(key))
                 RealAction := SendNormalKey
-    
+
             RealAction(key, 0, tableItem, index)  ; 松开
         }
     }
@@ -138,19 +145,13 @@ SendGameMouseKey(key, state, tableItem, index) {
 SendLogicKey(Key, state, tableItem, index) {
     if (!InitLogitechGHubNew())
         return
-    if (MySoftData.OnlyDownKeyMap.Has(Key))
-        return
-
-    ; 去重检查：防止连续发送相同的按键状态导致DLL假死
-    if (state == 1 && tableItem.HoldKeyArr[index].Has(Key))
-        return
-    if (state == 0 && !tableItem.HoldKeyArr[index].Has(Key))
-        return
 
     Symbol := state == 1 ? "down" : "up"
     keySymbol := "{Blind}{" key " " Symbol "}"
     IbSend(keySymbol)
 
+    if (MySoftData.OnlyDownKeyMap.Has(Key))
+        return
     if (state == 1) {
         tableItem.HoldKeyArr[index][Key] := "Logic"
     }
