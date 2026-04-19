@@ -138,12 +138,19 @@ SendGameMouseKey(key, state, tableItem, index) {
 SendLogicKey(Key, state, tableItem, index) {
     if (!InitLogitechGHubNew())
         return
+    if (MySoftData.OnlyDownKeyMap.Has(Key))
+        return
+
+    ; 去重检查：防止连续发送相同的按键状态导致DLL假死
+    if (state == 1 && tableItem.HoldKeyArr[index].Has(Key))
+        return
+    if (state == 0 && !tableItem.HoldKeyArr[index].Has(Key))
+        return
+
     Symbol := state == 1 ? "down" : "up"
     keySymbol := "{Blind}{" key " " Symbol "}"
     IbSend(keySymbol)
 
-    if (MySoftData.OnlyDownKeyMap.Has(Key))
-        return
     if (state == 1) {
         tableItem.HoldKeyArr[index][Key] := "Logic"
     }
