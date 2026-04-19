@@ -222,6 +222,7 @@ class SoftData {
         this.FontList := []             ;所有字体类型
         this.Lang := "中文"             ;当前语言
         this.LangArr := []              ;所有语言
+        this.KeyDownDownType := 1       ;按下时按下 1自动松开, 2忽略后续按下, 3允许该操作
 
         this.MyGui := {}                ;软件主界面GUI
         this.CurSettingName := ""       ;当前配置名称
