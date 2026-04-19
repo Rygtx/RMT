@@ -32,7 +32,7 @@ class TimingGui {
         this.EndTimeCon.Value := this.Data.EndTime
         this.TypeCon.Value := this.Data.Type
         this.CustomIntervalCon.Value := this.Data.CustomInterval
-        this.IntervalUnitCon.Value := this.Data.HasOwnProp("CustomUnit") ? this.Data.CustomUnit + 1 : 2
+        this.IntervalUnitCon.Value := this.Data.CustomUnit
     }
 
     AddGui() {
@@ -115,7 +115,7 @@ class TimingGui {
         Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmmss")
         Data.Type := this.TypeCon.Value
         Data.CustomInterval := this.CustomIntervalCon.Value
-        Data.CustomUnit := this.IntervalUnitCon.Value - 1
+        Data.CustomUnit := this.IntervalUnitCon.Value
         saveStr := JSON.stringify(Data, 0)
         IniWrite(saveStr, TimingFile, IniSection, Data.SerialStr)
         if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {

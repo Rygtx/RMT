@@ -5,31 +5,37 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     static OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0)
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
-    if (keyType == 1 || keyType == 3) {
-        for key in KeyArr {
-            RealAction := Action
-            if (BrightKeyMap.Has(key))
-                RealAction := SetBrightnessByKey
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
-                RealAction := SendNormalKey
 
-            RealAction(key, 1, tableItem, index)  ; 按下
+    if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
+        Action := SendNormalKey
+
+    if (keyType == 1 || keyType == 3) {     ;按下-点击
+        for key in KeyArr {
+            if (BrightKeyMap.Has(key)) {
+                SetBrightnessByKey(key)
+                continue
+            }
+
+            try {   ;按下前已经按下的话先松开
+                state := GetKeyState(key)
+                if (state == 1)
+                    Action(key, 0, tableItem, index)  ; 松开
+            }
+
+            Action(key, 1, tableItem, index)  ; 按下
         }
     }
 
-    if (keyType == 3) {
+    if (keyType == 3) {     ;点击
         Sleep(holdTime)
     }
 
-    if (keyType == 2 || keyType == 3) {
+    if (keyType == 2 || keyType == 3) {     ;松开-点击
         for key in KeyArr {
-            RealAction := Action
             if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
                 continue
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))
-                RealAction := SendNormalKey
-    
-            RealAction(key, 0, tableItem, index)  ; 松开
+
+            Action(key, 0, tableItem, index)  ; 松开
         }
     }
 }
@@ -138,6 +144,7 @@ SendGameMouseKey(key, state, tableItem, index) {
 SendLogicKey(Key, state, tableItem, index) {
     if (!InitLogitechGHubNew())
         return
+
     Symbol := state == 1 ? "down" : "up"
     keySymbol := "{Blind}{" key " " Symbol "}"
     IbSend(keySymbol)
@@ -215,4 +222,14 @@ SetBrightnessByKey(key, *) {
         ChangeBrightness(false)
     if (key == "Bright_Up")
         ChangeBrightness(true)
+}
+
+ChangeBrightness(isAdd) {
+    CurrentBrightness := GetBrightness()
+    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10
+    Value := Max(0, Min(100, Value)) ; 限制在 0-100
+    wmi := ComObjGet("winmgmts:\\.\root\WMI")
+    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
+        item.WmiSetBrightness(1, Value)
+    }
 }
