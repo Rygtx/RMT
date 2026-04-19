@@ -1743,16 +1743,6 @@ GetBrightness() {
     return 20
 }
 
-ChangeBrightness(isAdd) {
-    CurrentBrightness := GetBrightness()
-    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10
-    Value := Max(0, Min(100, Value)) ; 限制在 0-100
-    wmi := ComObjGet("winmgmts:\\.\root\WMI")
-    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
-        item.WmiSetBrightness(1, Value)
-    }
-}
-
 GetSystemVarArr() {
     return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
     GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
