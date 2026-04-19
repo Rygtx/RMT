@@ -206,7 +206,7 @@ CompatTiming(filePath) {
 
         ; Ensure CustomUnit exists
         if (!ObjHasOwnProp(Data, "CustomUnit")) {
-            Data.CustomUnit := 1 ; Default to Minutes
+            Data.CustomUnit := 2 ; Default to Minutes
             curFix := true
         }
 
@@ -363,7 +363,7 @@ CompatOutput(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    FixTypeMap := Map("1", "发送内容", "2", "粘贴内容", "3", "临时提示", 
+    FixTypeMap := Map("1", "发送内容", "2", "粘贴内容", "3", "临时提示",
         "4", "指令窗口", "5", "软件弹窗", "6", "系统语音", "7", "复制到剪切板")
     hasFix := CompatSerial(filePath, "Output", "输出")
     newContent := "[UserSettings]"
