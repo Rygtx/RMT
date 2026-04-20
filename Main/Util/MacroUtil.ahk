@@ -33,6 +33,16 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
         HandTipSound(tableItem, index, 1, isFirst, isLast)
         OnTriggerMacroOnce(tableItem, macro, index)
         HandTipSound(tableItem, index, 2, isFirst, isLast)
+
+        if (tableItem.VariableMapArr[index]["循环-继续"]) {
+            tableItem.VariableMapArr[index]["循环-继续"] := false
+        }
+
+        if (tableItem.VariableMapArr[index]["循环-退出"]) {
+            tableItem.VariableMapArr[index]["循环-退出"] := false
+            break
+        }
+
         tableItem.ActionCount[index]++
         tableItem.VariableMapArr[index]["宏循环次数"] += 1
     }
@@ -99,6 +109,19 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         if (result != "") {
             cmdArr.InsertAt(A_Index + 1, result*)
         }
+
+        if (tableItem.VariableMapArr[index]["分支-退出"]) {
+            tableItem.VariableMapArr[index]["分支-退出"] := false
+            break
+        }
+
+        if (tableItem.VariableMapArr[index]["循环-继续"]) {
+            break
+        }
+
+        if (tableItem.VariableMapArr[index]["循环-退出"]) {
+            break
+        }
     }
 }
 
@@ -157,16 +180,15 @@ OnCompare(tableItem, cmd, index) {
 
     if (Data.SaveToggle) {
         SaveValue := result ? Data.TrueValue : Data.FalseValue
-        MySetGlobalVariable([Data.SaveName], [SaveValue], Data.IsIgnoreExist)
+        MySetGlobalVariable([Data.SaveName], [SaveValue], false)
     }
 
-    macro := ""
-    macro := result && Data.TrueMacro != "" ? Data.TrueMacro : macro
-    macro := !result && Data.FalseMacro != "" ? Data.FalseMacro : macro
-    if (macro == "")
-        return
+    macro := result ? Data.TrueMacro : Data.FalseMacro
+    if (macro != "")
+        OnTriggerMacroOnce(tableItem, macro, index)
 
-    OnTriggerMacroOnce(tableItem, macro, index)
+    ControlType := result ? Data.TrueControlType : Data.FalseControlType
+    HandleControlType(tableItem, index, ControlType)
 }
 
 OnComparePro(tableItem, cmd, index) {
@@ -179,14 +201,14 @@ OnComparePro(tableItem, cmd, index) {
         VariableArr := Data.VariableArr[A_Index]
         LogicType := Data.LogicTypeArr[A_Index]
         Macro := Data.MacroArr[A_Index]
+        ControlType := Data.ControlTypeArr[A_Index]
         result := LogicType == 1 ? true : false
-        loop NameArr.Length {
-            CompareType := CompareTypeArr[A_Index]
-            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, NameArr[A_Index], VariableArr[
-                A_Index])
-            if (!hasComparison) {
+
+        for i, Name in NameArr {
+            CompareType := CompareTypeArr[i]
+            hasComparison := DoCompare(&currentComparison, tableItem, index, CompareType, Name, VariableArr[i])
+            if (!hasComparison)
                 return
-            }
 
             if (LogicType == 1) {
                 result := result && currentComparison
@@ -202,10 +224,12 @@ OnComparePro(tableItem, cmd, index) {
         if (result) {
             if (Macro != "")
                 OnTriggerMacroOnce(tableItem, Macro, index)
+            HandleControlType(tableItem, index, ControlType)
             return
         }
     }
     OnTriggerMacroOnce(tableItem, Data.DefaultMacro, index)
+    HandleControlType(tableItem, index, Data.DefaultControlType)
 }
 
 OnMMPro(tableItem, cmd, index) {
@@ -308,8 +332,16 @@ OnLoop(tableItem, cmd, index) {
                 break
 
             WaitIfPaused(tableItem, index)
-
             OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
+
+            if (tableItem.VariableMapArr[index]["循环-继续"]) {
+                tableItem.VariableMapArr[index]["循环-继续"] := false
+            }
+
+            if (tableItem.VariableMapArr[index]["循环-退出"]) {
+                tableItem.VariableMapArr[index]["循环-退出"] := false
+                break
+            }
         }
     }
     else {
@@ -326,8 +358,16 @@ OnLoop(tableItem, cmd, index) {
                 break
 
             WaitIfPaused(tableItem, index)
-
             OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
+
+            if (tableItem.VariableMapArr[index]["循环-继续"]) {
+                tableItem.VariableMapArr[index]["循环-继续"] := false
+            }
+
+            if (tableItem.VariableMapArr[index]["循环-退出"]) {
+                tableItem.VariableMapArr[index]["循环-退出"] := false
+                break
+            }
         }
     }
 }
@@ -585,7 +625,7 @@ OnOperation(tableItem, cmd, index) {
         NewValueArr.Push(res)
     }
     if (NewNameArr.Length > 0)
-        MySetGlobalVariable(NewNameArr, NewValueArr, Data.IsIgnoreExist)
+        MySetGlobalVariable(NewNameArr, NewValueArr, false)
 }
 
 OnBGMouse(tableItem, cmd, index) {

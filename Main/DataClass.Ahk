@@ -20,7 +20,7 @@ class TableItem {
         this.ActionCount := []      ; 记录执行次数，用于循环次数判断
         this.ToggleStateArr := []   ; 触发键开关状态
         this.ToggleActionArr := []   ; 触发键开关Action
-        this.VariableMapArr := []    ;  每条宏对应的变量映射
+        this.VariableMapArr := []    ;  每条宏对应的变量映射:内置变量
         this.UnderPosY := 0         ; table的最大PosY
         this.Index := 0             ;   table的Index
         this.SliderValue := 0       ;   滑动值
@@ -428,11 +428,12 @@ class SearchData {
 
 class CompareData {
     __New() {
-        this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量 8正则匹配
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
+        this.TrueControlType := "无"   ;流程控制：1无 2循环-继续 3循环-退出 4分支-退出
+        this.FalseControlType := "无"   ;流程控制：1无 2循环-继续 3循环-退出 4分支-退出
         this.TrueMacro := ""
         this.FalseMacro := ""
         this.SaveToggle := 0
@@ -449,7 +450,9 @@ class CompareProData {
         this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
         this.VariableArr := [[1], [2]]
         this.LogicTypeArr := [1, 2]
+        this.ControlTypeArr := ["无", "无"]
         this.MacroArr := ["按键_a_点击_100", "按键_b_点击_100"]
+        this.DefaultControlType := "无"
         this.DefaultMacro := "按键_c_点击_100"
     }
 
@@ -519,7 +522,7 @@ class FileIOData {
         ;读取Excel      "单元格", "指定行", "指定列", "指定区域-行", "指定区域-列"
         ;写入Excel      单元格    行号自增  列号自增  指定区域-行    指定区域-列
         ;读取文本文件   读取全部内容, 逐行读取, 指定行
-        ;写入文本文件   覆盖写入， 追加写入, 指定行
+        ;写入文本文件   "覆盖写入", "追加写入", "追加写入-行", "指定行", "行号自增"
         this.OperMode := "单元格"
         this.NameOrSerial := 1
         this.RowVar := 1
@@ -532,7 +535,6 @@ class FileIOData {
         this.Content := "写入的内容" ;单元格时的写入内容
         this.ArrName := "Arr"       ;写入区域时的数组
 
-        this.IsIgnoreExist := 0
         this.SaveType := "变量"     ;保存类型  变量或数组
         this.SaveName := "Data"
     }
@@ -624,7 +626,6 @@ class ExVariableData {
 class OperationData {
     __New() {
         this.SerialStr := ""
-        this.IsIgnoreExist := 0
         this.ToggleArr := [1, 0, 0, 0]
         this.UpdateNameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.ExpressionArr := ["", "", "", ""]    ;完整表达式字符串（用于支持括号和整体编辑）
@@ -695,7 +696,6 @@ class RMTCMDData {
 class TextOpsData {
     __New() {
         this.SerialStr := ""
-        this.IsIgnoreExist := 0
         this.Type := "文本分割" ; 1: 文本分割 2: 文本替换
         this.Name := "TextVar" ; 文本来源变量名
         this.ArgsType := "全部大写" ;参数类型
@@ -790,7 +790,6 @@ class InputData {
         this.Type := "弹窗"                 ;弹窗 状态 继续 继续&取消
         this.PauseType := "暂停当前宏"      ;交互时：不暂停 暂停当前宏  暂停所有宏
         this.CancelType := "终止当前宏"     ;取消时  终止当前宏  终止所有宏
-        this.IsIgnoreExist := false         ;变量存在忽略
         this.SaveName := "Data"             ;保存的变量名或数组名
     }
 }
