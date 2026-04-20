@@ -642,7 +642,7 @@ OnToolTextFilterGetArea(x1, y1, x2, y2) {
     ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
     result := ocr.ocr_from_file(filePath)
     ToolCheckInfo.ToolTextCtrl.Value := result
-    A_Clipboard := result
+    SetClipboard(result)
 }
 
 OnToolTextCheckScreenShot() {
@@ -654,7 +654,7 @@ OnToolTextCheckScreenShot() {
         ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
         result := ocr.ocr_from_file(filePath)
         ToolCheckInfo.ToolTextCtrl.Value := result
-        A_Clipboard := result
+        SetClipboard(result)
         ; 停止监听
         SetTimer(, 0)
     }

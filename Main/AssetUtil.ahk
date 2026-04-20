@@ -1798,3 +1798,17 @@ HandleControlType(tableItem, index, ControlType) {
             tableItem.VariableMapArr[index]["分支-退出"] := true
     }
 }
+
+; 避免写入提示报错
+SetClipboard(Content) {  
+    loop 5 {  ; 最多重试5次
+        try {
+            A_Clipboard := Content
+            return true
+        } catch as err {
+            Sleep(50)  ; 等待50毫秒
+            continue
+        }
+    }
+    return false  ; 5次都失败
+}

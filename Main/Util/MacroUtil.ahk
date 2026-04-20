@@ -296,7 +296,7 @@ OnOutput(tableItem, cmd, index) {
         SendText(Content)
     }
     else if (Data.OutputType == "粘贴内容") {    ;粘贴文本
-        A_Clipboard := Content
+        SetClipboard(Content)
         ClipWait
         Send "{Blind}^v"
     }
@@ -314,7 +314,7 @@ OnOutput(tableItem, cmd, index) {
         spovice.Speak(Content)
     }
     else if (Data.OutputType == "复制到剪切板") {    ;剪切板
-        A_Clipboard := Content
+        SetClipboard(Content)
     }
 }
 
@@ -888,7 +888,7 @@ OnToolTextFilterSelectImage(*) {
     ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
     result := ocr.ocr_from_file(path)
     ToolCheckInfo.ToolTextCtrl.Value := result
-    A_Clipboard := result
+    SetClipboard(result)
 }
 
 OnClearToolText(*) {

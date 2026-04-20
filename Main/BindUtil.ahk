@@ -161,7 +161,7 @@ OnClickToolRecordSettingBtn(*) {
 
 OnToolTextFilterScreenShot(*) {
     if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
-        A_Clipboard := ""  ; 清空剪贴板
+        SetClipboard("")  ; 清空剪贴板
         Run("ms-screenclip:")
         SetTimer(OnToolTextCheckScreenShot, 500)  ; 每 500 毫秒检查一次剪贴板
     }
@@ -197,7 +197,7 @@ RunScreenCapture(callback := "") {
     scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
     if !FileExist(scPath)
         return
-    A_Clipboard := ""
+    SetClipboard("")
     if (callback != "") {
         SetTimer(callback, 500)
     }
@@ -396,7 +396,7 @@ OnFinishRecordMacro() {
     }
     macroLineStr := StrReplace(macroStr, ",", "`n")
     ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
-    A_Clipboard := macroLineStr
+    SetClipboard(macroLineStr)
 }
 
 OnClickKeyDownDownHelpBtn(*) {
