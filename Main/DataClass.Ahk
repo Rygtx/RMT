@@ -433,8 +433,8 @@ class CompareData {
         this.NameArr := ["Var1", "Var2", "Var3", "Var4"]
         this.CompareTypeArr := [1, 1, 1, 1]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量 8正则匹配
         this.VariableArr := ["Var1", "Var2", "Var3", "Var4"]
-        this.TrueControlType := "无"   ;流程控制：1无 2循环-继续 3循环-退出 4分支-退出
-        this.FalseControlType := "无"   ;流程控制：1无 2循环-继续 3循环-退出 4分支-退出
+        this.TrueControlType := "无"   ;流程控制：1无 2循环-跳过本轮 3循环-跳出 4分支-跳出
+        this.FalseControlType := "无"   ;流程控制：1无 2循环-跳过本轮 3循环-跳出 4分支-跳出
         this.TrueMacro := ""
         this.FalseMacro := ""
         this.SaveToggle := 0

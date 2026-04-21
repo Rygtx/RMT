@@ -978,6 +978,11 @@ class MacroEditGui {
 
     ;确定子指令编辑器
     OnSubGuiSureBtnClick(CommandStr) {
+        style := WinGetStyle(this.Gui.Hwnd)
+        isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+        if (!isVisible)                    
+            return
+    
         if (this.CmdEditType == 1) {
             this.OnAddCmd(CommandStr)
         }

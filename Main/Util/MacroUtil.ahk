@@ -34,12 +34,12 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
         OnTriggerMacroOnce(tableItem, macro, index)
         HandTipSound(tableItem, index, 2, isFirst, isLast)
 
-        if (tableItem.VariableMapArr[index]["循环-继续"]) {
-            tableItem.VariableMapArr[index]["循环-继续"] := false
+        if (tableItem.VariableMapArr[index]["循环-跳过本轮"]) {
+            tableItem.VariableMapArr[index]["循环-跳过本轮"] := false
         }
 
-        if (tableItem.VariableMapArr[index]["循环-退出"]) {
-            tableItem.VariableMapArr[index]["循环-退出"] := false
+        if (tableItem.VariableMapArr[index]["循环-跳出"]) {
+            tableItem.VariableMapArr[index]["循环-跳出"] := false
             break
         }
 
@@ -110,16 +110,16 @@ OnTriggerMacroOnce(tableItem, macro, index) {
             cmdArr.InsertAt(A_Index + 1, result*)
         }
 
-        if (tableItem.VariableMapArr[index]["分支-退出"]) {
-            tableItem.VariableMapArr[index]["分支-退出"] := false
+        if (tableItem.VariableMapArr[index]["分支-跳出"]) {
+            tableItem.VariableMapArr[index]["分支-跳出"] := false
             break
         }
 
-        if (tableItem.VariableMapArr[index]["循环-继续"]) {
+        if (tableItem.VariableMapArr[index]["循环-跳过本轮"]) {
             break
         }
 
-        if (tableItem.VariableMapArr[index]["循环-退出"]) {
+        if (tableItem.VariableMapArr[index]["循环-跳出"]) {
             break
         }
     }
@@ -334,12 +334,12 @@ OnLoop(tableItem, cmd, index) {
             WaitIfPaused(tableItem, index)
             OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
 
-            if (tableItem.VariableMapArr[index]["循环-继续"]) {
-                tableItem.VariableMapArr[index]["循环-继续"] := false
+            if (tableItem.VariableMapArr[index]["循环-跳过本轮"]) {
+                tableItem.VariableMapArr[index]["循环-跳过本轮"] := false
             }
 
-            if (tableItem.VariableMapArr[index]["循环-退出"]) {
-                tableItem.VariableMapArr[index]["循环-退出"] := false
+            if (tableItem.VariableMapArr[index]["循环-跳出"]) {
+                tableItem.VariableMapArr[index]["循环-跳出"] := false
                 break
             }
         }
@@ -360,12 +360,12 @@ OnLoop(tableItem, cmd, index) {
             WaitIfPaused(tableItem, index)
             OnTriggerMacroOnce(tableItem, Data.LoopBody, index)
 
-            if (tableItem.VariableMapArr[index]["循环-继续"]) {
-                tableItem.VariableMapArr[index]["循环-继续"] := false
+            if (tableItem.VariableMapArr[index]["循环-跳过本轮"]) {
+                tableItem.VariableMapArr[index]["循环-跳过本轮"] := false
             }
 
-            if (tableItem.VariableMapArr[index]["循环-退出"]) {
-                tableItem.VariableMapArr[index]["循环-退出"] := false
+            if (tableItem.VariableMapArr[index]["循环-跳出"]) {
+                tableItem.VariableMapArr[index]["循环-跳出"] := false
                 break
             }
         }

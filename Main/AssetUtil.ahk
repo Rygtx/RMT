@@ -808,9 +808,9 @@ InitSingleTableState(tableItem) {
 
         VariableMap := Map()
         VariableMap["宏循环次数"] := 0
-        VariableMap["循环-继续"] := false
-        VariableMap["循环-退出"] := false
-        VariableMap["分支-退出"] := false
+        VariableMap["循环-跳过本轮"] := false
+        VariableMap["循环-跳出"] := false
+        VariableMap["分支-跳出"] := false
         tableItem.VariableMapArr.Push(VariableMap)
     }
 }
@@ -1795,12 +1795,12 @@ DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
 
 HandleControlType(tableItem, index, ControlType) {
     switch (ControlType) {
-        case "循环-继续":
-            tableItem.VariableMapArr[index]["循环-继续"] := true
-        case "循环-退出":
-            tableItem.VariableMapArr[index]["循环-退出"] := true
-        case "分支-退出":
-            tableItem.VariableMapArr[index]["分支-退出"] := true
+        case "循环-跳过本轮":
+            tableItem.VariableMapArr[index]["循环-跳过本轮"] := true
+        case "循环-跳出":
+            tableItem.VariableMapArr[index]["循环-跳出"] := true
+        case "分支-跳出":
+            tableItem.VariableMapArr[index]["分支-跳出"] := true
     }
 }
 

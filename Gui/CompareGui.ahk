@@ -171,14 +171,14 @@ class CompareGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("真-流程控制："))
         PosX += 90
         this.TrueControlCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 125), GetLangArr(["无",
-            "循环-继续", "循环-退出", "分支-退出"]))
+            "循环-跳过本轮", "循环-跳出", "分支-跳出"]))
         this.TrueControlCon.Value := 1
 
         PosX := 235
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("假-流程控制："))
         PosX += 90
         this.FalseControlCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 125), GetLangArr(["无",
-            "循环-继续", "循环-退出", "分支-退出"]))
+            "循环-跳过本轮", "循环-跳出", "分支-跳出"]))
         this.FalseControlCon.Value := 1
 
         PosY += 40
@@ -277,9 +277,9 @@ class CompareGui {
 
     OnClickTypeHelpBtn(*) {
         str1 := GetLang("无：不进行任何流程控制操作")
-        str1 := GetLang("循环-继续：跳过后续循环体指令，继续上层循环")
-        str2 := GetLang("循环-退出：跳出上层循环")
-        str3 := GetLang("分支-退出：跳出上层分支")
+        str1 := GetLang("循环-跳过本轮：跳过后续循环体指令，继续上层循环")
+        str2 := GetLang("循环-跳出：跳出上层循环")
+        str3 := GetLang("分支-跳出：跳出上层分支")
 
         str := Format("{}`n{}`n{}", str1, str2, str3)
         MsgBox(str, GetLang("流程控制说明"))

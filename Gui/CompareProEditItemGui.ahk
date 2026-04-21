@@ -169,7 +169,7 @@ class CompareProEditItemGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("流程控制："))
         PosX += 80
         this.ControlTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 125), GetLangArr(["无",
-            "循环-继续", "循环-退出", "分支-退出"]))
+            "循环-跳过本轮", "循环-跳出", "分支-跳出"]))
         this.ControlTypeCon.Value := 1
 
         PosY += 40

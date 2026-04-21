@@ -1066,7 +1066,7 @@ Tip2：按下时再次按下，按键检测网站可能无法检测，但记事�
 真-分支指令:（可选）=True-Branch Command: (Optional)
 假-分支指令:（可选）=False-Branch Command: (Optional)
 无：不进行任何流程控制操作=None: No flow control operation
-循环-继续：跳过后续循环体指令，继续上层循环=Loop-Continue: Skip subsequent loop body instructions, continue upper loop
-循环-退出：跳出上层循环=Loop-Exit: Exit upper loop
-分支-退出：跳出上层分支=Branch-Exit: Exit upper branch
+循环-跳过本轮：跳过后续循环体指令，继续上层循环=Loop-Continue: Skip subsequent loop body instructions, continue upper loop
+循环-跳出：跳出上层循环=Loop-Exit: Exit upper loop
+分支-跳出：跳出上层分支=Branch-Exit: Exit upper branch
 流程控制说明=Flow Control Description
