@@ -75,7 +75,7 @@ class MacroEditGui {
         "Icon14", GetLang("运算"), "Icon15", GetLang("RMT指令"), "Icon16", GetLang("后台鼠标"), "Icon17", GetLang("后台按键"),
         "Icon2", GetLang("真"), "Icon18", GetLang("假"), "Icon19", GetLang("循环次数"), "Icon20", GetLang("条件"), "Icon21",
         GetLang("循环体"), "Icon22", GetLang("文本处理"), "Icon23", GetLang("数组"), "Icon24", GetLang("输入"), "Icon25",
-        GetLang("文件读写"), "Icon26")
+        GetLang("文件读写"), "Icon26", GetLang("流程控制"), "Icon27")
 
         this.InitSubGui()
     }
@@ -204,7 +204,8 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\TextOps.png")
             IL_Add(ImageListID, "Images\Soft\Arr.png")
             IL_Add(ImageListID, "Images\Soft\Input.png")
-            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26 标记一下
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;todo
         }
 
         MySoftData.RecordToggleCon := this.RecordMacroCon
@@ -895,10 +896,12 @@ class MacroEditGui {
             iconStr := this.GetCmdIconStr(GetLang("真"))
             trueRoot := this.MacroTreeViewCon.Add(GetLang("真"), root, iconStr)
             this.TreeAddSubTree(trueRoot, TrueMacro)
+            this.TreeAddControl(trueRoot, Data.TrueControlType)
 
             iconStr := this.GetCmdIconStr(GetLang("假"))
             falseRoot := this.MacroTreeViewCon.Add(GetLang("假"), root, iconStr)
             this.TreeAddSubTree(falseRoot, FalseMacro)
+            this.TreeAddControl(falseRoot, Data.FalseControlType)
         }
         else if (IsLoop) {
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
@@ -924,13 +927,24 @@ class MacroEditGui {
                 CondiRoot := this.MacroTreeViewCon.Add(CondiStr, root, iconStr)
                 MacroStr := GetLangMacro(Data.MacroArr[A_Index], 1)
                 this.TreeAddSubTree(CondiRoot, MacroStr)
+                this.TreeAddControl(CondiRoot, Data.ControlTypeArr[A_Index])
             }
 
             CondiStr := GetLang("条件：以上都不是")
             CondiRoot := this.MacroTreeViewCon.Add(CondiStr, root, iconStr)
             DefaultMacro := GetLangMacro(Data.DefaultMacro, 1)
             this.TreeAddSubTree(CondiRoot, DefaultMacro)
+            this.TreeAddControl(CondiRoot, Data.DefaultControlType)
         }
+    }
+
+    TreeAddControl(root, ControlType) {
+        if (ControlType == "无")
+            return
+
+        iconStr := this.GetCmdIconStr(GetLang("流程控制"))
+        ItemStr := GetLang("⎖流程控制：") . GetLang(ControlType)
+        this.MacroTreeViewCon.Add(ItemStr, root, iconStr)
     }
 
     TreeAddSubTree(root, CommandStr) {
@@ -1027,6 +1041,11 @@ class MacroEditGui {
             MsgBox(GetLang("已经是第一个指令了，无法上移"))
             return
         }
+        PreText := this.MacroTreeViewCon.GetText(PreItemID)
+        if (PreText == "" || SubStr(PreText, 1, 1) == "⎖") {
+            MsgBox(GetLang("不可与特殊指令进行交换"))
+            return
+        }
         this.OnSwitchCmd(PreItemID, this.CurItemID)
     }
 
@@ -1034,6 +1053,11 @@ class MacroEditGui {
         NextItemID := this.MacroTreeViewCon.GetNext(this.CurItemID)
         if (NextItemID == 0) {
             MsgBox(GetLang("已经是最后的指令了，无法下移"))
+            return
+        }
+        NextText := this.MacroTreeViewCon.GetText(NextItemID)
+        if (NextText == "" || SubStr(NextText, 1, 1) == "⎖") {
+            MsgBox(GetLang("不可与特殊指令进行交换"))
             return
         }
         this.OnSwitchCmd(this.CurItemID, NextItemID)
@@ -1170,7 +1194,9 @@ class MacroEditGui {
         rootItemID := this.MacroTreeViewCon.GetChild(ItemID)
         while (rootItemID) {
             cmdStr := this.MacroTreeViewCon.GetText(rootItemID)
-            macroStr .= cmdStr ","
+            if (cmdStr != "" && SubStr(cmdStr, 1, 1) != "⎖")
+                macroStr .= cmdStr ","
+
             rootItemID := this.MacroTreeViewCon.GetNext(rootItemID)
         }
         macroStr := Trim(macroStr, ",")

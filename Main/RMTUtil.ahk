@@ -41,6 +41,7 @@ OnSaveSetting(*) {
     IniWrite(ToolCheckInfo.RecordKeyboard, IniFile, IniSection, "RecordKeyboard")
     IniWrite(ToolCheckInfo.RecordMouse, IniFile, IniSection, "RecordMouse")
     IniWrite(ToolCheckInfo.RecordJoy, IniFile, IniSection, "RecordJoy")
+    IniWrite(ToolCheckInfo.RecordMouseKeyPoint, IniFile, IniSection, "RecordMouseKeyPoint")
     IniWrite(ToolCheckInfo.RecordMouseRelative, IniFile, IniSection, "RecordMouseRelative")
     IniWrite(ToolCheckInfo.RecordMouseTrail, IniFile, IniSection, "RecordMouseTrail")
     IniWrite(ToolCheckInfo.RecordMouseTrailLen, IniFile, IniSection, "RecordMouseTrailLen")

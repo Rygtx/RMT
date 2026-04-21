@@ -279,25 +279,6 @@ AddToolUI(index) {
     ToolCheckInfo.ToolColorCtrl := con
 
     posY += 40
-    AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("截图和自由贴："), tableItem)
-
-    isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ScreenShotHotKey)
-    CtrlType := isHotKey ? "Hotkey" : "Text"
-    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 120, posY - 3, 130), ToolCheckInfo.ScreenShotHotKey,
-    tableItem).Enabled := false
-
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 260, posY - 5, 100), GetLang("截图"), tableItem)
-    con.OnEvent("Click", OnToolScreenShot)
-
-    isHotKey := CheckIsNormalHotKey(ToolCheckInfo.FreePasteHotKey)
-    CtrlType := isHotKey ? "Hotkey" : "Text"
-    AddTableControl(CtrlType, Format("x{} y{} w{}", posX + 400, posY - 3, 130), ToolCheckInfo.FreePasteHotKey,
-    tableItem).Enabled := false
-
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 540, posY - 5, 100), GetLang("自由贴"), tableItem)
-    con.OnEvent("Click", OnToolFreePaste)
-
-    posY += 40
     AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("指令录制："), tableItem)
 
     isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ToolRecordMacroHotKey)
@@ -342,10 +323,10 @@ AddToolUI(index) {
     con.OnEvent("Click", OnClearToolText)
 
     posY += 25
-    con := ToolCheckInfo.ToolTextCtrl := AddTableControl("Edit", Format("x{} y{} w{} h{}", posX + 20, posY, 800, 100),
+    con := ToolCheckInfo.ToolTextCtrl := AddTableControl("Edit", Format("x{} y{} w{} h{}", posX + 20, posY, 800, 140),
     "", tableItem)
 
-    posY += 20
+    posY += 100
     MySoftData.TableInfo[index].underPosY := posY
 }
 
@@ -742,12 +723,17 @@ CustomTrayMenu() {
         }
         Sleep(1000)
     }
+    tipStr := MySoftData.MyGui.Title
+    if (A_IsAdmin)
+        tipStr .= "`n" GetLang("管理员权限")
+    
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Delete("&Pause Script")
     A_TrayMenu.Delete("&Suspend Hotkeys")
     A_TrayMenu.ClickCount := 1
     A_TrayMenu.Default := GetLang("显示窗口")
+    A_IconTip := tipStr  ; 鼠标悬停时显示此内容
     A_IconHidden := 0   ;0(可见) 和 1(隐藏)
     TraySetIcon("Images\Soft\rabit.ico")
 }

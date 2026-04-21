@@ -176,6 +176,7 @@ class ToolCheck {
         this.RecordAutoLoosen := ""
         this.RecordKeyboard := ""
         this.RecordMouse := ""
+        this.RecordMouseKeyPoint := ""  ;关键点位
         this.RecordMouseRelative := ""
         this.RecordMouseTrail := ""
         this.RecordMouseTrailLen := ""

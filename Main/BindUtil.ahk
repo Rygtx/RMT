@@ -356,7 +356,7 @@ OnRecordAddMacroStr(keyName, isDown) {
         ToolCheckInfo.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
     }
 
-    if (IsMouse && ToolCheckInfo.RecordMouse) {
+    if (IsMouse && ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseKeyPoint) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
         if (ToolCheckInfo.RecordLastMousePos[1] != mouseX || ToolCheckInfo.RecordLastMousePos[2] != mouseY) {   ;鼠标位置发生改变

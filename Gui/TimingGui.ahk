@@ -95,9 +95,9 @@ class TimingGui {
     OnChangeType() {
         isCustom := this.TypeCon.Value == 7
 
-        this.IntervalLabelCon.Enabled := isCustom
-        this.CustomIntervalCon.Enabled := isCustom
-        this.IntervalUnitCon.Enabled := isCustom
+        this.IntervalLabelCon.Visible := isCustom
+        this.CustomIntervalCon.Visible := isCustom
+        this.IntervalUnitCon.Visible := isCustom
     }
 
     OnSureBtnClick() {
