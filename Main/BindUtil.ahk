@@ -178,7 +178,11 @@ OnToolScreenShot(*) {
         Run("ms-screenclip:")
     }
     else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
-        RunScreenCapture()
+        scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
+        if !FileExist(scPath)
+            return
+        SetClipboard("")
+        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"')
     }
     else {
         TogSelectArea(true, OnToolScreenShotGetArea)
@@ -201,7 +205,7 @@ RunScreenCapture(callback := "") {
     if (callback != "") {
         SetTimer(callback, 500)
     }
-    Run('"' scPath '" --tool:"clipboard,save,close"')
+    Run('"' scPath '" --tool:"clipboard,close"')
 }
 
 OnToolFreePaste(*) {
