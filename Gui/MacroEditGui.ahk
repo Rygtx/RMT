@@ -895,13 +895,15 @@ class MacroEditGui {
 
             iconStr := this.GetCmdIconStr(GetLang("真"))
             trueRoot := this.MacroTreeViewCon.Add(GetLang("真"), root, iconStr)
+            ControlType := IsIf ? Data.TrueControlType : "无"
             this.TreeAddSubTree(trueRoot, TrueMacro)
-            this.TreeAddControl(trueRoot, Data.TrueControlType)
+            this.TreeAddControl(trueRoot, ControlType)
 
             iconStr := this.GetCmdIconStr(GetLang("假"))
             falseRoot := this.MacroTreeViewCon.Add(GetLang("假"), root, iconStr)
+            ControlType := IsIf ? Data.FalseControlType : "无"
             this.TreeAddSubTree(falseRoot, FalseMacro)
-            this.TreeAddControl(falseRoot, Data.FalseControlType)
+            this.TreeAddControl(falseRoot, ControlType)
         }
         else if (IsLoop) {
             iconStr := this.GetCmdIconStr(GetLang("循环次数"))
@@ -980,9 +982,9 @@ class MacroEditGui {
     OnSubGuiSureBtnClick(CommandStr) {
         style := WinGetStyle(this.Gui.Hwnd)
         isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-        if (!isVisible)                    
+        if (!isVisible)
             return
-    
+
         if (this.CmdEditType == 1) {
             this.OnAddCmd(CommandStr)
         }
