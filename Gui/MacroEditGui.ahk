@@ -205,7 +205,7 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\Arr.png")
             IL_Add(ImageListID, "Images\Soft\Input.png")
             IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26 标记一下
-            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;todo
+            IL_Add(ImageListID, "Images\Soft\Condition.png")    ;todo
         }
 
         MySoftData.RecordToggleCon := this.RecordMacroCon
