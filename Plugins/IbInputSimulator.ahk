@@ -75,7 +75,9 @@ IbSendMode(mode) {
 }
 
 IbSendDestroy() {
-    DllCall("IbInputSimulator\IbSendDestroy")
+    try {
+        DllCall("IbInputSimulator\IbSendDestroy")
+    }
     ;DllCall("FreeLibrary", "Ptr", hModule)
 }
 
