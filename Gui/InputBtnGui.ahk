@@ -43,7 +43,7 @@ class InputBtnGui {
 
         PosX := 210
         FalseBtn := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("假值"))
-        FalseBtn.OnEvent("Click", this.OnTrueBtnClick.Bind(this))
+        FalseBtn.OnEvent("Click", this.OnFalseBtnClick.Bind(this))
         this.ValueConArr.Push(FalseBtn)
 
         PosX := 110

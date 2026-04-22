@@ -69,7 +69,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 {}追加数据{}=Append {}
 {}长度={} length
 ⎖循环次数=⎖Count
-⎖循环次数:{}=⎖Loop Count: {}
+⎖循环次数：{}=⎖Loop Count: {}
 ⎖继续条件：=⎖Continue:
 ⎖退出条件：=⎖Exit:
 一维数组时，保持默认值0即可=For 1D arrays, keep the default value 0.
@@ -441,7 +441,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 循环体:=Body:
 循环条件:=Loop Condition:
 循环次数=Count
-循环次数:=Loop Count:
+循环次数：=Loop Count:
 循环次数：如指令上级存在 循环 指令，则该变量为该循环体执行的次数=Loop count: If parent has Loop, this is exec count
 循环结束提示=Loop End Prompt
 循环编辑器=Loop Editor

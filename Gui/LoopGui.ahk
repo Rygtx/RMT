@@ -53,7 +53,7 @@ class LoopGui {
 
         PosX := 20
         PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY - 2, 80, 20), GetLang("循环次数:"))
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY - 2, 80, 20), GetLang("循环次数："))
 
         PosX += 80
         this.CountCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 150), [])
