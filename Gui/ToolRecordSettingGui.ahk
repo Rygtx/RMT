@@ -185,7 +185,7 @@ class ToolRecordSettingGui {
         ToolCheckInfo.RecordHoldMuti := this.HoldMutiCon.Value
         ToolCheckInfo.RecordKeyboard := this.KeyboardTogCon.Value
         ToolCheckInfo.RecordMouse := this.MouseTogCon.Value
-        ToolCheckInfo.RecordMouseKeyPoint := this.MouseKeyPointCon
+        ToolCheckInfo.RecordMouseKeyPoint := this.MouseKeyPointCon.Value
         ToolCheckInfo.RecordMouseRelative := this.MouseRelativeTogCon.Value
         ToolCheckInfo.RecordMouseTrailInterval := this.MouseTrailIntervalCon.Value
         ToolCheckInfo.RecordMouseTrail := this.MouseTrailTogCon.Value
