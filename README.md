@@ -80,6 +80,8 @@ RMT（若梦兔）是完全免费的开源项目。
 | 📦 百度网盘 | [点击下载](https://pan.baidu.com/s/1NsS0UTgViDv6Ulo-rE-Q2Q?pwd=RMMT)| 备用通道 |
 | ☁️ 阿里云盘 | [点击下载](https://www.alipan.com/s/KdQojvKuHyn) | 备用通道 |
 
+>⚠️ 阿里云盘或者百度网盘下载软件可能文件不全 或者 系统误杀删除部分文件
+
 ---
 
 ## 🗂️ 配置共享仓库
