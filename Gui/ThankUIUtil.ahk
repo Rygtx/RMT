@@ -88,6 +88,12 @@ AddThankUI(index) {
     conInfo := ItemConInfo(con, tableItem, 1)
     tableItem.AllConArr.Push(conInfo)
 
+    posX += 150
+    con := MyGui.Add("Link", Format("x{} y{}", posX, posY),
+    '<a href="https://github.com/xland/ScreenCapture">ScreenCapture</a>')
+    conInfo := ItemConInfo(con, tableItem, 1)
+    tableItem.AllConArr.Push(conInfo)
+
     posX := OriPosX
     posY += 40
     con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", posX, posY, 850, 60), GetLang("感谢以下群友在社区中的活跃参与和宝贵建议：（QQ昵称）"))

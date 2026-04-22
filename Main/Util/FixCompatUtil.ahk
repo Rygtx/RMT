@@ -520,6 +520,12 @@ CompatCompare(filePath) {
             curFix := curFix || isFix
         }
 
+        if (!ObjHasOwnProp(Data, "TrueControlType")) {
+            Data.TrueControlType := "无"
+            Data.FalseControlType := "无"
+            curFix := true
+        }
+
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
         newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
@@ -555,6 +561,16 @@ CompatComparePro(filePath) {
         if (Data.DefaultMacro != "") {
             Data.DefaultMacro := CompatMacro(Data.DefaultMacro, &isFix)
             curFix := curFix || isFix
+        }
+
+        if (!ObjHasOwnProp(Data, "ControlTypeArr")) {
+            ControlTypeArr := []
+            loop Data.MacroArr.Length {
+                ControlTypeArr.Push("无")
+            }
+            Data.ControlTypeArr := ControlTypeArr
+            Data.DefaultControlType := "无"
+            curFix := true
         }
 
         hasFix := hasFix || curFix

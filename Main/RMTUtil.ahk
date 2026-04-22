@@ -41,6 +41,7 @@ OnSaveSetting(*) {
     IniWrite(ToolCheckInfo.RecordKeyboard, IniFile, IniSection, "RecordKeyboard")
     IniWrite(ToolCheckInfo.RecordMouse, IniFile, IniSection, "RecordMouse")
     IniWrite(ToolCheckInfo.RecordJoy, IniFile, IniSection, "RecordJoy")
+    IniWrite(ToolCheckInfo.RecordMouseKeyPoint, IniFile, IniSection, "RecordMouseKeyPoint")
     IniWrite(ToolCheckInfo.RecordMouseRelative, IniFile, IniSection, "RecordMouseRelative")
     IniWrite(ToolCheckInfo.RecordMouseTrail, IniFile, IniSection, "RecordMouseTrail")
     IniWrite(ToolCheckInfo.RecordMouseTrailLen, IniFile, IniSection, "RecordMouseTrailLen")
@@ -262,6 +263,7 @@ InitFilePath() {
     FileInstall("Images\Soft\Input.png", "Images\Soft\Input.png", 1)
     FileInstall("Images\Soft\TextOps.png", "Images\Soft\TextOps.png", 1)
     FileInstall("Images\Soft\FileIO.png", "Images\Soft\FileIO.png", 1)
+    FileInstall("Images\Soft\Control.png", "Images\Soft\Control.png", 1)
 
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
@@ -642,7 +644,7 @@ OnToolTextFilterGetArea(x1, y1, x2, y2) {
     ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
     result := ocr.ocr_from_file(filePath)
     ToolCheckInfo.ToolTextCtrl.Value := result
-    A_Clipboard := result
+    SetClipboard(result)
 }
 
 OnToolTextCheckScreenShot() {
@@ -654,7 +656,7 @@ OnToolTextCheckScreenShot() {
         ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
         result := ocr.ocr_from_file(filePath)
         ToolCheckInfo.ToolTextCtrl.Value := result
-        A_Clipboard := result
+        SetClipboard(result)
         ; 停止监听
         SetTimer(, 0)
     }

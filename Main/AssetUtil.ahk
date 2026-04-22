@@ -360,11 +360,12 @@ LoadMainSetting() {
     ToolCheckInfo.ToolCheckHotKey := IniRead(IniFile, IniSection, "ToolCheckHotKey", "!o")
     ToolCheckInfo.ToolRecordMacroHotKey := IniRead(IniFile, IniSection, "RecordMacroHotKey", "!r")
     ToolCheckInfo.ToolTextFilterHotKey := IniRead(IniFile, IniSection, "ToolTextFilterHotKey", "!u")
-    ToolCheckInfo.ScreenShotHotKey := IniRead(IniFile, IniSection, "ScreenShotHotKey", "!j")
-    ToolCheckInfo.FreePasteHotKey := IniRead(IniFile, IniSection, "FreePasteHotKey", "!m")
+    ToolCheckInfo.ScreenShotHotKey := IniRead(IniFile, IniSection, "ScreenShotHotKey", "!F1")
+    ToolCheckInfo.FreePasteHotKey := IniRead(IniFile, IniSection, "FreePasteHotKey", "!F2")
     ToolCheckInfo.RecordKeyboard := IniRead(IniFile, IniSection, "RecordKeyboard", true)
     ToolCheckInfo.RecordMouse := IniRead(IniFile, IniSection, "RecordMouse", true)
     ToolCheckInfo.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
+    ToolCheckInfo.RecordMouseKeyPoint := IniRead(IniFile, IniSection, "RecordMouseKeyPoint", true)
     ToolCheckInfo.RecordMouseRelative := IniRead(IniFile, IniSection, "RecordMouseRelative", false)
     ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", false)
     ToolCheckInfo.RecordMouseTrailLen := IniRead(IniFile, IniSection, "RecordMouseTrailLen", 100)
@@ -807,6 +808,9 @@ InitSingleTableState(tableItem) {
 
         VariableMap := Map()
         VariableMap["宏循环次数"] := 0
+        VariableMap["循环-跳过本轮"] := false
+        VariableMap["循环-跳出"] := false
+        VariableMap["分支-跳出"] := false
         tableItem.VariableMapArr.Push(VariableMap)
     }
 }
@@ -1440,9 +1444,13 @@ TryGetTabVarValue(&Value, tableItem, index, varName, variTip := true) {
     return TryGetVarValue(&Value, varName, variTip, TableVariableMap)
 }
 
-ShowNoVariableTip(variableName) {
-    if (MySoftData.NoVariableTip)
-        MsgBox(GetLang("当前环境不存在变量") variableName)
+ShowNoVariableTip(VarName) {
+    if (MySoftData.NoVariableTip) {
+        str1 := GetLang("当前环境不存在变量") VarName
+        str2 := Format(GetLang("tip1:请确保有创建变量-{}的相关指令"), VarName)
+        str3 := Format(GetLang("tip2:请确保上述指令运行过"))
+        MsgBox(Format("{}`n{}`n{}", str1, str2, str3))
+    }
 }
 
 GetRandomStr(length) {
@@ -1783,4 +1791,29 @@ DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
         default: currentComparison := false
     }
     return true
+}
+
+HandleControlType(tableItem, index, ControlType) {
+    switch (ControlType) {
+        case "循环-跳过本轮":
+            tableItem.VariableMapArr[index]["循环-跳过本轮"] := true
+        case "循环-跳出":
+            tableItem.VariableMapArr[index]["循环-跳出"] := true
+        case "分支-跳出":
+            tableItem.VariableMapArr[index]["分支-跳出"] := true
+    }
+}
+
+; 避免写入提示报错
+SetClipboard(Content) {
+    loop 5 {  ; 最多重试5次
+        try {
+            A_Clipboard := Content
+            return true
+        } catch as err {
+            Sleep(50)  ; 等待50毫秒
+            continue
+        }
+    }
+    return false  ; 5次都失败
 }

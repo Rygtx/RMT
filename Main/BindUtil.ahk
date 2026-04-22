@@ -161,7 +161,7 @@ OnClickToolRecordSettingBtn(*) {
 
 OnToolTextFilterScreenShot(*) {
     if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
-        A_Clipboard := ""  ; 清空剪贴板
+        SetClipboard("")  ; 清空剪贴板
         Run("ms-screenclip:")
         SetTimer(OnToolTextCheckScreenShot, 500)  ; 每 500 毫秒检查一次剪贴板
     }
@@ -178,7 +178,11 @@ OnToolScreenShot(*) {
         Run("ms-screenclip:")
     }
     else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
-        RunScreenCapture()
+        scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
+        if !FileExist(scPath)
+            return
+        SetClipboard("")
+        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"')
     }
     else {
         TogSelectArea(true, OnToolScreenShotGetArea)
@@ -197,11 +201,11 @@ RunScreenCapture(callback := "") {
     scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
     if !FileExist(scPath)
         return
-    A_Clipboard := ""
+    SetClipboard("")
     if (callback != "") {
         SetTimer(callback, 500)
     }
-    Run('"' scPath '" --tool:"clipboard,save,close"')
+    Run('"' scPath '" --tool:"clipboard,close"')
 }
 
 OnToolFreePaste(*) {
@@ -356,7 +360,7 @@ OnRecordAddMacroStr(keyName, isDown) {
         ToolCheckInfo.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
     }
 
-    if (IsMouse && ToolCheckInfo.RecordMouse) {
+    if (IsMouse && ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseKeyPoint) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
         if (ToolCheckInfo.RecordLastMousePos[1] != mouseX || ToolCheckInfo.RecordLastMousePos[2] != mouseY) {   ;鼠标位置发生改变
@@ -396,7 +400,7 @@ OnFinishRecordMacro() {
     }
     macroLineStr := StrReplace(macroStr, ",", "`n")
     ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
-    A_Clipboard := macroLineStr
+    SetClipboard(macroLineStr)
 }
 
 OnClickKeyDownDownHelpBtn(*) {
