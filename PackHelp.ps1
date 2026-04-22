@@ -1,4 +1,4 @@
-# RMT 帮助文档 - 一键打包（单文件 HTML）
+﻿# RMT 帮助文档 - 一键打包（单文件 HTML）
 # 用法: 右键 → 使用 PowerShell 运行
 
 $ErrorActionPreference = "Stop"
@@ -9,10 +9,12 @@ Write-Host "  RMT 帮助文档  打包工具" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WebDir = Join-Path $ScriptDir "Web"
+$WebDir = Join-Path $ScriptDir "Web/JS"
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host "[错误] 未找到 Node.js，请先安装: https://nodejs.org/" -ForegroundColor Red
+    Write-Host "`n按任意键退出..." -ForegroundColor Yellow
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 Write-Host "[1/1] Node.js $(node -v)  正在打包 ..." -ForegroundColor Green
@@ -30,4 +32,9 @@ if (Test-Path $OutputFile) {
     Write-Host "  文件大小: ${size} KB" -ForegroundColor White
     Write-Host "  双击即可用浏览器打开查看" -ForegroundColor White
     Write-Host "========================================`n" -ForegroundColor Green
+} else {
+    Write-Host "`n[警告] 未找到输出文件，打包可能失败！" -ForegroundColor Red
 }
+
+Write-Host "按任意键退出..." -ForegroundColor Yellow
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
