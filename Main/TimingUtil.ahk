@@ -54,8 +54,6 @@ class TimingScheduler {
                 continue
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
 
             if (Data.EndStamp && now >= Data.EndStamp)
                 continue
@@ -96,9 +94,6 @@ class TimingScheduler {
             index := item.index
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
-
             shouldTrigger := true
 
             if ((frontInfo := GetItemFrontInfo(tableItem, index)) != "") {
@@ -193,7 +188,7 @@ NormalizeTimingData(tableItem) {
     for index, _ in tableItem.ModeArr {
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data == "" || Data.HasOwnProp("StartStamp"))
+        if (Data.HasOwnProp("StartStamp"))
             continue
 
         Data.StartStamp := TimeStrToStamp(Data.StartTime)
@@ -210,41 +205,29 @@ CalculateNextStamp(Data, baseStamp) {
         case 1:
             return spanSeconds < 0 ? start : 0
 
-        case 2, 3, 4, 7:
-            interval := GetTimingInterval(Data)
+        case 3:
+            if (Data.CustomUnit == 6) { ; Month
+                if (spanSeconds < 0)
+                    return start
 
-            if (spanSeconds < 0)
-                return start
+                startTimeStr := DateAdd("19700101000000", start, "Seconds")
+                baseTimeStr := DateAdd("19700101000000", baseStamp, "Seconds")
 
-            count := Floor(spanSeconds / interval)
-            return start + (count + 1) * interval
+                monthsDiff := DateDiff(baseTimeStr, startTimeStr, "Months")
+                interval := Data.CustomInterval
 
-        case 5:
-            if (spanSeconds < 0)
-                return start
+                k := (monthsDiff // interval) + 1
+                nextTimeStr := DateAdd(startTimeStr, k * interval, "Months")
+                return TimeStrToStamp(nextTimeStr)
+            } else {
+                interval := GetTimingInterval(Data)
 
-            t := DateAdd("19700101000000", baseStamp, "Seconds")
-            baseStr := FormatTime(t, "yyyyMMddHHmmss")
+                if (spanSeconds < 0)
+                    return start
 
-            timeSuffix := SubStr(Data.StartTime, 7)
-            targetStr := SubStr(baseStr, 1, 6) timeSuffix
-            target := TimeStrToStamp(targetStr)
-
-            if (baseStamp < target)
-                return target
-
-            year := SubStr(baseStr, 1, 4)
-            month := Number(SubStr(baseStr, 5, 2))
-
-            ++month
-            if (month > 12)
-                month := 1, ++year
-
-            nextStr := Format("{:04}{:02}", year, month) timeSuffix
-            return TimeStrToStamp(nextStr)
-
-        default:
-            return 0
+                count := Floor(spanSeconds / interval)
+                return start + (count + 1) * interval
+            }
     }
 }
 
@@ -257,12 +240,8 @@ TimeStrToStamp(timeStr) {
 }
 
 GetTimingInterval(Data) {
-    IntervalMap := Map(2, 3600, 3, 86400, 4, 604800)
-    if (IntervalMap.Has(Data.Type))
-        return IntervalMap[Data.Type]
-
-    MultiplierMap := [1, 60, 3600, 86400, 604800]
-    return Data.CustomInterval * MultiplierMap[Data.CustomUnit]
+    IntervalMap := [1, 60, 3600, 86400, 604800]
+    return Data.CustomInterval * IntervalMap[Data.CustomUnit]
 }
 
 TimingCheckItemIfValid(tableItem, index) {
@@ -281,7 +260,7 @@ HandleOnSoftStart(tableItem) {
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data != "" && Data.Type == 6)
+        if (Data.Type == 2)
             TriggerMacroHandler(tableItem.Index, index)
     }
 }
