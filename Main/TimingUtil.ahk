@@ -54,8 +54,6 @@ class TimingScheduler {
                 continue
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
 
             if (Data.EndStamp && now >= Data.EndStamp)
                 continue
@@ -96,9 +94,6 @@ class TimingScheduler {
             index := item.index
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
-
             shouldTrigger := true
 
             if ((frontInfo := GetItemFrontInfo(tableItem, index)) != "") {
@@ -193,7 +188,7 @@ NormalizeTimingData(tableItem) {
     for index, _ in tableItem.ModeArr {
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data == "" || Data.HasOwnProp("StartStamp"))
+        if (Data.HasOwnProp("StartStamp"))
             continue
 
         Data.StartStamp := TimeStrToStamp(Data.StartTime)
@@ -210,7 +205,7 @@ CalculateNextStamp(Data, baseStamp) {
         case 1:
             return spanSeconds < 0 ? start : 0
 
-        case 7:
+        case 3:
             if (Data.CustomUnit == 6) { ; Month
                 if (spanSeconds < 0)
                     return start
@@ -265,7 +260,7 @@ HandleOnSoftStart(tableItem) {
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data != "" && Data.Type == 6)
+        if (Data.Type == 2)
             TriggerMacroHandler(tableItem.Index, index)
     }
 }

@@ -210,10 +210,10 @@ CompatTiming(filePath) {
             curFix := true
         }
 
-        ; Migrate old types (2,3,4,5) to Custom (7)
+        ; Migrate old types to new scheme (1: Once, 2: Startup, 3: Custom)
         if (Data.Type >= 2 && Data.Type <= 5) {
             oldType := Data.Type
-            Data.Type := 7
+            Data.Type := 3 ; Custom
             Data.CustomInterval := 1
             if (oldType == 2) ; Hourly
                 Data.CustomUnit := 3
@@ -223,6 +223,12 @@ CompatTiming(filePath) {
                 Data.CustomUnit := 5
             else if (oldType == 5) ; Monthly
                 Data.CustomUnit := 6
+            curFix := true
+        } else if (Data.Type == 6) { ; Old Startup
+            Data.Type := 2
+            curFix := true
+        } else if (Data.Type == 7) { ; Old Custom
+            Data.Type := 3
             curFix := true
         }
 

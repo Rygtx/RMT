@@ -30,12 +30,7 @@ class TimingGui {
 
         this.StartTimeCon.Value := this.Data.StartTime
         this.EndTimeCon.Value := this.Data.EndTime
-
-        ; Map internal Type to UI index
-        typeMap := Map(1, 1, 6, 2, 7, 3)
-        uiIndex := typeMap.Has(this.Data.Type) ? typeMap[this.Data.Type] : 3
-        this.TypeCon.Value := uiIndex
-
+        this.TypeCon.Value := this.Data.Type
         this.CustomIntervalCon.Value := this.Data.CustomInterval
         this.IntervalUnitCon.Value := this.Data.CustomUnit
     }
@@ -117,11 +112,7 @@ class TimingGui {
         Data := this.Data
         Data.StartTime := FormatTime(this.StartTimeCon.Value, "yyyyMMddHHmmss")
         Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmmss")
-
-        ; Map UI index back to internal Type
-        typeMap := [1, 6, 7]
-        Data.Type := typeMap[this.TypeCon.Value]
-
+        Data.Type := this.TypeCon.Value
         Data.CustomInterval := this.CustomIntervalCon.Value
         Data.CustomUnit := this.IntervalUnitCon.Value
         saveStr := JSON.stringify(Data, 0)
