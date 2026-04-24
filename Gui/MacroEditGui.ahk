@@ -1119,7 +1119,7 @@ class MacroEditGui {
 
             NodeItemText := this.MacroTreeViewCon.GetText(NodeItemID)
             isCondi := SubStr(NodeItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-            macroStr := macroStr == "" && isCondi ? " " : macroStr
+            macroStr := macroStr == "" && isCondi ? "空条件" : macroStr
         }
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, NodeItemID)
@@ -1249,7 +1249,10 @@ class MacroEditGui {
                 Data.DefaultMacro := Trim(macroStr)
             }
             else {
-                if (macroStr == "") {
+                if (macroStr == "空条件") {
+                    Data.MacroArr[ItemNumber] := ""
+                }
+                else if (macroStr == "") {
                     Data.VariNameArr.RemoveAt(ItemNumber)
                     Data.CompareTypeArr.RemoveAt(ItemNumber)
                     Data.VariableArr.RemoveAt(ItemNumber)

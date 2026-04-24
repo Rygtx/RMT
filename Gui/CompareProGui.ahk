@@ -146,7 +146,8 @@ class CompareProGui {
             }
             case GetLang("向上插入分支"):
             {
-                this.LVCon.Insert(this.CurItme, , GetLang("Num1 大于 Num1"), GetLang("且"), "")
+                this.Data.ControlTypeArr.InsertAt(this.CurItme, "无")
+                this.LVCon.Insert(this.CurItme, , GetLang("Var1 大于 Var1"), GetLang("且"), "")
             }
             case GetLang("向下插入分支"):
             {
@@ -154,7 +155,8 @@ class CompareProGui {
                     MsgBox(GetLang("不可向最后的分支插入"))
                     return
                 }
-                this.LVCon.Insert(this.CurItme + 1, , GetLang("Num1 大于 Num1"), GetLang("且"), "")
+                this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, "无")
+                this.LVCon.Insert(this.CurItme + 1, , GetLang("Var1 大于 Var1"), GetLang("且"), "")
             }
             case GetLang("向上移动"):
             {
