@@ -30,7 +30,12 @@ class TimingGui {
 
         this.StartTimeCon.Value := this.Data.StartTime
         this.EndTimeCon.Value := this.Data.EndTime
-        this.TypeCon.Value := this.Data.Type
+
+        ; Map internal Type to UI index
+        typeMap := Map(1, 1, 6, 2, 7, 3)
+        uiIndex := typeMap.Has(this.Data.Type) ? typeMap[this.Data.Type] : 3
+        this.TypeCon.Value := uiIndex
+
         this.CustomIntervalCon.Value := this.Data.CustomInterval
         this.IntervalUnitCon.Value := this.Data.CustomUnit
     }
@@ -56,15 +61,14 @@ class TimingGui {
         con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("定时类型："))
         con.Focus()
         PosX += 80
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w120", PosX, PosY - 3), GetLangArr(["单次", "每小时", "每天", "每周",
-            "每月", "软件启动时","自定义"]))
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w120", PosX, PosY - 3), GetLangArr(["单次", "软件启动时", "自定义"]))
         this.TypeCon.OnEvent("Change", (*) => this.OnChangeType())
         PosX += 200
         this.IntervalLabelCon := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("每次间隔："))
         PosX += 80
         this.CustomIntervalCon := MyGui.Add("Edit", Format("x{} y{} w110", PosX, PosY - 3), "")
         PosX += 115
-        this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["秒", "分钟", "小时", "天", "周"]))
+        this.IntervalUnitCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY -3), GetLangArr(["秒", "分钟", "小时", "天", "周", "月"]))
 
         PosX := 250
         PosY += 40
@@ -93,7 +97,7 @@ class TimingGui {
     }
 
     OnChangeType() {
-        isCustom := this.TypeCon.Value == 7
+        isCustom := this.TypeCon.Value == 3
 
         this.IntervalLabelCon.Visible := isCustom
         this.CustomIntervalCon.Visible := isCustom
@@ -113,7 +117,11 @@ class TimingGui {
         Data := this.Data
         Data.StartTime := FormatTime(this.StartTimeCon.Value, "yyyyMMddHHmmss")
         Data.EndTime := this.EndTimeCon.Value == "" ? "" : FormatTime(this.EndTimeCon.Value, "yyyyMMddHHmmss")
-        Data.Type := this.TypeCon.Value
+
+        ; Map UI index back to internal Type
+        typeMap := [1, 6, 7]
+        Data.Type := typeMap[this.TypeCon.Value]
+
         Data.CustomInterval := this.CustomIntervalCon.Value
         Data.CustomUnit := this.IntervalUnitCon.Value
         saveStr := JSON.stringify(Data, 0)
