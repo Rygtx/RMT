@@ -48,7 +48,9 @@ GetArray(Text) {
         Pos := GetNextSplitPos(Text, LastSplitPos)
     }
 
-    if (LastSplitPos == StrLen(Text)) {
+    if (Text == "")
+        return ResArr
+    else if (LastSplitPos == StrLen(Text)) {
         ResArr.Push("")
         return
     }
