@@ -142,7 +142,12 @@ SetToolCheckInfo() {
     MouseGetPos &mouseX, &mouseY, &winId
     try {
         ToolCheckInfo.PosStr := mouseX . "," . mouseY
-        ToolCheckInfo.ProcessName := WinGetProcessName(winId)
+        try {
+            ToolCheckInfo.ProcessName := ProcessGetName(winId)
+        }
+        catch {
+            ToolCheckInfo.ProcessName := ""
+        }
         ToolCheckInfo.ProcessTile := WinGetTitle(winId)
         ToolCheckInfo.ProcessPid := WinGetPID(winId)
         ToolCheckInfo.ProcessClass := WinGetClass(winId)
@@ -182,7 +187,8 @@ OnToolScreenShot(*) {
         if !FileExist(scPath)
             return
         SetClipboard("")
-        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"')
+        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"'
+        )
     }
     else {
         TogSelectArea(true, OnToolScreenShotGetArea)

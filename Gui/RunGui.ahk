@@ -150,7 +150,12 @@ class RunGui {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &winId
         try {
-            processName := WinGetProcessName(winId)
+            try {
+                processName := ProcessGetName(winId)
+            }
+            catch {
+                processName := ""
+            }
             this.MouseProNameCon.Value := Format(GetLang("当前鼠标下进程名:{}"), processName)
         }
     }
@@ -159,7 +164,12 @@ class RunGui {
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &winId
         try {
-            processName := WinGetProcessName(winId)
+            try {
+                processName := ProcessGetName(winId)
+            }
+            catch {
+                processName := ""
+            }
             this.PathTextCon.Value := processName
         }
 

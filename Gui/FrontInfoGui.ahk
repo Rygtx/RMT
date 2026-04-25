@@ -150,7 +150,13 @@ class FrontInfoGui {
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
-            process := WinGetProcessName(winId)
+            try {
+                process := ProcessGetName(winId)
+            }
+            catch {
+                process := ""
+            }
+
             tipStr := Format("{}{}`n{}{}`n{}{}`n{}{}", GetLang("句柄ID："), winId, GetLang("标题："), title, GetLang("窗口类："),
             className, GetLang("进程名："),
             process)
@@ -278,7 +284,12 @@ class FrontInfoGui {
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
-            process := WinGetProcessName(winId)
+            try {
+                process := ProcessGetName(winId)
+            }
+            catch {
+                process := ""
+            }
             this.InfoTextArrCon[1].Value := winId
             this.InfoTextArrCon[2].Value := title
             this.InfoTextArrCon[3].Value := className

@@ -145,7 +145,10 @@ GetProcessName() {
     MouseGetPos &mouseX, &mouseY, &winId
     name := ""
     try {
-        name := WinGetProcessName(winId)
+        name := ProcessGetName(winId)
+    }
+    catch {
+        name := ""
     }
     return name
 }
@@ -1811,7 +1814,7 @@ SetClipboard(Content) {
             A_Clipboard := Content
             return true
         } catch as err {
-            Sleep(50)  ; 等待50毫秒
+            Sleep(100)  ; 等待50毫秒
             continue
         }
     }

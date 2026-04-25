@@ -724,7 +724,12 @@ class MouseWinData {
             this.WinId := winId
             this.WinTitle := WinGetTitle(winId)
             this.WinClass := WinGetClass(winId)
-            this.WinProcess := WinGetProcessName(winId)
+            try {
+                this.WinProcess := ProcessGetName(winId)
+            }
+            catch {
+                this.WinProcess := ""
+            }
         }
         catch as e {
             this.HasError := true
