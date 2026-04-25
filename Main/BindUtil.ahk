@@ -143,7 +143,8 @@ SetToolCheckInfo() {
     try {
         ToolCheckInfo.PosStr := mouseX . "," . mouseY
         try {
-            ToolCheckInfo.ProcessName := ProcessGetName(winId)
+            WinPID := WinGetPID("ahk_id " winId)
+            ToolCheckInfo.ProcessName := ProcessGetName(WinPID)
         }
         catch {
             ToolCheckInfo.ProcessName := ""

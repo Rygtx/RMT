@@ -148,7 +148,8 @@ GetProcessName() {
     MouseGetPos &mouseX, &mouseY, &winId
     name := ""
     try {
-        name := ProcessGetName(winId)
+        WinPID := WinGetPID("ahk_id " winId)
+        name := ProcessGetName(WinPID)
     }
     catch {
         name := ""

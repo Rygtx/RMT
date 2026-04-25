@@ -151,7 +151,8 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             try {
-                process := ProcessGetName(winId)
+                WinPID := WinGetPID("ahk_id " winId)
+                process := ProcessGetName(WinPID)
             }
             catch {
                 process := ""
@@ -285,7 +286,8 @@ class FrontInfoGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             try {
-                process := ProcessGetName(winId)
+                WinPID := WinGetPID("ahk_id " winId)
+                process := ProcessGetName(WinPID)
             }
             catch {
                 process := ""

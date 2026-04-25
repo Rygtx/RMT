@@ -190,7 +190,8 @@ class BGMouseGui {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             try {
-                process := ProcessGetName(winId)
+                WinPID := WinGetPID("ahk_id " WinID)
+                process := ProcessGetName(WinPID)
             }
             catch {
                 process := ""
@@ -216,7 +217,8 @@ class BGMouseGui {
             title := WinGetTitle(oriId)
             className := WinGetClass(oriId)
             try {
-                process := ProcessGetName(oriId)
+                WinPID := WinGetPID("ahk_id " oriId)
+                process := ProcessGetName(WinPID)
             }
             catch {
                 process := ""

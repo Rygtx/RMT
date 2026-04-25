@@ -151,7 +151,8 @@ class RunGui {
         MouseGetPos &mouseX, &mouseY, &winId
         try {
             try {
-                processName := ProcessGetName(winId)
+                WinPID := WinGetPID("ahk_id " winId)
+                processName := ProcessGetName(WinPID)
             }
             catch {
                 processName := ""
@@ -165,7 +166,8 @@ class RunGui {
         MouseGetPos &mouseX, &mouseY, &winId
         try {
             try {
-                processName := ProcessGetName(winId)
+                WinPID := WinGetPID("ahk_id " winId)
+                processName := ProcessGetName(WinPID)
             }
             catch {
                 processName := ""
