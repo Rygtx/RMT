@@ -189,7 +189,13 @@ class BGMouseGui {
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
-            process := WinGetProcessName(winId)
+            try {
+                WinPID := WinGetPID("ahk_id " WinID)
+                process := ProcessGetName(WinPID)
+            }
+            catch {
+                process := ""
+            }
             this.TargetTitleCon.Value := title "⎖" className "⎖" process
         }
     }
@@ -210,7 +216,13 @@ class BGMouseGui {
 
             title := WinGetTitle(oriId)
             className := WinGetClass(oriId)
-            process := WinGetProcessName(oriId)
+            try {
+                WinPID := WinGetPID("ahk_id " oriId)
+                process := ProcessGetName(WinPID)
+            }
+            catch {
+                process := ""
+            }
 
             this.CurTitleCon.Value := Format("{}{}⎖{}⎖{}", GetLang("当前窗口信息:"), title, className, process)
         }

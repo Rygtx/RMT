@@ -462,7 +462,7 @@ class CompareProData {
         CommandStr := ""
         symbolStr := Data.LogicTypeArr[itemIndex] == 1 ? GetLang("且") : GetLang("或")
         CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在"])
+            "小于", "字符包含", "变量存在", "正则匹配"])
 
         loop Data.VariNameArr[itemIndex].Length {
             VariName := GetLang(Data.VariNameArr[itemIndex][A_Index])
@@ -570,7 +570,7 @@ class LoopData {
         CommandStr := ""
         symbolStr := Data.LogicType == 1 ? GetLang("且") : GetLang("或")
         CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
-            "小于", "字符包含", "变量存在"])
+            "小于", "字符包含", "变量存在", "正则匹配"])
 
         loop 4 {
             if (!Data.ToggleArr[A_Index])
@@ -724,7 +724,13 @@ class MouseWinData {
             this.WinId := winId
             this.WinTitle := WinGetTitle(winId)
             this.WinClass := WinGetClass(winId)
-            this.WinProcess := WinGetProcessName(winId)
+            try {
+                WinPID := WinGetPID("ahk_id " winId)
+                this.WinProcess := ProcessGetName(WinPID)
+            }
+            catch {
+                this.WinProcess := ""
+            }
         }
         catch as e {
             this.HasError := true

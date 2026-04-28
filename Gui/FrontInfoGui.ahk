@@ -48,7 +48,7 @@ class FrontInfoGui {
             this.InfoTextArrCon[A_Index].Value := infoArr[A_Index]
         }
 
-        DLVariableArr := GetGuiVarArr(1)
+        DLVariableArr := GetGuiVarArr(4)
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1
@@ -150,7 +150,14 @@ class FrontInfoGui {
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
-            process := WinGetProcessName(winId)
+            try {
+                WinPID := WinGetPID("ahk_id " winId)
+                process := ProcessGetName(WinPID)
+            }
+            catch {
+                process := ""
+            }
+
             tipStr := Format("{}{}`n{}{}`n{}{}`n{}{}", GetLang("句柄ID："), winId, GetLang("标题："), title, GetLang("窗口类："),
             className, GetLang("进程名："),
             process)
@@ -278,7 +285,13 @@ class FrontInfoGui {
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
-            process := WinGetProcessName(winId)
+            try {
+                WinPID := WinGetPID("ahk_id " winId)
+                process := ProcessGetName(WinPID)
+            }
+            catch {
+                process := ""
+            }
             this.InfoTextArrCon[1].Value := winId
             this.InfoTextArrCon[2].Value := title
             this.InfoTextArrCon[3].Value := className

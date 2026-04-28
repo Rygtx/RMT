@@ -73,6 +73,9 @@ GetHwndList(infoStr) {
         infoStr := StrReplace(infoStr, "❖")
         hwndIdStrList := StrSplit(infoStr, "|")
         for index, hwndIdStr in hwndIdStrList {
+            if (SubStr(hwndIdStr, 1, 1) = "{" && SubStr(hwndIdStr, -1) = "}")
+                hwndIdStr := SubStr(hwndIdStr, 2, -1)
+
             hasValue := TryGetVarValue(&hwnd, hwndIdStr)
             if (hasValue)
                 HwndList.Push(hwnd)
@@ -145,7 +148,11 @@ GetProcessName() {
     MouseGetPos &mouseX, &mouseY, &winId
     name := ""
     try {
-        name := WinGetProcessName(winId)
+        WinPID := WinGetPID("ahk_id " winId)
+        name := ProcessGetName(WinPID)
+    }
+    catch {
+        name := ""
     }
     return name
 }
@@ -1360,7 +1367,7 @@ GetReplaceVarText(tableItem, tableIndex, text) {
     ResText := text
     ; 替换普通变量
     for index, value in matches {
-        hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, false)
+        hasValue := TryGetTabVarValue(&variValue, tableItem, tableIndex, value, true)
         if (hasValue)
             ResText := StrReplace(ResText, "{" value "}", variValue)
     }
@@ -1811,7 +1818,7 @@ SetClipboard(Content) {
             A_Clipboard := Content
             return true
         } catch as err {
-            Sleep(50)  ; 等待50毫秒
+            Sleep(100)  ; 等待50毫秒
             continue
         }
     }

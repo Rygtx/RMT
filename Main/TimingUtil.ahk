@@ -7,7 +7,6 @@ TimingCheck() {
         return
 
     tableItem := MySoftData.TableInfo[tableIndex]
-    NormalizeTimingData(tableItem)
     HandleOnSoftStart(tableItem)
 
     global MyTimingScheduler
@@ -54,16 +53,11 @@ class TimingScheduler {
                 continue
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
 
-            if (Data.EndStamp && now >= Data.EndStamp)
-                continue
+            nextTime := CalculateNextStamp(Data, now)
 
-            Data.NextStamp := CalculateNextStamp(Data, now)
-
-            if (Data.NextStamp)
-                this.heap.Push({ time: Data.NextStamp, index: index })
+            if (nextTime)
+                this.heap.Push({ time: nextTime, index: index })
         }
 
         this.ScheduleNext()
@@ -74,9 +68,8 @@ class TimingScheduler {
             return
 
         next := this.heap.Peek()
-        now := UnixNow()
 
-        delay := (next.time - now) * 1000
+        delay := (next.time - UnixNow()) * 1000
         if (delay < 1)
             delay := 1
 
@@ -96,8 +89,6 @@ class TimingScheduler {
             index := item.index
 
             Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-            if (Data == "")
-                continue
 
             shouldTrigger := true
 
@@ -106,16 +97,13 @@ class TimingScheduler {
                     shouldTrigger := false
             }
 
-            Data.NextStamp := CalculateNextStamp(Data, Data.NextStamp)
-
-            if (Data.EndStamp && Data.NextStamp >= Data.EndStamp)
-                Data.NextStamp := 0
-
             if (shouldTrigger)
                 TriggerMacroHandler(this.tableIndex, index)
 
-            if (Data.NextStamp)
-                this.heap.Push({ time: Data.NextStamp, index: index })
+            nextTime := CalculateNextStamp(Data, item.time)
+
+            if (nextTime)
+                this.heap.Push({ time: nextTime, index: index })
         }
 
         this.ScheduleNext()
@@ -189,63 +177,51 @@ class MinHeap {
     }
 }
 
-NormalizeTimingData(tableItem) {
-    for index, _ in tableItem.ModeArr {
-
-        Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data == "" || Data.HasOwnProp("StartStamp"))
-            continue
-
-        Data.StartStamp := TimeStrToStamp(Data.StartTime)
-        Data.EndStamp := Data.EndTime != "" ? TimeStrToStamp(Data.EndTime) : 0
-        Data.NextStamp := 0
-    }
-}
-
 CalculateNextStamp(Data, baseStamp) {
-    start := Data.StartStamp
-    spanSeconds := baseStamp - start
+    start := TimeStrToStamp(Data.StartTime)
+
+    if (baseStamp < start) ; 還沒開始
+        return CheckEnd(Data, start)
 
     switch Data.Type {
-        case 1:
-            return spanSeconds < 0 ? start : 0
-
-        case 2, 3, 4, 7:
-            interval := GetTimingInterval(Data)
-
-            if (spanSeconds < 0)
-                return start
-
-            count := Floor(spanSeconds / interval)
-            return start + (count + 1) * interval
-
-        case 5:
-            if (spanSeconds < 0)
-                return start
-
-            t := DateAdd("19700101000000", baseStamp, "Seconds")
-            baseStr := FormatTime(t, "yyyyMMddHHmmss")
-
-            timeSuffix := SubStr(Data.StartTime, 7)
-            targetStr := SubStr(baseStr, 1, 6) timeSuffix
-            target := TimeStrToStamp(targetStr)
-
-            if (baseStamp < target)
-                return target
-
-            year := SubStr(baseStr, 1, 4)
-            month := Number(SubStr(baseStr, 5, 2))
-
-            ++month
-            if (month > 12)
-                month := 1, ++year
-
-            nextStr := Format("{:04}{:02}", year, month) timeSuffix
-            return TimeStrToStamp(nextStr)
-
-        default:
+        case 1: ; 單次
             return 0
+        case 3: ; 週期
+            return NextRepeatTime(Data, start, baseStamp)
     }
+
+    return 0
+}
+
+NextRepeatTime(Data, start, baseStamp) {
+    if (Data.CustomUnit == 6) {
+        next := NextMonthTime(start, baseStamp, Data.CustomInterval)
+    } else {
+        interval := GetTimingInterval(Data)
+        next := start + ((baseStamp - start) // interval + 1) * interval
+    }
+
+    return CheckEnd(Data, next)
+}
+
+NextMonthTime(start, baseStamp, interval) {
+    startStr := StampToTimeStr(start)
+    baseStr := StampToTimeStr(baseStamp)
+
+    monthsDiff := DateDiff(baseStr, startStr, "Months")
+
+    nextStr := DateAdd(startStr, ((monthsDiff // interval) + 1) * interval, "Months")
+    return TimeStrToStamp(nextStr)
+}
+
+CheckEnd(Data, nextTime) {
+    ; if (!nextTime) ; 一定會 > 0 所以沒意義
+    ;     return 0
+
+    if (Data.EndTime != "" && nextTime >= TimeStrToStamp(Data.EndTime))
+        return 0
+
+    return nextTime
 }
 
 UnixNow() {
@@ -256,13 +232,13 @@ TimeStrToStamp(timeStr) {
     return DateDiff(timeStr, "19700101000000", "Seconds")
 }
 
-GetTimingInterval(Data) {
-    IntervalMap := Map(2, 3600, 3, 86400, 4, 604800)
-    if (IntervalMap.Has(Data.Type))
-        return IntervalMap[Data.Type]
+StampToTimeStr(stamp) {
+    return DateAdd("19700101000000", stamp, "Seconds")
+}
 
-    MultiplierMap := [1, 60, 3600, 86400, 604800]
-    return Data.CustomInterval * MultiplierMap[Data.CustomUnit]
+GetTimingInterval(Data) {
+    IntervalMap := [1, 60, 3600, 86400, 604800] ; 秒 分 時 天 週
+    return Data.CustomInterval * IntervalMap[Data.CustomUnit]
 }
 
 TimingCheckItemIfValid(tableItem, index) {
@@ -281,7 +257,7 @@ HandleOnSoftStart(tableItem) {
             continue
 
         Data := GetMacroCMDData(tableItem.TimingSerialArr[index])
-        if (Data != "" && Data.Type == 6)
+        if (Data.Type == 2)
             TriggerMacroHandler(tableItem.Index, index)
     }
 }
