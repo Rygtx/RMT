@@ -11,6 +11,9 @@ class RunGui {
         this.BackPlayCon := ""
         this.VariCon := ""
         this.VariTipCon := ""
+        this.RunModeCon := ""
+        this.SaveNameConArr := []
+        this.SaveNameTipConArr := []
 
         this.RefreshAction := () => this.RefreshProcessName()
         this.Data := ""
@@ -71,6 +74,36 @@ class RunGui {
 
         PosY += 25
         PosX := 10
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("运行模式："))
+
+        PosX += 70
+        ModeArr := [GetLang("不等待"), GetLang("等待+获取返回值"), GetLang("等待+取得完整输出")]
+        this.RunModeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R3", PosX, PosY - 3, 120), ModeArr)
+        this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
+
+        PosX += 130
+        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值:"))
+        this.SaveNameTipConArr.Push(tip1)
+        PosX += 50
+        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
+        this.SaveNameConArr.Push(con1)
+
+        PosX += 70
+        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出:"))
+        this.SaveNameTipConArr.Push(tip2)
+        PosX += 40
+        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
+        this.SaveNameConArr.Push(con2)
+
+        PosX += 70
+        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误:"))
+        this.SaveNameTipConArr.Push(tip3)
+        PosX += 40
+        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
+        this.SaveNameConArr.Push(con3)
+
+        PosY += 25
+        PosX := 10
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("支持类别：进程、网址、文件等等"))
 
         PosY += 25
@@ -106,7 +139,29 @@ class RunGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 335))
+        MyGui.Show(Format("w{} h{}", 600, 360))
+    }
+
+    OnModeChange() {
+        val := this.RunModeCon.Value
+        if (val == 1) {
+            loop 3 {
+                this.SaveNameTipConArr[A_Index].Enabled := false
+                this.SaveNameConArr[A_Index].Enabled := false
+            }
+        } else if (val == 2) {
+            this.SaveNameTipConArr[1].Enabled := true
+            this.SaveNameConArr[1].Enabled := true
+            loop 2 {
+                this.SaveNameTipConArr[A_Index + 1].Enabled := false
+                this.SaveNameConArr[A_Index + 1].Enabled := false
+            }
+        } else {
+            loop 3 {
+                this.SaveNameTipConArr[A_Index].Enabled := true
+                this.SaveNameConArr[A_Index].Enabled := true
+            }
+        }
     }
 
     Init(cmd) {
@@ -122,6 +177,14 @@ class RunGui {
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1
+
+        this.RunModeCon.Value := this.Data.RunMode
+        loop 3 {
+            this.SaveNameConArr[A_Index].Delete()
+            this.SaveNameConArr[A_Index].Add(GetGuiVarArr(1))
+            this.SaveNameConArr[A_Index].Text := this.Data.SaveNameArr[A_Index]
+        }
+        this.OnModeChange()
     }
 
     GetCommandStr() {
@@ -200,6 +263,10 @@ class RunGui {
     SaveRunData() {
         this.Data.RunPath := GetLangStr(this.PathTextCon.Value, 2)
         this.Data.BackPlay := this.BackPlayCon.Value
+        this.Data.RunMode := this.RunModeCon.Value
+        loop 3 {
+            this.Data.SaveNameArr[A_Index] := this.SaveNameConArr[A_Index].Text
+        }
 
         SaveMacroCMDData(this.Data)
     }
