@@ -173,7 +173,7 @@ class RunGui {
         this.PathTextCon.Value := this.Data.RunPath
         this.BackPlayCon.Value := this.Data.BackPlay
 
-        DLVariableArr := GetGuiVarArr(2)
+        DLVariableArr := GetGuiVarArr(1)
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1
@@ -181,7 +181,7 @@ class RunGui {
         this.RunModeCon.Value := this.Data.RunMode
         loop 3 {
             this.SaveNameConArr[A_Index].Delete()
-            this.SaveNameConArr[A_Index].Add(GetGuiVarArr(1))
+            this.SaveNameConArr[A_Index].Add(GetGuiVarArr(0))
             this.SaveNameConArr[A_Index].Text := this.Data.SaveNameArr[A_Index]
         }
         this.OnModeChange()
