@@ -155,7 +155,7 @@ OnRunFile(tableItem, cmd, index) {
         Run(processedPath)
     } else if (Data.RunMode == 2) {
         exitCode := RunWait(processedPath)
-        MySetGlobalVariable([Data.SaveName], [exitCode], false)
+        MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
     } else if (Data.RunMode == 3) {
         shell := ComObject("WScript.Shell")
         exec := shell.Exec(processedPath)
@@ -170,13 +170,11 @@ OnRunFile(tableItem, cmd, index) {
             err .= exec.StdErr.ReadAll()
         }
 
-        resObj := {
-            stdout: output,
-            stderr: err,
-            exitCode: exec.ExitCode
-        }
-
-        MySetGlobalVariable([Data.SaveName], [resObj], false)
+        MySetGlobalVariable(
+            [Data.SaveNameArr[2], Data.SaveNameArr[3], Data.SaveNameArr[1]],
+            [output, err, exec.ExitCode],
+            false
+        )
     }
 }
 
