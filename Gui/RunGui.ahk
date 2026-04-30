@@ -122,11 +122,11 @@ class RunGui {
         this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), [])
 
         PosX += 140
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量名"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("追加名"))
         btnCon.OnEvent("Click", (*) => this.OnClickAddVarNameBtn())
 
-        PosX += 110
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 100, 30), GetLang("追加变量值"))
+        PosX += 90
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("追加值"))
         btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
 
         PosY += 45
