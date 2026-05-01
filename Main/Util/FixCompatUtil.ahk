@@ -210,6 +210,28 @@ CompatTiming(filePath) {
             curFix := true
         }
 
+        ; Migrate old types to new scheme (1: Once, 2: Startup, 3: Custom)
+        if (Data.Type >= 2 && Data.Type <= 5) {
+            oldType := Data.Type
+            Data.Type := 3 ; Custom
+            Data.CustomInterval := 1
+            if (oldType == 2) ; Hourly
+                Data.CustomUnit := 3
+            else if (oldType == 3) ; Daily
+                Data.CustomUnit := 4
+            else if (oldType == 4) ; Weekly
+                Data.CustomUnit := 5
+            else if (oldType == 5) ; Monthly
+                Data.CustomUnit := 6
+            curFix := true
+        } else if (Data.Type == 6) { ; Old Startup
+            Data.Type := 2
+            curFix := true
+        } else if (Data.Type == 7) { ; Old Custom
+            Data.Type := 3
+            curFix := true
+        }
+
         ; Force re-calculation of relative stamps
         if (curFix || Data.HasOwnProp("StartStamp")) {
             if (Data.HasOwnProp("StartStamp")) {

@@ -261,7 +261,8 @@ class FileIOGui {
         IsExcel := CurType == GetLang("读取Excel") || CurType == GetLang("写入Excel")
         IsText := CurType == GetLang("读取文本文件") || CurType == GetLang("写入文本文件")
 
-        IsExcelRange := IsExcel && (CurMode == GetLang("指定行") || CurMode == GetLang("指定列") || CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列"))
+        IsExcelRange := IsExcel && (CurMode == GetLang("指定行") || CurMode == GetLang("指定列") || CurMode == GetLang(
+            "指定区域-行") || CurMode == GetLang("指定区域-列"))
         IsTextRange := IsText && CurMode == GetLang("逐行读取")
         IsExcelResOnlyVar := IsRead && IsExcel && CurMode == GetLang("单元格")
         IsTextResOnlyVar := IsRead && IsText && (CurMode == GetLang("读取全部内容") || CurMode == GetLang("指定行"))
@@ -298,9 +299,9 @@ class FileIOGui {
         CurType := this.OperTypeCon.Text
         IsExcel := CurType == GetLang("读取Excel") || CurType == GetLang("写入Excel")
         IsText := CurType == GetLang("读取文本文件") || CurType == GetLang("写入文本文件")
-        SymbolStr := IsExcel ? "Excel Files(*.xlsx)" : ""
+        SymbolStr := IsExcel ? "Excel Files(*.xlsx; *.xls)" : ""
         SymbolStr := IsText ? "Text Files(*.txt)" : SymbolStr
-    
+
         path := FileSelect(1, , GetLang("选择输入的源文件"), SymbolStr)
         this.FilePathCon.Value := path
     }
@@ -339,6 +340,23 @@ class FileIOGui {
 
         if (!CheckVarNameIfValid(this.SaveNameCon.Text))
             return false
+
+        CurType := this.OperTypeCon.Text
+        CurMode := this.OperModeCon.Text
+        IsRead := CurType == GetLang("读取Excel") || CurType == GetLang("读取文本文件")
+        HasExcelRegion := IsRead && (CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列"))
+        if (HasExcelRegion) {
+            if (IsInteger(this.RowCon.Text) && IsInteger(this.RowEndCon.Text)
+            && this.RowCon.Text >= this.RowEndCon.Text) {
+                MsgBox("起始行号必须小于终止行号")
+                return false
+            }
+            if (IsInteger(this.ColCon.Text) && IsInteger(this.ColEndCon.Text)
+            && this.ColCon.Text >= this.ColEndCon.Text) {
+                MsgBox("起始列号必须小于终止列号")
+                return false
+            }
+        }
 
         return true
     }

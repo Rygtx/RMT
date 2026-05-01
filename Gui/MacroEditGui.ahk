@@ -410,10 +410,12 @@ class MacroEditGui {
                 this.ToolMenu.Check(GetLang("指令显示"))
         }
 
-        exStyle := DllCall("GetWindowLongPtr", "Ptr", this.Gui.Hwnd, "Int", -20, "UInt") ; GWL_EXSTYLE = -20
-        isTop := (exStyle & 0x00000008)
-        if (isTop) {
-            this.ToolMenu.Check(GetLang("窗口置顶"))
+        try {
+            exStyle := DllCall("GetWindowLongPtr", "Ptr", this.Gui.Hwnd, "Int", -20, "UInt") ; GWL_EXSTYLE = -20
+            isTop := (exStyle & 0x00000008)
+            if (isTop) {
+                this.ToolMenu.Check(GetLang("窗口置顶"))
+            }
         }
 
         this.Gui.MenuBar := MyMenuBar
@@ -1119,7 +1121,7 @@ class MacroEditGui {
 
             NodeItemText := this.MacroTreeViewCon.GetText(NodeItemID)
             isCondi := SubStr(NodeItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-            macroStr := macroStr == "" && isCondi ? " " : macroStr
+            macroStr := macroStr == "" && isCondi ? "空条件" : macroStr
         }
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, NodeItemID)
@@ -1249,7 +1251,10 @@ class MacroEditGui {
                 Data.DefaultMacro := Trim(macroStr)
             }
             else {
-                if (macroStr == "") {
+                if (macroStr == "空条件") {
+                    Data.MacroArr[ItemNumber] := ""
+                }
+                else if (macroStr == "") {
                     Data.VariNameArr.RemoveAt(ItemNumber)
                     Data.CompareTypeArr.RemoveAt(ItemNumber)
                     Data.VariableArr.RemoveAt(ItemNumber)
