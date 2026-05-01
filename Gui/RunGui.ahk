@@ -63,6 +63,51 @@ class RunGui {
 
         PosX := 10
         PosY += 30
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("模式："))
+
+        PosX += 40
+        ModeArr := [GetLang("不等待"), GetLang("等待+返回值"), GetLang("等待+完整输出")]
+        this.RunModeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R3", PosX, PosY - 3, 110), ModeArr)
+        this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
+
+        PosX += 120
+        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值:"))
+        this.SaveNameTipConArr.Push(tip1)
+        PosX += 50
+        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 70), [])
+        this.SaveNameConArr.Push(con1)
+
+        PosX += 80
+        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出:"))
+        this.SaveNameTipConArr.Push(tip2)
+        PosX += 40
+        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 70), [])
+        this.SaveNameConArr.Push(con2)
+
+        PosX += 80
+        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误:"))
+        this.SaveNameTipConArr.Push(tip3)
+        PosX += 40
+        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
+        this.SaveNameConArr.Push(con3)
+
+        PosY += 30
+        PosX := 10
+        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量："))
+
+        PosX += 40
+        this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 110), [])
+
+        PosX += 120
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 60, 25), GetLang("追加名"))
+        btnCon.OnEvent("Click", (*) => this.OnClickAddVarNameBtn())
+
+        PosX += 70
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 60, 25), GetLang("追加值"))
+        btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
+
+        PosX := 10
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("路径："))
 
         PosX += 40
@@ -71,36 +116,6 @@ class RunGui {
         PosX += 355
         btnCon := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("选择文件"))
         btnCon.OnEvent("Click", (*) => this.OnClickFileSelectBtn())
-
-        PosY += 25
-        PosX := 10
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("运行模式："))
-
-        PosX += 70
-        ModeArr := [GetLang("不等待"), GetLang("等待+获取返回值"), GetLang("等待+取得完整输出")]
-        this.RunModeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R3", PosX, PosY - 3, 120), ModeArr)
-        this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
-
-        PosX += 130
-        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值:"))
-        this.SaveNameTipConArr.Push(tip1)
-        PosX += 50
-        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
-        this.SaveNameConArr.Push(con1)
-
-        PosX += 70
-        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出:"))
-        this.SaveNameTipConArr.Push(tip2)
-        PosX += 40
-        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
-        this.SaveNameConArr.Push(con2)
-
-        PosX += 70
-        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误:"))
-        this.SaveNameTipConArr.Push(tip3)
-        PosX += 40
-        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
-        this.SaveNameConArr.Push(con3)
 
         PosY += 25
         PosX := 10
@@ -115,21 +130,6 @@ class RunGui {
         this.BackPlayCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 400), GetLang("后台播放mp3文件"))
 
         PosY += 30
-        PosX := 10
-        this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("变量"))
-
-        PosX += 40
-        this.VariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), [])
-
-        PosX += 140
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("追加名"))
-        btnCon.OnEvent("Click", (*) => this.OnClickAddVarNameBtn())
-
-        PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("追加值"))
-        btnCon.OnEvent("Click", (*) => this.OnClickAddVarValueBtn())
-
-        PosY += 45
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 400, 20), GetLang("路径是进程时：该进程务必属于系统软件，或者有系统变量环境"))
 
@@ -146,20 +146,20 @@ class RunGui {
         val := this.RunModeCon.Value
         if (val == 1) {
             loop 3 {
-                this.SaveNameTipConArr[A_Index].Enabled := false
-                this.SaveNameConArr[A_Index].Enabled := false
+                this.SaveNameTipConArr[A_Index].Visible := false
+                this.SaveNameConArr[A_Index].Visible := false
             }
         } else if (val == 2) {
-            this.SaveNameTipConArr[1].Enabled := true
-            this.SaveNameConArr[1].Enabled := true
+            this.SaveNameTipConArr[1].Visible := true
+            this.SaveNameConArr[1].Visible := true
             loop 2 {
-                this.SaveNameTipConArr[A_Index + 1].Enabled := false
-                this.SaveNameConArr[A_Index + 1].Enabled := false
+                this.SaveNameTipConArr[A_Index + 1].Visible := false
+                this.SaveNameConArr[A_Index + 1].Visible := false
             }
         } else {
             loop 3 {
-                this.SaveNameTipConArr[A_Index].Enabled := true
-                this.SaveNameConArr[A_Index].Enabled := true
+                this.SaveNameTipConArr[A_Index].Visible := true
+                this.SaveNameConArr[A_Index].Visible := true
             }
         }
     }
