@@ -71,21 +71,21 @@ class RunGui {
         this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
 
         PosX += 120
-        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值:"))
+        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值："))
         this.SaveNameTipConArr.Push(tip1)
         PosX += 50
         con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 70), [])
         this.SaveNameConArr.Push(con1)
 
         PosX += 80
-        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出:"))
+        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出："))
         this.SaveNameTipConArr.Push(tip2)
         PosX += 40
         con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 70), [])
         this.SaveNameConArr.Push(con2)
 
         PosX += 80
-        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误:"))
+        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误："))
         this.SaveNameTipConArr.Push(tip3)
         PosX += 40
         con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 60), [])
