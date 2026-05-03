@@ -939,6 +939,8 @@ OnTextOps(tableItem, cmd, index) {
             TextOpsUpOrLow(Data, tableItem, index)
         case "文本统计":
             TextOpsStatistics(Data, tableItem, index)
+        case "文本拼接":
+            TextOpsConcat(Data, tableItem, index)
     }
 }
 
