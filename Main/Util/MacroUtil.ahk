@@ -151,7 +151,32 @@ OnRunFile(tableItem, cmd, index) {
         return
     }
     processedPath := GetReplaceVarText(tableItem, index, Data.RunPath)
-    Run(processedPath)
+
+    if (Data.RunMode == 1) {
+        Run(processedPath)
+    } else if (Data.RunMode == 2) {
+        exitCode := RunWait(processedPath)
+        MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
+    } else if (Data.RunMode == 3) {
+        shell := ComObject("WScript.Shell")
+        exec := shell.Exec(processedPath)
+
+        output := ""
+        while !exec.StdOut.AtEndOfStream {
+            output .= exec.StdOut.ReadAll()
+        }
+
+        err := ""
+        while !exec.StdErr.AtEndOfStream {
+            err .= exec.StdErr.ReadAll()
+        }
+
+        MySetGlobalVariable(
+            [Data.SaveNameArr[2], Data.SaveNameArr[3], Data.SaveNameArr[1]],
+            [output, err, exec.ExitCode],
+            false
+        )
+    }
 }
 
 OnCompare(tableItem, cmd, index) {

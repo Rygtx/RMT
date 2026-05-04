@@ -504,6 +504,8 @@ class RunData {
         this.SerialStr := ""
         this.RunPath := ""
         this.BackPlay := false
+        this.RunMode := 1
+        this.SaveNameArr := ["ExitCode", "StdOut", "StdErr"]
     }
 }
 
