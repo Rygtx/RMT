@@ -27,6 +27,7 @@ OnSaveSetting(*) {
     IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
     IniWrite(MySoftData.SplitLineCtrl.Value, IniFile, IniSection, "ShowSplitLine")
     IniWrite(MySoftData.FixedMenuWheelCtrl.Value, IniFile, IniSection, "FixedMenuWheel")
+    IniWrite(MySoftData.ModalSubGuiCtrl.Value, IniFile, IniSection, "IsModalSubGui")
     IniWrite(MySoftData.MutiThreadNumCtrl.Value, IniFile, IniSection, "MutiThreadNum")
     IniWrite(MySoftData.SoftBGColorCon.Value, IniFile, IniSection, "SoftBGColor")
     IniWrite(MySoftData.NoVariableTipCtrl.Value, IniFile, IniSection, "NoVariableTip")
@@ -264,6 +265,7 @@ InitFilePath() {
     FileInstall("Images\Soft\TextOps.png", "Images\Soft\TextOps.png", 1)
     FileInstall("Images\Soft\FileIO.png", "Images\Soft\FileIO.png", 1)
     FileInstall("Images\Soft\Control.png", "Images\Soft\Control.png", 1)
+    FileInstall("Images\Soft\WindowManage.png", "Images\Soft\WindowManage.png", 1)
 
     global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
@@ -289,6 +291,7 @@ InitFilePath() {
     global BGMouseFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
     global InputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\InputFile.ini"
     global FileIOFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
+    global WindowManageFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WindowManageFile.ini"
 }
 
 SubMacroStopAction(tableIndex, itemIndex) {
@@ -310,9 +313,9 @@ SetGlobalArray(Name, Value) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -323,9 +326,9 @@ CloneGlobalArray(SourceArr, NewArrName) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -336,9 +339,9 @@ DeleteGlobalArray(ArrName) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -351,9 +354,9 @@ ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -366,9 +369,9 @@ InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -380,9 +383,9 @@ RemoveAtGlobalArray(ArrName, MainIndex, Index) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], CMDStr)
         }
     }
 }
@@ -411,9 +414,9 @@ SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, NameValueCMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], NameValueCMDStr)
         }
     }
 }
@@ -435,9 +438,9 @@ DelGlobalVariable(NameArr) {
     MyVarListenGui.Refresh()
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, NameValueCMDStr)
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], NameValueCMDStr)
         }
     }
 }
@@ -445,10 +448,10 @@ DelGlobalVariable(NameArr) {
 SetCMDTipValue(value) {
     IsMuti := MyWorkPool.CheckEnableMutiThread()
     if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
+        workerList := MyWorkPool.GetActiveWorkerList()
+        loop workerList.Length {
             str := Format("CMDTip_{}", value)
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, str)
+            MyWorkPool.SendMessage(WM_COPYDATA, workerList[A_Index], str)
         }
     }
 }
@@ -1071,4 +1074,60 @@ UpdateMacroRunningCount(LastState, State) {
         MySoftData.IsMacroWorking := curState
         MyCMDTipGui.OnToggleMacroWorkState()
     }
+}
+
+ValidateCmdPath(&Data, pathFieldName, selectTitle, filter, tableItem := "", index := 1, showSelect := true) {
+    if (!ObjHasOwnProp(Data, pathFieldName))
+        return true
+
+    rawPath := Data.%pathFieldName%
+    hasVariable := InStr(rawPath, "{") && InStr(rawPath, "}")
+
+    if (!hasVariable) {
+        if (rawPath == "" || FileExist(rawPath))
+            return true
+
+        if (!showSelect)
+            return false
+
+        tipStr := Format(GetLang("路径 '{}' 不存在，请重新选择"), rawPath)
+        result := CustomMsgBox(tipStr, GetLang("路径缺失"), GetLang("选择文件|跳过本条指令"))
+
+        if (result == 2)
+            return false
+
+        newPath := FileSelect(1, , GetLang(selectTitle), filter)
+        if (newPath == "")
+            return false
+
+        Data.%pathFieldName% := newPath
+        SaveMacroCMDData(Data)
+        return true
+    }
+
+    actualPath := GetReplaceVarText(tableItem, index, rawPath)
+
+    if (actualPath != "" && FileExist(actualPath))
+        return true
+
+    if (!showSelect)
+        return false
+
+    tipStr := Format("{}`n`n{}: {}`n{}: {}",
+        GetLang("变量路径解析后文件不存在"),
+        GetLang("原始配置"), rawPath,
+        GetLang("解析为"), actualPath == "" ? GetLang("(空值)") : actualPath)
+
+    result := CustomMsgBox(tipStr, GetLang("变量路径错误"), GetLang("覆盖变量|跳过本条指令"))
+
+    if (result == 2)
+        return false
+
+    newPath := FileSelect(1, , GetLang(selectTitle), filter)
+    if (newPath == "")
+        return false
+
+    Data.%pathFieldName% := newPath
+    SaveMacroCMDData(Data)
+    return true
 }
