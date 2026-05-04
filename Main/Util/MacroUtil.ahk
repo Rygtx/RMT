@@ -154,21 +154,27 @@ OnRunFile(tableItem, cmd, index) {
 
     if (Data.RunMode == 1) {
         Run(processedPath)
+
     } else if (Data.RunMode == 2) {
         exitCode := RunWait(processedPath)
         MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
+
     } else if (Data.RunMode == 3) {
         shell := ComObject("WScript.Shell")
         exec := shell.Exec(processedPath)
 
         output := ""
-        while !exec.StdOut.AtEndOfStream {
-            output .= exec.StdOut.ReadAll()
-        }
-
         err := ""
-        while !exec.StdErr.AtEndOfStream {
-            err .= exec.StdErr.ReadAll()
+
+        while (!exec.StdOut.AtEndOfStream || !exec.StdErr.AtEndOfStream) {
+
+            if !exec.StdOut.AtEndOfStream
+                output .= exec.StdOut.Read(1024)
+
+            if !exec.StdErr.AtEndOfStream
+                err .= exec.StdErr.Read(1024)
+
+            Sleep(10)
         }
 
         MySetGlobalVariable(
