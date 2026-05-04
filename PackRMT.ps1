@@ -120,7 +120,8 @@ function Get-Version {
         return $null
     }
     $content = Get-Content $uiUtil -Raw
-    if ($content -match 'MyGui\.Title\s*:=\s*"RMTv(\d+\.\d+\.\d+)"') {
+    # 匹配 RMTv2.1.2 或 RMTv2.0 格式
+    if ($content -match 'MyGui\.Title\s*:=\s*"RMTv(\d+(?:\.\d+)?(?:\.\d+)?)"') {
         $version = $matches[1]
         Write-Log "  版本号: v$version" "Gray"
         return $version
