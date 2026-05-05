@@ -210,7 +210,7 @@ GetNextImageSerial(baseDir := "") {
         baseDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot"
 
     maxSerial := 0
-    Loop Files, baseDir "\*.png" {
+    loop files, baseDir "\*.png" {
         if (RegExMatch(A_LoopFileName, "^(\d+)\.png$", &match)) {
             serial := Integer(match[1])
             if (serial > maxSerial)
@@ -1960,7 +1960,7 @@ UnloadEnglishOcr() {
 
 CheckOcrIdle() {
     global MyChineseOcr, MyEnglishOcr, LastChineseOcrUseTime, LastEnglishOcrUseTime, OCR_IDLE_TIMEOUT
-    
+
     currentTime := A_TickCount
 
     if (MyChineseOcr && (currentTime - LastChineseOcrUseTime > OCR_IDLE_TIMEOUT)) {

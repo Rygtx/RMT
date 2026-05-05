@@ -844,6 +844,7 @@ OnRMTCMD(tableItem, cmd, index) {
         BlockInput true
     }
     else {
+        cmd := StrReplace(cmd, "_", "⫶")
         MyExcuteRMTCMDAction(cmd)
     }
 }
