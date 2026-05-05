@@ -5,7 +5,6 @@ const vm = require('vm');
 const WEB_DIR = path.dirname(__dirname);
 const ROOT_DIR = path.dirname(WEB_DIR);
 const OUTPUTS = [
-  path.join(ROOT_DIR, 'RMT帮助文档.html'),
   path.join(ROOT_DIR, 'index.html')
 ];
 
