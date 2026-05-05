@@ -1905,3 +1905,55 @@ ValidateCmdPath(&Data, pathFieldName, selectTitle, filter, tableItem := "", inde
     SaveMacroCMDData(Data)
     return true
 }
+
+; ===== OCR 懒加载/定时回收函数 =====
+
+global LastChineseOcrUseTime := 0
+global LastEnglishOcrUseTime := 0
+global OCR_IDLE_TIMEOUT := 300000
+
+GetChineseOcr() {
+    global MyChineseOcr, LastChineseOcrUseTime
+    if (!MyChineseOcr) {
+        MyChineseOcr := RapidOcr(A_ScriptDir)
+    }
+    LastChineseOcrUseTime := A_TickCount
+    return MyChineseOcr
+}
+
+GetEnglishOcr() {
+    global MyEnglishOcr, LastEnglishOcrUseTime
+    if (!MyEnglishOcr) {
+        MyEnglishOcr := RapidOcr(A_ScriptDir, 2)
+    }
+    LastEnglishOcrUseTime := A_TickCount
+    return MyEnglishOcr
+}
+
+UnloadChineseOcr() {
+    global MyChineseOcr
+    if (MyChineseOcr) {
+        MyChineseOcr := ""
+    }
+}
+
+UnloadEnglishOcr() {
+    global MyEnglishOcr
+    if (MyEnglishOcr) {
+        MyEnglishOcr := ""
+    }
+}
+
+CheckOcrIdle() {
+    global MyChineseOcr, MyEnglishOcr, LastChineseOcrUseTime, LastEnglishOcrUseTime, OCR_IDLE_TIMEOUT
+    
+    currentTime := A_TickCount
+
+    if (MyChineseOcr && (currentTime - LastChineseOcrUseTime > OCR_IDLE_TIMEOUT)) {
+        UnloadChineseOcr()
+    }
+
+    if (MyEnglishOcr && (currentTime - LastEnglishOcrUseTime > OCR_IDLE_TIMEOUT)) {
+        UnloadEnglishOcr()
+    }
+}
