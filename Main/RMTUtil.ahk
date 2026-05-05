@@ -155,8 +155,8 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
 
 PluginInit() {
     global MyWorkPool := WorkPool()
-    global MyChineseOcr := RapidOcr(A_ScriptDir)
-    global MyEnglishOcr := RapidOcr(A_ScriptDir, 2)
+    global MyChineseOcr := 0  ; 懒加载：首次使用时才初始化
+    global MyEnglishOcr := 0   ; 懒加载：首次使用时才初始化
     global MyPToken := Gdip_Startup()
 
     if (MySoftData.HasJoyMacro)
@@ -175,6 +175,8 @@ PluginInit() {
     RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
     RMT_ASM := CLR_LoadLibrary(RMTPath)   ;加载RMT程序集
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
+
+    SetTimer(CheckOcrIdle, 60000)
 }
 
 OnToolAlwaysOnTop(*) {
@@ -644,7 +646,7 @@ ScreenShot(X1, Y1, X2, Y2, FileName) {
 OnToolTextFilterGetArea(x1, y1, x2, y2) {
     filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
     ScreenShot(x1, y1, x2, y2, filePath)
-    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
+    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_file(filePath)
     ToolCheckInfo.ToolTextCtrl.Value := result
     SetClipboard(result)
@@ -656,7 +658,7 @@ OnToolTextCheckScreenShot() {
     {
         filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
         SaveClipToBitmap(filePath)
-        ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
+        ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
         result := ocr.ocr_from_file(filePath)
         ToolCheckInfo.ToolTextCtrl.Value := result
         SetClipboard(result)
