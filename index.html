@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RMT 帮助文档</title>
+<title>RMT 帮助文档 - 搜索侧栏版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5f7fa;color:#333;display:flex;height:100vh;overflow:hidden}
@@ -37,11 +37,57 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 .hidden{display:none!important}
 @media(max-width:800px){.sidebar{width:56px}.sidebar h1{font-size:11px;padding:14px 6px;text-align:center}.nav button{padding:10px 6px;font-size:11px;text-align:center}.nav button span:last-child{display:none}}
 </style>
+<style>
+.sidebar{width:280px}
+.sidebar-search{position:relative;padding:10px;border-bottom:1px solid #2a2a4a;background:#151c34}
+.search-label{display:block;margin-bottom:6px;font-size:12px;font-weight:600;color:#dbe7ff}
+.doc-search-input{width:100%;height:34px;border:1px solid #384767;border-radius:6px;background:#f8fafc;color:#1f2937;font-size:13px;padding:0 10px;outline:none}
+.doc-search-input:focus{border-color:#7fa0ff;box-shadow:0 0 0 3px rgba(127,160,255,.18)}
+.doc-search-clear{width:100%;height:32px;margin-top:7px;border:1px solid #384767;border-radius:6px;background:#202b4a;color:#e6edff;font-size:12.5px;cursor:pointer}
+.doc-search-clear:hover{background:#2b3b68;border-color:#536897}
+.search-options{display:flex;align-items:center;gap:12px;margin-top:8px}
+.search-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#dbe7ff;white-space:nowrap}
+.search-toggle input{accent-color:#7fa0ff}
+.search-toggle[data-tip]{position:relative}
+.search-toggle[data-tip]:hover::after,.search-toggle[data-tip]:focus-within::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:0;width:220px;padding:8px 10px;border:1px solid #384767;border-radius:6px;background:#f8fafc;color:#334155;font-size:12px;line-height:1.45;white-space:normal;box-shadow:0 8px 20px rgba(0,0,0,.28);z-index:40}
+.search-status{margin-top:7px;font-size:12px;line-height:1.45;color:#9fb0ca}
+.search-results{display:none;position:absolute;left:10px;right:10px;top:calc(100% - 1px);max-height:calc(100vh - 190px);overflow:auto;border:1px solid #2a3758;border-radius:7px;background:#10182d;box-shadow:0 12px 28px rgba(0,0,0,.34);z-index:30}
+.search-results.visible{display:block}
+.search-empty,.search-result-head{padding:8px 9px;font-size:12px;color:#9fb0ca;border-bottom:1px solid #263453}
+.search-result-item{display:block;width:100%;border:0;border-bottom:1px solid #263453;background:#10182d;text-align:left;padding:9px;cursor:pointer}
+.search-result-item:hover,.search-result-item:focus{background:#1b2745;outline:none}
+.search-result-title{font-size:12.5px;font-weight:600;color:#f1f5ff;margin-bottom:4px}
+.search-result-snippet{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;max-height:4.5em;font-size:12px;line-height:1.5;color:#c2cce0}
+.doc-search-mark,.search-result-snippet mark{background:#fff2a8;color:#1a1a2e;border-radius:3px;padding:0 2px}
+.doc-search-active-mark{background:#ff7a45;color:#111827;box-shadow:0 0 0 2px rgba(255,122,69,.45)}
+.doc-outline{width:220px;flex:0 0 220px;background:#f8fafc;border-left:1px solid #dbe4f0;padding:16px 12px;overflow-y:auto}
+.outline-title{font-size:13px;font-weight:700;color:#2c3e70;margin-bottom:10px}
+.outline-empty{font-size:12.5px;color:#64748b;line-height:1.6}
+.outline-link{display:block;width:100%;border:0;background:transparent;color:#475569;text-align:left;border-radius:6px;padding:6px 8px;margin:1px 0;font-size:12.5px;line-height:1.45;cursor:pointer}
+.outline-link:hover,.outline-link:focus{background:#eef3ff;color:#1f3f96;outline:none}
+.outline-link.active{background:#e4ebff;color:#1f3f96;font-weight:600}
+.outline-h1{font-weight:700;color:#263963}
+.outline-h2{padding-left:14px}
+.outline-h3{padding-left:24px;color:#64748b}
+@media(max-width:1000px){.doc-outline{display:none}}
+@media(max-width:800px){body{flex-direction:column}.sidebar{width:100%;max-height:48vh}.sidebar h1{font-size:13px;padding:10px 12px;text-align:left}.sidebar-search{position:relative;padding:9px 10px}.search-results{left:10px;right:10px;top:calc(100% - 1px);max-height:22vh}.nav{flex-direction:row;flex:0 0 auto;overflow-x:auto}.nav button{padding:8px 10px;font-size:12px;text-align:left}.main{min-height:0}.content-area{padding:20px 16px}}
+</style>
 <style>pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5px}.hljs{background:#fff;color:#000}.hljs-comment,.hljs-quote,.hljs-variable{color:green}.hljs-built_in,.hljs-keyword,.hljs-name,.hljs-selector-tag,.hljs-tag{color:#00f}.hljs-addition,.hljs-attribute,.hljs-literal,.hljs-section,.hljs-string,.hljs-template-tag,.hljs-template-variable,.hljs-title,.hljs-type{color:#a31515}.hljs-deletion,.hljs-meta,.hljs-selector-attr,.hljs-selector-pseudo{color:#2b91af}.hljs-doctag{color:grey}.hljs-attr{color:red}.hljs-bullet,.hljs-link,.hljs-symbol{color:#00b0e8}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}</style>
 </head>
 <body>
 <div class="sidebar">
   <h1>🐰 RMT 文档</h1>
+  <div class="sidebar-search" role="search">
+    <label class="search-label" for="docSearchInput">搜索全部章节</label>
+    <input id="docSearchInput" class="doc-search-input" type="search" placeholder="输入关键词" autocomplete="off">
+    <button id="docSearchClear" class="doc-search-clear" type="button">清空搜索</button>
+    <div class="search-options">
+      <label class="search-toggle" data-tip="开启后，鼠标悬停搜索结果会临时跳到对应位置；移开后返回原阅读位置。"><input id="docSearchPreviewToggle" type="checkbox" checked> 预览</label>
+      <label class="search-toggle" data-tip="开启后按 JavaScript 正则表达式搜索，例如 脚本|变量 或 \\d+。正则错误会直接提示。"><input id="docSearchRegexToggle" type="checkbox"> 正则</label>
+    </div>
+    <div id="docSearchStatus" class="search-status">输入关键词搜索全部章节</div>
+    <div id="docSearchResults" class="search-results" aria-live="polite"></div>
+  </div>
   <div class="nav">
         <button class="tab active" onclick="showPage(0)">📘 软件介绍</button>
         <button class="tab" onclick="showPage(1)">🚀 快速上手</button>
@@ -84,7 +130,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 <tr>
 <td>💾 <strong>应用并保存</strong></td>
-<td>保存并立即应用所有修改，未点击前修改配置不会生效。</td>
+<td>保存并立即应用所有修改，未点击前不会生效。</td>
 </tr>
 </tbody></table>
 <hr>
@@ -154,7 +200,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </thead>
 <tbody><tr>
 <td>🎯 <strong>触发键</strong></td>
-<td>设置宏的触发按键与方式：<br> - <strong>按下</strong>：按下即触发，未松开可重复触发<br> - <strong>松开</strong>：松开时触发<br> - <strong>松止</strong>：按下触发，松开终止<br> - <strong>开关</strong>：首次触发，再次终止<br> - <strong>长按</strong>：持续按下到指定时间后触发</td>
+<td>设置宏的触发按键与方式：<br> - <strong>按下</strong>：按下即触发，未松开可能重复触发<br> - <strong>松开</strong>：松开时触发<br> - <strong>松止</strong>：按下启动，松开停止<br> - <strong>开关</strong>：首次启动，再次停止<br> - <strong>长按</strong>：持续按下到指定时间后触发</td>
 </tr>
 <tr>
 <td>📜 <strong>宏指令</strong></td>
@@ -204,16 +250,16 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 </thead>
 <tbody><tr>
-<td>⏱️ <strong>点击时间浮动（%）</strong></td>
-<td>📊 按键点击时间的浮动范围。例如：设为 10，原 50ms → 最终 45~55ms。</td>
+<td>⏱️ <strong>按住时间浮动（%）</strong></td>
+<td>📊 模拟按键持续时间的浮动范围。例如：设为 10，原 50ms → 最终 45~55ms。</td>
 </tr>
 <tr>
 <td>⏳ <strong>每次间隔时间浮动（%）</strong></td>
-<td>📉 多次点击、多次搜索、多次提取间隔浮动范围。例如：设为 10，原 500ms → 实际 450~550ms。</td>
+<td>📉 每个按键动作间隔的浮动范围。例如：设为 10，原 500ms → 实际 450~550ms。</td>
 </tr>
 <tr>
 <td>⌛ <strong>间隔指令时间浮动（%）</strong></td>
-<td>📈 间隔指令的浮动范围。例如：设为 10，原 3000ms → 实际 2700~3300ms。</td>
+<td>📈 每组指令之间的等待时间浮动范围。例如：设为 10，原 3000ms → 实际 2700~3300ms。</td>
 </tr>
 <tr>
 <td>📐 <strong>坐标 X 浮动（px）</strong></td>
@@ -224,8 +270,8 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 <td>↕️ 模拟点击时 Y 坐标的浮动范围。例如：设为 50，原 Y=400 → 实际 350~450。</td>
 </tr>
 <tr>
-<td>🧵 <strong>多线程数（-1~10）</strong></td>
-<td>🌀 -1 和大于 0 时启用多线程。</td>
+<td>🧵 <strong>多线程数（0~10）</strong></td>
+<td>🌀 大于 0 时启用多线程。</td>
 </tr>
 <tr>
 <td>⚡ <strong>开机自动启动</strong></td>
@@ -1435,37 +1481,16 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 <hr>
 </div></div>
     <div class="page hidden" id="page6"><div class="content"><h1>更新日志</h1>
-<h2>RMTv2.0更新内容</h2>
+<h2>RMTv1.2更新内容</h2>
 <blockquote>
 <p>兔子要和生活对线，期待开发者提交PR完善下面的内容</p>
 </blockquote>
-<h3>优化</h3>
-<p>增加窗口模态<br>增加动态线程池<br>菜单宏使用窗口热键<br>主界面新增复制按钮<br>路径支持作为变量可实时替换<br>搜索图片路径使用自增数字<br>指令界面要显示图片路径<br>路径不存在则弹窗选择<br>运行新增运行等待+返回值、等待+完整输出</p>
-<h3>更新</h3>
-<p>新增窗口管理指令<br>新增双击触发类型<br>触发键可以选择选择两个组合<br>配置合并<br>新增鼠标拟真移动轨迹</p>
-<h3>修复</h3>
-<p>修复发送内容缓冲区异常问题<br>修复ocr识别到下划线时异常问题</p>
-<h3>删除</h3>
-<p>共享复制</p>
 <h3>待优化</h3>
-<p>窗口管理优化</p>
-<ul>
-<li>操作类型右侧-新增目标窗口选项：当前窗口，窗口句柄，窗口信息（标题+窗口类+进程名）<br>指令录制表现需要增强</li>
-</ul>
+<p>指令录制表现需要增强<br>菜单宏八个按钮太丑了，需要搞成8个按钮围成车轮那样<br>路径需要支持作为变量可实时替换<br>搜索图片路径不再使用随机数，使用自增数字，且指令界面要显示图片路径<br>路径相关优化（若不存在则弹窗进行选择）<br>软件目前打开编辑窗口会盖住下方窗口，层数多了很乱不知道那个是哪个<br>（主界面打开宏编辑器时：主界面左移一半，宏编辑器中间打开）<br>（宏编辑器打开指令编辑器时，宏编辑器向左上移动，指令编辑器中间打开）<br>（指令编辑器打开新的编辑窗口，指令编辑器移动到左下，新编辑器中间打开）<br>（如上，感觉编辑起来会方便很多）<br>主界面新增复制按钮</p>
 <h3>待更新</h3>
-<p>语音宏（通过语言内容触发）<br>界面宏（特定界面添加常驻按钮，点击触发宏）<br>yolo（等yun完善，想看看这玩意到底是什么）</p>
-<h3>UI待更新</h3>
-<p>使用webview2替换当前ahkUI<br>主界面、宏编辑器界面需要为webview2<br>各个指令编辑器可以将就ahkUI，能替换最好<br>webview2调用ahk接口需要框架级别的调整，方便后续适配功能</p>
-<ul>
-<li>首先各个按钮功能需要完全适配</li>
-<li>主界面模块之间需要可以拖动调整位置</li>
-<li>主界模块下的宏Item之间 上下按钮调整位置改成 拖动调整位置</li>
-<li>菜单宏八个按钮太丑了，需要搞成8个按钮围成车轮那样</li>
-<li>宏编辑器界面 需要支持左键拖拽调整位置（真假分支节点不允许，真假分支子节点允许）</li>
-<li>搜索指令显示缩略图（图片，颜色，文本）</li>
-<li>指令录制功能需要强化表现，开始录制-录制中按钮不同的表现</li>
-<li>等等尽可能细化各个操作表现，优化各个操作</li>
-</ul>
+<p>快捷键可以任意选择组合（特别是手柄需要支持）<br>增加双击触发类型（虽然字串宏也能做到，但是ctrl这种做不到）<br>新增窗口管理指令（控制窗口置顶，窗口关闭，窗口显示，窗口移动等等）<br>配置合并（这样案例就可以作为通用模版，效果会增强）<br>语音宏（通过语言内容触发）<br>界面宏（特定界面添加常驻按钮，点击触发宏）<br>yolo（等yun完善，想看看这玩意到底是什么）</p>
+<h3>待删除</h3>
+<p>共享复制</p>
 <hr>
 <h2>RMTv1.1.2更新</h2>
 <h3>优化</h3>
@@ -1552,6 +1577,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </div></div>
     </div>
 </div>
+<aside id="docOutline" class="doc-outline" aria-label="目录大纲"></aside>
 
 <script>
 /**
@@ -2772,6 +2798,372 @@ function showPage(i){
   document.getElementById('contentArea').scrollTop=0;
   hljs.highlightAll();
 }
+</script>
+<script>
+(function(){
+  const input = document.getElementById('docSearchInput');
+  const clearBtn = document.getElementById('docSearchClear');
+  const previewToggle = document.getElementById('docSearchPreviewToggle');
+  const regexToggle = document.getElementById('docSearchRegexToggle');
+  const resultsBox = document.getElementById('docSearchResults');
+  const statusBox = document.getElementById('docSearchStatus');
+  const contentArea = document.getElementById('contentArea');
+  const outlineBox = document.getElementById('docOutline');
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  if (!input || !clearBtn || !previewToggle || !regexToggle || !resultsBox || !statusBox || !contentArea || !pages.length || typeof window.showPage !== 'function') return;
+
+  const originalShowPage = window.showPage.bind(window);
+  const pageHTML = pages.map(page => page.innerHTML);
+  const pageData = pages.map((page, index) => {
+    const titleEl = page.querySelector('h1,h2,h3');
+    const tabText = tabs[index] ? tabs[index].textContent.replace(/\s+/g, ' ').trim() : '';
+    const title = (titleEl ? titleEl.textContent : tabText || `第 ${index + 1} 页`).replace(/\s+/g, ' ').trim();
+    const text = page.textContent.replace(/\s+/g, ' ').trim();
+    return { index, title, text, lowerText: text.toLowerCase() };
+  });
+  const highlightedPages = new Set();
+  const maxResults = 200;
+  let activePageIndex = Math.max(0, pages.findIndex(page => !page.classList.contains('hidden')));
+  let previewState = null;
+  let previewTimer = null;
+  let suppressPreviewCancel = false;
+  let focusedResult = null;
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function escapeHTML(value) {
+    return value.replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
+  }
+
+  function buildOutline() {
+    if (!outlineBox || !pages[activePageIndex]) return;
+    const headings = Array.from(pages[activePageIndex].querySelectorAll('.content h1,.content h2,.content h3'))
+      .filter(heading => heading.textContent.trim());
+    outlineBox.innerHTML = '';
+    const title = document.createElement('div');
+    title.className = 'outline-title';
+    title.textContent = '目录大纲';
+    outlineBox.appendChild(title);
+    if (!headings.length) {
+      const empty = document.createElement('div');
+      empty.className = 'outline-empty';
+      empty.textContent = '当前页面没有可跳转标题';
+      outlineBox.appendChild(empty);
+      return;
+    }
+    headings.forEach((heading, index) => {
+      const level = heading.tagName.toLowerCase();
+      const text = heading.textContent.replace(/\s+/g, ' ').trim();
+      const id = `doc-outline-${activePageIndex}-${index}`;
+      heading.id = id;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `outline-link outline-${level}`;
+      button.textContent = text;
+      button.addEventListener('click', () => {
+        outlineBox.querySelectorAll('.outline-link').forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+        heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      outlineBox.appendChild(button);
+    });
+  }
+
+  function restorePage(index) {
+    if (!pages[index]) return;
+    pages[index].innerHTML = pageHTML[index];
+    highlightedPages.delete(index);
+  }
+
+  function restoreHighlights() {
+    Array.from(highlightedPages).forEach(restorePage);
+  }
+
+  function getQuery() {
+    return input.value.trim();
+  }
+
+  function getSearchConfig(query) {
+    if (!query) return { regex: null, isRegex: regexToggle.checked };
+    if (!regexToggle.checked) {
+      return { regex: new RegExp(escapeRegExp(query), 'gi'), isRegex: false };
+    }
+    try {
+      const regex = new RegExp(query, 'gi');
+      const emptyMatch = regex.exec('');
+      if (emptyMatch && emptyMatch[0] === '') {
+        return { error: '正则表达式不能匹配空字符串' };
+      }
+      return { regex, isRegex: true };
+    } catch (error) {
+      return { error: `正则表达式无效：${error.message}` };
+    }
+  }
+
+  function cloneRegex(regex) {
+    return new RegExp(regex.source, regex.flags);
+  }
+
+  function findMatches(text, searchConfig) {
+    const regex = cloneRegex(searchConfig.regex);
+    const matches = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match[0].length === 0) {
+        regex.lastIndex += 1;
+        continue;
+      }
+      matches.push({ index: match.index, text: match[0] });
+    }
+    return matches;
+  }
+
+  function highlightPage(index, searchConfig, activeMatchIndex = -1) {
+    if (!pages[index] || !searchConfig || !searchConfig.regex) return;
+    let pageMatchIndex = 0;
+    const walker = document.createTreeWalker(pages[index], NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        const parent = node.parentElement;
+        if (!parent || parent.closest('script,style')) return NodeFilter.FILTER_REJECT;
+        return findMatches(node.nodeValue, searchConfig).length ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      const text = node.nodeValue;
+      const fragment = document.createDocumentFragment();
+      let lastIndex = 0;
+      let match;
+      const regex = cloneRegex(searchConfig.regex);
+      regex.lastIndex = 0;
+      while ((match = regex.exec(text)) !== null) {
+        if (match[0].length === 0) {
+          regex.lastIndex += 1;
+          continue;
+        }
+        if (match.index > lastIndex) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+        const mark = document.createElement('mark');
+        mark.className = pageMatchIndex === activeMatchIndex ? 'doc-search-mark doc-search-active-mark' : 'doc-search-mark';
+        mark.textContent = match[0];
+        fragment.appendChild(mark);
+        lastIndex = match.index + match[0].length;
+        pageMatchIndex += 1;
+      }
+      if (lastIndex < text.length) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
+      node.parentNode.replaceChild(fragment, node);
+    });
+    if (nodes.length) highlightedPages.add(index);
+  }
+
+  function makeSnippet(text, matchIndex, matchText) {
+    const start = Math.max(0, matchIndex - 42);
+    const end = Math.min(text.length, matchIndex + matchText.length + 78);
+    const prefix = start > 0 ? '...' : '';
+    const suffix = end < text.length ? '...' : '';
+    const before = text.slice(start, matchIndex);
+    const hit = text.slice(matchIndex, matchIndex + matchText.length);
+    const after = text.slice(matchIndex + matchText.length, end);
+    return `${prefix}${escapeHTML(before)}<mark>${escapeHTML(hit)}</mark>${escapeHTML(after)}${suffix}`;
+  }
+
+  function scrollToMatch(pageIndex, matchIndex, isPreview) {
+    const marks = pages[pageIndex].querySelectorAll('mark.doc-search-mark');
+    const target = pages[pageIndex].querySelector('mark.doc-search-active-mark') || marks[Math.min(matchIndex, Math.max(0, marks.length - 1))];
+    if (target) {
+      target.scrollIntoView({ behavior: isPreview ? 'auto' : 'smooth', block: 'center' });
+    }
+  }
+
+  function getActiveSearchConfig() {
+    const query = getQuery();
+    const searchConfig = getSearchConfig(query);
+    return query && !searchConfig.error ? searchConfig : null;
+  }
+
+  function switchPageSilently(index, activeMatchIndex = -1) {
+    if (!pages[index]) return;
+    activePageIndex = index;
+    restoreHighlights();
+    pages.forEach(page => page.classList.add('hidden'));
+    tabs.forEach(tab => tab.classList.remove('active'));
+    pages[index].classList.remove('hidden');
+    if (tabs[index]) tabs[index].classList.add('active');
+    const searchConfig = getActiveSearchConfig();
+    if (searchConfig) highlightPage(index, searchConfig, activeMatchIndex);
+    buildOutline();
+  }
+
+  function goToResult(result, isPreview) {
+    focusedResult = { pageIndex: result.pageIndex, pageMatchIndex: result.pageMatchIndex };
+    if (isPreview) {
+      switchPageSilently(result.pageIndex, result.pageMatchIndex);
+    } else {
+      suppressPreviewCancel = false;
+      window.showPage(result.pageIndex);
+    }
+    focusedResult = null;
+    scrollToMatch(result.pageIndex, result.pageMatchIndex, isPreview);
+  }
+
+  function isSameResult(a, b) {
+    return Boolean(a && b && a.pageIndex === b.pageIndex && a.pageMatchIndex === b.pageMatchIndex && a.query === b.query && a.isRegex === b.isRegex);
+  }
+
+  function startPreview(result) {
+    if (!previewToggle.checked || previewState || getQuery() !== result.query || regexToggle.checked !== result.isRegex) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      if (previewState || getQuery() !== result.query || regexToggle.checked !== result.isRegex) return;
+      previewState = { pageIndex: activePageIndex, scrollTop: contentArea.scrollTop, result };
+      goToResult(result, true);
+      previewTimer = null;
+    }, 140);
+  }
+
+  function commitPreview(result) {
+    if (!isSameResult(previewState && previewState.result, result)) return false;
+    previewState = null;
+    activePageIndex = result.pageIndex;
+    return true;
+  }
+
+  function endPreview() {
+    clearTimeout(previewTimer);
+    previewTimer = null;
+    if (!previewState) return;
+    const state = previewState;
+    previewState = null;
+    switchPageSilently(state.pageIndex);
+    contentArea.scrollTop = state.scrollTop;
+    setTimeout(() => {
+      contentArea.scrollTop = state.scrollTop;
+    }, 0);
+  }
+
+  function renderSearchResults() {
+    endPreview();
+    const query = getQuery();
+    resultsBox.innerHTML = '';
+    restoreHighlights();
+    if (!query) {
+      resultsBox.classList.remove('visible');
+      statusBox.textContent = '输入关键词搜索全部章节';
+      buildOutline();
+      return;
+    }
+
+    const searchConfig = getSearchConfig(query);
+    if (searchConfig.error) {
+      resultsBox.classList.add('visible');
+      statusBox.textContent = searchConfig.error;
+      resultsBox.innerHTML = `<div class="search-empty">${escapeHTML(searchConfig.error)}</div>`;
+      buildOutline();
+      return;
+    }
+
+    const results = [];
+    let total = 0;
+    pageData.forEach(data => {
+      findMatches(data.text, searchConfig).forEach((match, pageMatchIndex) => {
+        total += 1;
+        if (results.length < maxResults) {
+          results.push({
+            pageIndex: data.index,
+            pageMatchIndex,
+            query,
+            isRegex: searchConfig.isRegex,
+            title: data.title,
+            snippet: makeSnippet(data.text, match.index, match.text)
+          });
+        }
+      });
+    });
+
+    resultsBox.classList.add('visible');
+    if (!total) {
+      statusBox.textContent = `未找到“${query}”`;
+      resultsBox.innerHTML = '<div class="search-empty">没有匹配结果</div>';
+      buildOutline();
+      return;
+    }
+
+    statusBox.textContent = `找到 ${total} 条结果${results.length < total ? `，显示前 ${results.length} 条` : ''}`;
+    const head = document.createElement('div');
+    head.className = 'search-result-head';
+    head.textContent = `搜索结果 ${results.length}/${total}`;
+    resultsBox.appendChild(head);
+
+    results.forEach(result => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'search-result-item';
+      item.innerHTML = `<div class="search-result-title">${escapeHTML(result.title)}</div><div class="search-result-snippet">${result.snippet}</div>`;
+      item.addEventListener('mouseenter', () => startPreview(result));
+      item.addEventListener('mouseleave', endPreview);
+      item.addEventListener('focus', () => startPreview(result));
+      item.addEventListener('blur', endPreview);
+      item.addEventListener('click', () => {
+        if (commitPreview(result)) return;
+        previewState = null;
+        goToResult(result, false);
+      });
+      resultsBox.appendChild(item);
+    });
+
+    highlightPage(activePageIndex, searchConfig);
+    buildOutline();
+  }
+
+  window.showPage = function(i) {
+    const index = Number(i);
+    if (!Number.isInteger(index) || !pages[index]) return;
+    if (previewState && !suppressPreviewCancel) previewState = null;
+    activePageIndex = index;
+    restoreHighlights();
+    originalShowPage(index);
+    const query = getQuery();
+    const searchConfig = getSearchConfig(query);
+    if (query && !searchConfig.error) {
+      const activeMatchIndex = focusedResult && focusedResult.pageIndex === index ? focusedResult.pageMatchIndex : -1;
+      highlightPage(index, searchConfig, activeMatchIndex);
+    }
+    buildOutline();
+  };
+
+  input.addEventListener('input', renderSearchResults);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && getQuery()) {
+      input.value = '';
+      renderSearchResults();
+    }
+  });
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    renderSearchResults();
+    input.focus();
+  });
+  previewToggle.addEventListener('change', () => {
+    if (!previewToggle.checked) endPreview();
+  });
+  regexToggle.addEventListener('change', renderSearchResults);
+
+  renderSearchResults();
+})();
 </script>
 </body>
 </html>
