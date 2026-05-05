@@ -1089,6 +1089,10 @@ CheckIfHasModifyKey(keyCombo) {
     return false
 }
 
+IsComboKey(keyCombo) {
+    return InStr(keyCombo, " & ")
+}
+
 LoosenModifyKey(keyCombo) {
     modifiers := []
     modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]
