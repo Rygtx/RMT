@@ -14,6 +14,7 @@
 #Include Util\InputUtil.ahk
 #Include Util\SearchUtil.ahk
 #Include Util\FileIOUtil.ahk
+#Include Util\HumanMouse.ahk
 #Include Util\MacroUtil.ahk
 #Include Util\PluginUtil.ahk
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
