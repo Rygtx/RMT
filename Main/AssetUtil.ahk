@@ -540,6 +540,18 @@ ReadTableItemInfo(index) {
     SetArr(savedTimingSerialStr, "π", tableItem.TimingSerialArr)
     SetArr(savedStartTipSoundStr, "π", tableItem.StartTipSoundArr)
     SetArr(savedEndTipSoundStr, "π", tableItem.EndTipSoundArr)
+
+    if (symbol == "UI") {
+        savedUIWindowArrStr := IniRead(MacroFile, IniSection, symbol "UIWindowArr", "")
+        savedUIPosYArrStr := IniRead(MacroFile, IniSection, symbol "UIPosYArr", "")
+        savedUIBtnWidthArrStr := IniRead(MacroFile, IniSection, symbol "UIBtnWidthArr", "")
+        savedUIBtnHeightArrStr := IniRead(MacroFile, IniSection, symbol "UIBtnHeightArr", "")
+        SetArr(savedUIWindowArrStr, "π", tableItem.UIWindowArr)
+        SetArr(savedUIPosYArrStr, "π", tableItem.UIPosYArr)
+        SetArr(savedUIBtnWidthArrStr, "π", tableItem.UIBtnWidthArr)
+        SetArr(savedUIBtnHeightArrStr, "π", tableItem.UIBtnHeightArr)
+    }
+
     tableItem.FoldInfo := JSON.parse(savedFoldInfoStr, , false)
     SetSerialByArr(tableItem.SerialArr)
     SetSerialByArr(tableItem.TimingSerialArr)
@@ -603,6 +615,8 @@ GetGetTableItemDefaultMacro(index) {
         return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Replace")
         return "Left,a"
+    else if (symbol == "UI")
+        return "按键_a_点击_100_10_200,间隔_3000"
     return ""
 }
 
@@ -659,6 +673,19 @@ GetTableItemDefaultInfo(index) {
             "Timing3πTiming4πTiming5πTiming6πTiming7πTiming8πTiming12πTiming13"
         savedStartTipSoundStr := "1π1π1π1π1π1π1π1"
         savedEndTipSoundStr := "1π1π1π1π1π1π1π1"
+    }
+    else if (symbol == "UI") {
+        savedTKArrStr := ""
+        savedHoldTimeArrStr := "500"
+        savedModeArrStr := "1"
+        savedForbidArrStr := "1"
+        savedRemarkArrStr := GetLang("在指定界面显示常驻按钮")
+        savedLoopCountStr := "1"
+        savedTriggerTypeStr := "1"
+        savedSerialeArrStr := "14"
+        savedTimingSerialStr := "Timing14"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""
@@ -720,6 +747,17 @@ SaveTableItemInfo(index) {
     IniWrite(SavedInfo[10], MacroFile, IniSection, symbol "StartTipSoundArr")
     IniWrite(SavedInfo[11], MacroFile, IniSection, symbol "EndTipSoundArr")
 
+    if (symbol == "UI") {
+        UIWindowArrStr := SavedInfo.Has(12) ? SavedInfo[12] : ""
+        UIPosYArrStr := SavedInfo.Has(13) ? SavedInfo[13] : ""
+        UIBtnWidthArrStr := SavedInfo.Has(14) ? SavedInfo[14] : ""
+        UIBtnHeightArrStr := SavedInfo.Has(15) ? SavedInfo[15] : ""
+        IniWrite(UIWindowArrStr, MacroFile, IniSection, symbol "UIWindowArr")
+        IniWrite(UIPosYArrStr, MacroFile, IniSection, symbol "UIPosYArr")
+        IniWrite(UIBtnWidthArrStr, MacroFile, IniSection, symbol "UIBtnWidthArr")
+        IniWrite(UIBtnHeightArrStr, MacroFile, IniSection, symbol "UIBtnHeightArr")
+    }
+
     FoldInfoStr := JSON.stringify(tableItem.FoldInfo, 0)
     IniWrite(FoldInfoStr, MacroFile, IniSection, symbol "FoldInfo")
 
@@ -741,6 +779,7 @@ SaveTableItemMacro(index) {
 
 GetSavedTableItemInfo(index) {
     Saved := MySoftData.MyGui.Submit()
+
     TKArrStr := ""
     ModeArrStr := ""
     HoldTimeArrStr := ""
@@ -752,6 +791,11 @@ GetSavedTableItemInfo(index) {
     TimingSerialArrStr := ""
     StartTipSoundArrStr := ""
     EndTipSoundArrStr := ""
+
+    UIWindowArrStr := ""
+    UIPosYArrStr := ""
+    UIBtnWidthArrStr := ""
+    UIBtnHeightArrStr := ""
 
     tableItem := MySoftData.TableInfo[index]
     symbol := GetTableSymbol(index)
@@ -768,6 +812,16 @@ GetSavedTableItemInfo(index) {
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
         EndTipSoundArrStr .= tableItem.EndTipSoundArr[A_Index]
+
+        UIWindowArrValue := tableItem.UIWindowArr.Has(A_Index) ? tableItem.UIWindowArr[A_Index] : ""
+        UIPosYArrValue := tableItem.UIPosYArr.Has(A_Index) ? tableItem.UIPosYArr[A_Index] : ""
+        UIBtnWidthArrValue := tableItem.UIBtnWidthArr.Has(A_Index) ? tableItem.UIBtnWidthArr[A_Index] : ""
+        UIBtnHeightArrValue := tableItem.UIBtnHeightArr.Has(A_Index) ? tableItem.UIBtnHeightArr[A_Index] : ""
+        UIWindowArrStr .= UIWindowArrValue
+        UIPosYArrStr .= UIPosYArrValue
+        UIBtnWidthArrStr .= UIBtnWidthArrValue
+        UIBtnHeightArrStr .= UIBtnHeightArrValue
+
         if (tableItem.ModeArr.Length > A_Index) {
             TKArrStr .= "π"
             ModeArrStr .= "π"
@@ -780,11 +834,16 @@ GetSavedTableItemInfo(index) {
             TimingSerialArrStr .= "π"
             StartTipSoundArrStr .= "π"
             EndTipSoundArrStr .= "π"
+            UIWindowArrStr .= "π"
+            UIPosYArrStr .= "π"
+            UIBtnWidthArrStr .= "π"
+            UIBtnHeightArrStr .= "π"
         }
     }
 
     return [TKArrStr, ModeArrStr, HoldTimeArrStr, ForbidArrStr, RemarkArrStr,
-        LoopCountArrStr, TriggerTypeArrStr, SerialArrStr, TimingSerialArrStr, StartTipSoundArrStr, EndTipSoundArrStr]
+        LoopCountArrStr, TriggerTypeArrStr, SerialArrStr, TimingSerialArrStr, StartTipSoundArrStr, EndTipSoundArrStr,
+        UIWindowArrStr, UIPosYArrStr, UIBtnWidthArrStr, UIBtnHeightArrStr]
 }
 
 ;Table信息相关
@@ -948,6 +1007,8 @@ CheckIsItemTable(index) {
         return true
     if (symbol == "Replace")
         return true
+    if (symbol == "UI")
+        return true
     return false
 }
 
@@ -962,6 +1023,8 @@ CheckIsMacroTable(index) {
     if (symbol == "Timing")
         return true
     if (symbol == "Menu")
+        return true
+    if (symbol == "UI")
         return true
     return false
 }
@@ -994,6 +1057,8 @@ CheckIsNoTriggerKey(index) {
     if (symbol == "Timing")
         return true
     if (symbol == "Menu")
+        return true
+    if (symbol == "UI")
         return true
     return false
 }
