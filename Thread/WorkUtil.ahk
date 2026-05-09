@@ -70,7 +70,7 @@
         if (Timestamp == "") {
             currentDateTime := FormatTime(, "HHmmss")
             randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
-            Timestamp := CurrentDateTime randomNum
+            Timestamp := currentDateTime randomNum
             data := ReceiveCheckData()
             data.Timestamp := Timestamp
             data.Str := str
@@ -81,13 +81,10 @@
         data := ReceiveInfoMap[Timestamp]
         data.EnableCheckAction()
 
-        CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
-        ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
-        SizeInBytes := (StrLen(str) + 1) * 2
-        NumPut("Ptr", SizeInBytes  ; 操作系统要求这个需要完成.
-            , "Ptr", StrPtr(str)  ; 设置 lpData 为到字符串自身的指针.
-            , CopyDataStruct, A_PtrSize)
-        SendMessage(WM_COPYDATA, Timestamp, CopyDataStruct, , "ahk_id " parentHwnd)
+        ; Append Timestamp to the end of the string so Main can extract it
+        fullStr := str "⫶" Timestamp
+        global rx
+        rx.Push(0, fullStr)
     }
 
 }
@@ -118,23 +115,8 @@
 
     SetTimer(CheckParentProcess, 2000)
 
-    OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
-        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
-        Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
+    OnWorkGetCmdStrRingBuffer(cmd) {
         paramArr := StrSplit(cmd, "⫶")
-
-        ; 處理 Thread Pool Submit 任務 (id⫶cmd)
-        if (IsInteger(paramArr[1])) {
-            id := Integer(paramArr[1])
-            cmdStr := paramArr.Length >= 2 ? paramArr[2] : ""
-            
-            ; 執行任務 (使用者可自行擴充 ExecTask)
-            ; result := ExecTask(cmdStr)
-            
-            ; 由於跨進程 PostMessage 只能傳遞整數，回傳狀態碼 1 代表成功
-            MsgPostHandler(WM_WORK_DONE, id, 1) 
-            return
-        }
 
         switch paramArr[1] {
             case "SetVari":

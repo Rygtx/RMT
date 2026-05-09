@@ -4,6 +4,8 @@
 #Include "..\Gui\InputBtnGui.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
 #Include "..\Plugins\IbInputSimulator.ahk"
+#Include "..\Main\Util\SharedMemory.ahk"
+#Include "..\Main\Util\RingBuffer.ahk"
 #Include WorkUtil.ahk
 #SingleInstance Force
 DetectHiddenWindows true
@@ -13,6 +15,10 @@ Persistent
 global parentHwnd := A_Args[1]
 global workIndex := A_Args[2]
 global parentPID := A_Args[3]
+global txName := A_Args[4]
+global rxName := A_Args[5]
+global evtName := A_Args[6]
+
 global ReceiveInfoMap := Map()
 global MySoftData := SoftData()
 global ToolCheckInfo := ToolCheck()
@@ -51,6 +57,37 @@ global MyInsertGlobalArray := WorkInsertGlobalArray
 global MyRemoveAtGlobalArray := WorkRemoveAtGlobalArray
 WorkOpenCVLoadDll()
 SetTimer(CheckOcrIdle, 60000)
+
+global shmTx := SharedMemory(txName, 1048576)
+global shmRx := SharedMemory(rxName, 1048576)
+global tx := RingBuffer(shmTx.ptr, 1048576)
+global rx := RingBuffer(shmRx.ptr, 1048576)
+global hEvent := OpenEvent(evtName)
+
+SetTimer(ProcessQueue, 1)
+ProcessQueue() {
+    global tx, rx, hEvent
+    if (DllCall("WaitForSingleObject", "ptr", hEvent, "uint", 0) == 0) {
+        while (tx.Pop(&id, &cmd)) {
+            if (id > 0) {
+                result := ExecTask(cmd)
+                rx.Push(id, result)
+            } else {
+                ; Legacy string command (id == 0)
+                OnWorkGetCmdStrRingBuffer(cmd)
+            }
+        }
+        ResetEvent(hEvent)
+    }
+}
+
+ExecTask(cmd) {
+    ; Execute task via existing logic or expand
+    if (IsSet(MyExcuteRMTCMDAction)) {
+        try return MyExcuteRMTCMDAction(cmd)
+    }
+    return 1
+}
 
 ; 注册消息
 OnMessage(WM_TR_MACRO, OnWorkTriggerMacro)

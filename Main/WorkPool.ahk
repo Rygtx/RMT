@@ -1,23 +1,14 @@
 #Requires AutoHotkey v2.0
+#Include Util\SharedMemory.ahk
+#Include Util\RingBuffer.ahk
 
 class TaskQueue {
     __New() {
         this.queue := []
     }
-
-    Push(task) {
-        this.queue.Push(task)
-    }
-
-    Pop() {
-        if (this.queue.Length == 0)
-            return ""
-        return this.queue.RemoveAt(1)
-    }
-
-    Size() {
-        return this.queue.Length
-    }
+    Push(task) => this.queue.Push(task)
+    Pop() => (this.queue.Length == 0) ? "" : this.queue.RemoveAt(1)
+    Size() => this.queue.Length
 }
 
 class Future {
@@ -26,12 +17,10 @@ class Future {
         this.done := false
         this.result := ""
     }
-
     SetResult(result) {
         this.result := result
         this.done := true
     }
-
     GetResult(timeout := 5000) {
         start := A_TickCount
         while (!this.done) {
@@ -53,10 +42,16 @@ class WorkPool {
         this.elasticTimeout := MySoftData.ElasticTimeout * 1000
         this.dynamicMinSize := this.corePoolSize
         
-        this.pool := []                 ; idle workerIndex
-        this.active := Map()            ; workerIndex -> hwnd
-        this.pending := Map()           ; workerIndex -> true
+        this.pool := []
+        this.active := Map()            ; workerIndex -> hwnd (for backward compatibility if needed)
+        this.pending := Map()
         
+        this.tx := Map()
+        this.rx := Map()
+        this.evt := Map()
+        this.shmTx := Map()
+        this.shmRx := Map()
+
         this.queue := TaskQueue()
         this.futures := Map()
         this.futureCreateTime := Map()
@@ -65,28 +60,26 @@ class WorkPool {
         this.workerIdleTime := Map()
         this.workerIndex := 0
         this.mainPID := DllCall("GetCurrentProcessId")
+        this.taskCounter := 0
         
-        this.MessageArr := []   ;消息数组，避免消息重复处理
+        this.MessageArr := []
         this.MessageMap := Map()
 
-        OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))  ; replaces OnFinishLoad
-        OnMessage(WM_RELEASE_WORK, ObjBindMethod(this, "OnRelease"))   ; replaces old OnRelease
-        OnMessage(WM_STOP_MACRO, ObjBindMethod(this, "OnStopMacro"))   ;终止其他宏
-        OnMessage(WM_TR_MACRO, ObjBindMethod(this, "OnTriggerMacro"))  ;触发宏
-        OnMessage(WM_COPYDATA, ObjBindMethod(this, "OnGetCmd"))        ;接收到命令
-        
-        ; 新增的 callback
-        OnMessage(WM_WORK_DONE, ObjBindMethod(this, "OnDone"))         ; 任務完成 callback
+        OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
+        OnMessage(WM_RELEASE_WORK, ObjBindMethod(this, "OnRelease"))
+        OnMessage(WM_STOP_MACRO, ObjBindMethod(this, "OnStopMacro"))
+        OnMessage(WM_TR_MACRO, ObjBindMethod(this, "OnTriggerMacro"))
+        ; OnMessage(WM_COPYDATA, ObjBindMethod(this, "OnGetCmd")) ; Deprecated
 
         SetTimer(ObjBindMethod(this, "Dispatch"), 10)
         SetTimer(ObjBindMethod(this, "CheckFutures"), 1000)
+        SetTimer(ObjBindMethod(this, "PollResult"), 1)  ; Hybrid polling
         
         if (this.isDynamic) {
             this.shrinkTimerFunc := ObjBindMethod(this, "IdleShrinkCheck")
             SetTimer(this.shrinkTimerFunc, 10000)
         }
 
-        ; 預熱
         if (this.isDynamic) {
             loop this.dynamicMinSize {
                 this.CreateWorker()
@@ -106,27 +99,36 @@ class WorkPool {
         this.Clear()
     }
 
-    ; =========================
-    ; 核心：建立 Worker（不再 copy exe）
-    ; =========================
     CreateWorker() {
         this.workerIndex++
         idx := this.workerIndex
 
+        txName := "Global\TX_" idx
+        rxName := "Global\RX_" idx
+        evtName := "Global\EVT_" idx
+
+        this.shmTx[idx] := SharedMemory(txName, 1048576) ; 1MB tx buffer
+        this.tx[idx] := RingBuffer(this.shmTx[idx].ptr, 1048576)
+        
+        this.shmRx[idx] := SharedMemory(rxName, 1048576) ; 1MB rx buffer
+        this.rx[idx] := RingBuffer(this.shmRx[idx].ptr, 1048576)
+        
+        this.evt[idx] := CreateEvent(evtName)
         this.pending[idx] := true
 
-        Run(Format('"{}" {} {} {}', this.workerExe, MySoftData.MyGui.Hwnd, idx, this.mainPID))
+        Run(Format('"{}" {} {} {} "{}" "{}" "{}"'
+            , this.workerExe
+            , MySoftData.MyGui.Hwnd
+            , idx
+            , this.mainPID
+            , txName
+            , rxName
+            , evtName))
     }
 
-    ; =========================
-    ; 核心：提交任務（外部用）
-    ; =========================
     Submit(cmd) {
-        if (!this.HasProp("taskCounter"))
-            this.taskCounter := 0
         this.taskCounter++
         id := this.taskCounter
-
         future := Future(id)
 
         this.futures.Set(id, future)
@@ -136,9 +138,6 @@ class WorkPool {
         return future
     }
 
-    ; =========================
-    ; 核心：調度器
-    ; =========================
     Dispatch() {
         while (this.queue.Size() > 0 && this.pool.Length > 0) {
             idx := this.pool.Pop()
@@ -152,21 +151,43 @@ class WorkPool {
             }
 
             task := this.queue.Pop()
-            this.SendTask(idx, task)
+            if (!this.tx[idx].Push(task.id, task.cmd)) {
+                ; Buffer full, put it back and fallback
+                this.queue.queue.InsertAt(1, task)
+                this.pool.Push(idx)
+                break
+            }
+            SetEvent(this.evt[idx])
             
             if (this.workerIdleTime.Has(idx))
                 this.workerIdleTime.Delete(idx)
         }
 
-        ; 動態擴展 (如果任務過多且還沒到達上限)
         if (this.isDynamic && this.queue.Size() > 0 && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit) {
             this.CreateWorker()
         }
     }
     
-    ; =========================
-    ; 核心：檢查超時 Future
-    ; =========================
+    PollResult() {
+        for idx, rb in this.rx {
+            ; Hybrid Polling: Non-blocking pop all available results
+            while (rb.Pop(&id, &result)) {
+                if (id > 0) {
+                    if (this.futures.Has(id)) {
+                        this.futures[id].SetResult(result)
+                        this.futures.Delete(id)
+                        this.futureCreateTime.Delete(id)
+                    }
+                    this.pool.Push(idx)
+                    this.workerIdleTime.Set(idx, A_TickCount)
+                } else {
+                    ; Legacy WM_COPYDATA replacement, id == 0
+                    this.OnGetCmdStr(idx, result)
+                }
+            }
+        }
+    }
+
     CheckFutures() {
         now := A_TickCount
         toDelete := []
@@ -188,53 +209,6 @@ class WorkPool {
         return this.active.Has(idx) && WinExist("ahk_id " this.active[idx])
     }
 
-    ; =========================
-    ; 核心：發送任務 (WM_COPYDATA)
-    ; =========================
-    SendTask(workerIndex, task) {
-        hwnd := this.active[workerIndex]
-        data := task.id "⫶" task.cmd
-
-        CopyDataStruct := Buffer(3 * A_PtrSize)
-        size := (StrLen(data) + 1) * 2
-        NumPut("Ptr", size, "Ptr", StrPtr(data), CopyDataStruct, A_PtrSize)
-        try {
-            SendMessage(WM_COPYDATA, 0, CopyDataStruct, , "ahk_id " hwnd)
-        }
-    }
-
-    ; =========================
-    ; worker 完成 (透過 TaskQueue 送的)
-    ; =========================
-    OnDone(wParam, lParam, msg, hwnd) {
-        id := wParam
-        result := lParam
-
-        if (this.futures.Has(id)) {
-            this.futures[id].SetResult(result)
-            this.futures.Delete(id)
-            this.futureCreateTime.Delete(id)
-        }
-
-        ; Extract worker index from hwnd
-        idx := this.GetWorkerIndexByHwnd(hwnd)
-        if (idx > 0) {
-            this.pool.Push(idx)
-            this.workerIdleTime.Set(idx, A_TickCount)
-        }
-    }
-
-    GetWorkerIndexByHwnd(targetHwnd) {
-        for idx, hwnd in this.active {
-            if (hwnd == targetHwnd)
-                return idx
-        }
-        return 0
-    }
-
-    ; =========================
-    ; worker 準備就緒 (取代舊版 OnFinishLoad)
-    ; =========================
     OnWorkerReady(wParam, lParam, msg, hwnd) {
         idx := wParam
         workerHwnd := lParam > 0 ? lParam : hwnd
@@ -247,12 +221,8 @@ class WorkPool {
         this.workerIdleTime.Set(idx, A_TickCount)
     }
 
-    ; =========================
-    ; Compatibility Layer (兼容舊系統)
-    ; =========================
-    GetWorkPath(workerIndex) {
-        return "worker:" workerIndex
-    }
+    ; --- Compatibility Layer ---
+    GetWorkPath(workerIndex) => "worker:" workerIndex
 
     GetWorkIndex(fakePath) {
         if (IsInteger(fakePath))
@@ -275,9 +245,7 @@ class WorkPool {
         return this.maxSize >= 1
     }
 
-    GetActiveCount() {
-        return this.active.Count - this.pool.Length
-    }
+    GetActiveCount() => this.active.Count - this.pool.Length
 
     Get() {
         idx := 0
@@ -325,11 +293,22 @@ class WorkPool {
         this.futureCreateTime := Map()
         this.queue := TaskQueue()
         this.workerIndex := 0
+        
+        ; Close RingBuffers
+        this.tx := Map()
+        this.rx := Map()
+        this.shmTx := Map()
+        this.shmRx := Map()
+        for idx, h in this.evt
+            ResetEvent(h) ; Optional
     }
 
     PostMessage(type, identifier, wParam, lParam) {
         idx := this.GetWorkIndex(identifier)
         if (this.active.Has(idx)) {
+            ; For WM_TR_MACRO and others, since they are fast ints, we could use RingBuffer if we encoded them.
+            ; For extreme compatibility without rewriting legacy calls, we fallback to AHK's PostMessage.
+            ; AHK's PostMessage is non-blocking and fast enough for integers.
             hwnd := this.active[idx]
             try {
                 PostMessage(type, wParam, lParam, , "ahk_id " hwnd)
@@ -338,16 +317,12 @@ class WorkPool {
     }
 
     SendMessage(type, identifier, str) {
+        ; Completely replaced WM_COPYDATA with RingBuffer Push!
         idx := this.GetWorkIndex(identifier)
-        if (!this.active.Has(idx))
-            return
-            
-        hwnd := this.active[idx]
-        CopyDataStruct := Buffer(3 * A_PtrSize)
-        SizeInBytes := (StrLen(str) + 1) * 2
-        NumPut("Ptr", SizeInBytes, "Ptr", StrPtr(str), CopyDataStruct, A_PtrSize)
-        try {
-            SendMessage(type, 0, CopyDataStruct, , "ahk_id " hwnd)
+        if (this.tx.Has(idx)) {
+            ; id 0 is reserved for non-future tasks
+            this.tx[idx].Push(0, str)
+            SetEvent(this.evt[idx])
         }
     }
 
@@ -356,11 +331,9 @@ class WorkPool {
             return
         now := A_TickCount
         shrinkIndices := []
-        
         for idx, idleTick in this.workerIdleTime {
-            if ((now - idleTick) >= this.elasticTimeout) {
+            if ((now - idleTick) >= this.elasticTimeout)
                 shrinkIndices.Push(idx)
-            }
         }
         maxShrink := this.pool.Length - this.corePoolSize
         if (shrinkIndices.Length == 0 || maxShrink <= 0)
@@ -385,9 +358,7 @@ class WorkPool {
         }
     }
 
-    ; =========================
-    ; 舊有系統回調與去重邏輯
-    ; =========================
+    ; --- Legacy Deduplication & Callbacks ---
     OnRelease(wParam, lParam, msg, hwnd) {
         tableIndex := wParam
         itemIndex := lParam
@@ -418,7 +389,6 @@ class WorkPool {
     OnRecordMessage(Timestamp) {
         if (this.MessageMap.Has(Timestamp))
             return
-
         this.MessageMap.Set(Timestamp, 1)
         this.MessageArr.Push(Timestamp)
         if (this.MessageArr.Length >= 125) {
@@ -427,20 +397,30 @@ class WorkPool {
         }
     }
 
-    OnGetCmd(wParam, lParam, msg, hwnd) {
-        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")
-        Cmd := StrGet(StringAddress)
+    OnGetCmdStr(idx, Cmd) {
+        ; Handle id=0 messages from worker
+        ; The string has Timestamp appended to the end: str "⫶" Timestamp
+        lastIndex := InStr(Cmd, "⫶", , -1)
+        Timestamp := ""
+        if (lastIndex > 0) {
+            Timestamp := SubStr(Cmd, lastIndex + 1)
+            Cmd := SubStr(Cmd, 1, lastIndex - 1)
+        }
         paramArr := StrSplit(Cmd, "⫶")
 
+        ; Broadcast to other workers (if needed by old logic)
+        ; Wait, old logic broadcasted WM_RECEIVE_INFO. 
+        ; I will skip the broadcast logic unless strictly required, but for compatibility let's keep it.
         workerList := this.GetActiveWorkerList()
         loop workerList.Length {
-            this.PostMessage(WM_RECEIVE_INFO, workerList[A_Index], wParam, 0)
+            this.PostMessage(WM_RECEIVE_INFO, workerList[A_Index], Timestamp, 0)
         }
 
-        if (this.MessageMap.Has(wParam))
+        if (Timestamp != "" && this.MessageMap.Has(Timestamp))
             return
 
-        this.OnRecordMessage(wParam)
+        if (Timestamp != "")
+            this.OnRecordMessage(Timestamp)
 
         switch paramArr[1] {
             case "SetVari":
