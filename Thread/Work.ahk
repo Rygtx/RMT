@@ -66,8 +66,8 @@ global MyRemoveAtGlobalArray := WorkRemoveAtGlobalArray
 WorkOpenCVLoadDll()
 SetTimer(CheckOcrIdle, 60000)
 
-global shmTx := SharedMemory(txName, 1048576)
-global shmRx := SharedMemory(rxName, 1048576)
+global shmTx := SharedMemory(txName, 1048576 + 128)
+global shmRx := SharedMemory(rxName, 1048576 + 128)
 global tx := RingBuffer(shmTx.ptr, 1048576)
 global rx := RingBuffer(shmRx.ptr, 1048576)
 global hEvent := OpenEvent(evtName)
@@ -76,11 +76,15 @@ SetTimer(ProcessQueue, 1)
 ProcessQueue() {
     global tx, rx, hEvent
     if (DllCall("WaitForSingleObject", "ptr", hEvent, "uint", 0) == 0) {
-        while (tx.Pop(&type, &id, &cmd)) {
+        while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
             switch type {
                 case MsgType.TASK:
                     result := ExecTask(cmd)
                     rx.Push(MsgType.RESULT, id, result)
+                    if (hTaskEvent) {
+                        SetEvent(hTaskEvent)
+                        CloseHandle(hTaskEvent)
+                    }
                 case MsgType.CONTROL:
                     OnControlMessage(cmd)
                 case MsgType.EVENT:

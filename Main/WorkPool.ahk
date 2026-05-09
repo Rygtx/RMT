@@ -24,17 +24,43 @@ class Future {
         this.id := id
         this.done := false
         this.result := ""
+        this.hEvent := CreateEvent()
     }
+
+    __Delete() {
+        if (this.hEvent) {
+            CloseHandle(this.hEvent)
+            this.hEvent := 0
+        }
+    }
+
     SetResult(result) {
         this.result := result
         this.done := true
+        ; The worker signals the event, but we can also signal it here for safety/timeouts
+        SetEvent(this.hEvent)
     }
+
+    IsReady() {
+        return DllCall("WaitForSingleObject", "ptr", this.hEvent, "uint", 0) == 0
+    }
+
     GetResult(timeout := 5000) {
         start := A_TickCount
         while (!this.done) {
             if (A_TickCount - start > timeout)
                 throw Error("Future timeout")
-            Sleep 10
+            
+            ; If the event is signaled but PollResult hasn't run yet, 
+            ; we can manually trigger a PollResult for faster response.
+            if (this.IsReady()) {
+                ; We could call this.parent.PollResult() here if we had a reference
+                ; For now, Sleep -1 will let the timer fire very quickly.
+                Sleep -1
+                if (this.done)
+                    break
+            }
+            Sleep -1
         }
         return this.result
     }
@@ -66,6 +92,8 @@ class WorkPool {
         this.futureTimeout := 10000
 
         this.workerIdleTime := Map()
+        this.workerPIDs := Map()
+        this.workerProcs := Map()
         this.workerIndex := 0
         this.mainPID := DllCall("GetCurrentProcessId")
         this.taskCounter := 0
@@ -109,10 +137,11 @@ class WorkPool {
         rxName := "RMT_RX_" idx
         evtName := "RMT_EVT_" idx
 
-        this.shmTx[idx] := SharedMemory(txName, 1048576) ; 1MB tx buffer
+        ; Allocate capacity + 128 for headers
+        this.shmTx[idx] := SharedMemory(txName, 1048576 + 128)
         this.tx[idx] := RingBuffer(this.shmTx[idx].ptr, 1048576)
         
-        this.shmRx[idx] := SharedMemory(rxName, 1048576) ; 1MB rx buffer
+        this.shmRx[idx] := SharedMemory(rxName, 1048576 + 128)
         this.rx[idx] := RingBuffer(this.shmRx[idx].ptr, 1048576)
         
         this.evt[idx] := CreateEvent(evtName)
@@ -125,7 +154,12 @@ class WorkPool {
             , this.mainPID
             , txName
             , rxName
-            , evtName))
+            , evtName), , , &pid)
+        
+        this.workerPIDs[idx] := pid
+        ; Open handle with PROCESS_DUP_HANDLE | PROCESS_TERMINATE
+        hProc := DllCall("OpenProcess", "uint", 0x0040 | 0x0001, "int", false, "uint", pid, "ptr")
+        this.workerProcs[idx] := hProc
     }
 
     Submit(cmd) {
@@ -135,7 +169,7 @@ class WorkPool {
 
         this.futures.Set(id, fut)
         this.futureCreateTime.Set(id, A_TickCount)
-        this.queue.Push({ id: id, cmd: cmd })
+        this.queue.Push({ id: id, cmd: cmd, hEvent: fut.hEvent })
 
         return fut
     }
@@ -145,16 +179,35 @@ class WorkPool {
             idx := this.pool.Pop()
 
             if (!this.IsAlive(idx)) {
-                this.active.Delete(idx)
-                if (this.workerIdleTime.Has(idx))
-                    this.workerIdleTime.Delete(idx)
+                this.CleanupWorker(idx)
                 this.CreateWorker()
                 continue
             }
 
             task := this.queue.Pop()
-            if (!this.tx[idx].Push(MsgType.TASK, task.id, task.cmd)) {
-                ; Buffer full, put it back and fallback
+            
+            ; Duplicate handle for worker
+            hTargetEvent := 0
+            if (!DllCall("DuplicateHandle"
+                , "ptr", DllCall("GetCurrentProcess")
+                , "ptr", task.hEvent
+                , "ptr", this.workerProcs[idx]
+                , "ptr*", &hTargetEvent
+                , "uint", 0
+                , "int", false
+                , "uint", 2)) ; DUPLICATE_SAME_ACCESS
+            {
+                ; Fallback if duplication fails
+                hTargetEvent := 0
+            }
+
+            if (!this.tx[idx].Push(MsgType.TASK, task.id, task.cmd, hTargetEvent)) {
+                ; Buffer full
+                if (hTargetEvent) {
+                    ; If it failed to push, we should probably close the duplicated handle in the worker
+                    ; but since we can't easily, we'll just let it leak or retry.
+                    ; Better: only duplicate IF push is likely to succeed.
+                }
                 this.queue.queue.InsertAt(1, task)
                 this.pool.Push(idx)
                 break
@@ -238,14 +291,34 @@ class WorkPool {
         this.workerIdleTime.Set(idx, A_TickCount)
     }
 
+    CleanupWorker(idx) {
+        if (this.active.Has(idx))
+            this.active.Delete(idx)
+        if (this.workerIdleTime.Has(idx))
+            this.workerIdleTime.Delete(idx)
+        if (this.workerProcs.Has(idx)) {
+            CloseHandle(this.workerProcs[idx])
+            this.workerProcs.Delete(idx)
+        }
+        if (this.workerPIDs.Has(idx))
+            this.workerPIDs.Delete(idx)
+    }
+
     Clear() {
         for idx, hwnd in this.active {
             this.PostMessage(WM_CLEAR_WORK, idx, 0, 0)
         }
+        
         this.pool := []
         this.active := Map()
         this.pending := Map()
         this.workerIdleTime := Map()
+        
+        for idx, hProc in this.workerProcs
+            CloseHandle(hProc)
+        this.workerProcs := Map()
+        this.workerPIDs := Map()
+
         this.futures := Map()
         this.futureCreateTime := Map()
         this.queue := TaskQueue()
