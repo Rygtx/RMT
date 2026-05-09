@@ -6,11 +6,19 @@
 #Include "..\Plugins\IbInputSimulator.ahk"
 #Include "..\Main\Util\SharedMemory.ahk"
 #Include "..\Main\Util\RingBuffer.ahk"
+#Include "..\Main\Util\JsonUtil.ahk"
 #Include WorkUtil.ahk
 #SingleInstance Force
 DetectHiddenWindows true
 Persistent
 #NoTrayIcon
+
+class MsgType {
+    static TASK := 1
+    static RESULT := 2
+    static EVENT := 3
+    static CONTROL := 4
+}
 
 global parentHwnd := A_Args[1]
 global workIndex := A_Args[2]
@@ -68,13 +76,15 @@ SetTimer(ProcessQueue, 1)
 ProcessQueue() {
     global tx, rx, hEvent
     if (DllCall("WaitForSingleObject", "ptr", hEvent, "uint", 0) == 0) {
-        while (tx.Pop(&id, &cmd)) {
-            if (id > 0) {
-                result := ExecTask(cmd)
-                rx.Push(id, result)
-            } else {
-                ; Legacy string command (id == 0)
-                OnWorkGetCmdStrRingBuffer(cmd)
+        while (tx.Pop(&type, &id, &cmd)) {
+            switch type {
+                case MsgType.TASK:
+                    result := ExecTask(cmd)
+                    rx.Push(MsgType.RESULT, id, result)
+                case MsgType.CONTROL:
+                    OnControlMessage(cmd)
+                case MsgType.EVENT:
+                    OnEventMessage(cmd)
             }
         }
         ResetEvent(hEvent)
@@ -82,19 +92,29 @@ ProcessQueue() {
 }
 
 ExecTask(cmd) {
-    ; Execute task via existing logic or expand
+    try {
+        paramArr := JSON.parse(cmd)
+        if (paramArr[1] == "TR_MACRO") {
+            TriggerMacro(paramArr[2], paramArr[3])
+            return 1
+        }
+    } catch {
+        ; fallback to old string execution if any
+    }
+    
     if (IsSet(MyExcuteRMTCMDAction)) {
         try return MyExcuteRMTCMDAction(cmd)
     }
     return 1
 }
 
+OnControlMessage(cmd) {
+    ; Handle any JSON control messages
+}
+
 ; 注册消息
-OnMessage(WM_TR_MACRO, OnWorkTriggerMacro)
 OnMessage(WM_STOP_MACRO, OnWorkStopMacro)
 OnMessage(WM_CLEAR_WORK, OnExit)
-OnMessage(WM_COPYDATA, OnWorkGetCmdStr)
-OnMessage(WM_RECEIVE_INFO, OnMainReceiveInfo)
 
 myTitle := "RMTWork" workIndex
 mygui := Gui("+ToolWindow")          ; 创建 GUI，无标题栏

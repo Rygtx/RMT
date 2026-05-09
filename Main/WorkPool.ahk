@@ -1,6 +1,14 @@
 #Requires AutoHotkey v2.0
 #Include Util\SharedMemory.ahk
 #Include Util\RingBuffer.ahk
+#Include Util\JsonUtil.ahk
+
+class MsgType {
+    static TASK := 1
+    static RESULT := 2
+    static EVENT := 3
+    static CONTROL := 4
+}
 
 class TaskQueue {
     __New() {
@@ -34,7 +42,7 @@ class Future {
 
 class WorkPool {
     __New() {
-        this.workerExe := A_ScriptDir "\Thread\Work1.exe"
+        this.workerExe := A_ScriptDir "\Thread\Work.exe"
         this.maxSize := MySoftData.MutiThreadNum
         this.isDynamic := (this.maxSize == -1)
         this.dynamicMaxLimit := 16
@@ -43,7 +51,7 @@ class WorkPool {
         this.dynamicMinSize := this.corePoolSize
         
         this.pool := []
-        this.active := Map()            ; workerIndex -> hwnd (for backward compatibility if needed)
+        this.active := Map()            ; workerIndex -> hwnd
         this.pending := Map()
         
         this.tx := Map()
@@ -62,14 +70,8 @@ class WorkPool {
         this.mainPID := DllCall("GetCurrentProcessId")
         this.taskCounter := 0
         
-        this.MessageArr := []
-        this.MessageMap := Map()
-
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
-        OnMessage(WM_RELEASE_WORK, ObjBindMethod(this, "OnRelease"))
         OnMessage(WM_STOP_MACRO, ObjBindMethod(this, "OnStopMacro"))
-        OnMessage(WM_TR_MACRO, ObjBindMethod(this, "OnTriggerMacro"))
-        ; OnMessage(WM_COPYDATA, ObjBindMethod(this, "OnGetCmd")) ; Deprecated
 
         SetTimer(ObjBindMethod(this, "Dispatch"), 10)
         SetTimer(ObjBindMethod(this, "CheckFutures"), 1000)
@@ -103,9 +105,9 @@ class WorkPool {
         this.workerIndex++
         idx := this.workerIndex
 
-        txName := "Global\TX_" idx
-        rxName := "Global\RX_" idx
-        evtName := "Global\EVT_" idx
+        txName := "RMT_TX_" idx
+        rxName := "RMT_RX_" idx
+        evtName := "RMT_EVT_" idx
 
         this.shmTx[idx] := SharedMemory(txName, 1048576) ; 1MB tx buffer
         this.tx[idx] := RingBuffer(this.shmTx[idx].ptr, 1048576)
@@ -129,13 +131,13 @@ class WorkPool {
     Submit(cmd) {
         this.taskCounter++
         id := this.taskCounter
-        future := Future(id)
+        fut := Future(id)
 
-        this.futures.Set(id, future)
+        this.futures.Set(id, fut)
         this.futureCreateTime.Set(id, A_TickCount)
         this.queue.Push({ id: id, cmd: cmd })
 
-        return future
+        return fut
     }
 
     Dispatch() {
@@ -151,7 +153,7 @@ class WorkPool {
             }
 
             task := this.queue.Pop()
-            if (!this.tx[idx].Push(task.id, task.cmd)) {
+            if (!this.tx[idx].Push(MsgType.TASK, task.id, task.cmd)) {
                 ; Buffer full, put it back and fallback
                 this.queue.queue.InsertAt(1, task)
                 this.pool.Push(idx)
@@ -168,21 +170,36 @@ class WorkPool {
         }
     }
     
+    Broadcast(action, args*) {
+        if (!this.isDynamic && this.maxSize < 1)
+            return
+        
+        payload := JSON.stringify([action, args*])
+        for idx in this.active {
+            if this.tx.Has(idx) {
+                this.tx[idx].Push(MsgType.EVENT, 0, payload)
+                SetEvent(this.evt[idx])
+            }
+        }
+    }
+
     PollResult() {
         for idx, rb in this.rx {
             ; Hybrid Polling: Non-blocking pop all available results
-            while (rb.Pop(&id, &result)) {
-                if (id > 0) {
-                    if (this.futures.Has(id)) {
-                        this.futures[id].SetResult(result)
-                        this.futures.Delete(id)
-                        this.futureCreateTime.Delete(id)
-                    }
-                    this.pool.Push(idx)
-                    this.workerIdleTime.Set(idx, A_TickCount)
-                } else {
-                    ; Legacy WM_COPYDATA replacement, id == 0
-                    this.OnGetCmdStr(idx, result)
+            while (rb.Pop(&type, &id, &result)) {
+                switch type {
+                    case MsgType.RESULT:
+                        if (this.futures.Has(id)) {
+                            this.futures[id].SetResult(result)
+                            this.futures.Delete(id)
+                            this.futureCreateTime.Delete(id)
+                        }
+                        this.pool.Push(idx)
+                        this.workerIdleTime.Set(idx, A_TickCount)
+                    case MsgType.EVENT:
+                        this.OnWorkerEvent(idx, result)
+                    case MsgType.CONTROL:
+                        ; reserved for control messages from worker
                 }
             }
         }
@@ -221,66 +238,6 @@ class WorkPool {
         this.workerIdleTime.Set(idx, A_TickCount)
     }
 
-    ; --- Compatibility Layer ---
-    GetWorkPath(workerIndex) => "worker:" workerIndex
-
-    GetWorkIndex(fakePath) {
-        if (IsInteger(fakePath))
-            return fakePath
-        return Integer(StrReplace(fakePath, "worker:"))
-    }
-
-    CheckHasFreeWorker() {
-        if (this.isDynamic) {
-            if (this.pool.Length >= 1)
-                return true
-            return (this.active.Count + this.pending.Count) < this.dynamicMaxLimit
-        }
-        return this.pool.Length >= 1
-    }
-
-    CheckEnableMutiThread() {
-        if (this.isDynamic)
-            return true
-        return this.maxSize >= 1
-    }
-
-    GetActiveCount() => this.active.Count - this.pool.Length
-
-    Get() {
-        idx := 0
-        while (this.pool.Length >= 1) {
-            idx := this.pool.Pop()
-            if (this.IsAlive(idx))
-                break
-            else {
-                this.active.Delete(idx)
-                if (this.workerIdleTime.Has(idx))
-                    this.workerIdleTime.Delete(idx)
-                idx := 0
-            }
-        }
-
-        if (idx > 0) {
-            if (this.workerIdleTime.Has(idx))
-                this.workerIdleTime.Delete(idx)
-            if (this.isDynamic && this.pool.Length == 0 && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit)
-                this.CreateWorker()
-            return this.GetWorkPath(idx)
-        } else if (this.isDynamic && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit) {
-            this.CreateWorker()
-        }
-        return ""
-    }
-
-    GetActiveWorkerList() {
-        list := []
-        for idx, hwnd in this.active {
-            list.Push(this.GetWorkPath(idx))
-        }
-        return list
-    }
-
     Clear() {
         for idx, hwnd in this.active {
             this.PostMessage(WM_CLEAR_WORK, idx, 0, 0)
@@ -303,26 +260,12 @@ class WorkPool {
             ResetEvent(h) ; Optional
     }
 
-    PostMessage(type, identifier, wParam, lParam) {
-        idx := this.GetWorkIndex(identifier)
+    PostMessage(type, idx, wParam, lParam) {
         if (this.active.Has(idx)) {
-            ; For WM_TR_MACRO and others, since they are fast ints, we could use RingBuffer if we encoded them.
-            ; For extreme compatibility without rewriting legacy calls, we fallback to AHK's PostMessage.
-            ; AHK's PostMessage is non-blocking and fast enough for integers.
             hwnd := this.active[idx]
             try {
                 PostMessage(type, wParam, lParam, , "ahk_id " hwnd)
             }
-        }
-    }
-
-    SendMessage(type, identifier, str) {
-        ; Completely replaced WM_COPYDATA with RingBuffer Push!
-        idx := this.GetWorkIndex(identifier)
-        if (this.tx.Has(idx)) {
-            ; id 0 is reserved for non-future tasks
-            this.tx[idx].Push(0, str)
-            SetEvent(this.evt[idx])
         }
     }
 
@@ -358,107 +301,63 @@ class WorkPool {
         }
     }
 
-    ; --- Legacy Deduplication & Callbacks ---
-    OnRelease(wParam, lParam, msg, hwnd) {
-        tableIndex := wParam
-        itemIndex := lParam
-        tableItem := MySoftData.TableInfo[tableIndex]
-        workerIndex := tableItem.IsWorkIndexArr[itemIndex]
-        
-        this.pool.Push(workerIndex)
-        this.workerIdleTime.Set(workerIndex, A_TickCount)
-        tableItem.IsWorkIndexArr[itemIndex] := false
-    }
-
     OnStopMacro(wParam, lParam, msg, hwnd) {
         tableIndex := wParam
         itemIndex := lParam
         tableItem := MySoftData.TableInfo[tableIndex]
-        WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
-        if (WorkerIndex != 0) {
-            this.PostMessage(WM_STOP_MACRO, WorkerIndex, tableIndex, itemIndex)
-            return
+        ; WorkerIndex tracking is handled via futures now, or we can broadcast STOP_MACRO
+        ; to all workers since we don't strictly track which worker is running which macro.
+        for idx, workerHwnd in this.active {
+            this.PostMessage(WM_STOP_MACRO, idx, tableIndex, itemIndex)
         }
         KillTableItemMacro(tableItem, itemIndex)
     }
 
-    OnTriggerMacro(wParam, lParam, msg, hwnd) {
-        TriggerMacroHandler(wParam, lParam)
-    }
+    OnWorkerEvent(idx, payload) {
+        try {
+            paramArr := JSON.parse(payload)
+            action := paramArr[1]
+            args := []
+            loop paramArr.Length - 1 {
+                args.Push(paramArr[A_Index + 1])
+            }
 
-    OnRecordMessage(Timestamp) {
-        if (this.MessageMap.Has(Timestamp))
-            return
-        this.MessageMap.Set(Timestamp, 1)
-        this.MessageArr.Push(Timestamp)
-        if (this.MessageArr.Length >= 125) {
-            delTimestamp := this.MessageArr.RemoveAt(1)
-            this.MessageMap.Delete(delTimestamp)
-        }
-    }
-
-    OnGetCmdStr(idx, Cmd) {
-        ; Handle id=0 messages from worker
-        ; The string has Timestamp appended to the end: str "⫶" Timestamp
-        lastIndex := InStr(Cmd, "⫶", , -1)
-        Timestamp := ""
-        if (lastIndex > 0) {
-            Timestamp := SubStr(Cmd, lastIndex + 1)
-            Cmd := SubStr(Cmd, 1, lastIndex - 1)
-        }
-        paramArr := StrSplit(Cmd, "⫶")
-
-        ; Broadcast to other workers (if needed by old logic)
-        ; Wait, old logic broadcasted WM_RECEIVE_INFO. 
-        ; I will skip the broadcast logic unless strictly required, but for compatibility let's keep it.
-        workerList := this.GetActiveWorkerList()
-        loop workerList.Length {
-            this.PostMessage(WM_RECEIVE_INFO, workerList[A_Index], Timestamp, 0)
-        }
-
-        if (Timestamp != "" && this.MessageMap.Has(Timestamp))
-            return
-
-        if (Timestamp != "")
-            this.OnRecordMessage(Timestamp)
-
-        switch paramArr[1] {
-            case "SetVari":
-                GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)
-                SetGlobalVariable(NameArr, ValueArr, false)
-            case "DelVari":
-                NameArr := paramArr.Clone()
-                NameArr.RemoveAt(1)
-                DelGlobalVariable(NameArr)
-            case "Report":
-                CMDReport(SubStr(Cmd, 8))
-            case "RMT指令":
-                ExcuteRMTCMDAction(Cmd)
-            case "ItemState":
-                SetTableItemState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
-            case "PauseState":
-                SetItemPauseState(paramArr[2], Integer(paramArr[3]), Integer(paramArr[4]))
-            case "MsgBox":
-                paramArr := StrSplit(Cmd, "⫶", , 2)
-                MsgBoxContent(paramArr[2])
-            case "ToolTip":
-                ToolTipContent(paramArr[2])
-            case "MacroCount":
-                MacroCount(paramArr[2])
-            case "Joy":
-                ViGJoySetState(paramArr[2], paramArr[3], paramArr[4])
-            case "SetArray":
-                SetGlobalArray(paramArr[2], GetArray(paramArr[3]))
-            case "CloneArray":
-                CloneGlobalArray(GetArray(paramArr[2]), paramArr[3])
-            case "DeleteArray":
-                DeleteGlobalArray(paramArr[2])
-            case "ModifyArray":
-                ModifyGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
-            case "InsertArray":
-                InsertGlobalArray(paramArr[2], paramArr[3], paramArr[4], paramArr[5], paramArr[6])
-            case "RemoveAtArray":
-                RemoveAtGlobalArray(paramArr[2], paramArr[3], paramArr[4])
+            switch action {
+                case "SetVari":
+                    SetGlobalVariable(args[1], args[2], false)
+                case "DelVari":
+                    DelGlobalVariable(args[1])
+                case "Report":
+                    CMDReport(args[1])
+                case "RMT指令":
+                    ExcuteRMTCMDAction(args[1])
+                case "ItemState":
+                    SetTableItemState(args[1], args[2], args[3])
+                case "PauseState":
+                    SetItemPauseState(args[1], args[2], args[3])
+                case "MsgBox":
+                    MsgBoxContent(args[1])
+                case "ToolTip":
+                    ToolTipContent(args[1])
+                case "MacroCount":
+                    MacroCount(args[1])
+                case "Joy":
+                    ViGJoySetState(args[1], args[2], args[3])
+                case "SetArray":
+                    SetGlobalArray(args[1], GetArray(args[2]))
+                case "CloneArray":
+                    CloneGlobalArray(GetArray(args[1]), args[2])
+                case "DeleteArray":
+                    DeleteGlobalArray(args[1])
+                case "ModifyArray":
+                    ModifyGlobalArray(args[1], args[2], args[3], args[4], args[5])
+                case "InsertArray":
+                    InsertGlobalArray(args[1], args[2], args[3], args[4], args[5])
+                case "RemoveAtArray":
+                    RemoveAtGlobalArray(args[1], args[2], args[3])
+            }
+        } catch as e {
+            ; JSON parse error or invalid event
         }
     }
 }

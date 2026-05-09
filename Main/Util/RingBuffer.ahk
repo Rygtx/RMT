@@ -7,7 +7,7 @@
 ; offset 128: buf
 class RingBuffer {
     __New(ptr, size) {
-        this.base := ptr
+        this.basePtr := ptr
         this.size := size
         this.headPtr := ptr
         this.tailPtr := ptr + 64
@@ -21,9 +21,9 @@ class RingBuffer {
     GetTail() => NumGet(this.tailPtr, 0, "UInt")
     SetTail(v) => NumPut("UInt", v, this.tailPtr)
 
-    Push(id, str) {
+    Push(type, id, str := "") {
         len := (StrLen(str) + 1) * 2
-        total := 8 + len  ; 4 bytes ID + 4 bytes len + string bytes
+        total := 12 + len  ; 4 bytes type + 4 bytes ID + 4 bytes len + string bytes
 
         head := this.GetHead()
         tail := this.GetTail()
@@ -49,16 +49,16 @@ class RingBuffer {
                 return false
         }
 
-        NumPut("UInt", id, this.bufPtr, pos)
-        NumPut("UInt", len, this.bufPtr, pos + 4)
-        StrPut(str, this.bufPtr + pos + 8)
+        NumPut("UInt", type, this.bufPtr, pos)
+        NumPut("UInt", id, this.bufPtr, pos + 4)
+        NumPut("UInt", len, this.bufPtr, pos + 8)
+        StrPut(str, this.bufPtr + pos + 12)
 
-        DllCall("Kernel32\MemoryBarrier")
         this.SetHead(head + total)
         return true
     }
 
-    Pop(&id, &str) {
+    Pop(&type, &id, &str) {
         head := this.GetHead()
         tail := this.GetTail()
 
@@ -67,7 +67,7 @@ class RingBuffer {
 
         pos := Mod(tail, this.cap)
         
-        ; Read ID, which might be unsigned except for our -1 marker.
+        ; Read type, which might be unsigned except for our -1 marker.
         ; NumGet "Int" for -1 check
         id_signed := NumGet(this.bufPtr, pos, "Int")
 
@@ -75,15 +75,15 @@ class RingBuffer {
             ; Wrap around marker
             tail += (this.cap - pos)
             this.SetTail(tail)
-            return this.Pop(&id, &str)
+            return this.Pop(&type, &id, &str)
         }
 
-        id := NumGet(this.bufPtr, pos, "UInt")
-        len := NumGet(this.bufPtr, pos + 4, "UInt")
-        str := StrGet(this.bufPtr + pos + 8, len // 2)
+        type := NumGet(this.bufPtr, pos, "UInt")
+        id := NumGet(this.bufPtr, pos + 4, "UInt")
+        len := NumGet(this.bufPtr, pos + 8, "UInt")
+        str := StrGet(this.bufPtr + pos + 12, len // 2)
 
-        DllCall("Kernel32\MemoryBarrier")
-        this.SetTail(tail + 8 + len)
+        this.SetTail(tail + 12 + len)
         return true
     }
 }

@@ -11,6 +11,9 @@ class SharedMemory {
             , "uint", size
             , "str", name
             , "ptr")
+        if (!this.hMap)
+            throw Error("Failed to CreateFileMapping: " name " (Error: " A_LastError ")")
+            
         this.ptr := DllCall("MapViewOfFile"
             , "ptr", this.hMap
             , "uint", 0xF001F ; FILE_MAP_ALL_ACCESS
@@ -18,6 +21,8 @@ class SharedMemory {
             , "uint", 0
             , "ptr", size
             , "ptr")
+        if (!this.ptr)
+            throw Error("Failed to MapViewOfFile for: " name " (Error: " A_LastError ")")
     }
 
     Close() {
