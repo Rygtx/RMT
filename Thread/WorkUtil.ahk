@@ -122,6 +122,20 @@
         StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
         Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
         paramArr := StrSplit(cmd, "⫶")
+
+        ; 處理 Thread Pool Submit 任務 (id⫶cmd)
+        if (IsInteger(paramArr[1])) {
+            id := Integer(paramArr[1])
+            cmdStr := paramArr.Length >= 2 ? paramArr[2] : ""
+            
+            ; 執行任務 (使用者可自行擴充 ExecTask)
+            ; result := ExecTask(cmdStr)
+            
+            ; 由於跨進程 PostMessage 只能傳遞整數，回傳狀態碼 1 代表成功
+            MsgPostHandler(WM_WORK_DONE, id, 1) 
+            return
+        }
+
         switch paramArr[1] {
             case "SetVari":
                 GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)

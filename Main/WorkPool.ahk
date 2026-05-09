@@ -1,49 +1,100 @@
 #Requires AutoHotkey v2.0
+
+class TaskQueue {
+    __New() {
+        this.queue := []
+    }
+
+    Push(task) {
+        this.queue.Push(task)
+    }
+
+    Pop() {
+        if (this.queue.Length == 0)
+            return ""
+        return this.queue.RemoveAt(1)
+    }
+
+    Size() {
+        return this.queue.Length
+    }
+}
+
+class Future {
+    __New(id) {
+        this.id := id
+        this.done := false
+        this.result := ""
+    }
+
+    SetResult(result) {
+        this.result := result
+        this.done := true
+    }
+
+    GetResult(timeout := 5000) {
+        start := A_TickCount
+        while (!this.done) {
+            if (A_TickCount - start > timeout)
+                throw Error("Future timeout")
+            Sleep 10
+        }
+        return this.result
+    }
+}
+
 class WorkPool {
     __New() {
+        this.workerExe := A_ScriptDir "\Thread\Work1.exe"
         this.maxSize := MySoftData.MutiThreadNum
-        this.pool := []              ; 对象池数组
         this.isDynamic := (this.maxSize == -1)
         this.dynamicMaxLimit := 16
         this.corePoolSize := MySoftData.DynamicCorePoolSize
         this.elasticTimeout := MySoftData.ElasticTimeout * 1000
         this.dynamicMinSize := this.corePoolSize
-        this.currentMaxIndex := 0
-        this.activeWorkers := Map()
+        
+        this.pool := []                 ; idle workerIndex
+        this.active := Map()            ; workerIndex -> hwnd
+        this.pending := Map()           ; workerIndex -> true
+        
+        this.queue := TaskQueue()
+        this.futures := Map()
+        this.futureCreateTime := Map()
+        this.futureTimeout := 10000
+
         this.workerIdleTime := Map()
-        this.recycledIndices := []
-        this.shrinkTimerFunc := ""
-        this.hwndMap := Map()
-        this.pidMap := Map()
+        this.workerIndex := 0
+        this.mainPID := DllCall("GetCurrentProcessId")
+        
         this.MessageArr := []   ;消息数组，避免消息重复处理
         this.MessageMap := Map()
-        this.mainPID := DllCall("GetCurrentProcessId")  ; 获取主进程PID
 
-        if (this.isDynamic) {
-            loop this.dynamicMinSize {
-                this.CreateWorker(A_Index)
-            }
-        } else {
-            loop this.maxSize {
-                workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-                if (!FileExist(workPath) && this.maxSize <= 10) {
-                    FileCopy(A_ScriptDir "\Thread\Work1.exe", workPath)
-                }
-                Run (Format("{} {} {} {}", workPath, MySoftData.MyGui.Hwnd, A_Index, this.mainPID))
-                this.activeWorkers.Set(A_Index, workPath)
-                this.currentMaxIndex := A_Index
-            }
-        }
+        OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))  ; replaces OnFinishLoad
+        OnMessage(WM_RELEASE_WORK, ObjBindMethod(this, "OnRelease"))   ; replaces old OnRelease
+        OnMessage(WM_STOP_MACRO, ObjBindMethod(this, "OnStopMacro"))   ;终止其他宏
+        OnMessage(WM_TR_MACRO, ObjBindMethod(this, "OnTriggerMacro"))  ;触发宏
+        OnMessage(WM_COPYDATA, ObjBindMethod(this, "OnGetCmd"))        ;接收到命令
+        
+        ; 新增的 callback
+        OnMessage(WM_WORK_DONE, ObjBindMethod(this, "OnDone"))         ; 任務完成 callback
 
-        OnMessage(WM_LOAD_WORK, this.OnFinishLoad.Bind(this))  ; 工作器完成工作回调
-        OnMessage(WM_RELEASE_WORK, this.OnRelease.Bind(this))  ; 工作器完成工作回调
-        OnMessage(WM_STOP_MACRO, this.OnStopMacro.Bind(this))  ;终止其他宏
-        OnMessage(WM_TR_MACRO, this.OnTriggerMacro.Bind(this)) ;触发宏
-        OnMessage(WM_COPYDATA, this.OnGetCmd.Bind(this)) ;接收到命令
-
+        SetTimer(ObjBindMethod(this, "Dispatch"), 10)
+        SetTimer(ObjBindMethod(this, "CheckFutures"), 1000)
+        
         if (this.isDynamic) {
             this.shrinkTimerFunc := ObjBindMethod(this, "IdleShrinkCheck")
             SetTimer(this.shrinkTimerFunc, 10000)
+        }
+
+        ; 預熱
+        if (this.isDynamic) {
+            loop this.dynamicMinSize {
+                this.CreateWorker()
+            }
+        } else {
+            loop this.maxSize {
+                this.CreateWorker()
+            }
         }
     }
 
@@ -55,31 +106,165 @@ class WorkPool {
         this.Clear()
     }
 
-    GetNextWorkerIndex() {
-        if (this.recycledIndices.Length >= 1) {
-            return this.recycledIndices.Pop()
-        }
-        return this.currentMaxIndex + 1
+    ; =========================
+    ; 核心：建立 Worker（不再 copy exe）
+    ; =========================
+    CreateWorker() {
+        this.workerIndex++
+        idx := this.workerIndex
+
+        this.pending[idx] := true
+
+        Run(Format('"{}" {} {} {}', this.workerExe, MySoftData.MyGui.Hwnd, idx, this.mainPID))
     }
 
-    CreateWorker(workerIndex) {
-        workPath := A_ScriptDir "\Thread\Work" workerIndex ".exe"
-        if (!FileExist(workPath)) {
-            FileCopy(A_ScriptDir "\Thread\Work1.exe", workPath)
+    ; =========================
+    ; 核心：提交任務（外部用）
+    ; =========================
+    Submit(cmd) {
+        if (!this.HasProp("taskCounter"))
+            this.taskCounter := 0
+        this.taskCounter++
+        id := this.taskCounter
+
+        future := Future(id)
+
+        this.futures.Set(id, future)
+        this.futureCreateTime.Set(id, A_TickCount)
+        this.queue.Push({ id: id, cmd: cmd })
+
+        return future
+    }
+
+    ; =========================
+    ; 核心：調度器
+    ; =========================
+    Dispatch() {
+        while (this.queue.Size() > 0 && this.pool.Length > 0) {
+            idx := this.pool.Pop()
+
+            if (!this.IsAlive(idx)) {
+                this.active.Delete(idx)
+                if (this.workerIdleTime.Has(idx))
+                    this.workerIdleTime.Delete(idx)
+                this.CreateWorker()
+                continue
+            }
+
+            task := this.queue.Pop()
+            this.SendTask(idx, task)
+            
+            if (this.workerIdleTime.Has(idx))
+                this.workerIdleTime.Delete(idx)
         }
-        Run (Format("{} {} {} {}", workPath, MySoftData.MyGui.Hwnd, workerIndex, this.mainPID))
-        this.activeWorkers.Set(workerIndex, workPath)
-        if (workerIndex > this.currentMaxIndex) {
-            this.currentMaxIndex := workerIndex
+
+        ; 動態擴展 (如果任務過多且還沒到達上限)
+        if (this.isDynamic && this.queue.Size() > 0 && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit) {
+            this.CreateWorker()
         }
+    }
+    
+    ; =========================
+    ; 核心：檢查超時 Future
+    ; =========================
+    CheckFutures() {
+        now := A_TickCount
+        toDelete := []
+        for id, createTime in this.futureCreateTime {
+            if ((now - createTime) >= this.futureTimeout) {
+                if (this.futures.Has(id)) {
+                    this.futures[id].SetResult("timeout")
+                    this.futures.Delete(id)
+                }
+                toDelete.Push(id)
+            }
+        }
+        for id in toDelete {
+            this.futureCreateTime.Delete(id)
+        }
+    }
+
+    IsAlive(idx) {
+        return this.active.Has(idx) && WinExist("ahk_id " this.active[idx])
+    }
+
+    ; =========================
+    ; 核心：發送任務 (WM_COPYDATA)
+    ; =========================
+    SendTask(workerIndex, task) {
+        hwnd := this.active[workerIndex]
+        data := task.id "⫶" task.cmd
+
+        CopyDataStruct := Buffer(3 * A_PtrSize)
+        size := (StrLen(data) + 1) * 2
+        NumPut("Ptr", size, "Ptr", StrPtr(data), CopyDataStruct, A_PtrSize)
+        try {
+            SendMessage(WM_COPYDATA, 0, CopyDataStruct, , "ahk_id " hwnd)
+        }
+    }
+
+    ; =========================
+    ; worker 完成 (透過 TaskQueue 送的)
+    ; =========================
+    OnDone(wParam, lParam, msg, hwnd) {
+        id := wParam
+        result := lParam
+
+        if (this.futures.Has(id)) {
+            this.futures[id].SetResult(result)
+            this.futures.Delete(id)
+            this.futureCreateTime.Delete(id)
+        }
+
+        ; Extract worker index from hwnd
+        idx := this.GetWorkerIndexByHwnd(hwnd)
+        if (idx > 0) {
+            this.pool.Push(idx)
+            this.workerIdleTime.Set(idx, A_TickCount)
+        }
+    }
+
+    GetWorkerIndexByHwnd(targetHwnd) {
+        for idx, hwnd in this.active {
+            if (hwnd == targetHwnd)
+                return idx
+        }
+        return 0
+    }
+
+    ; =========================
+    ; worker 準備就緒 (取代舊版 OnFinishLoad)
+    ; =========================
+    OnWorkerReady(wParam, lParam, msg, hwnd) {
+        idx := wParam
+        workerHwnd := lParam > 0 ? lParam : hwnd
+        
+        if (this.pending.Has(idx))
+            this.pending.Delete(idx)
+            
+        this.active.Set(idx, workerHwnd)
+        this.pool.Push(idx)
+        this.workerIdleTime.Set(idx, A_TickCount)
+    }
+
+    ; =========================
+    ; Compatibility Layer (兼容舊系統)
+    ; =========================
+    GetWorkPath(workerIndex) {
+        return "worker:" workerIndex
+    }
+
+    GetWorkIndex(fakePath) {
+        if (IsInteger(fakePath))
+            return fakePath
+        return Integer(StrReplace(fakePath, "worker:"))
     }
 
     CheckHasFreeWorker() {
         if (this.isDynamic) {
             if (this.pool.Length >= 1)
                 return true
-            activeCount := this.activeWorkers.Count
-            return activeCount < this.dynamicMaxLimit
+            return (this.active.Count + this.pending.Count) < this.dynamicMaxLimit
         }
         return this.pool.Length >= 1
     }
@@ -91,112 +276,76 @@ class WorkPool {
     }
 
     GetActiveCount() {
-        return this.activeWorkers.Count - this.pool.Length
+        return this.active.Count - this.pool.Length
     }
 
-    ; 从池中获取一个对象
     Get() {
-        workPath := ""
-        if (this.pool.Length >= 1) {
-            workPath := this.pool.Pop()
-            this.RemoveFromPool(workPath)
-            if (this.isDynamic)
-                this.PreAllocateWorker()
-        } else if (this.isDynamic && this.activeWorkers.Count < this.dynamicMaxLimit) {
-            newIndex := this.GetNextWorkerIndex()
-            this.CreateWorker(newIndex)
-            if (this.activeWorkers.Count < this.dynamicMaxLimit)
-                this.PreAllocateWorker()
-        }
-        return workPath
-    }
-
-    PreAllocateWorker() {
-        if (this.pool.Length >= 1)
-            return
-        if (this.activeWorkers.Count >= this.dynamicMaxLimit)
-            return
-
-        newIndex := this.GetNextWorkerIndex()
-        this.CreateWorker(newIndex)
-    }
-
-    GetWorkPath(workIndex) {
-        return A_ScriptDir "\Thread\Work" workIndex ".exe"
-    }
-
-    GetWorkIndex(workPath) {
-        workIndex := StrReplace(workPath, A_ScriptDir "\Thread\Work")
-        workIndex := StrReplace(workIndex, ".exe")
-        return workIndex
-    }
-
-    AddToPool(workPath) {
-        workerIndex := this.GetWorkIndex(workPath)
-        this.pool.Push(workPath)
-        this.workerIdleTime.Set(workerIndex, A_TickCount)
-    }
-
-    RemoveFromPool(workPath) {
-        workerIndex := this.GetWorkIndex(workPath)
-        if (this.workerIdleTime.Has(workerIndex))
-            this.workerIdleTime.Delete(workerIndex)
-    }
-
-    GetWorkHwnd(workPath) {
-        if (!this.hwndMap.Has(workPath)) {
-            workIndex := StrReplace(workPath, A_ScriptDir "\Thread\Work")
-            workIndex := StrReplace(workIndex, ".exe")
-            try {
-                hwnd := WinGetID("RMTWork" workIndex)
-                this.hwndMap.Set(workPath, hwnd)
+        idx := 0
+        while (this.pool.Length >= 1) {
+            idx := this.pool.Pop()
+            if (this.IsAlive(idx))
+                break
+            else {
+                this.active.Delete(idx)
+                if (this.workerIdleTime.Has(idx))
+                    this.workerIdleTime.Delete(idx)
+                idx := 0
             }
         }
-        return this.hwndMap.Get(workPath, 0)
+
+        if (idx > 0) {
+            if (this.workerIdleTime.Has(idx))
+                this.workerIdleTime.Delete(idx)
+            if (this.isDynamic && this.pool.Length == 0 && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit)
+                this.CreateWorker()
+            return this.GetWorkPath(idx)
+        } else if (this.isDynamic && (this.active.Count + this.pending.Count) < this.dynamicMaxLimit) {
+            this.CreateWorker()
+        }
+        return ""
     }
 
     GetActiveWorkerList() {
         list := []
-        if (this.isDynamic) {
-            for workPath in this.activeWorkers {
-                list.Push(workPath)
-            }
-        } else {
-            loop this.maxSize {
-                list.Push(A_ScriptDir "\Thread\Work" A_Index ".exe")
-            }
+        for idx, hwnd in this.active {
+            list.Push(this.GetWorkPath(idx))
         }
         return list
     }
 
-    ; 清空对象池
     Clear() {
-        workerList := this.GetActiveWorkerList()
-        loop workerList.Length {
-            this.PostMessage(WM_CLEAR_WORK, workerList[A_Index], 0, 0)
+        for idx, hwnd in this.active {
+            this.PostMessage(WM_CLEAR_WORK, idx, 0, 0)
         }
         this.pool := []
-        this.activeWorkers := Map()
+        this.active := Map()
+        this.pending := Map()
         this.workerIdleTime := Map()
-        this.recycledIndices := []
-        this.currentMaxIndex := 0
+        this.futures := Map()
+        this.futureCreateTime := Map()
+        this.queue := TaskQueue()
+        this.workerIndex := 0
     }
 
-    PostMessage(type, workPath, wParam, lParam) {
-        hwnd := this.GetWorkHwnd(workPath)
-        try {
-            PostMessage(type, wParam, lParam, , "ahk_id " hwnd)
+    PostMessage(type, identifier, wParam, lParam) {
+        idx := this.GetWorkIndex(identifier)
+        if (this.active.Has(idx)) {
+            hwnd := this.active[idx]
+            try {
+                PostMessage(type, wParam, lParam, , "ahk_id " hwnd)
+            }
         }
     }
 
-    SendMessage(type, workPath, str) {
-        CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
-        ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
+    SendMessage(type, identifier, str) {
+        idx := this.GetWorkIndex(identifier)
+        if (!this.active.Has(idx))
+            return
+            
+        hwnd := this.active[idx]
+        CopyDataStruct := Buffer(3 * A_PtrSize)
         SizeInBytes := (StrLen(str) + 1) * 2
-        NumPut("Ptr", SizeInBytes  ; 操作系统要求这个需要完成.
-            , "Ptr", StrPtr(str)  ; 设置 lpData 为到字符串自身的指针.
-            , CopyDataStruct, A_PtrSize)
-        hwnd := this.GetWorkHwnd(workPath)
+        NumPut("Ptr", SizeInBytes, "Ptr", StrPtr(str), CopyDataStruct, A_PtrSize)
         try {
             SendMessage(type, 0, CopyDataStruct, , "ahk_id " hwnd)
         }
@@ -207,66 +356,47 @@ class WorkPool {
             return
         now := A_TickCount
         shrinkIndices := []
-        for workerIndex, idleTick in this.workerIdleTime {
+        
+        for idx, idleTick in this.workerIdleTime {
             if ((now - idleTick) >= this.elasticTimeout) {
-                shrinkIndices.Push(workerIndex)
+                shrinkIndices.Push(idx)
             }
         }
         maxShrink := this.pool.Length - this.corePoolSize
         if (shrinkIndices.Length == 0 || maxShrink <= 0)
             return
+            
         loop Min(shrinkIndices.Length, maxShrink) {
             targetIndex := shrinkIndices[A_Index]
-            workPath := A_ScriptDir "\Thread\Work" targetIndex ".exe"
-            this.PostMessage(WM_CLEAR_WORK, workPath, 0, 0)
-            this.activeWorkers.Delete(targetIndex)
-            this.hwndMap.Delete(workPath)
-            this.pidMap.Delete(targetIndex)
-            this.recycledIndices.Push(targetIndex)
+            this.PostMessage(WM_CLEAR_WORK, targetIndex, 0, 0)
+            this.active.Delete(targetIndex)
+            if (this.workerIdleTime.Has(targetIndex))
+                this.workerIdleTime.Delete(targetIndex)
+                
             poolIndex := 0
             loop this.pool.Length {
-                if (this.GetWorkIndex(this.pool[A_Index]) == targetIndex) {
+                if (this.pool[A_Index] == targetIndex) {
                     poolIndex := A_Index
                     break
                 }
             }
-            if (poolIndex > 0) {
+            if (poolIndex > 0)
                 this.pool.RemoveAt(poolIndex)
-                this.workerIdleTime.Delete(targetIndex)
-            }
         }
     }
 
+    ; =========================
+    ; 舊有系統回調與去重邏輯
+    ; =========================
     OnRelease(wParam, lParam, msg, hwnd) {
         tableIndex := wParam
         itemIndex := lParam
         tableItem := MySoftData.TableInfo[tableIndex]
         workerIndex := tableItem.IsWorkIndexArr[itemIndex]
-        workPath := A_ScriptDir "\Thread\Work" workerIndex ".exe"
-        this.AddToPool(workPath)
+        
+        this.pool.Push(workerIndex)
+        this.workerIdleTime.Set(workerIndex, A_TickCount)
         tableItem.IsWorkIndexArr[itemIndex] := false
-    }
-
-    OnFinishLoad(wParam, lParam, msg, hwnd) {
-        workPath := A_ScriptDir "\Thread\Work" wParam ".exe"
-        isInPool := false
-        loop this.pool.Length {
-            if (this.pool[A_Index] == workPath) {
-                isInPool := true
-                break
-            }
-        }
-        if (!isInPool) {
-            this.AddToPool(workPath)
-        } else {
-            this.workerIdleTime.Set(wParam, A_TickCount)
-        }
-        if (!this.activeWorkers.Has(wParam)) {
-            this.activeWorkers.Set(wParam, workPath)
-        }
-        if (wParam > this.currentMaxIndex) {
-            this.currentMaxIndex := wParam
-        }
     }
 
     OnStopMacro(wParam, lParam, msg, hwnd) {
@@ -275,11 +405,9 @@ class WorkPool {
         tableItem := MySoftData.TableInfo[tableIndex]
         WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
         if (WorkerIndex != 0) {
-            workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-            MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, tableIndex, itemIndex)
+            this.PostMessage(WM_STOP_MACRO, WorkerIndex, tableIndex, itemIndex)
             return
         }
-
         KillTableItemMacro(tableItem, itemIndex)
     }
 
@@ -300,19 +428,20 @@ class WorkPool {
     }
 
     OnGetCmd(wParam, lParam, msg, hwnd) {
+        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")
+        Cmd := StrGet(StringAddress)
+        paramArr := StrSplit(Cmd, "⫶")
+
         workerList := this.GetActiveWorkerList()
-        ;告知一下子进程收到信息
         loop workerList.Length {
-            MyWorkPool.PostMessage(WM_RECEIVE_INFO, workerList[A_Index], wParam, 0)
+            this.PostMessage(WM_RECEIVE_INFO, workerList[A_Index], wParam, 0)
         }
 
-        if (this.MessageMap.Has(wParam))    ;接收过就不用再处理了
+        if (this.MessageMap.Has(wParam))
             return
 
         this.OnRecordMessage(wParam)
-        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
-        Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
-        paramArr := StrSplit(Cmd, "⫶")
+
         switch paramArr[1] {
             case "SetVari":
                 GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)
