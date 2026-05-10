@@ -27,6 +27,7 @@ global WM_STOP_MACRO := 0x504 ;停止宏事件
 global WM_SET_VARI := 0x505    ;设置变量
 global WM_DEL_VARI := 0x506    ;删除变量
 global WM_RECEIVE_INFO := 0x507    ;主进程接受到子进程信息，防止信息丢失
+global WM_WORK_DONE := 0x508       ;工作器完成任务回调
 
 ; 功能函数
 GetFloatTime(oriTime, floatValue) {
