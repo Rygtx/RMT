@@ -269,7 +269,8 @@ OnMMPro(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
-    Data.Count := Data.IsGameView ? data.Count : 1
+    MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
+    Data.Count := MoveMode == 2 ? Data.Count : 1
     loop Data.Count {
         WaitIfPaused(tableItem, index)
 
@@ -287,6 +288,7 @@ OnMMProOnce(tableItem, index, Data) {
     SendMode("Event")
     CoordMode("Mouse", "Screen")
     Speed := 100 - Data.Speed
+    MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
 
     hasPosVarX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosVarX)
     hasPosVarY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosVarY)
@@ -297,9 +299,30 @@ OnMMProOnce(tableItem, index, Data) {
     PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
     ClickCount := Data.ActionType == 2 ? 1 : 2
-    if (Data.IsGameView) {
+    if (MoveMode == 2) {
         MOUSEEVENTF_MOVE := 0x0001
-        DllCall("mouse_event", "UInt", MOUSEEVENTF_MOVE, "UInt", PosX, "UInt", PosY, "UInt", 0, "UInt", 0)
+        DllCall("mouse_event", "UInt", MOUSEEVENTF_MOVE
+            , "Int", PosX, "Int", PosY, "UInt", 0, "UInt", 0)
+    }
+    else if (MoveMode == 1) {
+        IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
+        if (IsHumanMouse && Data.ActionType == 1) {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos(&curX, &curY)
+            hm := HumanMouse.GetInstance()
+            hm.SetParams({
+                IsEnabled: true,
+                Speed: Speed
+            })
+            hm.Move(curX + PosX, curY + PosY)
+        }
+        else if (Data.ActionType == 1) {
+            MouseMove(PosX, PosY, Speed, "R")
+        }
+        else if (Data.ActionType == 2 || Data.ActionType == 3) {
+            SetDefaultMouseSpeed(Speed)
+            Click(Format("{} {} {} Relative"), PosX, PosY, ClickCount)
+        }
     }
     else if (Data.ActionType == 1) {
         IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
@@ -309,31 +332,15 @@ OnMMProOnce(tableItem, index, Data) {
                 IsEnabled: true,
                 Speed: Speed
             })
-
-            if (Data.IsRelative) {
-                MouseGetPos(&curX, &curY)
-                hm.Move(curX + PosX, curY + PosY)
-            }
-            else {
-                hm.Move(PosX, PosY)
-            }
+            hm.Move(PosX, PosY)
         }
         else {
-            if (Data.IsRelative) {
-                MouseMove(PosX, PosY, Speed, "R")
-            }
-            else
-                MouseMove(PosX, PosY, Speed)
+            MouseMove(PosX, PosY, Speed)
         }
     }
     else if (Data.ActionType == 2 || Data.ActionType == 3) {
         SetDefaultMouseSpeed(Speed)
-        if (Data.IsRelative) {
-            Click(Format("{} {} {} Relative"), PosX, PosY, ClickCount)
-        }
-        else {
-            Click(Format("{} {} {}"), PosX, PosY, ClickCount)
-        }
+        Click(Format("{} {} {}"), PosX, PosY, ClickCount)
     }
 }
 
@@ -820,13 +827,17 @@ OnMouseMove(tableItem, cmd, index) {
     PosX := Integer(paramArr[2])
     PosY := Integer(paramArr[3])
     Speed := paramArr.Length >= 4 ? 100 - Integer(paramArr[4]) : 0
-    IsRelative := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
+    MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
 
     PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
     SendMode("Event")
     CoordMode("Mouse", "Screen")
-    if (IsRelative) {
+    if (MoveMode == 2) {
+        MOUSEEVENTF_MOVE := 0x0001
+        DllCall("mouse_event", "UInt", MOUSEEVENTF_MOVE, "Int", PosX, "Int", PosY, "UInt", 0, "Ptr", 0)
+    }
+    else if (MoveMode == 1) {
         MouseMove(PosX, PosY, Speed, "R")
     }
     else {

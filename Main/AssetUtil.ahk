@@ -392,7 +392,7 @@ LoadMainSetting() {
     ToolCheckInfo.RecordMouse := IniRead(IniFile, IniSection, "RecordMouse", true)
     ToolCheckInfo.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
     ToolCheckInfo.RecordMouseKeyPoint := IniRead(IniFile, IniSection, "RecordMouseKeyPoint", true)
-    ToolCheckInfo.RecordMouseRelative := IniRead(IniFile, IniSection, "RecordMouseRelative", false)
+    ToolCheckInfo.RecordMouseMoveMode := IniRead(IniFile, IniSection, "RecordMouseMoveMode", 0)
     ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", false)
     ToolCheckInfo.RecordMouseTrailLen := IniRead(IniFile, IniSection, "RecordMouseTrailLen", 100)
     ToolCheckInfo.RecordMouseTrailSpeed := IniRead(IniFile, IniSection, "RecordMouseTrailSpeed", 95)
