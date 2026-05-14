@@ -296,6 +296,7 @@ InitFilePath() {
     global InputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\InputFile.ini"
     global FileIOFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
     global WindowManageFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WindowManageFile.ini"
+    global KeyCheckFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\KeyCheckFile.ini"
 }
 
 SubMacroStopAction(tableIndex, itemIndex) {
@@ -737,7 +738,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 }
 
 CheckIfDiscardCMD(triggerMap, cmd) {
-    if (!InStr(cmd, GetLang("按键")))
+    if (!InStr(cmd, GetLang("按键")) || InStr(cmd, GetLang("按键检测")))
         return false
 
     paramArr := SplitCommand(cmd)

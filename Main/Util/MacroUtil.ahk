@@ -85,7 +85,8 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "数组", OnArray,
         "输入", OnInput,
         "文件读写", OnFileIO,
-        "窗口管理", OnWindowManage
+        "窗口管理", OnWindowManage,
+        "按键检测", OnKeyCheck
     )
 
     cmdArr := SplitMacro(macro)
@@ -1139,4 +1140,52 @@ OnWindowManage(tableItem, cmd, index) {
                 WinSetTitle(newTitle, winTitle)
         }
     }
+}
+
+OnKeyCheck(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    keyArr := Data.KeyArr
+    if (keyArr.Length == 0)
+        return
+
+    checkType := Data.CheckType
+    stateType := Data.StateType
+    varName := Data.VarName
+    trueValue := Data.TrueValue
+    falseValue := Data.FalseValue
+
+    stateMode := stateType == 1 ? "P" : ""
+    isAllPressed := true
+    isAnyPressed := false
+
+    for index, key in keyArr {
+        isPressed := GetKeyState(key, stateMode)
+        if (isPressed) {
+            if (checkType == 2) {
+                if (Data.SaveToggle)
+                    MySetGlobalVariable([varName], [trueValue], false)
+                return
+            }
+            isAnyPressed := true
+        } else {
+            if (checkType == 1) {
+                if (Data.SaveToggle)
+                    MySetGlobalVariable([varName], [falseValue], false)
+                return
+            }
+            isAllPressed := false
+        }
+    }
+
+    result := ""
+    if (checkType == 1) {
+        result := isAllPressed ? trueValue : falseValue
+    } else {
+        result := isAnyPressed ? trueValue : falseValue
+    }
+
+    if (Data.SaveToggle)
+        MySetGlobalVariable([varName], [result], false)
 }
