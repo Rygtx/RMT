@@ -271,7 +271,7 @@ InitFilePath() {
     FileInstall("Images\Soft\Control.png", "Images\Soft\Control.png", 1)
     FileInstall("Images\Soft\WindowManage.png", "Images\Soft\WindowManage.png", 1)
 
-    global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
+    global VBSPath := A_WorkingDir "\MinTool\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\Audio\End.wav"
     global ViGEmDllPath := A_WorkingDir "\Plugins\ViGEm\ViGEmWrapper.dll"

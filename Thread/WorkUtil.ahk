@@ -3,7 +3,7 @@
 ;初始化数据
 {
     InitWorkFilePath() {
-        global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
+        global VBSPath := A_WorkingDir "\..\MinTool\PlayAudio.vbs"
         global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
         global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
         global ViGEmDllPath := A_WorkingDir "\..\Plugins\ViGEm\ViGEmWrapper.dll"
