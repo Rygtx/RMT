@@ -144,13 +144,6 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-
-    isMp3 := RegExMatch(Data.RunPath, ".mp3$")
-    if (isMp3 && Data.BackPlay) {
-        playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, Data.RunPath)
-        Run(playAudioCmd)
-        return
-    }
     processedPath := GetReplaceVarText(tableItem, index, Data.RunPath)
 
     if (Data.RunMode == 1) {
