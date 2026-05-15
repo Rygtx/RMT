@@ -17,17 +17,13 @@
 #Include Util\HumanMouse.ahk
 #Include Util\MacroUtil.ahk
 #Include Util\PluginUtil.ahk
-global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
-global WM_RELEASE_WORK := 0x501  ;资源释放事件
 global WM_CLEAR_WORK := 0x502  ;资源释放事件
 global WM_TR_MACRO := 0x503 ;触发宏事件
 global WM_STOP_MACRO := 0x504 ;停止宏事件
-global WM_SET_VARI := 0x505    ;设置变量
-global WM_DEL_VARI := 0x506    ;删除变量
-global WM_RECEIVE_INFO := 0x507    ;主进程接受到子进程信息，防止信息丢失
-global WM_WORK_DONE := 0x508       ;工作器完成任务回调
+global WM_WORK_NOTIFY := 0x509     ;工作器任務通知
+global WM_RESULT_NOTIFY := 0x50A   ;結果就緒通知
 
 ; 功能函数
 GetFloatTime(oriTime, floatValue) {
@@ -393,7 +389,7 @@ LoadMainSetting() {
     ToolCheckInfo.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
     ToolCheckInfo.RecordMouseKeyPoint := IniRead(IniFile, IniSection, "RecordMouseKeyPoint", true)
     ToolCheckInfo.RecordMouseMoveMode := IniRead(IniFile, IniSection, "RecordMouseMoveMode", 0)
-    ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", true)
+    ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", false)
     ToolCheckInfo.RecordMouseTrailLen := IniRead(IniFile, IniSection, "RecordMouseTrailLen", 100)
     ToolCheckInfo.RecordMouseTrailSpeed := IniRead(IniFile, IniSection, "RecordMouseTrailSpeed", 95)
     ToolCheckInfo.RecordHoldMuti := IniRead(IniFile, IniSection, "RecordHoldMuti", false)
@@ -1510,9 +1506,6 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
             return true
         case "当前秒":
             Value := A_Sec
-            return true
-        case "当前星期几":
-            Value := A_WDay == 1 ? 7 : A_WDay - 1
             return true
         case "当前鼠标颜色":
             CoordMode("Mouse", "Screen")
