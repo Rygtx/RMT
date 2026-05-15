@@ -69,8 +69,8 @@ global MyRemoveAtGlobalArray := WorkRemoveAtGlobalArray
 WorkOpenCVLoadDll()
 SetTimer(CheckOcrIdle, 60000)
 
-global shmTx := SharedMemory(txName, 1048576 + 128)
-global shmRx := SharedMemory(rxName, 1048576 + 128)
+global shmTx := SharedMemory(txName, 1048576 + 192)
+global shmRx := SharedMemory(rxName, 1048576 + 192)
 global tx := RingBuffer(shmTx.ptr, 1048576)
 global rx := RingBuffer(shmRx.ptr, 1048576)
 global hEvent := OpenEvent(evtName)
