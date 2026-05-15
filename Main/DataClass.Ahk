@@ -812,8 +812,8 @@ class InputData {
 
 class WindowManageData {
     __New() {
-        this.SerialStr := ""
-        this.ActionType := 1                ;1激活窗口 2最大化窗口 3最小化窗口 4还原窗口 5关闭窗口 6移动窗口 7调整大小 8置顶窗口 9取消置顶 10修改标题
+        this.SerialStr := ""                 ;类型尽量使用中文 当做枚举使用  程序中有语义、也可以随时调整顺序
+        this.ActionType := "激活窗口"        ;1激活窗口 2最大化窗口 3最小化窗口 4还原窗口 5关闭窗口 6移动窗口 7调整大小 8置顶窗口 9取消置顶 10修改标题
         this.SearchValue := ""              ;查找值（格式：标题⎖类名⎖进程名，空表示未选择）
         this.PosX := 0                      ;移动窗口X坐标（移动窗口时使用）
         this.PosY := 0                      ;移动窗口Y坐标（移动窗口时使用）

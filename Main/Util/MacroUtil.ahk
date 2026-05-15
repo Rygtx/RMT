@@ -1101,42 +1101,45 @@ OnWindowManage(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     searchValue := GetReplaceVarText(tableItem, index, Data.SearchValue)
-    if (searchValue == "")
-        return
+    if (searchValue == "") {
+        ;赋值窗口下句柄 todo
+    }
 
     winTitle := GetParamsWinInfoStr(searchValue, "WindowManageGroup" index)
     if (winTitle == "")
         return
 
     try {
+        GetLang("激活窗口"), GetLang("最大化窗口"), GetLang("最小化窗口"), GetLang("还原窗口"), GetLang("关闭窗口"),
+        GetLang("移动窗口"), GetLang("调整大小"), GetLang("置顶窗口"), GetLang("取消置顶"), GetLang("修改标题")
         switch Data.ActionType {
-            case 1:
+            case "激活窗口":
                 WinActivate(winTitle)
-            case 2:
+            case "最大化窗口":
                 WinMaximize(winTitle)
-            case 3:
+            case "最小化窗口":
                 WinMinimize(winTitle)
-            case 4:
+            case "还原窗口":
                 WinRestore(winTitle)
-            case 5:
+            case "关闭窗口":
                 WinClose(winTitle)
-            case 6:
+            case "移动窗口":
                 hasPosX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosX)
                 hasPosY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosY)
                 if (hasPosX && hasPosY) {
                     WinMove(Integer(PosX), Integer(PosY), , , winTitle)
                 }
-            case 7:
+            case "调整大小":
                 hasWidth := TryGetTabVarValue(&Width, tableItem, index, Data.Width)
                 hasHeight := TryGetTabVarValue(&Height, tableItem, index, Data.Height)
                 if (hasWidth && hasHeight) {
                     WinMove(, , Integer(Width), Integer(Height), winTitle)
                 }
-            case 8:
+            case "置顶窗口":
                 WinSetAlwaysOnTop(1, winTitle)
-            case 9:
+            case "取消置顶":
                 WinSetAlwaysOnTop(0, winTitle)
-            case 10:
+            case "修改标题":
                 newTitle := GetReplaceVarText(tableItem, index, Data.NewTitle)
                 WinSetTitle(newTitle, winTitle)
         }
