@@ -21,14 +21,6 @@ class KeyCheckGui {
         this.UnSelectHoverColor := "Backgrounddadada"
     }
 
-    OnSureHotkey() {
-        triggerKey := this.HotkeyCon.Value
-        triggerKey := StrReplace(triggerKey, ",", "逗号")
-        triggerKey := StrReplace(triggerKey, "Insert", "Ins")
-        this.RefreshCheckCon(triggerKey)
-        this.Refresh()
-    }
-
     OnCheckedKey(key) {
         isSelected := false
         arrayIndex := 0
@@ -54,8 +46,6 @@ class KeyCheckGui {
             con.Redraw()
             this.CheckedArr.Push(key)
         }
-
-        this.Refresh()
     }
 
     ClearCheckedArr() {
@@ -68,7 +58,6 @@ class KeyCheckGui {
             }
         }
         this.CheckedArr := []
-        this.Refresh()
     }
 
     GetTriggerKey() {
@@ -81,7 +70,6 @@ class KeyCheckGui {
     }
 
     OnSureBtnClick() {
-        this.UpdateCommandStr()
         valid := this.CheckIfValid()
         if (!valid)
             return
@@ -930,14 +918,13 @@ class KeyCheckGui {
         }
 
         PosY += 60
-        PosX := 10
+        PosX := 200
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("检测模式:"))
         PosX += 80
         this.CheckTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h{}", PosX, PosY - 3, 120, 100), GetLangArr([
             "同时按下",
             "有一个按下"]))
         this.CheckTypeCon.Value := 1
-        this.CheckTypeCon.OnEvent("Change", (*) => this.Refresh())
 
         PosX += 200
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("检测类型:"))
@@ -946,29 +933,12 @@ class KeyCheckGui {
             "物理状态",
             "逻辑状态"]))
         this.StateTypeCon.Value := 1
-        this.StateTypeCon.OnEvent("Change", (*) => this.Refresh())
 
-        PosX := 20
-        PosY += 40
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 400, 75), GetLang("结果保存"))
+        PosX += 240
+        Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("结果变量："))
 
-        PosY += 22
-        PosX := 15
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("开关"))
-        PosX += 50
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("变量名"))
-        PosX += 130
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("真值"))
-        PosX += 85
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("假值"))
-
-        PosY += 25
-        PosX := 25
-        this.SaveToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.SaveToggleCon.Value := 1
-        this.VarNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 165, PosY - 4, 70), "1")
-        this.FalseValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 250, PosY - 4, 70), "0")
+        PosX += 80
+        this.VarNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
 
         PosY += 50
         PosX := 300
@@ -979,7 +949,7 @@ class KeyCheckGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        MyGui.Show(Format("w{} h{}", 1280, 665))
+        MyGui.Show(Format("w{} h{}", 1280, 580))
     }
 
     ShowGui(cmd) {
@@ -1003,7 +973,6 @@ class KeyCheckGui {
         }
 
         this.Init(cmd)
-        this.Refresh()
         this.ToggleFunc(true)
     }
 
@@ -1022,12 +991,9 @@ class KeyCheckGui {
             this.KeyStr := cmdArr[2]
         this.CheckTypeCon.Value := this.Data.CheckType ? this.Data.CheckType : 1
         this.StateTypeCon.Value := this.Data.StateType ? this.Data.StateType : 1
-        this.SaveToggleCon.Value := this.Data.SaveToggle != "" ? this.Data.SaveToggle : true
         this.VarNameCon.Delete()
         this.VarNameCon.Add(this.DLVariableArr)
         this.VarNameCon.Text := this.Data.VarName != "" ? this.Data.VarName : "Var1"
-        this.TrueValueCon.Value := this.Data.TrueValue != "" ? this.Data.TrueValue : "1"
-        this.FalseValueCon.Value := this.Data.FalseValue != "" ? this.Data.FalseValue : "0"
 
         this.RefreshCheckCon(this.KeyStr)
     }
@@ -1062,6 +1028,7 @@ class KeyCheckGui {
     }
 
     CheckIfValid() {
+        this.KeyStr := this.GetTriggerKey()
         if (this.KeyStr == "") {
             MsgBox(GetLang("请选择要检测的按键！"))
             return false
@@ -1088,34 +1055,12 @@ class KeyCheckGui {
         data.KeyArr := this.CheckedArr.Clone()
         data.CheckType := this.CheckTypeCon.Value
         data.StateType := this.StateTypeCon.Value
-        data.SaveToggle := this.SaveToggleCon.Value
         data.VarName := GetVarName(this.VarNameCon.Text)
-        data.TrueValue := this.TrueValueCon.Value
-        data.FalseValue := this.FalseValueCon.Value
 
         if (data.SaveToggle)
             MySoftData.GlobalVariMap[data.VarName] := true
 
         SaveMacroCMDData(data)
-    }
-
-    UpdateCommandStr() {
-        checkTypeStr := this.CheckTypeCon.Value == 1 ? "1" : "2"
-        stateTypeStr := this.StateTypeCon.Value == 1 ? "1" : "2"
-        CommandStr := GetLang("按键检测")
-        CommandStr .= "_" this.KeyStr
-        CommandStr .= "_" checkTypeStr
-        CommandStr .= "_" stateTypeStr
-        CommandStr .= "_" this.VarNameCon.Text
-        CommandStr .= "_" this.TrueValueCon.Value
-        CommandStr .= "_" this.FalseValueCon.Value
-
-        this.CommandStr := CommandStr
-    }
-
-    Refresh() {
-        this.KeyStr := this.GetTriggerKey()
-        this.UpdateCommandStr()
     }
 
     OnMouseMove(wParam, lParam, msg, hwnd) {

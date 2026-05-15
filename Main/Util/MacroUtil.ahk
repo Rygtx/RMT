@@ -1124,7 +1124,7 @@ OnWindowManage(tableItem, cmd, index) {
                 hasPosX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosX)
                 hasPosY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosY)
                 if (hasPosX && hasPosY) {
-                    WinMove(Integer(PosX), Integer(PosY), , , winTitle )
+                    WinMove(Integer(PosX), Integer(PosY), , , winTitle)
                 }
             case 7:
                 hasWidth := TryGetTabVarValue(&Width, tableItem, index, Data.Width)
@@ -1154,8 +1154,8 @@ OnKeyCheck(tableItem, cmd, index) {
     checkType := Data.CheckType
     stateType := Data.StateType
     varName := Data.VarName
-    trueValue := Data.TrueValue
-    falseValue := Data.FalseValue
+    trueValue := 1
+    falseValue := 0
 
     stateMode := stateType == 1 ? "P" : ""
     isAllPressed := true
@@ -1164,19 +1164,13 @@ OnKeyCheck(tableItem, cmd, index) {
     for index, key in keyArr {
         isPressed := GetKeyState(key, stateMode)
         if (isPressed) {
-            if (checkType == 2) {
-                if (Data.SaveToggle)
-                    MySetGlobalVariable([varName], [trueValue], false)
-                return
-            }
             isAnyPressed := true
+            if (checkType == 2)
+                break
         } else {
-            if (checkType == 1) {
-                if (Data.SaveToggle)
-                    MySetGlobalVariable([varName], [falseValue], false)
-                return
-            }
             isAllPressed := false
+            if (checkType == 1)
+                break
         }
     }
 
@@ -1187,6 +1181,5 @@ OnKeyCheck(tableItem, cmd, index) {
         result := isAnyPressed ? trueValue : falseValue
     }
 
-    if (Data.SaveToggle)
-        MySetGlobalVariable([varName], [result], false)
+    MySetGlobalVariable([varName], [result], false)
 }
