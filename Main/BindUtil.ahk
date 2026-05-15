@@ -658,8 +658,7 @@ BindMenuHotKey() {
         actionArr := GetBindMacroAction(oriKey)
         isJoyKey := RegExMatch(oriKey, "Joy")
         frontInfo := FoldInfo.FrontInfoArr[index]
-        groupSymbolStr := "GroupFold_" index
-        realFrontStr := GetParamsWinInfoStr(frontInfo, groupSymbolStr)
+        realFrontStr := GetParamsWinInfoStr(frontInfo)
 
         if (realFrontStr != "") {
             HotIfWinActive(realFrontStr)
@@ -723,8 +722,7 @@ BindTabHotKey() {
             isJoyKey := RegExMatch(rawKey, "Joy")
             isHotstring := SubStr(rawKey, 1, 1) == ":"
             frontInfo := GetItemFrontInfo(tableItem, index)
-            groupSymbolStr := "Group" tableIndex "_" index
-            realFrontStr := GetParamsWinInfoStr(frontInfo, groupSymbolStr)
+            realFrontStr := GetParamsWinInfoStr(frontInfo)
 
             registerMsg .= "rawKey: '" rawKey "' → key: '" key "' (isCombo=" isCombo ")`n"
 

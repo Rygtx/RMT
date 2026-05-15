@@ -100,7 +100,7 @@ GetHwndList(infoStr) {
     return HwndList
 }
 
-GetParamsWinInfoStr(infoStr, symbolStr := "default") {
+GetParamsWinInfoStr(infoStr) {
     if (infoStr == "")
         return ""
 
@@ -108,9 +108,9 @@ GetParamsWinInfoStr(infoStr, symbolStr := "default") {
         infoStr := StrReplace(infoStr, "❖")
         hwndList := StrSplit(infoStr, "|")
         for index, hwnd in hwndList {
-            GroupAdd(symbolStr, "ahk_id " hwnd)
+            GroupAdd(infoStr, "ahk_id " hwnd)
         }
-        ResStr := "ahk_group " symbolStr
+        ResStr := "ahk_group " infoStr
         return ResStr
     }
 

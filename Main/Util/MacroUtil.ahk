@@ -1101,17 +1101,20 @@ OnWindowManage(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     searchValue := GetReplaceVarText(tableItem, index, Data.SearchValue)
-    if (searchValue == "") {
-        ;赋值窗口下句柄 todo
+    if (searchValue == "") {    ;空的话就说明是针对当前鼠标下窗口
+        winId := 0
+        try {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos &mouseX, &mouseY, &winId
+        }
+        searchValue == winId != 0 ? "❖" winId : ""
     }
 
-    winTitle := GetParamsWinInfoStr(searchValue, "WindowManageGroup" index)
+    winTitle := GetParamsWinInfoStr(searchValue)
     if (winTitle == "")
         return
 
     try {
-        GetLang("激活窗口"), GetLang("最大化窗口"), GetLang("最小化窗口"), GetLang("还原窗口"), GetLang("关闭窗口"),
-        GetLang("移动窗口"), GetLang("调整大小"), GetLang("置顶窗口"), GetLang("取消置顶"), GetLang("修改标题")
         switch Data.ActionType {
             case "激活窗口":
                 WinActivate(winTitle)

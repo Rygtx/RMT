@@ -241,6 +241,9 @@ class WindowManageGui {
     }
 
     OnMouseWinTog(*) {
+        if (this.MouseWinTog.Value)
+            this.SearchValueCon.Value := ""
+
         Enabled := !this.MouseWinTog.Value
         for _, con in this.WinInfoConArr
             con.Enabled := Enabled
