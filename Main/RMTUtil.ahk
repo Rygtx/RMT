@@ -26,7 +26,6 @@ OnSaveSetting(*) {
     IniWrite(MySoftData.KillMacroHotkeyCtrl.Value, IniFile, IniSection, "KillMacroHotkey")
     IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
     IniWrite(MySoftData.SplitLineCtrl.Value, IniFile, IniSection, "ShowSplitLine")
-    IniWrite(MySoftData.FixedMenuWheelCtrl.Value, IniFile, IniSection, "FixedMenuWheel")
     IniWrite(MySoftData.ModalSubGuiCtrl.Value, IniFile, IniSection, "IsModalSubGui")
     IniWrite(MySoftData.MutiThreadNumCtrl.Value, IniFile, IniSection, "MutiThreadNum")
     IniWrite(MySoftData.SoftBGColorCon.Value, IniFile, IniSection, "SoftBGColor")
@@ -134,6 +133,9 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.MacroArr, indexA, indexB)
     SwapArrValue(tableItem.LoopCountArr, indexA, indexB)
     SwapArrValue(tableItem.ForbidArr, indexA, indexB)
+    if (tableItem.HasProp("GifPathArr")) {
+        SwapArrValue(tableItem.GifPathArr, indexA, indexB)
+    }
 }
 
 SwapArrValue(Arr, indexA, indexB, valueType := 1) {
