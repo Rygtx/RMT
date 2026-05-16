@@ -73,11 +73,12 @@ class RadialMenuRenderer {
     SectName := ""
     CoordMode "Mouse", "Screen"
     MouseGetPos &X_Center, &Y_Center
-    R_1 := 150          ;轮盘外径
-    R_2 := R_1 * 0.3    ;轮盘内径
+    R_1 := 172          ;轮盘外径
+    R_2 := R_1 * 0.4    ;轮盘内径
     Offset := 2         ;预选偏移
-    R_3 := R_1 + Offset * 2 + 10  ;预选半径
-    R_Icon := R_1 - 36  ;图标绘制半径
+    PreLen := 12        ;预选 径向宽度
+    R_3 := R_1 + Offset * 2 + PreLen  ;预选半径
+    R_Icon := R_1 - 45  ;图标绘制半径
     iconWid := 64
     IconHei := 64
     
@@ -187,7 +188,7 @@ class RadialMenuRenderer {
       X_Bitmap[A_Index] := R_3 + R_Icon * Cos(SectionAngle) - drawnW / 2
       Y_Bitmap[A_Index] := R_3 + R_Icon * Sin(SectionAngle) - drawnH / 2
       
-      PointsA[A_Index] := Gdip_GetPointsSection(R_3, R_3, R_1 + Offset * 2 + 10, R_1 + Offset * 2, this.menu.Sections, Offset, A_Index)
+      PointsA[A_Index] := Gdip_GetPointsSection(R_3, R_3, R_1 + Offset * 2 + PreLen, R_1 + Offset * 2, this.menu.Sections, Offset, A_Index)
       Points[A_Index] := Gdip_GetPointsSection(R_3, R_3, R_1, R_2, this.menu.Sections, Offset, A_Index)
     }
     
