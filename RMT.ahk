@@ -19,6 +19,7 @@
 #Include Main\FolderPackager.ahk
 #Include Main\GlobalUtil.ahk
 #Include Main\Util\MacroClipboardUtil.ahk
+#Include Main\Util\RadialMenuRenderer.ahk
 #Include Main\Util\ErrorHandler.ahk
 
 ;注册全局错误处理器
