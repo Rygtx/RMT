@@ -257,7 +257,7 @@ class WorkPool {
         startTick := A_TickCount
         
         Loop {
-            rb.ExchangeNotifyFlag(0) ; Mark as busy
+            rb.ExchangeNotifyFlag(1) ; Mark as busy
             
             while (rb.Pop(&type, &id, &result)) {
                 switch type {
@@ -273,6 +273,9 @@ class WorkPool {
                                 }
     
                                 itemState := tableItem.KilledArr.Length >= fut.itemIndex && tableItem.KilledArr[fut.itemIndex] ? 3 : 0
+                                ; 任務完成後重置 KilledArr，防止下次執行時誤判為 Kill 狀態
+                                if (tableItem.KilledArr.Length >= fut.itemIndex)
+                                    tableItem.KilledArr[fut.itemIndex] := false
                                 SetTableItemState(fut.tableIndex, fut.itemIndex, itemState)
                             }
                             
@@ -292,7 +295,7 @@ class WorkPool {
                 }
             }
             
-            rb.ExchangeNotifyFlag(1) ; Double check pattern
+            rb.ExchangeNotifyFlag(0) ; Double check pattern (mark as idle)
             if (rb.IsEmpty())
                 break
         }
