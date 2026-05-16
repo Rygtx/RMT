@@ -28,7 +28,6 @@ global workIndex := A_Args[2]
 global parentPID := A_Args[3]
 global txName := A_Args[4]
 global rxName := A_Args[5]
-global evtName := A_Args[6]
 
 global ReceiveInfoMap := Map()
 global MySoftData := SoftData()
@@ -73,20 +72,23 @@ global shmTx := SharedMemory(txName, 1048576 + 192)
 global shmRx := SharedMemory(rxName, 1048576 + 192)
 global tx := RingBuffer(shmTx.ptr, 1048576)
 global rx := RingBuffer(shmRx.ptr, 1048576)
-global hEvent := OpenEvent(evtName)
 
+; 注册消息
+OnMessage(WM_STOP_MACRO, OnWorkStopMacro)
+OnMessage(WM_CLEAR_WORK, OnExit)
 OnMessage(WM_WORK_NOTIFY, OnWorkNotify)
+MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)
 
 OnWorkNotify(wParam, lParam, msg, hwnd) {
-    ; No longer used as primary trigger, but kept for legacy/fallback
     ProcessQueue()
 }
 
 ProcessQueue() {
-    global tx, rx, hEvent, workIndex
+    global tx, rx, workIndex
 
-    startTick := A_TickCount
     Loop {
+        tx.ExchangeNotifyFlag(1)
+
         while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
             switch type {
                 case MsgType.TASK:
@@ -106,58 +108,15 @@ ProcessQueue() {
                     OnEventMessage(cmd)
             }
 
-            ; Time-sliced yielding (5ms)
-            if (A_TickCount - startTick >= 5) {
-                Sleep -1
-                startTick := A_TickCount
-            }
         }
 
-        ; Manual Reset + Double Check Pattern
-        ResetEvent(hEvent)
+        ; Double Check Pattern
         tx.ExchangeNotifyFlag(0) ; Full barrier to mark as idle
 
         if (tx.IsEmpty())
             break
-
-        ; Lost wakeup prevention
-        SetEvent(hEvent)
     }
 }
-
-ReactorLoop() {
-    global hEvent, tx
-
-    if (!hEvent) {
-        ; Fallback to message-only mode if event failed
-        return
-    }
-
-    while (true) {
-        ; 0x0040 (QS_SENDMESSAGE) | 0x0008 (QS_POSTMESSAGE) | 0x0001 (QS_KEY)
-        ; Reduce wakeups from mouse moves (QS_MOUSEMOVE)
-        res := DllCall("MsgWaitForMultipleObjects", "uint", 1, "ptr*", hEvent, "int", false, "uint", -1, "uint", 0x49)
-
-        if (res == 0) { ; WAIT_OBJECT_0
-            ProcessQueue()
-        }
-        else if (res == 1) { ; WAIT_OBJECT_0 + 1 (Message)
-            Sleep -1
-        }
-        else if (res == -1) { ; WAIT_FAILED
-            Sleep 100 ; Prevent tight loop on error
-        }
-    }
-}
-
-; 注册消息
-OnMessage(WM_STOP_MACRO, OnWorkStopMacro)
-OnMessage(WM_CLEAR_WORK, OnExit)
-
-MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)
-
-; 啟動反應堆
-ReactorLoop()
 
 ExecTask(cmd) {
     try {
@@ -179,9 +138,3 @@ ExecTask(cmd) {
 OnControlMessage(cmd) {
     ; Handle any JSON control messages
 }
-
-; 注册消息
-OnMessage(WM_STOP_MACRO, OnWorkStopMacro)
-OnMessage(WM_CLEAR_WORK, OnExit)
-
-MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)

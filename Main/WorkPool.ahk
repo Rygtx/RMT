@@ -255,30 +255,30 @@ class WorkPool {
 
         rb := this.rx[idx]
         startTick := A_TickCount
-        
+
         Loop {
             rb.ExchangeNotifyFlag(1) ; Mark as busy
-            
+
             while (rb.Pop(&type, &id, &result)) {
                 switch type {
                     case MsgType.RESULT:
                         if (this.futures.Has(id)) {
                             fut := this.futures[id]
                             fut.SetResult(result)
-                            
+
                             if (fut.tableIndex > 0 && fut.itemIndex > 0) {
                                 tableItem := MySoftData.TableInfo[fut.tableIndex]
                                 if (tableItem.IsWorkIndexArr.Length >= fut.itemIndex) {
                                     tableItem.IsWorkIndexArr[fut.itemIndex] := 0
                                 }
-    
+
                                 itemState := tableItem.KilledArr.Length >= fut.itemIndex && tableItem.KilledArr[fut.itemIndex] ? 3 : 0
                                 ; 任務完成後重置 KilledArr，防止下次執行時誤判為 Kill 狀態
                                 if (tableItem.KilledArr.Length >= fut.itemIndex)
                                     tableItem.KilledArr[fut.itemIndex] := false
                                 SetTableItemState(fut.tableIndex, fut.itemIndex, itemState)
                             }
-                            
+
                             this.futures.Delete(id)
                             this.futureCreateTime.Delete(id)
                         }
@@ -288,13 +288,8 @@ class WorkPool {
                     case MsgType.EVENT:
                         this.OnWorkerEvent(idx, result)
                 }
-                
-                if (A_TickCount - startTick >= 5) {
-                    Sleep -1
-                    startTick := A_TickCount
-                }
             }
-            
+
             rb.ExchangeNotifyFlag(0) ; Double check pattern (mark as idle)
             if (rb.IsEmpty())
                 break
