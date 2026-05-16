@@ -502,7 +502,6 @@ OnItemEditMacroSetting(tableItem, index, *) {
 }
 
 OnItemMenuMacroSettingClick(tableItem, index, *) {
-    MyMenuMacroSettingGui.SaveBtnAction := OnSaveSetting
     MyMenuMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
