@@ -223,6 +223,9 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     tableItem.StartTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+    if (!tableItem.HasProp("GifPathArr"))
+        tableItem.GifPathArr := []
+    tableItem.GifPathArr.InsertAt(AddIndex, "")
     tableItem.KilledArr.InsertAt(AddIndex, false)
     tableItem.PauseArr.InsertAt(AddIndex, false)
     tableItem.ActionCount.InsertAt(AddIndex, 0)
@@ -292,6 +295,9 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.StartTipSoundArr.RemoveAt(itemIndex)
     tableItem.EndTipSoundArr.RemoveAt(itemIndex)
     tableItem.IsWorkIndexArr.RemoveAt(itemIndex)
+    if (tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Length >= itemIndex) {
+        tableItem.GifPathArr.RemoveAt(itemIndex)
+    }
     tableItem.KilledArr.RemoveAt(itemIndex)
     tableItem.PauseArr.RemoveAt(itemIndex)
     tableItem.ActionCount.RemoveAt(itemIndex)
@@ -493,6 +499,11 @@ OnItemEditTiming(tableItem, index, *) {
 
 OnItemEditMacroSetting(tableItem, index, *) {
     MyMacroSettingGui.ShowGui(tableItem.Index, index)
+}
+
+OnItemMenuMacroSettingClick(tableItem, index, *) {
+    MyMenuMacroSettingGui.SaveBtnAction := OnSaveSetting
+    MyMenuMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
 OnItemEditMacro(tableItem, index, *) {
@@ -790,7 +801,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     ;触发按键
     btnStr := isTiming ? GetLang("定时") : GetLang("编辑")
     TKBtnCon := MyGui.Add("Button", Format("x{} y{} w100 h29", TabPosX + 250, -1000), btnStr)
-    TKBtnCon.Enabled := !isSubMacro && !isMenu
+    TKBtnCon.Enabled := !isSubMacro
     TKBtnCon.OffsetY := -1
     TKBtnCon.OriPosX := TabPosX + 250
 
@@ -967,11 +978,13 @@ GetItemConObj(tableItem, itemIndex) {
     isMacro := CheckIsMacroTable(tableItem.Index)
     isTriggerStr := CheckIsStringMacroTable(tableItem.Index)
     isUI := GetTableSymbol(tableItem.Index) == "UI"
+    isMenu := CheckIsMenuMacroTable(tableItem.Index)
     TKBtnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex]
     TKBtnStr := TKBtnStr == "" ? GetLang("编辑") : TKBtnStr
     LoopStr := tableItem.LoopCountArr[ItemIndex] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[ItemIndex]
     EditTKAction := isTriggerStr ? OnItemEditTriggerStr : OnItemEditTriggerKey
     EditTKAction := isTiming ? OnItemEditTiming : EditTKAction
+    EditTKAction := isMenu ? OnItemMenuMacroSettingClick : EditTKAction
     EditMacroAction := isMacro ? OnItemEditMacro : OnItemEditReplaceKey
 
     ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
