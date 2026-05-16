@@ -1522,6 +1522,9 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
         case "当前秒":
             Value := A_Sec
             return true
+        case "当前星期几":
+            Value := A_WDay == 1 ? 7 : A_WDay - 1
+            return true
         case "当前鼠标颜色":
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
