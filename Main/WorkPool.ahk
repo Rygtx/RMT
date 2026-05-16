@@ -52,7 +52,7 @@ class Future {
         while (!this.done) {
             if (A_TickCount - start > timeout)
                 throw Error("Future timeout")
-            
+
             ; MsgWaitForMultipleObjects: Wait for the future event OR any UI message (like WM_RESULT_NOTIFY)
             ; This is better than Sleep -1 because it actually waits for an OS signal.
             DllCall("MsgWaitForMultipleObjects", "uint", 1, "ptr*", this.hEvent, "int", false, "uint", 100, "uint", 0xFF)
@@ -71,11 +71,11 @@ class WorkPool {
         this.corePoolSize := MySoftData.DynamicCorePoolSize
         this.elasticTimeout := MySoftData.ElasticTimeout * 1000
         this.dynamicMinSize := this.corePoolSize
-        
+
         this.pool := []
         this.active := Map()            ; workerIndex -> hwnd
         this.pending := Map()
-        
+
         this.tx := Map()
         this.rx := Map()
         this.evt := Map()
@@ -94,13 +94,13 @@ class WorkPool {
         this.mainPID := DllCall("GetCurrentProcessId")
         this.taskCounter := 0
         this.isDispatching := false
-        
+
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_STOP_MACRO, ObjBindMethod(this, "OnStopMacro"))
         OnMessage(WM_RESULT_NOTIFY, ObjBindMethod(this, "PollResult"))
 
         SetTimer(ObjBindMethod(this, "CheckFutures"), 1000)
-        
+
         if (this.isDynamic) {
             this.shrinkTimerFunc := ObjBindMethod(this, "IdleShrinkCheck")
             SetTimer(this.shrinkTimerFunc, 10000)
@@ -136,10 +136,10 @@ class WorkPool {
         ; Allocate capacity + 192 for headers
         this.shmTx[idx] := SharedMemory(txName, 1048576 + 192)
         this.tx[idx] := RingBuffer(this.shmTx[idx].ptr, 1048576)
-        
+
         this.shmRx[idx] := SharedMemory(rxName, 1048576 + 192)
         this.rx[idx] := RingBuffer(this.shmRx[idx].ptr, 1048576)
-        
+
         this.evt[idx] := CreateEvent(evtName)
         this.pending[idx] := true
 
@@ -151,7 +151,7 @@ class WorkPool {
             , txName
             , rxName
             , evtName), , , &pid)
-        
+
         this.workerPIDs[idx] := pid
         ; Open handle with PROCESS_DUP_HANDLE | PROCESS_TERMINATE
         hProc := DllCall("OpenProcess", "uint", 0x0040 | 0x0001, "int", false, "uint", pid, "ptr")
@@ -187,7 +187,7 @@ class WorkPool {
                 }
 
                 task := this.queue.Pop()
-                
+
                 ; Duplicate handle for worker
                 hTargetEvent := 0
                 DllCall("DuplicateHandle"
@@ -205,12 +205,12 @@ class WorkPool {
                     this.pool.Push(idx)
                     break
                 }
-                
+
                 ; Edge-triggered notification with atomic flag
                 if (this.tx[idx].ExchangeNotifyFlag(1) == 0) {
                     this.PostMessage(WM_WORK_NOTIFY, idx, 0, 0)
                 }
-                
+
                 if (this.workerIdleTime.Has(idx))
                     this.workerIdleTime.Delete(idx)
             }
@@ -222,11 +222,11 @@ class WorkPool {
             this.isDispatching := false
         }
     }
-    
+
     Broadcast(action, args*) {
         if (!this.isDynamic && this.maxSize < 1)
             return
-        
+
         payload := JSON.stringify([action, args*])
         for idx in this.active {
             if this.tx.Has(idx) {
@@ -254,40 +254,47 @@ class WorkPool {
             return
 
         rb := this.rx[idx]
-        rb.SetNotifyFlag(0) ; Clear notification flag
+        startTick := A_TickCount
         
-        while (rb.Pop(&type, &id, &result)) {
-            switch type {
-                case MsgType.RESULT:
-                    if (this.futures.Has(id)) {
-                        fut := this.futures[id]
-                        fut.SetResult(result)
-                        
-                        if (fut.tableIndex > 0 && fut.itemIndex > 0) {
-                            tableItem := MySoftData.TableInfo[fut.tableIndex]
-                            if (tableItem.IsWorkIndexArr.Length >= fut.itemIndex) {
-                                tableItem.IsWorkIndexArr[fut.itemIndex] := 0
+        Loop {
+            rb.ExchangeNotifyFlag(0) ; Mark as busy
+            
+            while (rb.Pop(&type, &id, &result)) {
+                switch type {
+                    case MsgType.RESULT:
+                        if (this.futures.Has(id)) {
+                            fut := this.futures[id]
+                            fut.SetResult(result)
+                            
+                            if (fut.tableIndex > 0 && fut.itemIndex > 0) {
+                                tableItem := MySoftData.TableInfo[fut.tableIndex]
+                                if (tableItem.IsWorkIndexArr.Length >= fut.itemIndex) {
+                                    tableItem.IsWorkIndexArr[fut.itemIndex] := 0
+                                }
+    
+                                itemState := tableItem.KilledArr.Length >= fut.itemIndex && tableItem.KilledArr[fut.itemIndex] ? 3 : 0
+                                SetTableItemState(fut.tableIndex, fut.itemIndex, itemState)
                             }
-
-                            itemState := tableItem.KilledArr.Length >= fut.itemIndex && tableItem.KilledArr[fut.itemIndex] ? 3 : 0
-                            SetTableItemState(fut.tableIndex, fut.itemIndex, itemState)
+                            
+                            this.futures.Delete(id)
+                            this.futureCreateTime.Delete(id)
                         }
-                        
-                        this.futures.Delete(id)
-                        this.futureCreateTime.Delete(id)
-                    }
-                    this.pool.Push(idx)
-                    this.workerIdleTime.Set(idx, A_TickCount)
-                    this.Dispatch() ; Immediately try to dispatch new tasks to this worker
-                case MsgType.EVENT:
-                    this.OnWorkerEvent(idx, result)
+                        this.pool.Push(idx)
+                        this.workerIdleTime.Set(idx, A_TickCount)
+                        this.Dispatch() ; Immediately try to dispatch new tasks to this worker
+                    case MsgType.EVENT:
+                        this.OnWorkerEvent(idx, result)
+                }
+                
+                if (A_TickCount - startTick >= 5) {
+                    Sleep -1
+                    startTick := A_TickCount
+                }
             }
-        }
-
-        ; Re-check for level-triggered notification (if data arrived after while loop)
-        if (!rb.IsEmpty()) {
-            if (rb.ExchangeNotifyFlag(1) == 0)
-                this.PollResult(idx) ; Process again or re-trigger via message
+            
+            rb.ExchangeNotifyFlag(1) ; Double check pattern
+            if (rb.IsEmpty())
+                break
         }
     }
 
@@ -324,10 +331,10 @@ class WorkPool {
     OnWorkerReady(wParam, lParam, msg, hwnd) {
         idx := wParam
         workerHwnd := lParam > 0 ? lParam : hwnd
-        
+
         if (this.pending.Has(idx))
             this.pending.Delete(idx)
-            
+
         this.active.Set(idx, workerHwnd)
         this.pool.Push(idx)
         this.workerIdleTime.Set(idx, A_TickCount)
@@ -352,12 +359,12 @@ class WorkPool {
         for idx, hwnd in this.active {
             this.PostMessage(WM_CLEAR_WORK, idx, 0, 0)
         }
-        
+
         this.pool := []
         this.active := Map()
         this.pending := Map()
         this.workerIdleTime := Map()
-        
+
         for idx, hProc in this.workerProcs
             CloseHandle(hProc)
         this.workerProcs := Map()
@@ -367,7 +374,7 @@ class WorkPool {
         this.futureCreateTime := Map()
         this.queue := TaskQueue()
         this.workerIndex := 0
-        
+
         ; Close RingBuffers
         this.tx := Map()
         this.rx := Map()
@@ -398,14 +405,14 @@ class WorkPool {
         maxShrink := this.pool.Length - this.corePoolSize
         if (shrinkIndices.Length == 0 || maxShrink <= 0)
             return
-            
+
         loop Min(shrinkIndices.Length, maxShrink) {
             targetIndex := shrinkIndices[A_Index]
             this.PostMessage(WM_CLEAR_WORK, targetIndex, 0, 0)
             this.active.Delete(targetIndex)
             if (this.workerIdleTime.Has(targetIndex))
                 this.workerIdleTime.Delete(targetIndex)
-                
+
             poolIndex := 0
             loop this.pool.Length {
                 if (this.pool[A_Index] == targetIndex) {

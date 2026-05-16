@@ -78,45 +78,86 @@ global hEvent := OpenEvent(evtName)
 OnMessage(WM_WORK_NOTIFY, OnWorkNotify)
 
 OnWorkNotify(wParam, lParam, msg, hwnd) {
+    ; No longer used as primary trigger, but kept for legacy/fallback
     ProcessQueue()
 }
 
 ProcessQueue() {
     global tx, rx, hEvent, workIndex
-    
-    tx.SetNotifyFlag(0)
-    
-    maxBatch := 10
-    processed := 0
-    
-    while (processed < maxBatch && tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
-        processed++
-        switch type {
-            case MsgType.TASK:
-                result := ExecTask(cmd)
-                rx.Push(MsgType.RESULT, id, result)
-                
-                ; Notify parent
-                if (rx.ExchangeNotifyFlag(1) == 0)
-                    MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
 
-                if (hTaskEvent) {
-                    SetEvent(hTaskEvent)
-                    CloseHandle(hTaskEvent)
-                }
-            case MsgType.CONTROL:
-                OnControlMessage(cmd)
-            case MsgType.EVENT:
-                OnEventMessage(cmd)
+    startTick := A_TickCount
+    Loop {
+        while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
+            switch type {
+                case MsgType.TASK:
+                    result := ExecTask(cmd)
+                    rx.Push(MsgType.RESULT, id, result)
+
+                    if (rx.ExchangeNotifyFlag(1) == 0)
+                        MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
+
+                    if (hTaskEvent) {
+                        SetEvent(hTaskEvent)
+                        CloseHandle(hTaskEvent)
+                    }
+                case MsgType.CONTROL:
+                    OnControlMessage(cmd)
+                case MsgType.EVENT:
+                    OnEventMessage(cmd)
+            }
+
+            ; Time-sliced yielding (5ms)
+            if (A_TickCount - startTick >= 5) {
+                Sleep -1
+                startTick := A_TickCount
+            }
         }
-    }
 
-    ; Level-triggered re-check
-    if (!tx.IsEmpty()) {
-        if (tx.ExchangeNotifyFlag(1) == 0)
-            PostMessage(WM_WORK_NOTIFY, 0, 0, , "ahk_id " A_ScriptHwnd)
+        ; Manual Reset + Double Check Pattern
+        ResetEvent(hEvent)
+        tx.ExchangeNotifyFlag(0) ; Full barrier to mark as idle
+
+        if (tx.IsEmpty())
+            break
+
+        ; Lost wakeup prevention
+        SetEvent(hEvent)
     }
 }
+
+ReactorLoop() {
+    global hEvent, tx
+
+    if (!hEvent) {
+        ; Fallback to message-only mode if event failed
+        return
+    }
+
+    while (true) {
+        ; 0x0040 (QS_SENDMESSAGE) | 0x0008 (QS_POSTMESSAGE) | 0x0001 (QS_KEY)
+        ; Reduce wakeups from mouse moves (QS_MOUSEMOVE)
+        res := DllCall("MsgWaitForMultipleObjects", "uint", 1, "ptr*", hEvent, "int", false, "uint", -1, "uint", 0x49)
+
+        if (res == 0) { ; WAIT_OBJECT_0
+            ProcessQueue()
+        }
+        else if (res == 1) { ; WAIT_OBJECT_0 + 1 (Message)
+            Sleep -1
+        }
+        else if (res == -1) { ; WAIT_FAILED
+            Sleep 100 ; Prevent tight loop on error
+        }
+    }
+}
+
+; 注册消息
+OnMessage(WM_STOP_MACRO, OnWorkStopMacro)
+OnMessage(WM_CLEAR_WORK, OnExit)
+
+MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)
+
+; 啟動反應堆
+ReactorLoop()
 
 ExecTask(cmd) {
     try {
@@ -128,7 +169,7 @@ ExecTask(cmd) {
     } catch {
         ; fallback to old string execution if any
     }
-    
+
     if (IsSet(MyExcuteRMTCMDAction)) {
         try return MyExcuteRMTCMDAction(cmd)
     }
