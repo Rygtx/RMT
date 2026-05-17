@@ -254,7 +254,6 @@ class WorkPool {
             return
 
         rb := this.rx[idx]
-        startTick := A_TickCount
 
         Loop {
             rb.ExchangeNotifyFlag(1) ; Mark as busy
