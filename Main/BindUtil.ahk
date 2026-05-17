@@ -139,7 +139,8 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
 
     rawInput := Buffer(64, 0)
     size := 64
-    ret := DllCall("GetRawInputData", "Ptr", lParam, "UInt", 0x10000003, "Ptr", rawInput.Ptr, "UIntP", &size, "UInt", RI_headerSize)
+    ret := DllCall("GetRawInputData", "Ptr", lParam, "UInt", 0x10000003, "Ptr", rawInput.Ptr, "UIntP", &size, "UInt",
+        RI_headerSize)
     if (ret <= 0)
         return
 
@@ -206,14 +207,17 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
                 }
                 else if (btnFlags & 0x0400) {
                     wheelName := buttonData > 0 ? "WheelUp" : "WheelDown"
-                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue", buttonData, "t", A_TickCount))
+                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue",
+                    buttonData, "t", A_TickCount))
                 }
                 else if (btnFlags & 0x0800) {
                     wheelName := buttonData > 0 ? "WheelRight" : "WheelLeft"
-                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue", buttonData, "t", A_TickCount))
+                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue",
+                    buttonData, "t", A_TickCount))
                 }
                 else {
-                    RI_eventQueue.Push(Map("type", "mouse", "name", "Btn" Format("{:04X}", btnFlags), "state", GetLang("按下"), "t", A_TickCount))
+                    RI_eventQueue.Push(Map("type", "mouse", "name", "Btn" Format("{:04X}", btnFlags), "state", GetLang(
+                        "按下"), "t", A_TickCount))
                 }
             }
         }
@@ -665,10 +669,10 @@ OnRecordAddMacroStr(keyName, isDown, eventTime?) {
     if (keyName == "WheelUp" || keyName == "WheelDown" || keyName == "WheelLeft" || keyName == "WheelRight") {
         if (ToolCheckInfo.RecordMouse && isDown) {
             curTime := IsSet(eventTime) ? eventTime : A_TickCount
-        span := curTime - ToolCheckInfo.RecordLastTime
-        ToolCheckInfo.RecordLastTime := curTime
-        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
-        ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
+            span := curTime - ToolCheckInfo.RecordLastTime
+            ToolCheckInfo.RecordLastTime := curTime
+            ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
+            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
         }
         return
     }
@@ -686,7 +690,8 @@ OnRecordAddMacroStr(keyName, isDown, eventTime?) {
     keySymbol := isDown ? GetLang("按下") : GetLang("松开")
     ToolCheckInfo.RecordLastTime := curTime
     IsJoy := InStr(keyName, "Joy")
-    IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton" || keyName == "XButton1" || keyName == "XButton2"
+    IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton" || keyName == "XButton1" || keyName ==
+        "XButton2"
     IsKeyboard := !IsMouse && !IsJoy
 
     if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseMoveMode == 0 && isDown) {
@@ -736,6 +741,17 @@ OnFinishRecordMacro() {
     SetClipboard(macroLineStr)
 }
 
+OnClickMutiThreadHelpBtn(*) {
+    str1 := GetLang("设置若梦兔最大线程数量")
+    str2 := GetLang("-1：动态多线程，线程闲置时回收，不足时创建新的线程")
+    str3 := GetLang("0：单线程")
+    str4 := GetLang("n：固定线程为指定n（推荐3~5）")
+    str5 := GetLang("提示：动态多线程采用固定线程3+动态多线程池")
+
+    str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+    MsgBox(str, GetLang("多线程说明"))
+}
+
 OnClickKeyDownDownHelpBtn(*) {
     str1 := GetLang("当宏按键已经处于按下状态，再次触发按下指令时特别处理")
     str2 := GetLang("自动松开：再次按下前，先松开该按键（确保指令正常执行）")
@@ -744,7 +760,7 @@ OnClickKeyDownDownHelpBtn(*) {
     str5 := GetLang("Tip1：按下时再次按下，真实键盘无法触发这个行为，这个行为通常是无效的")
     str6 := GetLang("Tip2：按下时再次按下，按键检测网站可能无法检测，但记事本中可以有效输出")
 
-    str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
+    str := Format("{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6)
     MsgBox(str, GetLang("按下时按下说明"))
 }
 
