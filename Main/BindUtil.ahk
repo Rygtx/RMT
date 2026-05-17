@@ -6,8 +6,9 @@ global RI_accumX := 0
 global RI_accumY := 0
 global RI_scaleFactor := 1.0
 global RI_headerSize := A_PtrSize == 8 ? 24 : 16
-global RI_btnQueue := []
-global RI_keyQueue := []
+global RI_eventQueue := []
+global RecordCountdownGui := ""
+global RecordCountdownTxt := ""
 
 RI_Init() {
     global RI_hwnd, RI_scaleFactor
@@ -51,13 +52,12 @@ RI_Init() {
 }
 
 RI_StartRecord() {
-    global RI_isActive, RI_accumX, RI_accumY, RI_btnQueue, RI_keyQueue
+    global RI_isActive, RI_accumX, RI_accumY, RI_eventQueue
     RI_Init()
     RI_isActive := true
     RI_accumX := 0
     RI_accumY := 0
-    RI_btnQueue := []
-    RI_keyQueue := []
+    RI_eventQueue := []
 }
 
 RI_StopRecord() {
@@ -66,8 +66,74 @@ RI_StopRecord() {
     return [RI_accumX, RI_accumY]
 }
 
+ShowRecordCountdown(callback) {
+    global RecordCountdownGui, RecordCountdownTxt
+
+    if (IsSet(RecordCountdownGui) && RecordCountdownGui != "")
+        return
+
+    MonitorGet(, &monLeft, &monTop, &monRight, &monBottom)
+    monW := monRight - monLeft
+    monH := monBottom - monTop
+    boxSize := Min(monW, monH) // 3
+    fontSize := Max(boxSize // 4, 48)
+    x := (monW - boxSize) // 2 + monLeft
+    y := (monH - boxSize) // 2 + monTop
+
+    cdGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20")
+    cdGui.BackColor := "000000"
+    WinSetTransColor("000000", cdGui)
+    cdGui.SetFont("s" fontSize " cFFFFFF bold", "Segoe UI")
+    txt := cdGui.AddText("x0 y0 w" boxSize " h" boxSize " Center vCTxt", "3")
+    txt.SetFont("s" fontSize)
+
+    RecordCountdownGui := cdGui
+    RecordCountdownTxt := txt
+    cdGui.Show("NA x" x " y" y " w" boxSize " h" boxSize)
+    WinSetTransparent(180, cdGui)
+
+    count := 3
+    UpdateCount() {
+        global RecordCountdownTxt, RecordCountdownGui
+        if (count <= 0) {
+            SetTimer(UpdateCount, 0)
+            try RecordCountdownGui.Destroy()
+            RecordCountdownGui := ""
+            RecordCountdownTxt := ""
+            callback.Call()
+            return
+        }
+        try RecordCountdownTxt.Text := count
+        count--
+    }
+    SetTimer(UpdateCount, 1000)
+}
+
+DoStartRecord(isHotkey) {
+    OnStartRecordInner(isHotkey)
+}
+
+OnStartRecordInner(*) {
+    global ToolCheckInfo, MySoftData
+
+    CoordMode("Mouse", "Screen")
+    MouseGetPos &mouseX, &mouseY
+    ToolCheckInfo.RecordMacroStr := ""
+    ToolCheckInfo.RecordLastTime := A_TickCount
+    ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
+
+    MySoftData.IsTogStartRecord := true
+    RI_StartRecord()
+    SetTimer(RecordConsumeRI, 10)
+    if (ToolCheckInfo.RecordJoy)
+        RecordJoy()
+
+    if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseTrail && ToolCheckInfo.RecordMouseMoveMode != 2)
+        RecordMouseTrail
+}
+
 OnWMInput_Raw(wParam, lParam, msg, hwnd) {
-    global RI_isActive, RI_accumX, RI_accumY, RI_hwnd, RI_headerSize, RI_btnQueue, RI_keyQueue
+    global RI_isActive, RI_accumX, RI_accumY, RI_hwnd, RI_headerSize
     if (!RI_isActive || hwnd != RI_hwnd)
         return
 
@@ -84,15 +150,27 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
             x := NumGet(rawInput, 36, "Int")
             y := NumGet(rawInput, 40, "Int")
             btnFlags := NumGet(rawInput, 28, "UShort")
+            buttonData := NumGet(rawInput, 30, "Short")
         } else {
             x := NumGet(rawInput, 32, "Int")
             y := NumGet(rawInput, 36, "Int")
             btnFlags := NumGet(rawInput, 24, "UShort")
+            buttonData := NumGet(rawInput, 26, "Short")
         }
 
         if (x != 0 || y != 0) {
-            RI_accumX += x
-            RI_accumY += y
+            if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseMoveMode == 2) {
+                px := Round(x / RI_scaleFactor)
+                py := Round(y / RI_scaleFactor)
+                span := A_TickCount - ToolCheckInfo.RecordLastTime
+                ToolCheckInfo.RecordLastTime := A_TickCount
+                ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
+                ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" px "_" py "_" 100 "_2,"
+            }
+            else {
+                RI_accumX += x
+                RI_accumY += y
+            }
         }
 
         static btnMap := Map(
@@ -108,12 +186,35 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
             0x0200, ["XButton2", GetLang("松开")]
         )
         if (btnFlags != 0) {
-            if (btnMap.Has(btnFlags)) {
-                btnInfo := btnMap[btnFlags]
-                RI_btnQueue.Push(Map("name", btnInfo[1], "state", btnInfo[2], "t", A_TickCount))
+            if (ToolCheckInfo.RecordMouseMoveMode == 2) {
+                if (btnMap.Has(btnFlags)) {
+                    btnInfo := btnMap[btnFlags]
+                    isDown := btnInfo[2] == GetLang("按下")
+                    OnRecordAddMacroStr(btnInfo[1], isDown)
+                }
+                else if (btnFlags & 0x0400) {
+                    OnRecordAddMacroStr(buttonData > 0 ? "WheelUp" : "WheelDown", true)
+                }
+                else if (btnFlags & 0x0800) {
+                    OnRecordAddMacroStr(buttonData > 0 ? "WheelRight" : "WheelLeft", true)
+                }
             }
-            else {
-                RI_btnQueue.Push(Map("name", "Btn" Format("{:04X}", btnFlags), "state", GetLang("按下"), "t", A_TickCount))
+            else if (ToolCheckInfo.RecordMouse) {
+                if (btnMap.Has(btnFlags)) {
+                    btnInfo := btnMap[btnFlags]
+                    RI_eventQueue.Push(Map("type", "mouse", "name", btnInfo[1], "state", btnInfo[2], "t", A_TickCount))
+                }
+                else if (btnFlags & 0x0400) {
+                    wheelName := buttonData > 0 ? "WheelUp" : "WheelDown"
+                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue", buttonData, "t", A_TickCount))
+                }
+                else if (btnFlags & 0x0800) {
+                    wheelName := buttonData > 0 ? "WheelRight" : "WheelLeft"
+                    RI_eventQueue.Push(Map("type", "mouse", "name", wheelName, "state", GetLang("按下"), "wheelValue", buttonData, "t", A_TickCount))
+                }
+                else {
+                    RI_eventQueue.Push(Map("type", "mouse", "name", "Btn" Format("{:04X}", btnFlags), "state", GetLang("按下"), "t", A_TickCount))
+                }
             }
         }
     }
@@ -134,8 +235,14 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
         if (!vkName)
             vkName := "vk" Format("{:02X}", vKey)
 
-        state := (flags & 1) ? GetLang("松开") : GetLang("按下")
-        RI_keyQueue.Push(Map("name", vkName, "state", state, "t", A_TickCount))
+        if (ToolCheckInfo.RecordMouseMoveMode == 2 && ToolCheckInfo.RecordKeyboard) {
+            isDown := !(flags & 1)
+            OnRecordAddMacroStr(vkName, isDown)
+        }
+        else if (ToolCheckInfo.RecordKeyboard) {
+            state := (flags & 1) ? GetLang("松开") : GetLang("按下")
+            RI_eventQueue.Push(Map("type", "key", "name", vkName, "state", state, "t", A_TickCount))
+        }
     }
 }
 
@@ -383,7 +490,7 @@ OnHotToolRecordMacro(isHotkey, *) {
 
 OnToolRecordMacro(isHotkey, *) {
     global ToolCheckInfo, MySoftData
-    spacialKeyArr := ["NumpadEnter"]
+
     if (isHotkey) {
         LastState := ToolCheckInfo.ToolCheckRecordMacroCtrl.Value
         ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := !LastState
@@ -395,19 +502,26 @@ OnToolRecordMacro(isHotkey, *) {
     }
 
     if (state) {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-        ToolCheckInfo.RecordMacroStr := ""
-        ToolCheckInfo.RecordLastTime := GetCurMSec()
-        ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
+        ShowRecordCountdown(DoStartRecord.Bind(isHotkey))
     }
+    else {
+        MySoftData.IsTogEndRecord := isHotkey == ""
+        ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := false
+        SetTimer(RecordConsumeRI, 0)
+        global RI_isActive, RI_eventQueue
+        RI_isActive := false
+        RecordConsumeRI()
+        RI_eventQueue := []
+        DoStopRecord()
+        OnFinishRecordMacro()
+    }
+}
 
-    StateSymbol := state ? "On" : "Off"
+DoStopRecord() {
+    spacialKeyArr := ["NumpadEnter"]
     RecordHotKey := ToolCheckInfo.ToolRecordMacroHotKey
     isSingleKey := !CheckIfHasModifyKey(RecordHotKey)
     loop 255 {
-        if (isSingleKey && GetKeyVK(RecordHotKey) == A_Index)
-            continue
         if (A_Index == 0x01 || A_Index == 0x02 || A_Index == 0x04 || A_Index == 0x05 || A_Index == 0x06)
             continue
 
@@ -418,8 +532,8 @@ OnToolRecordMacro(isHotkey, *) {
         }
 
         try {
-            Hotkey(key, OnRecordMacroKeyDown, StateSymbol)
-            Hotkey(key " Up", OnRecordMacroKeyUp, StateSymbol)
+            Hotkey(key, "Off")
+            Hotkey(key " Up", "Off")
         }
         catch {
             continue
@@ -427,32 +541,11 @@ OnToolRecordMacro(isHotkey, *) {
     }
 
     loop spacialKeyArr.Length {
-        if (isSingleKey && GetKeySC(RecordHotKey) == GetKeySC(spacialKeyArr[A_Index]))
-            continue
         key := Format("$*~sc{:X}", GetKeySC(spacialKeyArr[A_Index]))
-        Hotkey(key, OnRecordMacroKeyDown, StateSymbol)
-        Hotkey(key " Up", OnRecordMacroKeyUp, StateSymbol)
-    }
-
-    if (state) {
-        MySoftData.IsTogStartRecord := isHotkey == ""
-        RI_StartRecord()
-        SetTimer(RecordConsumeRI, 10)
-        if (ToolCheckInfo.RecordJoy)
-            RecordJoy()
-
-        if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseTrail)
-            RecordMouseTrail
-    }
-    else {
-        MySoftData.IsTogEndRecord := isHotkey == ""
-        ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := false
-        SetTimer(RecordConsumeRI, 0)
-        global RI_isActive, RI_btnQueue, RI_keyQueue
-        RI_isActive := false
-        RI_btnQueue := []
-        RI_keyQueue := []
-        OnFinishRecordMacro()
+        try {
+            Hotkey(key, "Off")
+            Hotkey(key " Up", "Off")
+        }
     }
 }
 
@@ -471,8 +564,8 @@ RecordMouseTrail() {
 
         if (riPx != 0 || riPy != 0) {
             ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" riPx "_" riPy "_" 100 "_2,"
-            span := GetCurMSec() - ToolCheckInfo.RecordLastTime
-            ToolCheckInfo.RecordLastTime := GetCurMSec()
+            span := A_TickCount - ToolCheckInfo.RecordLastTime
+            ToolCheckInfo.RecordLastTime := A_TickCount
             ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
         }
     }
@@ -495,8 +588,8 @@ RecordMouseTrail() {
             ToolCheckInfo.RecordMacroStr .= CommandStr ","
             ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
 
-            span := GetCurMSec() - ToolCheckInfo.RecordLastTime
-            ToolCheckInfo.RecordLastTime := GetCurMSec()
+            span := A_TickCount - ToolCheckInfo.RecordLastTime
+            ToolCheckInfo.RecordLastTime := A_TickCount
             ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
         }
     }
@@ -518,8 +611,8 @@ RecordMouseTrail() {
             ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" targetX "_" targetY symbol ","
             ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
 
-            span := GetCurMSec() - ToolCheckInfo.RecordLastTime
-            ToolCheckInfo.RecordLastTime := GetCurMSec()
+            span := A_TickCount - ToolCheckInfo.RecordLastTime
+            ToolCheckInfo.RecordLastTime := A_TickCount
             ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
         }
     }
@@ -530,12 +623,25 @@ RecordMouseTrail() {
 RecordConsumeRI() {
     if (!ToolCheckInfo.ToolCheckRecordMacroCtrl.Value)
         return
-    global RI_btnQueue
+    global RI_eventQueue
 
-    while (RI_btnQueue.Length > 0) {
-        btn := RI_btnQueue.RemoveAt(1)
-        isDown := btn["state"] == GetLang("按下")
-        OnRecordAddMacroStr(btn["name"], isDown)
+    if (RI_eventQueue.Length > 1) {
+        loop RI_eventQueue.Length - 1 {
+            i := A_Index
+            j := i + 1
+            while (j > 1 && RI_eventQueue[j]["t"] < RI_eventQueue[j - 1]["t"]) {
+                temp := RI_eventQueue[j]
+                RI_eventQueue[j] := RI_eventQueue[j - 1]
+                RI_eventQueue[j - 1] := temp
+                j--
+            }
+        }
+    }
+
+    while (RI_eventQueue.Length > 0) {
+        item := RI_eventQueue.RemoveAt(1)
+        isDown := item["state"] == GetLang("按下")
+        OnRecordAddMacroStr(item["name"], isDown, item["t"])
     }
 }
 
@@ -555,29 +661,45 @@ OnRecordMacroKeyUp(*) {
     OnRecordAddMacroStr(keyName, false)
 }
 
-OnRecordAddMacroStr(keyName, isDown) {
-    if (keyName == "WheelUp" || keyName == "WheelDown") {
-        ; 处理鼠标滚轮事件（暂时留空，根据需求补充）
+OnRecordAddMacroStr(keyName, isDown, eventTime?) {
+    if (keyName == "WheelUp" || keyName == "WheelDown" || keyName == "WheelLeft" || keyName == "WheelRight") {
+        if (ToolCheckInfo.RecordMouse && isDown) {
+            curTime := IsSet(eventTime) ? eventTime : A_TickCount
+        span := curTime - ToolCheckInfo.RecordLastTime
+        ToolCheckInfo.RecordLastTime := curTime
+        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
+        ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
+        }
+        return
     }
-    ; 处理按键按下事件
     else if (isDown) {
-        ; 如果已按下且不记录长按多次，则直接返回
         if (!ToolCheckInfo.RecordHoldMuti && ToolCheckInfo.RecordHoldKeyMap.Has(keyName))
             return
-        ; 记录当前按键为按下状态
         ToolCheckInfo.RecordHoldKeyMap[keyName] := true
     }
-    ; 处理按键释放事件（仅在存在记录时删除）
     else if (ToolCheckInfo.RecordHoldKeyMap.Has(keyName)) {
         ToolCheckInfo.RecordHoldKeyMap.Delete(keyName)
     }
 
-    span := GetCurMSec() - ToolCheckInfo.RecordLastTime
+    curTime := IsSet(eventTime) ? eventTime : A_TickCount
+    span := curTime - ToolCheckInfo.RecordLastTime
     keySymbol := isDown ? GetLang("按下") : GetLang("松开")
-    ToolCheckInfo.RecordLastTime := GetCurMSec()
+    ToolCheckInfo.RecordLastTime := curTime
     IsJoy := InStr(keyName, "Joy")
     IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton" || keyName == "XButton1" || keyName == "XButton2"
     IsKeyboard := !IsMouse && !IsJoy
+
+    if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseMoveMode == 0 && isDown) {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos &mouseX, &mouseY
+        if (ToolCheckInfo.RecordLastMousePos[1] != mouseX || ToolCheckInfo.RecordLastMousePos[2] != mouseY) {
+            speed := ToolCheckInfo.RecordMouseTrailSpeed
+            ToolCheckInfo.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
+            ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" mouseX "_" mouseY "_" speed ","
+            ToolCheckInfo.RecordLastMousePos := [mouseX, mouseY]
+            span := 0
+        }
+    }
 
     if (IsJoy || (IsKeyboard && ToolCheckInfo.RecordKeyboard)) {
         keyName := keyName == "," ? GetLang("逗号") : keyName

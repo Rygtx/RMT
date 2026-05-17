@@ -18,7 +18,7 @@ class MenuMacroSettingGui {
         this.CurrentIndex := index
 
         tableItem := MySoftData.TableInfo[tableIndex]
-        if (tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Length >= index) {
+        if (tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Length >= index && tableItem.GifPathArr[index] != "") {
             this.StoredGifPath := tableItem.GifPathArr[index]
         } else {
             this.StoredGifPath := ""

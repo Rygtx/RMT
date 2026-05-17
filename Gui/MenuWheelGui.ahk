@@ -61,6 +61,10 @@ class MenuWheelGui {
         return ""
     }
 
+    CreateMenuHookFunc(ArcNr, MenuIndex) {
+        return (section, name) => this.OnRadialMenuSelect(ArcNr, MenuIndex)
+    }
+
     OnRadialMenuSelect(ArcNr, MenuIndex) {
         MySoftData.CurMenuWheelIndex := -1
 

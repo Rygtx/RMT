@@ -223,6 +223,11 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     tableItem.StartTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+    if (isMenu) {
+        if (!tableItem.HasProp("GifPathArr"))
+            tableItem.GifPathArr := []
+        tableItem.GifPathArr.InsertAt(AddIndex, "")
+    }
     tableItem.KilledArr.InsertAt(AddIndex, false)
     tableItem.PauseArr.InsertAt(AddIndex, false)
     tableItem.ActionCount.InsertAt(AddIndex, 0)
