@@ -370,12 +370,12 @@ class MacroEditGui {
         )
         con.Enabled := false
 
-        PosX := 215
+        PosX := 210
         PosY += 25
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 460), GetLang("当前宏指令"))
-        expandBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 100, PosY, 100, 20), GetLang("全部展开"))
+        MyGui.Add("Text", Format("x{} y{}", PosX + 10, PosY), GetLang("当前宏指令"))
+        expandBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 85, PosY, 80, 20), GetLang("全部展开"))
         expandBtn.OnEvent("Click", (*) => this.ExpandAll())
-        collapseBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 200, PosY, 100, 20), GetLang("全部折叠"))
+        collapseBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 220, PosY, 80, 20), GetLang("全部折叠"))
         collapseBtn.OnEvent("Click", (*) => this.CollapseAll())
 
         PosY += 20
