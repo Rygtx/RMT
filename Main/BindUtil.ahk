@@ -238,10 +238,10 @@ OnToolFreePaste(*) {
 
 OnClickMutiThreadHelpBtn(*) {
     str1 := GetLang("设置若梦兔最大线程数量")
-    str2 := GetLang("-1：动态多线程，线程闲置时回收，不足时创建新的线程")
+    str2 := GetLang("-1：动态多线程，线程闲置时回收（30秒），不足时创建新的线程")
     str3 := GetLang("0：单线程")
     str4 := GetLang("n：固定线程为指定n（推荐3~5）")
-    str5 := GetLang("提示：动态多线程采用固定线程3+动态多线程池")
+    str5 := GetLang("提示：动态多线程采用固定线程3+动态多线程池最大16")
 
     str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
     MsgBox(str, GetLang("多线程说明"))
