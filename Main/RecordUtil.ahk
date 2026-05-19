@@ -665,7 +665,7 @@ FillMoveSpeed(CmdArr, spd) {
             if (paramArr.Length >= 4 && paramArr[paramArr.Length] == "2") {
                 resultArr.Push(moveKey "_" paramArr[2] "_" paramArr[3] "_" spd "_2")
             }
-            else if (paramArr.Length >= 4) {
+            else if (paramArr.Length >= 3) {
                 resultArr.Push(moveKey "_" paramArr[2] "_" paramArr[3] "_" spd)
             }
             else {
