@@ -1,10 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #Include Plugins\RapidOcr\RapidOcr.ahk
-#Include Plugins\CLR.ahk
-#Include Plugins\IbInputSimulator.ahk
 #Include Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
-#Include Plugins\AhiDriver\AhiDriver.ahk
 #Include Main\JoyMacro.ahk
 #Include Main\RecordJoyUtil.ahk
 #Include Main\RecordUtil.ahk

@@ -3,7 +3,6 @@
 #Include "..\Gui\CustomInputGui.ahk"
 #Include "..\Gui\InputBtnGui.ahk"
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
-#Include "..\Plugins\IbInputSimulator.ahk"
 #Include "..\Main\Util\SharedMemory.ahk"
 #Include "..\Main\Util\RingBuffer.ahk"
 #Include "..\Main\Util\JsonUtil.ahk"

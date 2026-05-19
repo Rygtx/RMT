@@ -18,6 +18,11 @@
 #Include Util\MacroUtil.ahk
 #Include Util\PluginUtil.ahk
 #Include Util\RM_GifPlayer.ahk
+
+#Include ..\Plugins\CLR.ahk
+#Include ..\Plugins\AhiDriver\AhiDriver.ahk
+#Include "..\Plugins\IbInputSimulator.ahk"
+
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
