@@ -269,6 +269,7 @@ InitFilePath() {
     FileInstall("Images\Soft\FileIO.png", "Images\Soft\FileIO.png", 1)
     FileInstall("Images\Soft\Control.png", "Images\Soft\Control.png", 1)
     FileInstall("Images\Soft\WindowManage.png", "Images\Soft\WindowManage.png", 1)
+    FileInstall("Images\Soft\KeyCheck.png", "Images\Soft\KeyCheck.png", 1)
 
     global VBSPath := A_WorkingDir "\MinTool\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
@@ -476,6 +477,7 @@ SetItemPauseState(tableIndex, itemIndex, state) {
     MyWorkPool.Broadcast("PauseState", tableIndex, itemIndex, state)
 }
 
+;恢复意外退出残留的脏状态，后面要换成热重载就会要
 RecoverAllDirtyStates() {
     loop MySoftData.TableInfo.Length {
         tableItem := MySoftData.TableInfo[A_Index]
@@ -1093,5 +1095,13 @@ UpdateMacroRunningCount(LastState, State) {
     if (curState != MySoftData.IsMacroWorking) {
         MySoftData.IsMacroWorking := curState
         MyCMDTipGui.OnToggleMacroWorkState()
+    }
+}
+
+;批量移除文件的“来自互联网”标记（Zone.Identifier）。 防止文件被锁定
+UnblockZoneIdentifier() {
+    try {
+        psCmd := 'Get-ChildItem -Path "' A_ScriptDir '" -Recurse -File | ForEach-Object { try { Unblock-File -Path $_.FullName -ErrorAction Stop } catch {} }'
+        RunWait('powershell.exe -NoProfile -WindowStyle Hidden -Command "' psCmd '"', , "Hide")
     }
 }

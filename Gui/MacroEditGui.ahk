@@ -216,17 +216,16 @@ class MacroEditGui {
             IL_Add(ImageListID, "Images\Soft\Key.png")
             IL_Add(ImageListID, "Images\Soft\True.png")
             IL_Add(ImageListID, "Images\Soft\False.png")
-            IL_Add(ImageListID, "Images\Soft\LoopCount.png")
-            IL_Add(ImageListID, "Images\Soft\Condition.png")    ;循环次数
-            IL_Add(ImageListID, "Images\Soft\Condition.png")
+            IL_Add(ImageListID, "Images\Soft\LoopCount.png")    ;21 循环次数
+            IL_Add(ImageListID, "Images\Soft\Condition.png")    
             IL_Add(ImageListID, "Images\Soft\LoopBody.png")
             IL_Add(ImageListID, "Images\Soft\TextOps.png")
             IL_Add(ImageListID, "Images\Soft\Arr.png")
             IL_Add(ImageListID, "Images\Soft\Input.png")
-            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;26 标记一下
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;27 标记一下
             IL_Add(ImageListID, "Images\Soft\Control.png")
-            IL_Add(ImageListID, "Images\Soft\WindowManage.png")   ;28 窗口管理
-            IL_Add(ImageListID, "Images\Soft\KeyCheck.png")   ;29 按键检测
+            IL_Add(ImageListID, "Images\Soft\WindowManage.png")   ;29 窗口管理
+            IL_Add(ImageListID, "Images\Soft\KeyCheck.png")   ;30 按键检测
         }
 
         if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {

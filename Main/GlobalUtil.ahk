@@ -1,4 +1,22 @@
 #Requires AutoHotkey v2.0
+#SingleInstance Force
+#Include JoyMacro.ahk
+#Include RecordJoyUtil.ahk
+#Include RecordUtil.ahk
+#Include LineOverlay.ahk
+#Include RMTUtil.ahk
+#Include WorkPool.ahk
+#Include UIUtil.ahk
+#Include TimingUtil.ahk
+#Include WindowHotkeyManager.ahk
+#Include BindUtil.ahk
+#Include VariableUtil.ahk
+#Include TriggerKeyData.ahk
+#Include FolderPackager.ahk
+#Include Util\MacroClipboardUtil.ahk
+#Include Util\RadialMenuRenderer.ahk
+#Include Util\ErrorHandler.ahk
+#Include ..\Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
 
 #Include ..\Gui\TriggerKeyGui.ahk
 #Include ..\Gui\TriggerStrGui.ahk
@@ -30,28 +48,23 @@
 #Include ..\Gui\ThankUIUtil.ahk
 #Include ..\Gui\TabItemUIUtil.ahk
 
+
 SetWorkingDir A_ScriptDir
 DetectHiddenWindows true
 Persistent
 A_MaxHotkeysPerInterval := 400
 
-UnblockZoneIdentifier() {
-    try {
-        psCmd := 'Get-ChildItem -Path "' A_ScriptDir '" -Recurse -File | ForEach-Object { try { Unblock-File -Path $_.FullName -ErrorAction Stop } catch {} }'
-        RunWait('powershell.exe -NoProfile -WindowStyle Hidden -Command "' psCmd '"', , "Hide")
-    }
-}
 
-UnblockZoneIdentifier()
-
-global MyJoyMacro := JoyMacro()
-global MyMouseInfo := MouseWinData()
+OnError(ErrHandler)             ;注册全局错误处理器
+UnblockZoneIdentifier()         ;移除文件的Zone.Identifier标记 防止文件被锁定
 global MySoftData := SoftData()
 global ToolCheckInfo := ToolCheck()
 global IniFile := A_WorkingDir "\Setting\MainSettings.ini"
 global LangDir := A_WorkingDir "\Lang"
-LoadMainSetting()       ;加载配置
+LoadMainSetting()               ;加载通用设置
 
+global MyJoyMacro := JoyMacro()
+global MyMouseInfo := MouseWinData()
 global MyTriggerKeyGui := TriggerKeyGui()
 global MyTriggerStrGui := TriggerStrGui()
 global MyEditHotkeyGui := EditHotkeyGui()

@@ -3,13 +3,6 @@
 #Include Util\RingBuffer.ahk
 #Include Util\JsonUtil.ahk
 
-class MsgType {
-    static TASK := 1
-    static RESULT := 2
-    static EVENT := 3
-    static CONTROL := 4
-}
-
 class TaskQueue {
     __New() {
         this.queue := []

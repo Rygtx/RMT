@@ -20,7 +20,8 @@
 #Include Util\RM_GifPlayer.ahk
 
 #Include ..\Plugins\CLR.ahk
-#Include ..\Plugins\AhiDriver\AhiDriver.ahk
+#Include "..\Plugins\RapidOcr\RapidOcr.ahk"
+#Include "..\Plugins\AhiDriver\AhiDriver.ahk"
 #Include "..\Plugins\IbInputSimulator.ahk"
 
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
@@ -830,7 +831,8 @@ GetSavedTableItemInfo(index) {
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
         EndTipSoundArrStr .= tableItem.EndTipSoundArr[A_Index]
 
-        GifPathArrValue := tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Has(A_Index) ? tableItem.GifPathArr[A_Index] : ""
+        GifPathArrValue := tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Has(A_Index) ? tableItem.GifPathArr[
+            A_Index] : ""
         GifPathArrStr .= GifPathArrValue
 
         UIWindowArrValue := tableItem.UIWindowArr.Has(A_Index) ? tableItem.UIWindowArr[A_Index] : ""

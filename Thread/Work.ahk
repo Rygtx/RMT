@@ -1,23 +1,14 @@
 #Requires AutoHotkey v2.0
 #Include "..\Main\AssetUtil.ahk"
-#Include "..\Gui\CustomInputGui.ahk"
-#Include "..\Gui\InputBtnGui.ahk"
-#Include "..\Plugins\RapidOcr\RapidOcr.ahk"
 #Include "..\Main\Util\SharedMemory.ahk"
 #Include "..\Main\Util\RingBuffer.ahk"
-#Include "..\Main\Util\JsonUtil.ahk"
+#Include "..\Gui\CustomInputGui.ahk"
+#Include "..\Gui\InputBtnGui.ahk"
 #Include WorkUtil.ahk
 #SingleInstance Force
+#NoTrayIcon
 DetectHiddenWindows true
 Persistent
-#NoTrayIcon
-
-class MsgType {
-    static TASK := 1
-    static RESULT := 2
-    static EVENT := 3
-    static CONTROL := 4
-}
 
 global parentHwnd := A_Args[1]
 global workIndex := A_Args[2]

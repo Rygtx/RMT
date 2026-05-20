@@ -828,3 +828,10 @@ class KeyCheckData {
         this.VarName := ""                  ;变量名
     }
 }
+
+class MsgType {
+    static TASK := 1
+    static RESULT := 2
+    static EVENT := 3
+    static CONTROL := 4
+}
