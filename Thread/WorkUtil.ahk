@@ -127,16 +127,8 @@
             while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
                 switch type {
                     case MsgType.TASK:
-                        result := ExecTask(cmd)
-                        rx.Push(MsgType.RESULT, id, result)
-
-                        if (rx.ExchangeNotifyFlag(1) == 0)
-                            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
-
-                        if (hTaskEvent) {
-                            SetEvent(hTaskEvent)
-                            CloseHandle(hTaskEvent)
-                        }
+                        Action := OnExecTask.Bind(id, cmd, hTaskEvent)
+                        SetTimer(Action, -1)
                     case MsgType.CONTROL:
                         OnControlMessage(cmd)
                     case MsgType.EVENT:
@@ -150,6 +142,19 @@
 
             if (tx.IsEmpty())
                 break
+        }
+    }
+
+    OnExecTask(id, cmd, hTaskEvent) {
+        result := ExecTask(cmd)
+        rx.Push(MsgType.RESULT, id, result)
+
+        if (rx.ExchangeNotifyFlag(1) == 0)
+            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
+
+        if (hTaskEvent) {
+            SetEvent(hTaskEvent)
+            CloseHandle(hTaskEvent)
         }
     }
 
