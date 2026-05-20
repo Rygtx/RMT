@@ -854,12 +854,20 @@ OnRMTCMD(tableItem, cmd, index) {
 
 OnInterval(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    isVar := !IsNumber(paramArr[2])
-    interval := isVar ? 0 : Integer(paramArr[2])
-    if (isVar) {
+    TimeArr := StrSplit(paramArr[2], "~")
+    isRandom := TimeArr.Length > 1
+    if (!isRandom) {
         hasInterval := TryGetTabVarValue(&interval, tableItem, index, paramArr[2])
         if (!hasInterval)
             return
+    }
+    else {
+        hasInterval1 := TryGetTabVarValue(&interval1, tableItem, index, TimeArr[1])
+        hasInterval2 := TryGetTabVarValue(&interval2, tableItem, index, TimeArr[2])
+        if (!hasInterval1 || !hasInterval2)
+            return
+    
+        interval := Random(interval1, interval2)
     }
 
     FloatInterval := GetFloatTime(interval, MySoftData.IntervalFloat)
