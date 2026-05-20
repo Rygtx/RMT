@@ -177,7 +177,7 @@ PluginInit() {
     RMT_ASM := CLR_LoadLibrary(RMTPath)   ;加载RMT程序集
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
 
-    SetTimer(CheckOcrIdle, 60000)
+    SetTimer(CheckOcrIdle, 60000)   ;60秒后，释放Ocr资源
 }
 
 OnToolAlwaysOnTop(*) {

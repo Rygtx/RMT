@@ -2,6 +2,19 @@
 
 ;初始化数据
 {
+    HandleWorkOpenArg() {
+        global parentHwnd := A_Args[1]
+        global workIndex := A_Args[2]
+        global parentPID := A_Args[3]
+        global txName := A_Args[4]
+        global rxName := A_Args[5]
+
+        global shmTx := SharedMemory(txName, 1048576 + 192)
+        global shmRx := SharedMemory(rxName, 1048576 + 192)
+        global tx := RingBuffer(shmTx.ptr, 1048576)
+        global rx := RingBuffer(shmRx.ptr, 1048576)
+    }
+
     InitWorkFilePath() {
         global VBSPath := A_WorkingDir "\..\MinTool\PlayAudio.vbs"
         global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
@@ -45,9 +58,17 @@
     InitWork() {
         global MySoftData
         MySoftData.isWorker := true
+
+        SetTimer(CheckParentProcess, 10000)
     }
 
-    WorkOpenCVLoadDll() {
+    CheckParentProcess() {
+        if !ProcessExist(parentPID) {
+            ExitApp()
+        }
+    }
+
+    WorkPluginInit() {
         ; 根据进程位数自动选择 x86 或 x64
         archDir := (A_PtrSize = 4) ? "x86" : "x64"
         dllDir := A_ScriptDir "\..\Plugins\OpenCV\" archDir
@@ -56,9 +77,10 @@
 
         ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
         DllCall("SetDllDirectory", "Str", dllDir)
-
         DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
         DllCall('LoadLibrary', 'str', IBPath)
+
+        SetTimer(CheckOcrIdle, 60000)
     }
 }
 
@@ -72,7 +94,7 @@
         global rx, workIndex
         payload := JSON.stringify([action, args*])
         rx.Push(MsgType.EVENT, 0, payload)
-        
+
         ; Notify parent if not already notified
         if (rx.ExchangeNotifyFlag(1) == 0)
             MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
@@ -92,13 +114,62 @@
         ExitApp()
     }
 
-    CheckParentProcess() {
-        if !ProcessExist(parentPID) {
-            ExitApp()
+    OnWorkNotify(wParam, lParam, msg, hwnd) {
+        ProcessQueue()
+    }
+
+    ProcessQueue() {
+        global tx, rx, workIndex
+
+        loop {
+            tx.ExchangeNotifyFlag(1)
+
+            while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
+                switch type {
+                    case MsgType.TASK:
+                        result := ExecTask(cmd)
+                        rx.Push(MsgType.RESULT, id, result)
+
+                        if (rx.ExchangeNotifyFlag(1) == 0)
+                            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
+
+                        if (hTaskEvent) {
+                            SetEvent(hTaskEvent)
+                            CloseHandle(hTaskEvent)
+                        }
+                    case MsgType.CONTROL:
+                        OnControlMessage(cmd)
+                    case MsgType.EVENT:
+                        OnEventMessage(cmd)
+                }
+
+            }
+
+            ; Double Check Pattern
+            tx.ExchangeNotifyFlag(0) ; Full barrier to mark as idle
+
+            if (tx.IsEmpty())
+                break
         }
     }
 
-    SetTimer(CheckParentProcess, 2000)
+    ExecTask(cmd) {
+        try {
+            paramArr := JSON.parse(cmd)
+            if (paramArr[1] == "TR_MACRO") {
+                TriggerMacro(paramArr[2], paramArr[3])
+                return 1
+            }
+        } catch as e {
+            MsgSendHandler("Error", GetFullErrorInfo(e))
+        }
+
+        return 1
+    }
+
+    OnControlMessage(cmd) {
+        ; Handle any JSON control messages
+    }
 
     OnEventMessage(cmd) {
         try {
@@ -141,21 +212,24 @@
                     ArrName := args[1]
                     MainIndex := args[2]
                     Index := args[3]
-                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
                     Value := args[4] ? GetArray(args[5]) : args[5]
                     SourceArr[Index] := Value
                 case "InsertArray":
                     ArrName := args[1]
                     MainIndex := args[2]
                     Index := args[3]
-                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
                     Value := args[4] ? GetArray(args[5]) : args[5]
                     SourceArr.InsertAt(Index, Value)
                 case "RemoveAtArray":
                     ArrName := args[1]
                     MainIndex := args[2]
                     Index := args[3]
-                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
                     SourceArr.RemoveAt(Index)
             }
         } catch {
@@ -196,7 +270,7 @@
     WorkSetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         RealNameArr := NameArr.Clone()
         RealValueArr := ValueArr.Clone()
-        
+
         if (ignoreExist) {
             RealNameArr := []
             RealValueArr := []
@@ -281,4 +355,36 @@
     WorkViGJoySetState(JoyType, Key, Value) {
         MsgSendHandler("Joy", JoyType, Key, Value)
     }
+}
+
+;通用函数
+{
+    GetFullErrorInfo(exception) {
+        what := ""
+        msg := ""
+        extra := ""
+        stack := ""
+        fullMsg := ""
+
+        if (IsObject(exception)) {
+            try what := exception.What
+            try msg := exception.Message
+            try extra := exception.Extra
+            try stack := exception.Stack
+        } else {
+            msg := "" . exception
+        }
+
+        if (what != "")
+            fullMsg := what
+        if (msg != "")
+            fullMsg := fullMsg (fullMsg ? " | " : "") . msg
+        if (extra != "")
+            fullMsg := fullMsg "`nSpecifically: " extra
+        if (stack != "")
+            fullMsg := fullMsg "`n" stack
+
+        return fullMsg
+    }
+
 }

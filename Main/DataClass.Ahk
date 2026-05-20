@@ -830,8 +830,8 @@ class KeyCheckData {
 }
 
 class MsgType {
-    static TASK := 1
-    static RESULT := 2
-    static EVENT := 3
-    static CONTROL := 4
+    static TASK := 1    ;主线程-》Worker
+    static RESULT := 2  ;Worker-》主线程
+    static EVENT := 3   ;双向广播事件 例如Worker修改变量值后 告知主线程 主线程收到后 广播所有人
+    static CONTROL := 4 ; 预留扩展
 }
