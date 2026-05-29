@@ -14,3 +14,4 @@ SetEditData()               ;缓存编辑器数据，设置下拉框变量，检
 PluginInit()
 TimingCheck()       ;轮询检测触发
 BindKey()           ;绑定快捷键
+
