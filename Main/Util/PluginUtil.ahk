@@ -15,9 +15,6 @@ FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
 }
 
 ReleaseAllCaches() {
-    if (A_PtrSize != 8) ;非64位不可用，直接退出
-        return
-
     DllCall("RMT_OpenCV.dll\ReleaseAllCaches", "Cdecl")
 }
 
