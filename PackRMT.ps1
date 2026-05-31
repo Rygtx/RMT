@@ -114,19 +114,19 @@ function Copy-IfExist {
 }
 
 function Get-Version {
-    $uiUtil = Join-Path $PSScriptRoot "Main\UIUtil.ahk"
-    if (-not (Test-Path $uiUtil)) {
-        Write-Log "  [ERROR] 未找到 UIUtil.ahk，无法获取版本号" "Red"
+    $rmtAhk = Join-Path $PSScriptRoot "RMT.ahk"
+    if (-not (Test-Path $rmtAhk)) {
+        Write-Log "  [ERROR] 未找到 RMT.ahk，无法获取版本号" "Red"
         return $null
     }
-    $content = Get-Content $uiUtil -Raw
-    # 匹配 RMTv1.2F1、RMTv2.1.2、RMTv2.0 等格式
-    if ($content -match 'MyGui\.Title\s*:=\s*"RMTv(\d+(?:\.\d+)*(?:[a-zA-Z]+\d*)?)"') {
+    $content = Get-Content $rmtAhk -Raw
+    # 匹配 global RMT_VERSION := "1.2F7" 格式
+    if ($content -match 'global RMT_VERSION\s*:=\s*"([^"]+)"') {
         $version = $matches[1]
         Write-Log "  版本号: v$version" "Gray"
         return $version
     }
-    Write-Log "  [ERROR] 无法从 UIUtil.ahk 解析版本号" "Red"
+    Write-Log "  [ERROR] 无法从 RMT.ahk 解析版本号" "Red"
     return $null
 }
 
