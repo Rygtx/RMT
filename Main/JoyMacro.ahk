@@ -202,35 +202,47 @@ class JoyMacro {
         key1 := keyParts[1]
         key2 := keyParts[2]
 
-        State := this.XInputState(0)
-        if (State == 0)
-            return
+        global ViGJoy
+        try virtualIdx := ViGJoy.ViGJoyXInputIdx
+        catch
+            virtualIdx := -1
+        loop 4 {
+            idx := A_Index - 1
+            if (idx == virtualIdx)
+                continue
+            try State := this.XInputState(idx)
+            catch
+                continue
+            if (State == 0)
+                continue
 
-        pressed1 := false
-        pressed2 := false
+            pressed1 := false
+            pressed2 := false
 
-        if (this.xboxJoyBtnMap.Has(key1)) {
-            bitSymbol1 := this.xboxJoyBtnMap.Get(key1)
-            pressed1 := (State.wButtons >> bitSymbol1) & 1
-        }
-        else if (this.xboxJosAxisMap.Has(key1)) {
-            value1 := this.GetXboxAxisValue(key1)
-            valueSection1 := this.GetAxisTriggerSection(key1, true)
-            pressed1 := (value1 != 0 && value1 >= valueSection1[1] && value1 <= valueSection1[2])
-        }
+            if (this.xboxJoyBtnMap.Has(key1)) {
+                bitSymbol1 := this.xboxJoyBtnMap.Get(key1)
+                pressed1 := (State.wButtons >> bitSymbol1) & 1
+            }
+            else if (this.xboxJosAxisMap.Has(key1)) {
+                value1 := this.GetXboxAxisValue(key1, idx)
+                valueSection1 := this.GetAxisTriggerSection(key1, true)
+                pressed1 := (value1 != 0 && value1 >= valueSection1[1] && value1 <= valueSection1[2])
+            }
 
-        if (this.xboxJoyBtnMap.Has(key2)) {
-            bitSymbol2 := this.xboxJoyBtnMap.Get(key2)
-            pressed2 := (State.wButtons >> bitSymbol2) & 1
-        }
-        else if (this.xboxJosAxisMap.Has(key2)) {
-            value2 := this.GetXboxAxisValue(key2)
-            valueSection2 := this.GetAxisTriggerSection(key2, true)
-            pressed2 := (value2 != 0 && value2 >= valueSection2[1] && value2 <= valueSection2[2])
-        }
+            if (this.xboxJoyBtnMap.Has(key2)) {
+                bitSymbol2 := this.xboxJoyBtnMap.Get(key2)
+                pressed2 := (State.wButtons >> bitSymbol2) & 1
+            }
+            else if (this.xboxJosAxisMap.Has(key2)) {
+                value2 := this.GetXboxAxisValue(key2, idx)
+                valueSection2 := this.GetAxisTriggerSection(key2, true)
+                pressed2 := (value2 != 0 && value2 >= valueSection2[1] && value2 <= valueSection2[2])
+            }
 
-        if (pressed1 && pressed2) {
-            this.ComboMacroMap.Get(comboKey).Action()
+            if (pressed1 && pressed2) {
+                this.ComboMacroMap.Get(comboKey).Action()
+                return
+            }
         }
     }
 
@@ -275,24 +287,49 @@ class JoyMacro {
 
     CheckXboxBtnOrPOVMacro(joySymbol) {
         isXboxHasBtn := this.xboxJoyBtnMap.Has(joySymbol)
-        state := this.XInputState(0)
-        if (isXboxHasBtn && state != 0) {
-            bitSymbol := this.xboxJoyBtnMap.Get(joySymbol)
-            isPressed := (state.wButtons >> bitSymbol) & 1
-            if (isPressed) {
-                this.MacroMap.Get(joySymbol).Action()
+        if (!isXboxHasBtn)
+            return
+
+        global ViGJoy
+        try virtualIdx := ViGJoy.ViGJoyXInputIdx
+        catch
+            virtualIdx := -1
+        loop 4 {
+            idx := A_Index - 1
+            if (idx == virtualIdx)
+                continue
+            try state := this.XInputState(idx)
+            catch
+                continue
+            if (state != 0) {
+                bitSymbol := this.xboxJoyBtnMap.Get(joySymbol)
+                if ((state.wButtons >> bitSymbol) & 1) {
+                    this.MacroMap.Get(joySymbol).Action()
+                    return
+                }
             }
         }
     }
 
     CheckXboxAxisMacro(joyAxisSymbol) {
         valueSection := this.GetAxisTriggerSection(joyAxisSymbol, true)
-        value := this.GetXboxAxisValue(joyAxisSymbol)
-        if (value == 0)
-            return
 
-        if (value >= valueSection[1] && value <= valueSection[2]) {
-            this.MacroMap.Get(joyAxisSymbol).Action()
+        global ViGJoy
+        try virtualIdx := ViGJoy.ViGJoyXInputIdx
+        catch
+            virtualIdx := -1
+        loop 4 {
+            idx := A_Index - 1
+            if (idx == virtualIdx)
+                continue
+            value := this.GetXboxAxisValue(joyAxisSymbol, idx)
+            if (value == 0)
+                continue
+
+            if (value >= valueSection[1] && value <= valueSection[2]) {
+                this.MacroMap.Get(joyAxisSymbol).Action()
+                return
+            }
         }
     }
 
@@ -312,9 +349,9 @@ class JoyMacro {
         }
     }
 
-    GetXboxAxisValue(joyAxisSymbol) {
+    GetXboxAxisValue(joyAxisSymbol, userIndex := 0) {
         joyAxisName := SubStr(joyAxisSymbol, 1, 4)
-        State := this.XInputState(0)
+        State := this.XInputState(userIndex)
         if (State == 0)
             return 0
 
