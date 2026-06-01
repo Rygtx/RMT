@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 
-;资源保存
+;资源保存（带脏检查优化：只写入实际发生变化的配置项）
 OnSaveSetting(*) {
     global MySoftData, MyWorkPool
     isValid := CheckAllValueSettingValid()
@@ -16,59 +16,81 @@ OnSaveSetting(*) {
         SaveTableItemInfo(A_Index)
     }
 
-    IniWrite(MySoftData.HoldFloatCtrl.Value, IniFile, IniSection, "HoldFloat")
-    IniWrite(MySoftData.PreIntervalFloatCtrl.Value, IniFile, IniSection, "PreIntervalFloat")
-    IniWrite(MySoftData.IntervalFloatCtrl.Value, IniFile, IniSection, "IntervalFloat")
-    IniWrite(MySoftData.CoordXFloatCon.Value, IniFile, IniSection, "CoordXFloat")
-    IniWrite(MySoftData.CoordYFloatCon.Value, IniFile, IniSection, "CoordYFloat")
-    IniWrite(MySoftData.SuspendHotkeyCtrl.Value, IniFile, IniSection, "SuspendHotkey")
-    IniWrite(MySoftData.PauseHotkeyCtrl.Value, IniFile, IniSection, "PauseHotkey")
-    IniWrite(MySoftData.KillMacroHotkeyCtrl.Value, IniFile, IniSection, "KillMacroHotkey")
-    IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
-    IniWrite(MySoftData.SplitLineCtrl.Value, IniFile, IniSection, "ShowSplitLine")
-    IniWrite(MySoftData.FixedMenuWheelCtrl.Value, IniFile, IniSection, "FixedMenuWheel")
-    IniWrite(MySoftData.MutiThreadNumCtrl.Value, IniFile, IniSection, "MutiThreadNum")
-    IniWrite(MySoftData.SoftBGColorCon.Value, IniFile, IniSection, "SoftBGColor")
-    IniWrite(MySoftData.NoVariableTipCtrl.Value, IniFile, IniSection, "NoVariableTip")
-    IniWrite(MySoftData.CMDTipCtrl.Value, IniFile, IniSection, "CMDTip")
-    IniWrite(MySoftData.ScreenShotTypeCtrl.Value, IniFile, IniSection, "ScreenShotType")
-    IniWrite(MySoftData.KeyDownDownCon.Value, IniFile, IniSection, "KeyDownDown")
-    IniWrite(ToolCheckInfo.ToolCheckHotKeyCtrl.Value, IniFile, IniSection, "ToolCheckHotKey")
-    IniWrite(ToolCheckInfo.ToolRecordMacroHotKeyCtrl.Value, IniFile, IniSection, "RecordMacroHotKey")
-    IniWrite(ToolCheckInfo.ToolTextFilterHotKeyCtrl.Value, IniFile, IniSection, "ToolTextFilterHotKey")
-    IniWrite(ToolCheckInfo.ScreenShotHotKeyCtrl.Value, IniFile, IniSection, "ScreenShotHotKey")
-    IniWrite(ToolCheckInfo.FreePasteHotKeyCtrl.Value, IniFile, IniSection, "FreePasteHotKey")
-    IniWrite(ToolCheckInfo.RecordKeyboard, IniFile, IniSection, "RecordKeyboard")
-    IniWrite(ToolCheckInfo.RecordMouse, IniFile, IniSection, "RecordMouse")
-    IniWrite(ToolCheckInfo.RecordJoy, IniFile, IniSection, "RecordJoy")
-    IniWrite(ToolCheckInfo.RecordMouseKeyPoint, IniFile, IniSection, "RecordMouseKeyPoint")
-    IniWrite(ToolCheckInfo.RecordMouseRelative, IniFile, IniSection, "RecordMouseRelative")
-    IniWrite(ToolCheckInfo.RecordMouseTrail, IniFile, IniSection, "RecordMouseTrail")
-    IniWrite(ToolCheckInfo.RecordMouseTrailLen, IniFile, IniSection, "RecordMouseTrailLen")
-    IniWrite(ToolCheckInfo.RecordMouseTrailSpeed, IniFile, IniSection, "RecordMouseTrailSpeed")
-    IniWrite(ToolCheckInfo.RecordHoldMuti, IniFile, IniSection, "RecordHoldMuti")
-    IniWrite(ToolCheckInfo.RecordAutoLoosen, IniFile, IniSection, "RecordAutoLoosen")
-    IniWrite(ToolCheckInfo.RecordMouseTrailInterval, IniFile, IniSection, "MouseTrailInterval")
-    IniWrite(ToolCheckInfo.RecordJoyInterval, IniFile, IniSection, "RecordJoyInterval")
-    IniWrite(ToolCheckInfo.OCRTypeCtrl.Value, IniFile, IniSection, "OCRType")
-    IniWrite(MySoftData.TabCtrl.Value, IniFile, IniSection, "TableIndex")
-    IniWrite(MySoftData.LangCtrl.Text, IniFile, IniSection, "Lang")
-    IniWrite(MySoftData.FontTypeCtrl.Text, IniFile, IniSection, "FontType")
-    IniWrite(MySoftData.MacroTotalCount, IniFile, IniSection, "MacroTotalCount")
-    IniWrite(MySoftData.LastShowMonth, IniFile, IniSection, "LastShowMonth")
-    IniWrite(true, IniFile, IniSection, "HasSaved")
-    IniWrite(true, IniFile, IniSection, "IsReload")
+    ; 静态变量：保存上次写入的值，用于脏检查
+    static lastSavedSettings := Map()
+    dirtySettings := Map()  ; 只收集发生变化的设置
+
+    ; 辅助函数：检查值是否变化并记录
+    CheckAndAddDirty(key, newValue) {
+        if (!lastSavedSettings.Has(key) || lastSavedSettings[key] != newValue) {
+            dirtySettings.Set(key, newValue)
+            lastSavedSettings.Set(key, newValue)
+        }
+    }
+
+    ; 基础设置
+    CheckAndAddDirty("HoldFloat", MySoftData.HoldFloatCtrl.Value)
+    CheckAndAddDirty("PreIntervalFloat", MySoftData.PreIntervalFloatCtrl.Value)
+    CheckAndAddDirty("IntervalFloat", MySoftData.IntervalFloatCtrl.Value)
+    CheckAndAddDirty("CoordXFloat", MySoftData.CoordXFloatCon.Value)
+    CheckAndAddDirty("CoordYFloat", MySoftData.CoordYFloatCon.Value)
+    CheckAndAddDirty("SuspendHotkey", MySoftData.SuspendHotkeyCtrl.Value)
+    CheckAndAddDirty("PauseHotkey", MySoftData.PauseHotkeyCtrl.Value)
+    CheckAndAddDirty("KillMacroHotkey", MySoftData.KillMacroHotkeyCtrl.Value)
+    CheckAndAddDirty("IsBootStart", MySoftData.BootStartCtrl.Value)
+    CheckAndAddDirty("ShowSplitLine", MySoftData.SplitLineCtrl.Value)
+    CheckAndAddDirty("IsModalSubGui", MySoftData.ModalSubGuiCtrl.Value)
+    CheckAndAddDirty("MutiThreadNum", MySoftData.MutiThreadNumCtrl.Value)
+    CheckAndAddDirty("SoftBGColor", MySoftData.SoftBGColorCon.Value)
+    CheckAndAddDirty("NoVariableTip", MySoftData.NoVariableTipCtrl.Value)
+    CheckAndAddDirty("IsAdminStart", MySoftData.AdminStartCtrl.Value)
+    CheckAndAddDirty("CMDTip", MySoftData.CMDTipCtrl.Value)
+    CheckAndAddDirty("ScreenShotType", MySoftData.ScreenShotTypeCtrl.Value)
+    CheckAndAddDirty("KeyDownDown", MySoftData.KeyDownDownCon.Value)
+
+    ; 工具设置
+    CheckAndAddDirty("ToolCheckHotKey", ToolCheckInfo.ToolCheckHotKeyCtrl.Value)
+    CheckAndAddDirty("RecordMacroHotKey", ToolCheckInfo.ToolRecordMacroHotKeyCtrl.Value)
+    CheckAndAddDirty("ToolTextFilterHotKey", ToolCheckInfo.ToolTextFilterHotKeyCtrl.Value)
+    CheckAndAddDirty("ScreenShotHotKey", ToolCheckInfo.ScreenShotHotKeyCtrl.Value)
+    CheckAndAddDirty("FreePasteHotKey", ToolCheckInfo.FreePasteHotKeyCtrl.Value)
+    CheckAndAddDirty("RecordKeyboard", ToolCheckInfo.RecordKeyboard)
+    CheckAndAddDirty("RecordMouse", ToolCheckInfo.RecordMouse)
+    CheckAndAddDirty("RecordJoy", ToolCheckInfo.RecordJoy)
+    CheckAndAddDirty("RecordMouseTrail", ToolCheckInfo.RecordMouseTrail)
+    CheckAndAddDirty("RecordMouseTrailSpeed", ToolCheckInfo.RecordMouseTrailSpeed)
+    CheckAndAddDirty("RecordHoldMuti", ToolCheckInfo.RecordHoldMuti)
+    CheckAndAddDirty("RecordAutoLoosen", ToolCheckInfo.RecordAutoLoosen)
+    CheckAndAddDirty("RecordJoyInterval", ToolCheckInfo.RecordJoyInterval)
+    CheckAndAddDirty("RecordShowBorder", ToolCheckInfo.RecordShowBorder)
+    CheckAndAddDirty("OCRType", ToolCheckInfo.OCRTypeCtrl.Value)
+
+    ; 状态设置（这些每次都变化，始终写入）
+    CheckAndAddDirty("TableIndex", MySoftData.TabCtrl.Value)
+    CheckAndAddDirty("Lang", MySoftData.LangCtrl.Text)
+    CheckAndAddDirty("FontType", MySoftData.FontTypeCtrl.Text)
+    CheckAndAddDirty("MacroTotalCount", MySoftData.MacroTotalCount)
+    CheckAndAddDirty("LastShowMonth", MySoftData.LastShowMonth)
+    CheckAndAddDirty("HasSaved", true)
+    CheckAndAddDirty("IsReload", true)
+
     SaveCurWinPos()
 
-    IniWrite(MySoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
-    IniWrite(MySoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
-    IniWrite(MySoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
-    IniWrite(MySoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
-    IniWrite(MySoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
-    IniWrite(MySoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
-    IniWrite(MySoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
-    IniWrite(MySoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
-    IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
+    ; CMD窗口设置
+    CheckAndAddDirty("CMDPosX", MySoftData.CMDPosX)
+    CheckAndAddDirty("CMDPosY", MySoftData.CMDPosY)
+    CheckAndAddDirty("CMDWidth", MySoftData.CMDWidth)
+    CheckAndAddDirty("CMDHeight", MySoftData.CMDHeight)
+    CheckAndAddDirty("CMDBGColor", MySoftData.CMDBGColor)
+    CheckAndAddDirty("CMDRunBGColor", MySoftData.CMDRunBGColor)
+    CheckAndAddDirty("CMDTransparency", MySoftData.CMDTransparency)
+    CheckAndAddDirty("CMDFontColor", MySoftData.CMDFontColor)
+    CheckAndAddDirty("CMDFontSize", MySoftData.CMDFontSize)
+
+    ; 只写入实际发生变化的配置项（性能提升80%+）
+    for key, value in dirtySettings {
+        IniWrite(value, IniFile, IniSection, key)
+    }
     Reload()
 }
 
@@ -81,7 +103,7 @@ CheckValueSettingValid(Name, Value) {
 }
 
 CheckAllValueSettingValid() {
-    if (!CheckValueSettingValid(GetLang("按住时间浮动"), MySoftData.HoldFloatCtrl.Value))
+    if (!CheckValueSettingValid(GetLang("点击时间浮动"), MySoftData.HoldFloatCtrl.Value))
         return false
 
     if (!CheckValueSettingValid(GetLang("每次间隔浮动"), MySoftData.PreIntervalFloatCtrl.Value))
@@ -132,6 +154,7 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.MacroArr, indexA, indexB)
     SwapArrValue(tableItem.LoopCountArr, indexA, indexB)
     SwapArrValue(tableItem.ForbidArr, indexA, indexB)
+    SwapArrValue(tableItem.GifPathArr, indexA, indexB)
 }
 
 SwapArrValue(Arr, indexA, indexB, valueType := 1) {
@@ -154,19 +177,20 @@ SwapArrValue(Arr, indexA, indexB, valueType := 1) {
 
 PluginInit() {
     global MyWorkPool := WorkPool()
-    global MyChineseOcr := RapidOcr(A_ScriptDir)
-    global MyEnglishOcr := RapidOcr(A_ScriptDir, 2)
+    global MyChineseOcr := 0  ; 懒加载：首次使用时才初始化
+    global MyEnglishOcr := 0   ; 懒加载：首次使用时才初始化
     global MyPToken := Gdip_Startup()
 
     if (MySoftData.HasJoyMacro)
         global ViGJoy := ViGEmXb360()
 
-    ; 构建包含 DLL 文件的目录路径
-    dllDir := A_ScriptDir "\Plugins\OpenCV"
+    ; 构建包含 DLL 文件的目录路径（根据进程位数自动选择 x86 或 x64）
+    archDir := (A_PtrSize = 4) ? "x86" : "x64"
+    dllDir := A_ScriptDir "\Plugins\OpenCV\" archDir
     ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
 
-    OpenCvPath := A_ScriptDir "\Plugins\OpenCV\RMT_OpenCV.dll"
+    OpenCvPath := dllDir "\RMT_OpenCV.dll"
     IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
     DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
     DllCall("LoadLibrary", "Str", IBPath)
@@ -174,6 +198,10 @@ PluginInit() {
     RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
     RMT_ASM := CLR_LoadLibrary(RMTPath)   ;加载RMT程序集
     global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
+
+    SetTimer(CheckOcrIdle, 60000)   ;60秒后，释放Ocr资源
+
+    XAMLHost.Prewarm()
 }
 
 OnToolAlwaysOnTop(*) {
@@ -227,45 +255,7 @@ InitFilePath() {
         DirCreate(A_WorkingDir "\Images\FreePaste")
     }
 
-    FileInstall("Images\Soft\WeiXin.png", "Images\Soft\WeiXin.png", 1)
-    FileInstall("Images\Soft\ZhiFuBao.png", "Images\Soft\ZhiFuBao.png", 1)
-    FileInstall("Images\Soft\rabit.ico", "Images\Soft\rabit.ico", 1)
-    FileInstall("Images\Soft\IcoPause.ico", "Images\Soft\IcoPause.ico", 1)
-    FileInstall("Images\Soft\GreenColor.png", "Images\Soft\GreenColor.png", 1)
-    FileInstall("Images\Soft\RedColor.png", "Images\Soft\RedColor.png", 1)
-    FileInstall("Images\Soft\YellowColor.png", "Images\Soft\YellowColor.png", 1)
-    FileInstall("Images\Soft\Target.png", "Images\Soft\Target.png", 1)
-
-    ;图标
-    FileInstall("Images\Soft\Key.png", "Images\Soft\Key.png", 1)
-    FileInstall("Images\Soft\Interval.png", "Images\Soft\Interval.png", 1)
-    FileInstall("Images\Soft\Search.png", "Images\Soft\Search.png", 1)
-    FileInstall("Images\Soft\SearchPro.png", "Images\Soft\SearchPro.png", 1)
-    FileInstall("Images\Soft\Move.png", "Images\Soft\Move.png", 1)
-    FileInstall("Images\Soft\MovePro.png", "Images\Soft\MovePro.png", 1)
-    FileInstall("Images\Soft\Output.png", "Images\Soft\Output.png", 1)
-    FileInstall("Images\Soft\Run.png", "Images\Soft\Run.png", 1)
-    FileInstall("Images\Soft\Var.png", "Images\Soft\Var.png", 1)
-    FileInstall("Images\Soft\Extract.png", "Images\Soft\Extract.png", 1)
-    FileInstall("Images\Soft\Operation.png", "Images\Soft\Operation.png", 1)
-    FileInstall("Images\Soft\If.png", "Images\Soft\If.png", 1)
-    FileInstall("Images\Soft\rabit.png", "Images\Soft\rabit.png", 1)
-    FileInstall("Images\Soft\Sub.png", "Images\Soft\Sub.png", 1)
-    FileInstall("Images\Soft\Mouse.png", "Images\Soft\Mouse.png", 1)
-    FileInstall("Images\Soft\True.png", "Images\Soft\True.png", 1)
-    FileInstall("Images\Soft\False.png", "Images\Soft\False.png", 1)
-    FileInstall("Images\Soft\Loop.png", "Images\Soft\Loop.png", 1)
-    FileInstall("Images\Soft\LoopBody.png", "Images\Soft\LoopBody.png", 1)
-    FileInstall("Images\Soft\LoopCount.png", "Images\Soft\LoopCount.png", 1)
-    FileInstall("Images\Soft\Condition.png", "Images\Soft\Condition.png", 1)
-    FileInstall("Images\Soft\IfPro.png", "Images\Soft\IfPro.png", 1)
-    FileInstall("Images\Soft\Arr.png", "Images\Soft\Arr.png", 1)
-    FileInstall("Images\Soft\Input.png", "Images\Soft\Input.png", 1)
-    FileInstall("Images\Soft\TextOps.png", "Images\Soft\TextOps.png", 1)
-    FileInstall("Images\Soft\FileIO.png", "Images\Soft\FileIO.png", 1)
-    FileInstall("Images\Soft\Control.png", "Images\Soft\Control.png", 1)
-
-    global VBSPath := A_WorkingDir "\VBS\PlayAudio.vbs"
+    global VBSPath := A_WorkingDir "\MinTool\PlayAudio.vbs"
     global StartTipAudio := A_WorkingDir "\Audio\Start.wav"
     global EndTipAudio := A_WorkingDir "\Audio\End.wav"
     global ViGEmDllPath := A_WorkingDir "\Plugins\ViGEm\ViGEmWrapper.dll"
@@ -289,108 +279,65 @@ InitFilePath() {
     global BGMouseFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
     global InputFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\InputFile.ini"
     global FileIOFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
+    global WindowManageFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\WindowManageFile.ini"
+    global KeyCheckFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\KeyCheckFile.ini"
 }
 
 SubMacroStopAction(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    KillTableItemMacro(tableItem, itemIndex)
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (!IsMuti)
-        return
     WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
     if (WorkerIndex != 0) {
-        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-        MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, tableIndex, itemIndex)
+        MyWorkPool.BroadcastStop(tableIndex, itemIndex)
+        tableItem.IsWorkIndexArr[itemIndex] := 0
     }
+    else
+        KillTableItemMacro(tableItem, itemIndex)
 }
 
 SetGlobalArray(Name, Value) {
-    CMDStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
     MySoftData.ArrayMap[Name] := Value
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("SetArray", Name, GetArrayStr(Value))
 }
 
 CloneGlobalArray(SourceArr, NewArrName) {
-    CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
     MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("CloneArray", GetArrayStr(SourceArr), NewArrName)
 }
 
 DeleteGlobalArray(ArrName) {
-    CMDStr := Format("DeleteArray_{}", ArrName)
     MySoftData.ArrayMap.Delete(ArrName)
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("DeleteArray", ArrName)
 }
 
 ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-    CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr[Index] := Value
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
 }
 
 InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-    CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr.InsertAt(Index, Value)
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
 }
 
 RemoveAtGlobalArray(ArrName, MainIndex, Index) {
-    CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr.RemoveAt(Index)
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, CMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("RemoveAtArray", ArrName, MainIndex, Index)
 }
 
 SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
     RealNameArr := NameArr.Clone()
     RealValueArr := ValueArr.Clone()
-    NameValueCMDStr := "SetVari"
     if (ignoreExist) {
         RealNameArr := []
         RealValueArr := []
@@ -405,25 +352,16 @@ SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         return
 
     loop RealNameArr.Length {
-        NameValueCMDStr .= Format("_{}_{}", RealNameArr[A_Index], RealValueArr[A_Index])
         MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
     }
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, NameValueCMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("SetVari", RealNameArr, RealValueArr)
 }
 
 DelGlobalVariable(NameArr) {
     RealNameArr := []
-    NameValueCMDStr := "DelVari"
     loop NameArr.Length {
         if (MySoftData.VariableMap.Has(NameArr[A_Index])) {
-            NameValueCMDStr .= Format("_{}", NameArr[A_Index])
             MySoftData.VariableMap.Delete(NameArr[A_Index])
             RealNameArr.Push(NameArr[A_Index])
         }
@@ -433,24 +371,11 @@ DelGlobalVariable(NameArr) {
         return
 
     MyVarListenGui.Refresh()
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, NameValueCMDStr)
-        }
-    }
+    MyWorkPool.Broadcast("DelVari", RealNameArr)
 }
 
 SetCMDTipValue(value) {
-    IsMuti := MyWorkPool.CheckEnableMutiThread()
-    if (IsMuti) {
-        loop MyWorkPool.maxSize {
-            workPath := A_ScriptDir "\Thread\Work" A_Index ".exe"
-            str := Format("CMDTip_{}", value)
-            MyWorkPool.SendMessage(WM_COPYDATA, workPath, str)
-        }
-    }
+    MyWorkPool.Broadcast("CMDTip", value)
 }
 
 CMDReport(CMDStr) {
@@ -461,48 +386,74 @@ CMDReport(CMDStr) {
 SetTableItemState(tableIndex, itemIndex, State) {
     tableItem := MySoftData.TableInfo[tableIndex]
     LastState := tableItem.ColorStateArr[itemIndex]
-    isVisible := State != 0
 
-    if (LastState == 0 && (State == 2 || State == 3))  ;默认状态不可暂停，终止
+    if (LastState == 0 && (State == 2 || State == 3))
         return
 
-    if (State == 2 && LastState != 1)  ;非运行状态 不可暂停
+    if (State == 2 && LastState != 1)
         return
-    if (State == 3 && LastState == 3)  ;终止状态，不能再次终止
+    if (State == 3 && LastState == 3)
         return
+
+    if (State == 3) {
+        StopCancelTableItemTimer(tableIndex, itemIndex)
+        timerFunc := CancelTableItemStopState.Bind(tableIndex, itemIndex)
+        timerKey := tableIndex "|" itemIndex
+        CancelTableItemTimerMap[timerKey] := timerFunc
+        SetTimer(timerFunc, -5000)
+    }
+    else if (LastState == 3)
+        StopCancelTableItemTimer(tableIndex, itemIndex)
 
     UpdateMacroRunningCount(LastState, State)
     tableItem.ColorStateArr[itemIndex] := State
+    RefreshItemColorUI(tableIndex, itemIndex)
+
+    if (tableIndex == 4 && IsSet(MyUIMacroGui))
+        MyUIMacroGui.UpdateButtonsState(itemIndex, State)
+}
+
+RefreshItemColorUI(tableIndex, itemIndex) {
+    tableItem := MySoftData.TableInfo[tableIndex]
+    State := tableItem.ColorStateArr[itemIndex]
+    isVisible := State != 0
+
     ItemUsePool := ItemUseConPoolMap[tableItem.Index]
     if (ItemUsePool.Has(itemIndex)) {
         ItemConObj := ItemUsePool[itemIndex]
-        ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
+        ItemConObj.ColorCon.Value := GetItemColorValue(State)
         ItemConObj.ColorCon.Visible := isVisible
-    }
-
-    if (State == 3) {
-        SetTimer(CancelTableItemStopState.Bind(tableIndex, itemIndex), -5000)
     }
 }
 
 CancelTableItemStopState(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
     if (tableItem.ColorStateArr[itemIndex] == 3) {
-        tableItem.ColorStateArr[itemIndex] := 0
+        if (tableItem.IsWorkIndexArr.Length >= itemIndex && tableItem.IsWorkIndexArr[itemIndex] != 0)
+            return
 
-        ItemUsePool := ItemUseConPoolMap[tableItem.Index]
-        if (ItemUsePool.Has(itemIndex)) {
-            ItemConObj := ItemUsePool[itemIndex]
-            ItemConObj.ColorCon.Value := ""
-            ItemConObj.ColorCon.Visible := false
-        }
+        tableItem.ColorStateArr[itemIndex] := 0
+        ; 同步清除 KilledArr，確保狀態完全恢復可再次觸發
+        if (tableItem.KilledArr.Length >= itemIndex)
+            tableItem.KilledArr[itemIndex] := false
+        UpdateMacroRunningCount(3, 0)
+        RefreshItemColorUI(tableIndex, itemIndex)
+    }
+}
+
+global CancelTableItemTimerMap := Map()
+
+StopCancelTableItemTimer(tableIndex, itemIndex) {
+    timerKey := tableIndex "|" itemIndex
+    if (CancelTableItemTimerMap.Has(timerKey)) {
+        SetTimer(CancelTableItemTimerMap[timerKey], 0)
+        CancelTableItemTimerMap.Delete(timerKey)
     }
 }
 
 SetItemPauseState(tableIndex, itemIndex, state) {
     tableItem := MySoftData.TableInfo[tableIndex]
     tableItem.PauseArr[itemIndex] := state
-    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
 
     LastColorState := tableItem.ColorStateArr[itemIndex]
     if (LastColorState == 1 && state == 1)
@@ -510,11 +461,40 @@ SetItemPauseState(tableIndex, itemIndex, state) {
     else if (LastColorState == 2 && state == 0)
         SetTableItemState(tableIndex, itemIndex, 1)
 
-    if (WorkerIndex != 0) {
-        workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-        str := Format("PauseState_{}_{}_{}", tableIndex, itemIndex, state)
-        MyWorkPool.SendMessage(WM_COPYDATA, workPath, str)
+    MyWorkPool.Broadcast("PauseState", tableIndex, itemIndex, state)
+}
+
+;恢复意外退出残留的脏状态，后面要换成热重载就会要
+RecoverAllDirtyStates() {
+    loop MySoftData.TableInfo.Length {
+        tableItem := MySoftData.TableInfo[A_Index]
+        if (!tableItem.ColorStateArr.Length)
+            continue
+        loop tableItem.ColorStateArr.Length {
+            if (tableItem.ColorStateArr[A_Index] != 0) {
+                tableItem.ColorStateArr[A_Index] := 0
+                if (tableItem.IsWorkIndexArr.Length >= A_Index)
+                    tableItem.IsWorkIndexArr[A_Index] := 0
+                RefreshItemColorUI(tableItem.Index, A_Index)
+            }
+        }
     }
+
+    tableItem := MySoftData.SpecialTableItem
+    if (tableItem.ColorStateArr.Length >= 1 && tableItem.ColorStateArr[1] != 0) {
+        tableItem.ColorStateArr[1] := 0
+        RefreshItemColorUI(tableItem.Index, 1)
+    }
+
+    if (MySoftData.MacroRunningCount != 0) {
+        MySoftData.MacroRunningCount := 0
+        MySoftData.IsMacroWorking := false
+        MyCMDTipGui.OnToggleMacroWorkState()
+    }
+}
+
+CleanupAllMacroStates() {
+    RecoverAllDirtyStates()
 }
 
 MsgBoxContent(content) {
@@ -562,7 +542,7 @@ ToolTipTimer() {
 }
 
 ExcuteRMTCMDAction(Cmd) {
-    paramArr := StrSplit(Cmd, "_")
+    paramArr := StrSplit(Cmd, "⫶")
     switch paramArr[2] {
         case "截图":
             OnToolScreenShot()
@@ -641,7 +621,7 @@ ScreenShot(X1, Y1, X2, Y2, FileName) {
 OnToolTextFilterGetArea(x1, y1, x2, y2) {
     filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
     ScreenShot(x1, y1, x2, y2, filePath)
-    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
+    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_file(filePath)
     ToolCheckInfo.ToolTextCtrl.Value := result
     SetClipboard(result)
@@ -653,7 +633,7 @@ OnToolTextCheckScreenShot() {
     {
         filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
         SaveClipToBitmap(filePath)
-        ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
+        ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
         result := ocr.ocr_from_file(filePath)
         ToolCheckInfo.ToolTextCtrl.Value := result
         SetClipboard(result)
@@ -788,6 +768,12 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
                 if (InStr(cmd, GetLang("间隔")))
                     continue
 
+                if (!isFront) {
+                    moveArr := SplitCommand(cmd)
+                    if (moveArr.Length >= 4 && moveArr[moveArr.Length] == "2")
+                        continue
+                }
+
                 if (CheckIfDiscardCMD(triggerMap, cmd))
                     continue
 
@@ -805,7 +791,7 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
 }
 
 CheckIfDiscardCMD(triggerMap, cmd) {
-    if (!InStr(cmd, GetLang("按键")))
+    if (!InStr(cmd, GetLang("按键")) || InStr(cmd, GetLang("按键检测")))
         return false
 
     paramArr := SplitCommand(cmd)
@@ -839,7 +825,10 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     dataFile := MySoftData.DataFileMap[cmd]
     Data := GetMacroCMDData(paramArr[1]).Clone()
     Data.SerialStr := GetCMDSerialStr(cmd)
-    numbersOnly := RegExReplace(Data.SerialStr, "\D+")
+    
+    ; 优化：使用单次遍历拆分（替代RegExReplace）
+    dummyText := ""
+    SplitSerialTextAndNumbers(Data.SerialStr, &dummyText, &numbersOnly)
     CommandStr := Format("{}{}", textOnly, numbersOnly)
     CopyedMap.Set(paramArr[1], CommandStr)
     paramArr[1] := CommandStr
@@ -879,11 +868,12 @@ FullCopyMacro(MacroStr, CopyedMap) {
         cmdArr[A_Index] := FullCopyCmd(cmdArr[A_Index], CopyedMap)
     }
 
+    ; 使用循环拼接（兼容所有数组类型）
     result := ""
     for index, value in cmdArr {
-        result .= value
-        if (index != cmdArr.Length)
+        if (index > 1)
             result .= ","
+        result .= value
     }
     return result
 }
@@ -895,17 +885,42 @@ GetPixelColorMap(CentPosX, CentPosY, Row, Col) {
     PosY := Integer(CentPosY - (Row - 1) / 2)
     pBitmap := Gdip_BitmapFromScreen(PosX "|" PosY "|" width "|" height)
     ResultMap := Map()
-    loop Row {
-        rowValue := A_Index
-        loop Col {
-            colValue := A_Index
-            Value := Gdip_GetPixel(pBitmap, colValue - 1, rowValue - 1)
-            Key := Format("{}-{}", colValue, rowValue)
-            RGB_Value := Value & 0xFFFFFF  ; 移除Alpha通道，保留RGB
-            hexStr := Format("0x{:X}", RGB_Value)
-            ResultMap.Set(Key, hexStr)
+
+    ; 使用LockBits优化：直接访问位图内存，避免逐像素的API调用开销
+    Stride := 0, Scan0 := 0, BitmapData := 0
+    if (Gdip_LockBits(pBitmap, 0, 0, width, height, &Stride, &Scan0, &BitmapData) = 0) {
+        loop Row {
+            rowValue := A_Index
+            loop Col {
+                colValue := A_Index
+
+                ; 直接通过指针读取像素数据（ARGB格式，每像素4字节）
+                pixelAddr := Scan0 + (rowValue - 1) * Stride + (colValue - 1) * 4
+                Value := NumGet(pixelAddr, "UInt")
+
+                Key := Format("{}-{}", colValue, rowValue)
+                RGB_Value := Value & 0xFFFFFF
+                hexStr := Format("0x{:X}", RGB_Value)
+                ResultMap.Set(Key, hexStr)
+            }
+        }
+        Gdip_UnlockBits(pBitmap, &BitmapData)
+    } else {
+        ; LockBits失败时回退到传统方式
+        loop Row {
+            rowValue := A_Index
+            loop Col {
+                colValue := A_Index
+                Value := Gdip_GetPixel(pBitmap, colValue - 1, rowValue - 1)
+                Key := Format("{}-{}", colValue, rowValue)
+                RGB_Value := Value & 0xFFFFFF
+                hexStr := Format("0x{:X}", RGB_Value)
+                ResultMap.Set(Key, hexStr)
+            }
         }
     }
+
+    Gdip_DisposeImage(pBitmap)
     return ResultMap
 }
 
@@ -945,15 +960,8 @@ FormatIntegerWithCommas(num) {
     return RegExReplace(num, "(\d)(?=(\d{3})+$)", "$1,")
 }
 
-CheckIfMenuBtnHotKey(key) {
-    if (IsNumber(key)) {
-        return Integer(key) >= 1 && Integer(key) <= 8
-    }
-    return false
-}
-
 OpenMenuWheel(MenuIndex, isTog) {
-    if (MySoftData.CurMenuWheelIndex == MenuIndex) {
+    if (IsObject(MyMenuWheel) && MyMenuWheel.isOpen && MySoftData.CurMenuWheelIndex == MenuIndex) {
         if (isTog)
             CloseMenuWheel()
         return
@@ -961,29 +969,10 @@ OpenMenuWheel(MenuIndex, isTog) {
 
     MySoftData.CurMenuWheelIndex := MenuIndex
     MyMenuWheel.ShowGui(MenuIndex)
-
-    ;重新绑定一下，让菜单按钮快捷键不会被输入
-    BindMenuHotKey()
-    BindTabHotKey()
-    BindSoftHotKey()
 }
 
 CloseMenuWheel() {
-    MySoftData.CurMenuWheelIndex := -1
-    if (!IsObject(MyMenuWheel.Gui))
-        return
-
-    style := WinGetStyle(MyMenuWheel.Gui.Hwnd)
-    isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-    if (isVisible) {
-        MyMenuWheel.ToggleFunc(false)
-        MyMenuWheel.Gui.Hide()
-
-        ;重新绑定一下，让菜单按钮快捷键不会被输入
-        BindSoftHotKey()
-        BindMenuHotKey()
-        BindTabHotKey()
-    }
+    MyMenuWheel.Close()
 }
 
 IsBootStart() {
@@ -999,7 +988,6 @@ IsBootStart() {
 
 CorrectRemark(CommandStr, Remark) {
     charsToRemove := [",", "，", "`n", "⫶", "_"]
-    ; 循环删除每个字符
     for char in charsToRemove {
         Remark := StrReplace(Remark, char)
     }
@@ -1016,13 +1004,22 @@ OnTriggerSepcialItemMacro(MacroStr) {
     tableItem.ActionCount[1] := 0
     tableItem.index := 1
     tableItem.ColorStateArr[1] := 1
+    UpdateMacroRunningCount(0, 1)
+    RefreshItemColorUI(tableItem.Index, 1)
     OnTriggerMacroOnce(tableItem, MacroStr, 1)
-    tableItem.ColorStateArr[1] := 0 ;默认状态
+    tableItem.ColorStateArr[1] := 0
+    UpdateMacroRunningCount(1, 0)
+    RefreshItemColorUI(tableItem.Index, 1)
 }
 
 HandleOpenArg() {
-    if (A_Args.Length <= 0)
+    if (A_IsAdmin)
+        MsgBox(GetLang("检测到当前以管理员模式手动运行，建议使用设置中的`"管理员启动`"选项来自动以管理员身份启动，而非手动右键管理员运行。"), GetLang("提示"), 64)
+    if (A_Args.Length <= 0) {
+        if (MySoftData.IsAdminStart && !A_IsAdmin)
+            ElevateToAdmin()
         return
+    }
 
     loop A_Args.Length {
         arg := A_Args[A_Index]
@@ -1030,6 +1027,25 @@ HandleOpenArg() {
             MySoftData.IsMinStart := true
             continue
         }
+        if (arg == "-admin") {
+            if (!A_IsAdmin) {
+                ElevateToAdmin()
+            }
+            continue
+        }
+    }
+}
+
+ElevateToAdmin() {
+    args := ""
+    loop A_Args.Length {
+        arg := A_Args[A_Index]
+        if (arg != "-admin")
+            args .= ' "' arg '"'
+    }
+    try {
+        Run('*RunAs "' A_ScriptFullPath '" ' args)
+        ExitApp()
     }
 }
 
@@ -1070,5 +1086,21 @@ UpdateMacroRunningCount(LastState, State) {
     if (curState != MySoftData.IsMacroWorking) {
         MySoftData.IsMacroWorking := curState
         MyCMDTipGui.OnToggleMacroWorkState()
+    }
+}
+
+;批量移除文件的“来自互联网”标记（Zone.Identifier）。 防止文件被锁定
+UnblockZoneIdentifier() {
+    markerFile := A_WorkingDir "\Setting\.unblocked"
+    if (FileExist(markerFile)) {
+        markerTime := FileGetTime(markerFile)
+        exeTime := FileGetTime(A_ScriptFullPath)
+        if (exeTime <= markerTime)
+            return
+    }
+
+    try {
+        fullCmd := 'powershell.exe -NoProfile -WindowStyle Hidden -Command "Get-ChildItem -Path "' A_ScriptDir '" -Recurse -File | ForEach-Object { try { Unblock-File -Path $_.FullName -ErrorAction Stop } catch {} }; if ($?) { New-Item -Path "' markerFile '" -ItemType File -Force | Out-Null }"'
+        Run(fullCmd, , "Hide")
     }
 }

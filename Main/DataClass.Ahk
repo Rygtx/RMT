@@ -4,13 +4,13 @@ class TableItem {
         this.ColorStateArr := []
         this.TKArr := []        ;触发键
         this.MacroArr := []     ;宏内容
-        this.HoldTimeArr := []  ;按住时间
+        this.HoldTimeArr := []  ;时间参数（长按=长按时间，双击=双击间隔）
         this.ForbidArr := []    ;禁止
         this.LoopCountArr := [] ;循环次数
         this.RemarkArr := []    ;备注
         this.TriggerTypeArr := []   ;触发类型
         this.TimingSerialArr := []  ;定时配置序列码
-        this.ModeArr := []      ;按键模式   1.send 2.拟真 3.罗技
+        this.ModeArr := []      ;按键模式   1.AHK Send 2.keybd_event 3.罗技 4.AHI
         this.StartTipSoundArr := [] ;开始提示音 1.无   2.触发提示  3.循环首次提示
         this.EndTipSoundArr := [] ;结束提示音 1.无   2.结束提示  3.循环结束提示
 
@@ -21,6 +21,11 @@ class TableItem {
         this.ToggleStateArr := []   ; 触发键开关状态
         this.ToggleActionArr := []   ; 触发键开关Action
         this.VariableMapArr := []    ;  每条宏对应的变量映射:内置变量
+        this.UIWindowArr := []       ;界面宏：每个按钮的目标窗口信息
+        this.UIPosYArr := []         ;界面宏：每个按钮的Y坐标
+        this.UIBtnWidthArr := []     ;界面宏：每个按钮的宽度
+        this.UIBtnHeightArr := []    ;界面宏：每个按钮的高度
+
         this.UnderPosY := 0         ; table的最大PosY
         this.Index := 0             ;   table的Index
         this.SliderValue := 0       ;   滑动值
@@ -28,6 +33,7 @@ class TableItem {
         this.AllConArr := []        ;   table中所有的con
         this.AllGroup := []         ; table中所有的group
         this.IsWorkIndexArr := []        ;work正在执行中
+        this.GifPathArr := []             ;菜单宏GIF路径
 
         this.FoldInfo := ""          ; 折叠筐保存信息
         this.FoldOffsetArr := []    ;和初始状态的高度偏移值
@@ -47,7 +53,7 @@ class ItemFoldInfo {
         ;菜单栏功能
         this.TKTypeArr := []    ;触发类型
         this.TKArr := []        ;触发按键，菜单栏功能
-        this.HoldTimeArr := []  ;长按时间
+        this.HoldTimeArr := []  ;时间参数（长按=长按时间，双击=双击间隔）
     }
 }
 
@@ -167,23 +173,18 @@ class ToolCheck {
 
         this.MacroGui := ""
 
-        this.RecordLastMousePos := []
         this.RecordLastTime := ""
         this.RecordMacroStr := ""
         this.RecordHoldKeyMap := Map()
-        this.RecordSpecialKeyMap := Map(33, 0, 34, 0, 35, 0, 36, 0, 37, 0, 38, 0, 39, 0, 40, 0, 45, 0, 46, 0)
         this.RecordHoldMuti := ""
         this.RecordAutoLoosen := ""
         this.RecordKeyboard := ""
         this.RecordMouse := ""
-        this.RecordMouseKeyPoint := ""  ;关键点位
-        this.RecordMouseRelative := ""
-        this.RecordMouseTrail := ""
-        this.RecordMouseTrailLen := ""
+        this.RecordMouseTrail := ""      ;鼠标轨迹 0=不录制 1=关键点位 2=关键点相对位移 3=全量
         this.RecordMouseTrailSpeed := ""
-        this.RecordMouseTrailInterval := ""
         this.RecordJoy := ""
         this.RecordJoyInterval := ""
+        this.RecordShowBorder := ""      ;录制边框 0=关闭 1=开启
         this.OCRTypeCtrl := ""
         this.OCRTypeValue := 1
     }
@@ -198,18 +199,23 @@ class SoftData {
         this.ToolTipText := ""          ;临时提示文本
         this.ToolTipEndTime := ""       ;临时提示结束时间
         this.AgreeAgreement := false    ;同意协议
-        this.IsBootStart := false       ;开机自启
+        this.IsBootStart := false        ;开机自启
+        this.IsAdminStart := false        ;管理员启动
         this.ShowSplitLine := false     ;显示分割线
         this.FixedMenuWheel := false    ;固定菜单轮
+        this.MenuWheelScale := 100      ;轮盘大小(百分比)
+        this.XAMLTheme := "RMT Light"   ;XAML界面主题
         this.NoVariableTip := false     ;无变量提醒
         this.ScreenShotType := 3        ;截图类型
-        this.MutiThreadNum := 3         ;多线程数
+        this.MutiThreadNum := -1         ;多线程数(-1动态)
+        this.DynamicCorePoolSize := 3   ;动态模式核心池大小
+        this.ElasticTimeout := 30       ;弹性Worker超时(秒)
         this.IsSuspend := false         ;休眠
         this.SuspendHotkey := ""        ;休眠快捷键
         this.IsPause := false           ;暂停
         this.PauseHotkey := ""          ;暂停快捷键
         this.KillMacroHotkey := ""      ;终止所有宏快捷键
-        this.HoldFloat := 0             ;按住时间浮动数值
+        this.HoldFloat := 0             ;点击时间浮动数值
         this.PreIntervalFloat := 0      ;每次间隔浮动数值
         this.IntervalFloat := 0         ;间隔指令浮动数值
         this.CoordXFloat := 0           ;坐标X浮动数值
@@ -238,9 +244,9 @@ class SoftData {
         this.IsMinStart := false        ;最小化启动
 
         ;Tab所有页签
-        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
+        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
         ;Tab页签对应的英文
-        this.TabSymbolArr := ["Normal", "String", "Menu", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
+        this.TabSymbolArr := ["Normal", "String", "Menu", "UI", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
             "Reward", "Thank"]
 
         ;特殊的按键，因为含有下划线，所有要特殊处理
@@ -287,9 +293,8 @@ class SoftData {
         this.VarListenHeight := 420
 
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
-            "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
-        ; this.SoftHotKeyArr := ["1", "2", "3", "4", "5", "6", "7", "8"]      ;测试时候启动
+        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "~1",
+            "~2", "~3", "~4", "~5", "~6", "~7", "~8", "~F5", "~F6", "~Delete", "~NumpadDot"]
 
         this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
         this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围
@@ -489,8 +494,7 @@ class MMProData {
         this.PosVarX := 100
         this.PosVarY := 100
         this.ActionType := 1          ;鼠标动作 1移动 2移动点击1次 3移动点击2次
-        this.IsRelative := 0         ;相对位移
-        this.IsGameView := 0        ;游戏视角
+        this.MouseMoveMode := 0      ;鼠标移动模式 0=移动 1=相对移动 2=游戏视角
         this.Speed := 90           ;移动速度
         this.Count := 1
         this.Interval := 1000
@@ -501,7 +505,8 @@ class RunData {
     __New() {
         this.SerialStr := ""
         this.RunPath := ""
-        this.BackPlay := false
+        this.RunMode := 1
+        this.SaveNameArr := ["ExitCode", "StdOut", "StdErr"]
     }
 }
 
@@ -703,6 +708,7 @@ class TextOpsData {
         this.ArgsName := ","        ;参数变量名或文本
         this.Search := "" ; 查找文本
         this.Replace := "" ; 替换文本
+        this.MatchType := "普通文本"
         this.SaveType := "变量"     ;保存类型  变量或数组
         this.SaveName := "Data"     ;保存的变量名或数组名
     }
@@ -799,4 +805,34 @@ class InputData {
         this.CancelType := "终止当前宏"     ;取消时  终止当前宏  终止所有宏
         this.SaveName := "Data"             ;保存的变量名或数组名
     }
+}
+
+class WindowManageData {
+    __New() {
+        this.SerialStr := ""                 ;类型尽量使用中文 当做枚举使用  程序中有语义、也可以随时调整顺序
+        this.ActionType := "激活窗口"        ;1激活窗口 2最大化窗口 3最小化窗口 4还原窗口 5关闭窗口 6移动窗口 7调整大小 8置顶窗口 9取消置顶 10修改标题
+        this.SearchValue := ""              ;查找值（格式：标题⎖类名⎖进程名，空表示未选择）
+        this.PosX := 0                      ;移动窗口X坐标（移动窗口时使用）
+        this.PosY := 0                      ;移动窗口Y坐标（移动窗口时使用）
+        this.Width := 0                     ;窗口宽度（调整大小时使用）
+        this.Height := 0                    ;窗口高度（调整大小时使用）
+        this.NewTitle := ""                 ;新标题（修改标题时使用）
+    }
+}
+
+class KeyCheckData {
+    __New() {
+        this.SerialStr := ""
+        this.KeyArr := []                   ;检测的按键数组
+        this.CheckType := 1                 ;1同时按下 2有一个按下
+        this.StateType := 1                 ;1物理状态 2逻辑状态
+        this.VarName := ""                  ;变量名
+    }
+}
+
+class MsgType {
+    static TASK := 1    ;主线程-》Worker
+    static RESULT := 2  ;Worker-》主线程
+    static EVENT := 3   ;双向广播事件 例如Worker修改变量值后 告知主线程 主线程收到后 广播所有人
+    static CONTROL := 4 ; 预留扩展
 }

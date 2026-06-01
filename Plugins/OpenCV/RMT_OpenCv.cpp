@@ -1,4 +1,4 @@
-﻿#include "RMT_OpenCv.h"
+#include "RMT_OpenCv.h"
 #include <opencv2/opencv.hpp>
 #include <windows.h>
 #include <dwmapi.h>
@@ -107,7 +107,7 @@ static ThumbnailCache* GetOrCreateCache(HWND targetHwnd) {
 
 // 后台截图（使用缓存，避免每次创建/销毁窗口）
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
-    HWND targetHwnd = (HWND)hwnd;
+    HWND targetHwnd = (HWND)(intptr_t)hwnd;
     if (!targetHwnd || !IsWindow(targetHwnd))
         return cv::Mat();
 
@@ -255,28 +255,28 @@ extern "C" IMAGEFINDER_API void* __cdecl CaptureWinMat(int hwnd, int x, int y, i
 }
 
 // 和CaptureWinMat做对比测试的导出函数
-// extern "C" IMAGEFINDER_API void* __cdecl CaptureScreenMat(int x, int y, int width, int height) {
-// 	cv::Mat src = captureScreen(x, y, width, height);
+extern "C" IMAGEFINDER_API void* __cdecl CaptureScreenMat(int x, int y, int width, int height) {
+	cv::Mat src = captureScreen(x, y, width, height);
 
-// 	if (src.empty()) {
-// 		return nullptr;
-// 	}
+	if (src.empty()) {
+		return nullptr;
+	}
 
-// 	cv::Mat* mat = new cv::Mat();
+	cv::Mat* mat = new cv::Mat();
 
-// 	if (src.channels() == 4) {
-// 		cv::cvtColor(src, *mat, cv::COLOR_BGRA2BGR);
-// 	}
-// 	else {
-// 		*mat = src.clone();
-// 	}
+	if (src.channels() == 4) {
+		cv::cvtColor(src, *mat, cv::COLOR_BGRA2BGR);
+	}
+	else {
+		*mat = src.clone();
+	}
 
-// 	if (!mat->isContinuous()) {
-// 		*mat = mat->clone();
-// 	}
+	if (!mat->isContinuous()) {
+		*mat = mat->clone();
+	}
 
-// 	return mat;
-// }
+	return mat;
+}
 
 extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
 {
@@ -299,7 +299,7 @@ extern "C" IMAGEFINDER_API void __cdecl ReleaseAllCaches(void)
 }
 
 // 保存Mat到文件
-int SaveMatToFile(void* matPtr, const char* filePath) {
+extern "C" IMAGEFINDER_API int __cdecl SaveMatToFile(void* matPtr, const char* filePath) {
 	if (!matPtr || !filePath)
 		return 0;
 

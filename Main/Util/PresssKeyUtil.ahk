@@ -29,7 +29,8 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     }
 
     if (keyType == 2 || keyType == 3) {     ;松开-点击
-        for key in KeyArr {
+        loop KeyArr.Length {
+            key := KeyArr[KeyArr.Length - A_Index + 1]
             RealAction := Action
             if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
                 continue
@@ -155,6 +156,24 @@ SendLogicKey(Key, state, tableItem, index) {
         return
     if (state == 1) {
         tableItem.HoldKeyArr[index][Key] := "Logic"
+    }
+    else {
+        if (tableItem.HoldKeyArr[index].Has(Key)) {
+            tableItem.HoldKeyArr[index].Delete(Key)
+        }
+    }
+}
+
+SendAHIKey(Key, state, tableItem, index) {
+    if (!InitAHI())
+        return
+
+    AhiSendKey(Key, state)
+
+    if (MySoftData.OnlyDownKeyMap.Has(Key))
+        return
+    if (state == 1) {
+        tableItem.HoldKeyArr[index][Key] := "AHI"
     }
     else {
         if (tableItem.HoldKeyArr[index].Has(Key)) {

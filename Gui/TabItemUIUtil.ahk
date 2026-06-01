@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include ..\Main\Util\JsonUtil.ahk
 ItemFreeConPoolMap := Map()
 ItemUseConPoolMap := Map()
 
@@ -23,6 +24,7 @@ LoadItemFold(index) {
             continue
 
         LoadItemFoldTip(tableItem, foldIndex, tableItem.UnderPosY)
+
         ;行高40 titleTip 25 group间隔5
         AllItemHeight := FoldInfo.FoldStateArr[foldIndex] ? 0 : (IndexSpan[2] - IndexSpan[1] + 1) * 40 + 25
         UpdateUnderPosY(index, AllItemHeight)
@@ -79,6 +81,13 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[con] := MacroItemInfo(-10000, conInfo)
 
+    ;界面宏时禁用前台信息控件
+    isUI := GetTableSymbol(tableItem.Index) == "UI"
+    if (isUI) {
+        FrontCon.Enabled := false
+        con.Enabled := false
+    }
+
     con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 490, posY - 1), GetLang("新增宏"))
     con.OnEvent("Click", OnItemAddMacroBtnClick.Bind(tableItem))
     con.Visible := !isMenu
@@ -87,21 +96,29 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[con] := MacroItemInfo(-10000, conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 560, posY - 1), GetLang("新增模块"))
+    con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 560, posY - 1), GetLang("粘贴宏"))
+    con.OnEvent("Click", OnItemPasteMacroBtnClick.bind(tableItem))
+    con.Visible := !isMenu
+    conInfo := ItemConInfo(con, tableItem, foldIndex)
+    conInfo.IsTitle := true
+    tableItem.AllConArr.Push(conInfo)
+    tableItem.ConIndexMap[con] := MacroItemInfo(-10000, conInfo)
+
+    con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 630, posY - 1), GetLang("新增模块"))
     con.OnEvent("Click", OnItemAddFoldBtnClick.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[con] := MacroItemInfo(-10000, conInfo)
 
-    con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 645, posY - 1), GetLang("删除模块"))
+    con := MyGui.Add("Button", Format("x{} y{} h29", MySoftData.TabPosX + 715, posY - 1), GetLang("删除模块"))
     con.OnEvent("Click", OnItemDelFoldBtnClick.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
     tableItem.ConIndexMap[con] := MacroItemInfo(-10000, conInfo)
 
-    con := MyGui.Add("CheckBox", Format("x{} y{}", MySoftData.TabPosX + 750, posY + 2), GetLang("禁用"))
+    con := MyGui.Add("CheckBox", Format("x{} y{}", MySoftData.TabPosX + 750 + 40, posY + 2), GetLang("禁用"))
     con.Value := FoldInfo.ForbidStateArr[foldIndex]
     con.OnEvent("Click", OnFoldForbidChange.Bind(tableItem))
     conInfo := ItemConInfo(con, tableItem, foldIndex)
@@ -133,7 +150,7 @@ LoadItemFoldTK(tableItem, foldIndex, PosY) {
     tableItem.AllConArr.Push(conInfo)
 
     TriggerTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", MySoftData.TabPosX + 100, posY - 3, 70),
-    GetLangArr(["按下", "松开", "松止", "开关", "长按"]))
+    GetLangArr(["按下", "松开", "松止", "开关", "长按", "双击"]))
     TriggerTypeCon.Value := FoldInfo.TKTypeArr[foldIndex]
     TriggerTypeCon.OnEvent("Change", OnFlodTKTypeChange.Bind(tableItem))
     conInfo := ItemConInfo(TriggerTypeCon, tableItem, foldIndex)
@@ -161,8 +178,11 @@ LoadItemFoldTK(tableItem, foldIndex, PosY) {
 
 LoadItemFoldTip(tableItem, foldIndex, PosY) {
     MyGui := MySoftData.MyGui
+
     con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 70, posY), GetLang("宏名称"))
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
+
+    ;所有宏类型使用相同的列布局
     con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 265, posY), GetLang("触发编辑器"))
     tableItem.AllConArr.Push(ItemConInfo(con, tableItem, foldIndex))
     con := MyGui.Add("Text", Format("x{} y{}", MySoftData.TabPosX + 360, posY), GetLang("触发类型"))
@@ -203,6 +223,19 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     tableItem.StartTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
     tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+    tableItem.GifPathArr.InsertAt(AddIndex, "")
+    tableItem.KilledArr.InsertAt(AddIndex, false)
+    tableItem.PauseArr.InsertAt(AddIndex, false)
+    tableItem.ActionCount.InsertAt(AddIndex, 0)
+    tableItem.HoldKeyArr.InsertAt(AddIndex, Map())
+    tableItem.ToggleStateArr.InsertAt(AddIndex, false)
+    tableItem.ToggleActionArr.InsertAt(AddIndex, "")
+    VariableMap := Map()
+    VariableMap["宏循环次数"] := 0
+    VariableMap["循环-跳过本轮"] := false
+    VariableMap["循环-跳出"] := false
+    VariableMap["分支-跳出"] := false
+    tableItem.VariableMapArr.InsertAt(AddIndex, VariableMap)
 
     PosY := 1000000
     for index, value in tableItem.AllConArr {
@@ -252,6 +285,7 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.TKArr.RemoveAt(itemIndex)
     tableItem.MacroArr.RemoveAt(itemIndex)
     tableItem.LoopCountArr.RemoveAt(itemIndex)
+    tableItem.TriggerTypeArr.RemoveAt(itemIndex)
     tableItem.ModeArr.RemoveAt(itemIndex)
     tableItem.ForbidArr.RemoveAt(itemIndex)
     tableItem.HoldTimeArr.RemoveAt(itemIndex)
@@ -260,6 +294,16 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.StartTipSoundArr.RemoveAt(itemIndex)
     tableItem.EndTipSoundArr.RemoveAt(itemIndex)
     tableItem.IsWorkIndexArr.RemoveAt(itemIndex)
+    if (tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Length >= itemIndex) {
+        tableItem.GifPathArr.RemoveAt(itemIndex)
+    }
+    tableItem.KilledArr.RemoveAt(itemIndex)
+    tableItem.PauseArr.RemoveAt(itemIndex)
+    tableItem.ActionCount.RemoveAt(itemIndex)
+    tableItem.HoldKeyArr.RemoveAt(itemIndex)
+    tableItem.ToggleStateArr.RemoveAt(itemIndex)
+    tableItem.ToggleActionArr.RemoveAt(itemIndex)
+    tableItem.VariableMapArr.RemoveAt(itemIndex)
 }
 
 ;增加宏模块
@@ -318,6 +362,19 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         tableItem.StartTipSoundArr.InsertAt(AddIndex, 0)
         tableItem.EndTipSoundArr.InsertAt(AddIndex, 0)
         tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+        tableItem.GifPathArr.InsertAt(AddIndex, "")
+        tableItem.KilledArr.InsertAt(AddIndex, false)
+        tableItem.PauseArr.InsertAt(AddIndex, false)
+        tableItem.ActionCount.InsertAt(AddIndex, 0)
+        tableItem.HoldKeyArr.InsertAt(AddIndex, Map())
+        tableItem.ToggleStateArr.InsertAt(AddIndex, false)
+        tableItem.ToggleActionArr.InsertAt(AddIndex, "")
+        VariableMap := Map()
+        VariableMap["宏循环次数"] := 0
+        VariableMap["循环-跳过本轮"] := false
+        VariableMap["循环-跳出"] := false
+        VariableMap["分支-跳出"] := false
+        tableItem.VariableMapArr.InsertAt(AddIndex, VariableMap)
 
         PosY := 1000000
         for index, value in tableItem.AllConArr {
@@ -419,9 +476,9 @@ OnItemCustomEditTriggerStr(tableItem, index, *) {
 OnItemEditTriggerKey(tableItem, index, *) {
     triggerKey := tableItem.TKArr[index]
 
-    SureAction(sureTriggerKey, holdTime) {
+    SureAction(sureTriggerKey, timeValue) {
         tableItem.TKArr[index] := sureTriggerKey
-        tableItem.HoldTimeArr[index] := holdTime
+        tableItem.HoldTimeArr[index] := timeValue
         ItemUsePool := ItemUseConPoolMap[tableItem.Index]
         if (ItemUsePool.Has(index)) {
             ItemConObj := ItemUsePool[index]
@@ -441,7 +498,12 @@ OnItemEditTiming(tableItem, index, *) {
 }
 
 OnItemEditMacroSetting(tableItem, index, *) {
+    MyMacroSettingGui.OwnerHwnd := MySoftData.MyGui.Hwnd
     MyMacroSettingGui.ShowGui(tableItem.Index, index)
+}
+
+OnItemMenuMacroSettingClick(tableItem, index, *) {
+    MyMenuMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
 OnItemEditMacro(tableItem, index, *) {
@@ -559,10 +621,10 @@ OnFlodTKChange(tableItem, con, *) {
 OnFlodTKEditClick(TKEditCon, tableItem, con, *) {
     foldInfo := tableItem.FoldInfo
     foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
-    SureAction(sureTriggerKey, holdTime) {
+    SureAction(sureTriggerKey, timeValue) {
         TKEditCon.Value := sureTriggerKey
         foldInfo.TKArr[foldIndex] := sureTriggerKey
-        foldInfo.HoldTimeArr[foldIndex] := holdTime
+        foldInfo.HoldTimeArr[foldIndex] := timeValue
     }
 
     MyTriggerKeyGui.SaveBtnAction := OnSaveSetting
@@ -718,6 +780,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     isMenu := CheckIsMenuMacroTable(tableIndex)
     isSubMacro := CheckIsSubMacroTable(tableIndex)
     isNoTriggerKey := CheckIsNoTriggerKey(tableIndex)
+    isUI := GetTableSymbol(tableIndex) == "UI"
 
     MySoftData.TabCtrl.UseTab(tableItem.Index)
     ;颜色
@@ -738,13 +801,13 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     ;触发按键
     btnStr := isTiming ? GetLang("定时") : GetLang("编辑")
     TKBtnCon := MyGui.Add("Button", Format("x{} y{} w100 h29", TabPosX + 250, -1000), btnStr)
-    TKBtnCon.Enabled := !isSubMacro && !isMenu
+    TKBtnCon.Enabled := !isSubMacro
     TKBtnCon.OffsetY := -1
     TKBtnCon.OriPosX := TabPosX + 250
 
     ;触发类型
     TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", TabPosX + 360, -1000, 70),
-    GetLangArr(["按下", "松开", "松止", "开关", "长按"]))
+    GetLangArr(["按下", "松开", "松止", "开关", "长按", "双击"]))
     TKTypeCon.Enabled := isNormal
     TKTypeCon.OriPosX := TabPosX + 360
 
@@ -759,28 +822,33 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     SettingCon.OriPosX := TabPosX + 510
 
     ;编辑
-    EditCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 580, -1000 - 1), GetLang("编辑"))
+    EditCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 575, -1000 - 1), GetLang("编辑"))
     EditCon.OffsetY := -1
-    EditCon.OriPosX := TabPosX + 580
+    EditCon.OriPosX := TabPosX + 575
 
     ;上
     PreCon := MyGui.Add("Button", Format("x{} y{} w20 h28", TabPosX + 700, -1000), "↑")
-    PreCon.OriPosX := TabPosX + 700
+    PreCon.OriPosX := TabPosX + 650
 
     ;下
     NextCon := MyGui.Add("Button", Format("x{} y{} w20 h28", TabPosX + 725, -1000), "↓")
-    NextCon.OriPosX := TabPosX + 725
+    NextCon.OriPosX := TabPosX + 675
 
     ;禁用
-    ForbidCon := MyGui.Add("Checkbox", Format("x{} y{}", TabPosX + 755, -1000), GetLang("禁用"))
+    ForbidCon := MyGui.Add("Checkbox", Format("x{} y{}", TabPosX + 735, -1000), GetLang("禁用"))
     ForbidCon.OffsetY := 4
-    ForbidCon.OriPosX := TabPosX + 755
+    ForbidCon.OriPosX := TabPosX + 705
+
+    ;复制
+    CopyCon := MyGui.Add("Button", Format("x{} y{} w50 h29", TabPosX + 785, -1000), GetLang("复制"))
+    CopyCon.OffsetY := -1
+    CopyCon.OriPosX := TabPosX + 765
 
     ;删除
-    DelCon := MyGui.Add("Button", Format("x{} y{} w60 h29", TabPosX + 810, -1000), GetLang("删除"))
+    DelCon := MyGui.Add("Button", Format("x{} y{} w50 h29", TabPosX + 810, -1000), GetLang("删除"))
     DelCon.Enabled := !isMenu
     DelCon.OffsetY := -1
-    DelCon.OriPosX := TabPosX + 810
+    DelCon.OriPosX := TabPosX + 820
 
     ;分割线
     LineCon := ""
@@ -801,11 +869,13 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     ItemConObj.PreCon := PreCon
     ItemConObj.NextCon := NextCon
     ItemConObj.ForbidCon := ForbidCon
+    ItemConObj.CopyCon := CopyCon
     ItemConObj.DelCon := DelCon
     ItemConObj.LineCon := LineCon
 
+    ;所有宏类型使用相同的控件数组
     ItemConObj.ConArr := [ColorCon, IndexCon, RemarkCon, TKBtnCon, TKTypeCon, LoopCon, SettingCon,
-        EditCon, PreCon, NextCon, ForbidCon, DelCon, LineCon]
+        EditCon, PreCon, NextCon, ForbidCon, CopyCon, DelCon, LineCon]
 
     MySoftData.TabCtrl.UseTab()
 }
@@ -907,11 +977,14 @@ GetItemConObj(tableItem, itemIndex) {
     isTiming := CheckIsTimingMacroTable(tableItem.Index)
     isMacro := CheckIsMacroTable(tableItem.Index)
     isTriggerStr := CheckIsStringMacroTable(tableItem.Index)
+    isUI := GetTableSymbol(tableItem.Index) == "UI"
+    isMenu := CheckIsMenuMacroTable(tableItem.Index)
     TKBtnStr := isTiming ? GetLang("定时") : tableItem.TKArr[ItemIndex]
     TKBtnStr := TKBtnStr == "" ? GetLang("编辑") : TKBtnStr
     LoopStr := tableItem.LoopCountArr[ItemIndex] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[ItemIndex]
     EditTKAction := isTriggerStr ? OnItemEditTriggerStr : OnItemEditTriggerKey
     EditTKAction := isTiming ? OnItemEditTiming : EditTKAction
+    EditTKAction := isMenu ? OnItemMenuMacroSettingClick : EditTKAction
     EditMacroAction := isMacro ? OnItemEditMacro : OnItemEditReplaceKey
 
     ItemConObj.ColorCon.Value := GetItemColorValue(tableItem.ColorStateArr[itemIndex])
@@ -923,13 +996,24 @@ GetItemConObj(tableItem, itemIndex) {
     ItemConObj.LoopCon.Text := LoopStr
     ItemConObj.ForbidCon.Value := tableItem.ForbidArr[ItemIndex]
 
-    TabItemOnEvent(ItemConObj.TKBtnCon, "Click", EditTKAction.Bind(tableItem, itemIndex))
-    TabItemOnEvent(ItemConObj.TKBtnCon, "ContextMenu", OnItemCustomEditTriggerStr.Bind(tableItem, itemIndex))
+    if (isUI) {
+        ;UI宏：触发类型固定为"开关"（索引4）
+        tableItem.TriggerTypeArr[itemIndex] := 4
+        ItemConObj.TKTypeCon.Value := 4
+        ItemConObj.TKTypeCon.Enabled := false
+
+        ;UI宏：触发编辑器打开界面宏按钮配置（参考定时宏的处理方式）
+        EditTKAction := OnUIMacroSettingClick.bind(tableItem, itemIndex)
+    }
+
+    TabItemOnEvent(ItemConObj.TKBtnCon, "Click", EditTKAction.bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.TKBtnCon, "ContextMenu", OnItemCustomEditTriggerStr.bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.SettingCon, "Click", OnItemEditMacroSetting.Bind(tableItem, itemIndex))
-    TabItemOnEvent(ItemConObj.EditCon, "Click", EditMacroAction.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.EditCon, "Click", EditMacroAction.bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.PreCon, "Click", OnItemMoveUp.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.NextCon, "Click", OnItemMoveDown.Bind(tableItem, itemIndex))
-    TabItemOnEvent(ItemConObj.DelCon, "Click", OnItemDelMacroBtnClick.Bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.CopyCon, "Click", OnItemCopyMacroBtnClick.bind(tableItem, itemIndex))
+    TabItemOnEvent(ItemConObj.DelCon, "Click", OnItemDelMacroBtnClick.bind(tableItem, itemIndex))
     return ItemConObj
 }
 
@@ -992,4 +1076,9 @@ RecycleTabSingleItem(tableItem, itemIndex) {
             continue
         Con.Move(Con.OriPosX, -1000)
     }
+}
+
+OnUIMacroSettingClick(tableItem, macroIndex, *) {
+    MyUIMacroSettingGui.SaveBtnAction := OnSaveSetting
+    MyUIMacroSettingGui.ShowGui(tableItem, macroIndex)
 }

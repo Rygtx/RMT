@@ -2,8 +2,21 @@
 
 ;初始化数据
 {
+    HandleWorkOpenArg() {
+        global parentHwnd := A_Args[1]
+        global workIndex := A_Args[2]
+        global parentPID := A_Args[3]
+        global txName := A_Args[4]
+        global rxName := A_Args[5]
+
+        global shmTx := SharedMemory(txName, 1048576 + 192)
+        global shmRx := SharedMemory(rxName, 1048576 + 192)
+        global tx := RingBuffer(shmTx.ptr, 1048576)
+        global rx := RingBuffer(shmRx.ptr, 1048576)
+    }
+
     InitWorkFilePath() {
-        global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
+        global VBSPath := A_WorkingDir "\..\MinTool\PlayAudio.vbs"
         global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
         global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
         global ViGEmDllPath := A_WorkingDir "\..\Plugins\ViGEm\ViGEmWrapper.dll"
@@ -27,6 +40,8 @@
         global BGMouseFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
         global InputFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\InputFile.ini"
         global FileIOFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
+        global WindowManageFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\WindowManageFile.ini"
+        global KeyCheckFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\KeyCheckFile.ini"
         global IniSection := "UserSettings"
 
         ;利用机制把路径中的\..转换掉
@@ -43,19 +58,29 @@
     InitWork() {
         global MySoftData
         MySoftData.isWorker := true
+
+        SetTimer(CheckParentProcess, 10000)
     }
 
-    WorkOpenCVLoadDll() {
-        OpenCvPath := A_ScriptDir "\..\Plugins\OpenCV\RMT_OpenCV.dll"
+    CheckParentProcess() {
+        if !ProcessExist(parentPID) {
+            ExitApp()
+        }
+    }
+
+    WorkPluginInit() {
+        ; 根据进程位数自动选择 x86 或 x64
+        archDir := (A_PtrSize = 4) ? "x86" : "x64"
+        dllDir := A_ScriptDir "\..\Plugins\OpenCV\" archDir
+        OpenCvPath := dllDir "\RMT_OpenCV.dll"
         IBPath := A_ScriptDir "\..\Plugins\IbInputSimulator.dll"
 
-        ; 构建包含 DLL 文件的目录路径
-        dllDir := A_ScriptDir "\..\Plugins\OpenCV"
         ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
         DllCall("SetDllDirectory", "Str", dllDir)
-
         DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
         DllCall('LoadLibrary', 'str', IBPath)
+
+        SetTimer(CheckOcrIdle, 60000)
     }
 }
 
@@ -65,39 +90,19 @@
         PostMessage(type, wParam, lParam, , "ahk_id " parentHwnd)
     }
 
-    MsgSendHandler(str, Timestamp := "") {
-        if (Timestamp == "") {
-            currentDateTime := FormatTime(, "HHmmss")
-            randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
-            Timestamp := CurrentDateTime randomNum
-            data := ReceiveCheckData()
-            data.Timestamp := Timestamp
-            data.Str := str
-            ReceiveInfoMap.Set(Timestamp, data)
-        }
-        if (!ReceiveInfoMap.Has(Timestamp))
-            return
-        data := ReceiveInfoMap[Timestamp]
-        data.EnableCheckAction()
+    MsgSendHandler(action, args*) {
+        global rx, workIndex
+        payload := JSON.stringify([action, args*])
+        rx.Push(MsgType.EVENT, 0, payload)
 
-        CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
-        ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
-        SizeInBytes := (StrLen(str) + 1) * 2
-        NumPut("Ptr", SizeInBytes  ; 操作系统要求这个需要完成.
-            , "Ptr", StrPtr(str)  ; 设置 lpData 为到字符串自身的指针.
-            , CopyDataStruct, A_PtrSize)
-        SendMessage(WM_COPYDATA, Timestamp, CopyDataStruct, , "ahk_id " parentHwnd)
+        ; Notify parent if not already notified
+        if (rx.ExchangeNotifyFlag(1) == 0)
+            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
     }
-
 }
 
 ;接受主程序指令后回调
 {
-    OnWorkTriggerMacro(wParam, lParam, msg, hwnd) {
-        TriggerMacro(wParam, lParam)
-        MsgPostHandler(WM_RELEASE_WORK, wParam, lParam)
-    }
-
     OnWorkStopMacro(wParam, lParam, msg, hwnd) {
         tableIndex := wParam
         itemIndex := lParam
@@ -109,75 +114,130 @@
         ExitApp()
     }
 
-    CheckParentProcess() {
-        if !ProcessExist(parentPID) {
-            ExitApp()
+    OnWorkNotify(wParam, lParam, msg, hwnd) {
+        ProcessQueue()
+    }
+
+    ProcessQueue() {
+        global tx, rx, workIndex
+
+        loop {
+            tx.ExchangeNotifyFlag(1)
+
+            while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
+                switch type {
+                    case MsgType.TASK:
+                        Action := OnExecTask.Bind(id, cmd, hTaskEvent)
+                        SetTimer(Action, -1)
+                    case MsgType.CONTROL:
+                        OnControlMessage(cmd)
+                    case MsgType.EVENT:
+                        OnEventMessage(cmd)
+                }
+
+            }
+
+            ; Double Check Pattern
+            tx.ExchangeNotifyFlag(0) ; Full barrier to mark as idle
+
+            if (tx.IsEmpty())
+                break
         }
     }
 
-    SetTimer(CheckParentProcess, 2000)
+    OnExecTask(id, cmd, hTaskEvent) {
+        result := ExecTask(cmd)
+        rx.Push(MsgType.RESULT, id, result)
 
-    OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
-        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
-        Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
-        paramArr := StrSplit(cmd, "_")
-        switch paramArr[1] {
-            case "SetVari":
-                GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)
-                loop NameArr.Length {
-                    MySoftData.VariableMap[NameArr[A_Index]] := ValueArr[A_Index]
-                }
-            case "DelVari":
-                NameArr := paramArr.Clone()
-                NameArr.RemoveAt(1)
-                loop NameArr.Length {
-                    if (MySoftData.VariableMap.Has(NameArr[A_Index]))
-                        MySoftData.VariableMap.Delete(NameArr[A_Index])
-                }
-            case "CMDTip":
-                MySoftData.CMDTip := paramArr[2]
-            case "PauseState":
-                tableItem := MySoftData.TableInfo[paramArr[2]]
-                tableItem.PauseArr[paramArr[3]] := paramArr[4]
-            case "SetArray":
-                Name := paramArr[2]
-                Value := GetArray(paramArr[3])
-                MySoftData.ArrayMap[Name] := Value
-            case "CloneArray":
-                SourceArr := GetArray(paramArr[2])
-                NewArrName := paramArr[3]
-                MySoftData.ArrayMap[NewArrName] := SourceArr
-            case "DeleteArray":
-                if (MySoftData.ArrayMap.Has(paramArr[2]))
-                    MySoftData.ArrayMap.Delete(paramArr[2])
-            case "ModifyArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
-                SourceArr[Index] := Value
-            case "InsertArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
-                SourceArr.InsertAt(Index, Value)
-            case "RemoveAtArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                SourceArr.RemoveAt(Index)
+        if (rx.ExchangeNotifyFlag(1) == 0)
+            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
+
+        if (hTaskEvent) {
+            SetEvent(hTaskEvent)
+            CloseHandle(hTaskEvent)
         }
     }
 
-    OnMainReceiveInfo(wParam, lParam, msg, hwnd) {
-        Timestamp := String(wParam)
+    ExecTask(cmd) {
+        try {
+            paramArr := JSON.parse(cmd)
+            if (paramArr[1] == "TR_MACRO") {
+                TriggerMacro(paramArr[2], paramArr[3])
+                return 1
+            }
+        } catch as e {
+            MsgSendHandler("Error", GetFullErrorInfo(e))
+        }
 
-        if (ReceiveInfoMap.Has(Timestamp)) {
-            ReceiveInfoMap[Timestamp].Destroy()
+        return 1
+    }
+
+    OnControlMessage(cmd) {
+        ; Handle any JSON control messages
+    }
+
+    OnEventMessage(cmd) {
+        try {
+            paramArr := JSON.parse(cmd)
+            action := paramArr[1]
+            args := []
+            loop paramArr.Length - 1 {
+                args.Push(paramArr[A_Index + 1])
+            }
+            switch action {
+                case "SetVari":
+                    NameArr := args[1]
+                    ValueArr := args[2]
+                    loop NameArr.Length {
+                        MySoftData.VariableMap[NameArr[A_Index]] := ValueArr[A_Index]
+                    }
+                case "DelVari":
+                    NameArr := args[1]
+                    loop NameArr.Length {
+                        if (MySoftData.VariableMap.Has(NameArr[A_Index]))
+                            MySoftData.VariableMap.Delete(NameArr[A_Index])
+                    }
+                case "CMDTip":
+                    MySoftData.CMDTip := args[1]
+                case "PauseState":
+                    tableItem := MySoftData.TableInfo[args[1]]
+                    tableItem.PauseArr[args[2]] := args[3]
+                case "SetArray":
+                    Name := args[1]
+                    Value := GetArray(args[2])
+                    MySoftData.ArrayMap[Name] := Value
+                case "CloneArray":
+                    SourceArr := GetArray(args[1])
+                    NewArrName := args[2]
+                    MySoftData.ArrayMap[NewArrName] := SourceArr
+                case "DeleteArray":
+                    if (MySoftData.ArrayMap.Has(args[1]))
+                        MySoftData.ArrayMap.Delete(args[1])
+                case "ModifyArray":
+                    ArrName := args[1]
+                    MainIndex := args[2]
+                    Index := args[3]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
+                    Value := args[4] ? GetArray(args[5]) : args[5]
+                    SourceArr[Index] := Value
+                case "InsertArray":
+                    ArrName := args[1]
+                    MainIndex := args[2]
+                    Index := args[3]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
+                    Value := args[4] ? GetArray(args[5]) : args[5]
+                    SourceArr.InsertAt(Index, Value)
+                case "RemoveAtArray":
+                    ArrName := args[1]
+                    MainIndex := args[2]
+                    Index := args[3]
+                    SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
+                        ]
+                    SourceArr.RemoveAt(Index)
+            }
+        } catch {
         }
     }
 }
@@ -186,42 +246,36 @@
 {
     WorkSetGlobalArray(Name, Value) {
         MySoftData.ArrayMap[Name] := Value
-        CmdStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("SetArray", Name, GetArrayStr(Value))
     }
 
     WorkCloneGlobalArray(SourceArr, NewArrName) {
         MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
-        CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("CloneArray", GetArrayStr(SourceArr), NewArrName)
     }
 
     WorkDeleteGlobalArray(ArrName) {
-        CMDStr := Format("DeleteArray_{}", ArrName)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("DeleteArray", ArrName)
     }
 
     WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkRemoveAtGlobalArray(ArrName, MainIndex, Index) {
-        CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("RemoveAtArray", ArrName, MainIndex, Index)
     }
 
     WorkSetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         RealNameArr := NameArr.Clone()
         RealValueArr := ValueArr.Clone()
-        NameValueCMDStr := "SetVari"
+
         if (ignoreExist) {
             RealNameArr := []
             RealValueArr := []
@@ -236,18 +290,15 @@
             return
 
         loop RealNameArr.Length {
-            NameValueCMDStr .= Format("_{}_{}", RealNameArr[A_Index], RealValueArr[A_Index])
             MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
         }
-        MsgSendHandler(NameValueCMDStr)
+        MsgSendHandler("SetVari", RealNameArr, RealValueArr)
     }
 
     WorkDelGlobalVariable(NameArr) {
         RealNameArr := []
-        NameValueCMDStr := "DelVari"
         loop NameArr.Length {
             if (MySoftData.VariableMap.Has(NameArr[A_Index])) {
-                NameValueCMDStr .= Format("_{}", NameArr[A_Index])
                 MySoftData.VariableMap.Delete(NameArr[A_Index])
                 RealNameArr.Push(NameArr[A_Index])
             }
@@ -255,7 +306,7 @@
 
         if (RealNameArr.Length == 0)
             return
-        MsgSendHandler(NameValueCMDStr)
+        MsgSendHandler("DelVari", RealNameArr)
     }
 }
 
@@ -276,84 +327,69 @@
     }
 
     WorkSetTableItemState(tableIndex, itemIndex, state) {
-        str := Format("ItemState_{}_{}_{}", tableIndex, itemIndex, state)
-        MsgSendHandler(str)
+        MsgSendHandler("ItemState", tableIndex, itemIndex, state)
     }
 
     WorkSetItemPauseState(tableIndex, itemIndex, state) {
-        str := Format("PauseState_{}_{}_{}", tableIndex, itemIndex, state)
-        MsgSendHandler(str)
+        MsgSendHandler("PauseState", tableIndex, itemIndex, state)
     }
 }
 
 ;子程序告诉主程动作
 {
     WorkCMDReport(cmdStr) {
-        str := Format("Report_{}", cmdStr)
-        MsgSendHandler(str)
+        MsgSendHandler("Report", cmdStr)
     }
 
     WorkExcuteRMTCMDAction(cmdStr) {
-        MsgSendHandler(cmdStr)
+        MsgSendHandler("RMT指令", cmdStr)
     }
 
     WorkMsgBoxContent(content) {
-        str := Format("MsgBox_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("MsgBox", content)
     }
 
     WorkToolTipContent(content) {
-        str := Format("ToolTip_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("ToolTip", content)
     }
 
     WorkMacroCount(content) {
-        str := Format("MacroCount_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("MacroCount", content)
     }
 
     WorkViGJoySetState(JoyType, Key, Value) {
-        str := Format("Joy_{}_{}_{}", JoyType, Key, Value)
-        MsgSendHandler(str)
+        MsgSendHandler("Joy", JoyType, Key, Value)
     }
 }
 
-;通信校验
+;通用函数
 {
-    CheckIfReceiveInfo(Timestamp) {
-        ;不存在表示已经接收了，就不用处理
-        if (!ReceiveInfoMap.Has(Timestamp))
-            return
+    GetFullErrorInfo(exception) {
+        what := ""
+        msg := ""
+        extra := ""
+        stack := ""
+        fullMsg := ""
 
-        MsgSendHandler(ReceiveInfoMap[Timestamp].Str, Timestamp)
+        if (IsObject(exception)) {
+            try what := exception.What
+            try msg := exception.Message
+            try extra := exception.Extra
+            try stack := exception.Stack
+        } else {
+            msg := "" . exception
+        }
+
+        if (what != "")
+            fullMsg := what
+        if (msg != "")
+            fullMsg := fullMsg (fullMsg ? " | " : "") . msg
+        if (extra != "")
+            fullMsg := fullMsg "`nSpecifically: " extra
+        if (stack != "")
+            fullMsg := fullMsg "`n" stack
+
+        return fullMsg
     }
 
-    class ReceiveCheckData {
-        __New() {
-            this.Timestamp := ""
-            this.Str := ""
-            this.Count := 0
-            this.CheckAction := ""
-        }
-
-        EnableCheckAction() {
-            this.Count++
-            if (this.Count <= 3) {
-                action := CheckIfReceiveInfo.Bind(this.Timestamp)
-                this.CheckAction := action
-                SetTimer(action, -30)
-            }
-        }
-
-        Destroy() {
-            if (ReceiveInfoMap.Has(this.Timestamp)) {
-                if (this.CheckAction != "") {
-                    action := this.CheckAction
-                    SetTimer(action, 0)
-                }
-
-                ReceiveInfoMap.Delete(this.Timestamp)
-            }
-        }
-    }
 }

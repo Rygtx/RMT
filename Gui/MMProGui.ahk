@@ -7,6 +7,7 @@ class MMProGui {
         this.Gui := ""
         this.RuleMenu := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.FocusCon := ""
         this.RemarkCon := ""
         this.Data := ""
@@ -16,21 +17,30 @@ class MMProGui {
         this.PosVarXCon := ""
         this.PosVarYCon := ""
         this.ActionTypeCon := ""
-        this.IsRelativeCon := ""
-        this.isGameViewCon := ""
+        this.MouseMoveModeCon := ""
         this.SpeedCon := ""
         this.CountCon := ""
         this.IntervalCon := ""
+        this.HumanMouseTogCon := ""
 
         this.ConfigDLArr := []
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -40,6 +50,9 @@ class MMProGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("移动Pro编辑器"))
         this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
         MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
 
         PosX := 10
@@ -120,11 +133,12 @@ class MMProGui {
 
         PosY += 30
         PosX := 90
-        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("相对位移"))
+        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), ["移动", "相对移动", "游戏视角"])
+        this.MouseMoveModeCon.OnEvent("Change", (*) => this.OnTypeChange())
 
-        PosX := 320
-        this.IsGameViewCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("游戏视角"))
-        this.isGameViewCon.OnEvent("Click", (*) => this.OnTypeChange())
+        PosX := 230
+        this.HumanMouseTogCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("启用拟真轨迹"))
+        this.HumanMouseTogCon.OnEvent("Click", (*) => this.OnHumanMouseTogClick())
 
         PosX := 10
         PosY += 30
@@ -135,8 +149,18 @@ class MMProGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
         MyGui.Show(Format("w{} h{}", 480, 340))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -154,13 +178,19 @@ class MMProGui {
         this.PosVarYCon.Add(this.DLVariableArr)
         this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
         this.ActionTypeCon.Value := this.Data.ActionType
-        this.IsRelativeCon.Value := this.Data.IsRelative
-        this.isGameViewCon.Value := this.Data.IsGameView
+
+        MoveMode := 0
+        if (ObjHasOwnProp(this.Data, "MouseMoveMode"))
+            MoveMode := this.Data.MouseMoveMode
+        this.MouseMoveModeCon.Value := MoveMode + 1
+
         this.SpeedCon.Value := this.Data.Speed
         this.CountCon.Value := this.Data.Count
         this.IntervalCon.Value := this.Data.Interval
+        this.HumanMouseTogCon.Value := ObjHasOwnProp(this.Data, "IsHumanMouse") ? this.Data.IsHumanMouse : 0
 
         this.OnTypeChange()
+        this.OnHumanMouseTogClick()
     }
 
     TriggerMacro() {
@@ -269,8 +299,7 @@ class MMProGui {
             LastConfig.PosVarX := GetLangKey(this.PosVarXCon.Text)
             LastConfig.PosVarY := GetLangKey(this.PosVarYCon.Text)
             LastConfig.ActionType := this.ActionTypeCon.Value
-            LastConfig.IsRelative := this.IsRelativeCon.Value
-            LastConfig.IsGameView := this.isGameViewCon.Value
+            LastConfig.MouseMoveMode := this.MouseMoveModeCon.Value - 1
             LastConfig.Speed := this.SpeedCon.Value
             LastConfig.Count := this.CountCon.Value
             LastConfig.Interval := this.IntervalCon.Value
@@ -302,8 +331,7 @@ class MMProGui {
         this.Data.PosVarX := ConfigData.PosVarX
         this.Data.PosVarY := ConfigData.PosVarY
         this.Data.ActionType := ConfigData.ActionType
-        this.Data.IsRelative := ConfigData.IsRelative
-        this.Data.IsGameView := ConfigData.IsGameView
+        this.Data.MouseMoveMode := ObjHasOwnProp(ConfigData, "MouseMoveMode") ? ConfigData.MouseMoveMode : 0
         this.Data.Speed := ConfigData.Speed
         this.Data.Count := ConfigData.Count
         this.Data.Interval := ConfigData.Interval
@@ -320,8 +348,7 @@ class MMProGui {
         LastConfig.PosVarX := GetLangKey(this.PosVarXCon.Text)
         LastConfig.PosVarY := GetLangKey(this.PosVarYCon.Text)
         LastConfig.ActionType := this.ActionTypeCon.Value
-        LastConfig.IsRelative := this.IsRelativeCon.Value
-        LastConfig.IsGameView := this.isGameViewCon.Value
+        LastConfig.MouseMoveMode := this.MouseMoveModeCon.Value - 1
         LastConfig.Speed := this.SpeedCon.Value
         LastConfig.Count := this.CountCon.Value
         LastConfig.Interval := this.IntervalCon.Value
@@ -339,8 +366,7 @@ class MMProGui {
         this.Data.PosVarX := ConfigData.PosVarX
         this.Data.PosVarY := ConfigData.PosVarY
         this.Data.ActionType := ConfigData.ActionType
-        this.Data.IsRelative := ConfigData.IsRelative
-        this.Data.IsGameView := ConfigData.IsGameView
+        this.Data.MouseMoveMode := ObjHasOwnProp(ConfigData, "MouseMoveMode") ? ConfigData.MouseMoveMode : 0
         this.Data.Speed := ConfigData.Speed
         this.Data.Count := ConfigData.Count
         this.Data.Interval := ConfigData.Interval
@@ -375,20 +401,24 @@ class MMProGui {
     }
 
     OnTypeChange() {
-        isGameView := this.isGameViewCon.Value
+        MoveMode := this.MouseMoveModeCon.Value - 1
+        isGameView := MoveMode == 2
 
         if (isGameView) {
-            this.IsRelativeCon.Value := 1
             this.ActionTypeCon.Value := 1
             this.SpeedCon.Value := 100
-            this.IsRelativeCon.Enabled := false
             this.ActionTypeCon.Enabled := false
             this.SpeedCon.Enabled := false
+
+            if (this.HumanMouseTogCon.Value == 1) {
+                this.HumanMouseTogCon.Value := 0
+            }
+            this.HumanMouseTogCon.Enabled := false
         }
         else {
-            this.IsRelativeCon.Enabled := true
             this.ActionTypeCon.Enabled := true
             this.SpeedCon.Enabled := true
+            this.HumanMouseTogCon.Enabled := true
         }
 
         this.CountTipCon.Visible := isGameView
@@ -422,6 +452,12 @@ class MMProGui {
         action := this.SureBtnAction
         action(this.GetCommandStr())
         this.ToggleFunc(false)
+
+        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -432,15 +468,36 @@ class MMProGui {
         this.PosVarYCon.Text := mouseY
     }
 
+    OnHumanMouseTogClick(*) {
+        isEnabled := this.HumanMouseTogCon.Value == 1
+
+        if (isEnabled) {
+            if (this.MouseMoveModeCon.Value - 1 == 2) {
+                this.MouseMoveModeCon.Value := 1
+                this.OnTypeChange()
+            }
+
+            if (this.ActionTypeCon.Value != 1) {
+                this.ActionTypeCon.Value := 1
+            }
+            this.ActionTypeCon.Enabled := false
+            this.MouseMoveModeCon.Enabled := false
+        }
+        else {
+            this.ActionTypeCon.Enabled := true
+            this.MouseMoveModeCon.Enabled := true
+        }
+    }
+
     SaveMMProData() {
         this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
         this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
         this.Data.ActionType := this.ActionTypeCon.Value
-        this.Data.IsRelative := this.IsRelativeCon.Value
-        this.Data.IsGameView := this.isGameViewCon.Value
+        this.Data.MouseMoveMode := this.MouseMoveModeCon.Value - 1
         this.Data.Speed := this.SpeedCon.Value
         this.Data.Count := this.CountCon.Value
         this.Data.Interval := this.IntervalCon.Value
+        this.Data.IsHumanMouse := this.HumanMouseTogCon.Value
         SaveMacroCMDData(this.Data)
     }
 }

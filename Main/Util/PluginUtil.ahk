@@ -1,6 +1,9 @@
 #Requires AutoHotkey v2.0
 ; 窗口颜色识别 x，y 窗口坐标
 FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
+    if (A_PtrSize != 8) ;非64位不可用
+        return false
+
     colorStr := Format("{:06X}", ("0x" colorStr) + 0)
     searchX := X1
     searchY := Y1
@@ -64,7 +67,7 @@ GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
     }
 
     ; 调用 ocr_from_bitmapdata 方法
-    ocr := mode == 1 ? MyChineseOcr : MyEnglishOcr
+    ocr := mode == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_bitmapdata(BITMAP_DATA, , true)
 
     ; 解锁位图
@@ -75,6 +78,9 @@ GetScreenTextObjArr(X1, Y1, X2, Y2, mode) {
 }
 
 FindWinText(&ResX, &ResY, hwnd, X1, Y1, X2, Y2, text, mode) {
+    if (A_PtrSize != 8) ;非64位不可用，直接退出
+        return false
+
     result := GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode)
     if (result == "" || !result)
         return false
@@ -99,7 +105,7 @@ GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode) {
     searchH := Y2 - Y1
     matPtr := DllCall("RMT_OpenCV.dll\CaptureWinMat", "Int", hwnd, "Int", searchX, "Int", searchY,
         "Int", searchW, "Int", searchH, "Cdecl Ptr")
-    ocr := mode == 1 ? MyChineseOcr : MyEnglishOcr
+    ocr := mode == 1 ? GetChineseOcr() : GetEnglishOcr()
 
     res := ocr.ocr_from_mat(matPtr, , true)
     DllCall("RMT_OpenCV.dll\ReleaseMat", "ptr", matPtr, "cdecl")    ;释放mat，防止内存泄露
@@ -109,6 +115,9 @@ GetWinTextObjArr(hwnd, X1, Y1, X2, Y2, mode) {
 
 ; OpenCV屏幕图片识别
 FindScreenImage(ResXPtr, ResYPtr, targetPath, X1, Y1, X2, Y2, matchThreshold) {
+    if (A_PtrSize != 8) ;非64位不可用，直接退出
+        return false
+
     searchX := X1
     searchY := Y1
     searchW := X2 - X1
@@ -120,6 +129,9 @@ FindScreenImage(ResXPtr, ResYPtr, targetPath, X1, Y1, X2, Y2, matchThreshold) {
 
 ; OpenCV窗口图片识别    返回窗口的坐标
 FindWinImage(ResXPtr, ResYPtr, targetPath, hwnd, X1, Y1, X2, Y2, matchThreshold) {
+    if (A_PtrSize != 8) ;非64位不可用，直接退出
+        return false
+    
     searchX := X1
     searchY := Y1
     searchW := X2 - X1

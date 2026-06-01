@@ -14,18 +14,23 @@
 #Include Util\InputUtil.ahk
 #Include Util\SearchUtil.ahk
 #Include Util\FileIOUtil.ahk
+#Include Util\HumanMouse.ahk
 #Include Util\MacroUtil.ahk
 #Include Util\PluginUtil.ahk
+
+#Include ..\Plugins\CLR.ahk
+#Include "..\Plugins\RapidOcr\RapidOcr.ahk"
+#Include "..\Plugins\AhiDriver\AhiDriver.ahk"
+#Include "..\Plugins\IbInputSimulator.ahk"
+
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 
 global WM_LOAD_WORK := 0x500  ;资源加载完成事件
-global WM_RELEASE_WORK := 0x501  ;资源释放事件
 global WM_CLEAR_WORK := 0x502  ;资源释放事件
 global WM_TR_MACRO := 0x503 ;触发宏事件
 global WM_STOP_MACRO := 0x504 ;停止宏事件
-global WM_SET_VARI := 0x505    ;设置变量
-global WM_DEL_VARI := 0x506    ;删除变量
-global WM_RECEIVE_INFO := 0x507    ;主进程接受到子进程信息，防止信息丢失
+global WM_WORK_NOTIFY := 0x509     ;工作器任務通知
+global WM_RESULT_NOTIFY := 0x50A   ;結果就緒通知
 
 ; 功能函数
 GetFloatTime(oriTime, floatValue) {
@@ -98,17 +103,22 @@ GetHwndList(infoStr) {
     return HwndList
 }
 
-GetParamsWinInfoStr(infoStr, symbolStr := "default") {
+GetParamsWinInfoStr(infoStr) {
     if (infoStr == "")
         return ""
 
     if (InStr(infoStr, "❖")) {
         infoStr := StrReplace(infoStr, "❖")
-        hwndList := StrSplit(infoStr, "|")
-        for index, hwnd in hwndList {
-            GroupAdd(symbolStr, "ahk_id " hwnd)
+        groupName := "UIGroup_" infoStr
+        static groupCache := Map()
+        if (!groupCache.Has(groupName)) {
+            hwndList := StrSplit(infoStr, "|")
+            for index, hwnd in hwndList {
+                GroupAdd(groupName, "ahk_id " hwnd)
+            }
+            groupCache[groupName] := true
         }
-        ResStr := "ahk_group " symbolStr
+        ResStr := "ahk_group " groupName
         return ResStr
     }
 
@@ -204,6 +214,23 @@ GetImageSize(imageFile) {
     return [width, height]
 }
 
+GetNextImageSerial(baseDir := "") {
+    if (baseDir == "")
+        baseDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot"
+
+    maxSerial := 0
+    loop files, baseDir "\*.png" {
+        if (RegExMatch(A_LoopFileName, "^(\d+)\.png$", &match)) {
+            serial := Integer(match[1])
+            if (serial > maxSerial)
+                maxSerial := serial
+        }
+    }
+
+    nextSerial := maxSerial + 1
+    return Format("{:03d}", nextSerial)
+}
+
 SplitMacro(macroStr) {
     cmdArr := StrSplit(macroStr, [",", "，", "`n", "⫶"])
     resultArr := []
@@ -218,15 +245,43 @@ SplitMacro(macroStr) {
 
 SplitCommand(macro) {
     realKey := ""
-    for key, value in MySoftData.SpecialKeyMap {
-        newMacro := StrReplace(macro, key, "flagSymbol")
-        if (newMacro != macro) {
-            realKey := key
-            break
+    
+    ; 优化：使用预构建的SpecialKeyPrefixMap快速定位可能的特殊键（避免遍历全部20个键）
+    static SpecialKeyPrefixMap := ""
+    if (SpecialKeyPrefixMap == "") {
+        SpecialKeyPrefixMap := Map()
+        for key in MySoftData.SpecialKeyMap
+            SpecialKeyPrefixMap.Set(SubStr(key, 1, 4), true)
+    }
+    
+    ; 只检查前4个字符匹配的特殊键（大幅缩小搜索范围）
+    prefix := SubStr(macro, 1, 4)
+    if (SpecialKeyPrefixMap.Has(prefix)) {
+        for key in MySoftData.SpecialKeyMap {
+            if (SubStr(key, 1, 4) != prefix)
+                continue
+            
+            newMacro := StrReplace(macro, key, "flagSymbol")
+            if (newMacro != macro) {
+                realKey := key
+                break
+            }
+        }
+    } else {
+        ; 前缀不匹配时，只做一次简短检查（处理非标准情况）
+        for key in MySoftData.SpecialKeyMap {
+            if (StrLen(key) > 6)  ; 跳过长键名（Browser_*等已在上面的前缀检查中覆盖）
+                continue
+                
+            newMacro := StrReplace(macro, key, "flagSymbol")
+            if (newMacro != macro) {
+                realKey := key
+                break
+            }
         }
     }
 
-    result := StrSplit(newMacro, "_")
+    result := StrSplit(realKey != "" ? newMacro : macro, "_")
     loop result.Length {
         if (InStr(result[A_Index], "flagSymbol")) {
             result[A_Index] := StrReplace(result[A_Index], "flagSymbol", realKey)
@@ -249,12 +304,14 @@ GetCmdByParams(paramArr) {
 }
 
 GetMacroStrByCmdArr(cmdArr) {
-    macroStr := ""
-    loop cmdArr.Length {
-        macroStr .= cmdArr[A_Index] ","
+    ; 使用循环拼接（兼容所有数组类型，避免.Join()方法不存在的问题）
+    result := ""
+    for index, value in cmdArr {
+        if (index > 1)
+            result .= ","
+        result .= value
     }
-    macroStr := Trim(macroStr, ",")
-    return macroStr
+    return result
 }
 
 GetPressKeyArr(KeyArrStr) {
@@ -326,12 +383,12 @@ InitData() {
         "输出", OutputFile, "运行", RunFile, "循环", LoopFile, "宏操作", SubMacroFile, "变量", VariableFile,
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
         "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile,
-        "输入", InputFile, "文件读写", FileIOFile)
+        "输入", InputFile, "文件读写", FileIOFile, "窗口管理", WindowManageFile, "按键检测", KeyCheckFile)
     MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
         "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
-        "输入", InputData, "文件读写", FileIOData)
+        "输入", InputData, "文件读写", FileIOData, "窗口管理", WindowManageData, "按键检测", KeyCheckData)
 }
 
 InitLogitechGHubNew() {
@@ -372,20 +429,32 @@ LoadMainSetting() {
     ToolCheckInfo.RecordKeyboard := IniRead(IniFile, IniSection, "RecordKeyboard", true)
     ToolCheckInfo.RecordMouse := IniRead(IniFile, IniSection, "RecordMouse", true)
     ToolCheckInfo.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
-    ToolCheckInfo.RecordMouseKeyPoint := IniRead(IniFile, IniSection, "RecordMouseKeyPoint", true)
-    ToolCheckInfo.RecordMouseRelative := IniRead(IniFile, IniSection, "RecordMouseRelative", false)
-    ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", false)
-    ToolCheckInfo.RecordMouseTrailLen := IniRead(IniFile, IniSection, "RecordMouseTrailLen", 100)
+    ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", 1)
     ToolCheckInfo.RecordMouseTrailSpeed := IniRead(IniFile, IniSection, "RecordMouseTrailSpeed", 95)
     ToolCheckInfo.RecordHoldMuti := IniRead(IniFile, IniSection, "RecordHoldMuti", false)
     ToolCheckInfo.RecordAutoLoosen := IniRead(IniFile, IniSection, "RecordAutoLoosen", true)
-    ToolCheckInfo.RecordMouseTrailInterval := IniRead(IniFile, IniSection, "MouseTrailInterval", 300)
     ToolCheckInfo.RecordJoyInterval := IniRead(IniFile, IniSection, "RecordJoyInterval", 50)
+    ToolCheckInfo.RecordShowBorder := IniRead(IniFile, IniSection, "RecordShowBorder", true)
     ToolCheckInfo.OCRTypeValue := IniRead(IniFile, IniSection, "OCRType", 1)
     MySoftData.IsBootStart := IniRead(IniFile, IniSection, "IsBootStart", false)
+    if (MySoftData.IsBootStart == 1 || MySoftData.IsBootStart == 2)
+        MySoftData.IsBootStart := true
+    else if (MySoftData.IsBootStart == "false" || MySoftData.IsBootStart == 0)
+        MySoftData.IsBootStart := false
+    else
+        MySoftData.IsBootStart := !!MySoftData.IsBootStart
+    MySoftData.IsAdminStart := IniRead(IniFile, IniSection, "IsAdminStart", false)
     MySoftData.ShowSplitLine := IniRead(IniFile, IniSection, "ShowSplitLine", false)
     MySoftData.FixedMenuWheel := IniRead(IniFile, IniSection, "FixedMenuWheel", false)
-    MySoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", 3)
+    MySoftData.MenuWheelSelectMode := IniRead(IniFile, IniSection, "MenuWheelSelectMode", 1)
+    MySoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", true)
+    MySoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
+    MySoftData.XAMLTheme := IniRead(IniFile, IniSection, "XAMLTheme", "RMT Light")
+    EnsureXAMLThemesIni()
+    MySoftData.IsModalSubGui := IniRead(IniFile, IniSection, "IsModalSubGui", true)
+    MySoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", -1)
+    MySoftData.DynamicCorePoolSize := IniRead(IniFile, IniSection, "DynamicCorePoolSize", 2)
+    MySoftData.ElasticTimeout := IniRead(IniFile, IniSection, "ElasticTimeout", 30)
     MySoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MySoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
@@ -416,6 +485,47 @@ LoadMainSetting() {
     SetFontList()
     LangInitSetting()
     LangKeysInit()
+}
+
+EnsureXAMLThemesIni() {
+    static done := false
+    if (done)
+        return
+    iniPath := IsSet(ThemesIniPath) ? ThemesIniPath : A_ScriptDir "\Setting\themes.ini"
+    if (FileExist(iniPath)) {
+        done := true
+        return
+    }
+    if (!DirExist(A_ScriptDir "\Setting"))
+        DirCreate(A_ScriptDir "\Setting")
+    IniWrite("2,0", iniPath, "RMT Light", "Window_DWM")
+    IniWrite("CornerRadius:8", iniPath, "RMT Light", "Resource_WindowRadius")
+    IniWrite("#FFF0F0F0", iniPath, "RMT Light", "Resource_BgColor")
+    IniWrite("#20E0E0E0", iniPath, "RMT Light", "Resource_SidebarColor")
+    IniWrite("#FF1A1A1A", iniPath, "RMT Light", "Resource_TextMain")
+    IniWrite("#FF666666", iniPath, "RMT Light", "Resource_TextSub")
+    IniWrite("#FFFFFFFF", iniPath, "RMT Light", "Resource_ControlBg")
+    IniWrite("#FFD0D0D0", iniPath, "RMT Light", "Resource_ControlBorder")
+    IniWrite("#FFFFFFFF", iniPath, "RMT Light", "Resource_DropdownBg")
+    IniWrite("#FF0078D7", iniPath, "RMT Light", "Resource_Accent")
+    IniWrite("Double:8", iniPath, "RMT Light", "Resource_ScrollBarWidth")
+    IniWrite("CornerRadius:4", iniPath, "RMT Light", "Resource_ScrollBarRadius")
+    IniWrite("#FF0078D7", iniPath, "RMT Light", "Resource_ScrollBarHover")
+
+    IniWrite("2,1", iniPath, "RMT Dark", "Window_DWM")
+    IniWrite("CornerRadius:8", iniPath, "RMT Dark", "Resource_WindowRadius")
+    IniWrite("#FF1E1E1E", iniPath, "RMT Dark", "Resource_BgColor")
+    IniWrite("#20000000", iniPath, "RMT Dark", "Resource_SidebarColor")
+    IniWrite("#FFFFFFFF", iniPath, "RMT Dark", "Resource_TextMain")
+    IniWrite("#FFAAAAAA", iniPath, "RMT Dark", "Resource_TextSub")
+    IniWrite("#15252525", iniPath, "RMT Dark", "Resource_ControlBg")
+    IniWrite("#20333333", iniPath, "RMT Dark", "Resource_ControlBorder")
+    IniWrite("#FF252525", iniPath, "RMT Dark", "Resource_DropdownBg")
+    IniWrite("#FF0A84FF", iniPath, "RMT Dark", "Resource_Accent")
+    IniWrite("Double:8", iniPath, "RMT Dark", "Resource_ScrollBarWidth")
+    IniWrite("CornerRadius:4", iniPath, "RMT Dark", "Resource_ScrollBarRadius")
+    IniWrite("#FF0A84FF", iniPath, "RMT Dark", "Resource_ScrollBarHover")
+    done := true
 }
 
 SetFontList() {
@@ -477,6 +587,7 @@ ReadTableItemInfo(index) {
     savedTimingSerialStr := IniRead(MacroFile, IniSection, symbol "TimingSerialArr", "")
     savedStartTipSoundStr := IniRead(MacroFile, IniSection, symbol "StartTipSoundArr", "")
     savedEndTipSoundStr := IniRead(MacroFile, IniSection, symbol "EndTipSoundArr", "")
+    savedGifPathArrStr := IniRead(MacroFile, IniSection, symbol "GifPathArr", "")
     savedFoldInfoStr := IniRead(MacroFile, IniSection, symbol "FoldInfo", "")
 
     ;不存在折叠筐就初始化，并读取默认配置
@@ -519,6 +630,22 @@ ReadTableItemInfo(index) {
     SetArr(savedTimingSerialStr, "π", tableItem.TimingSerialArr)
     SetArr(savedStartTipSoundStr, "π", tableItem.StartTipSoundArr)
     SetArr(savedEndTipSoundStr, "π", tableItem.EndTipSoundArr)
+
+    SetArr(savedGifPathArrStr, "π", tableItem.GifPathArr)
+    while (tableItem.GifPathArr.Length < tableItem.ModeArr.Length)
+        tableItem.GifPathArr.Push("")
+
+    if (symbol == "UI") {
+        savedUIWindowArrStr := IniRead(MacroFile, IniSection, symbol "UIWindowArr", "")
+        savedUIPosYArrStr := IniRead(MacroFile, IniSection, symbol "UIPosYArr", "")
+        savedUIBtnWidthArrStr := IniRead(MacroFile, IniSection, symbol "UIBtnWidthArr", "")
+        savedUIBtnHeightArrStr := IniRead(MacroFile, IniSection, symbol "UIBtnHeightArr", "")
+        SetArr(savedUIWindowArrStr, "π", tableItem.UIWindowArr)
+        SetArr(savedUIPosYArrStr, "π", tableItem.UIPosYArr)
+        SetArr(savedUIBtnWidthArrStr, "π", tableItem.UIBtnWidthArr)
+        SetArr(savedUIBtnHeightArrStr, "π", tableItem.UIBtnHeightArr)
+    }
+
     tableItem.FoldInfo := JSON.parse(savedFoldInfoStr, , false)
     SetSerialByArr(tableItem.SerialArr)
     SetSerialByArr(tableItem.TimingSerialArr)
@@ -582,6 +709,8 @@ GetGetTableItemDefaultMacro(index) {
         return "按键_a_点击_100_10_200,间隔_3000"
     else if (symbol == "Replace")
         return "Left,a"
+    else if (symbol == "UI")
+        return "按键_a_点击_100_10_200,间隔_3000"
     return ""
 }
 
@@ -638,6 +767,19 @@ GetTableItemDefaultInfo(index) {
             "Timing3πTiming4πTiming5πTiming6πTiming7πTiming8πTiming12πTiming13"
         savedStartTipSoundStr := "1π1π1π1π1π1π1π1"
         savedEndTipSoundStr := "1π1π1π1π1π1π1π1"
+    }
+    else if (symbol == "UI") {
+        savedTKArrStr := ""
+        savedHoldTimeArrStr := "500"
+        savedModeArrStr := "1"
+        savedForbidArrStr := "1"
+        savedRemarkArrStr := GetLang("在指定界面显示常驻按钮")
+        savedLoopCountStr := "1"
+        savedTriggerTypeStr := "1"
+        savedSerialeArrStr := "14"
+        savedTimingSerialStr := "Timing14"
+        savedStartTipSoundStr := "1"
+        savedEndTipSoundStr := "1"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""
@@ -699,6 +841,20 @@ SaveTableItemInfo(index) {
     IniWrite(SavedInfo[10], MacroFile, IniSection, symbol "StartTipSoundArr")
     IniWrite(SavedInfo[11], MacroFile, IniSection, symbol "EndTipSoundArr")
 
+    GifPathArrStr := SavedInfo.Has(16) ? SavedInfo[16] : ""
+    IniWrite(GifPathArrStr, MacroFile, IniSection, symbol "GifPathArr")
+
+    if (symbol == "UI") {
+        UIWindowArrStr := SavedInfo.Has(12) ? SavedInfo[12] : ""
+        UIPosYArrStr := SavedInfo.Has(13) ? SavedInfo[13] : ""
+        UIBtnWidthArrStr := SavedInfo.Has(14) ? SavedInfo[14] : ""
+        UIBtnHeightArrStr := SavedInfo.Has(15) ? SavedInfo[15] : ""
+        IniWrite(UIWindowArrStr, MacroFile, IniSection, symbol "UIWindowArr")
+        IniWrite(UIPosYArrStr, MacroFile, IniSection, symbol "UIPosYArr")
+        IniWrite(UIBtnWidthArrStr, MacroFile, IniSection, symbol "UIBtnWidthArr")
+        IniWrite(UIBtnHeightArrStr, MacroFile, IniSection, symbol "UIBtnHeightArr")
+    }
+
     FoldInfoStr := JSON.stringify(tableItem.FoldInfo, 0)
     IniWrite(FoldInfoStr, MacroFile, IniSection, symbol "FoldInfo")
 
@@ -720,6 +876,7 @@ SaveTableItemMacro(index) {
 
 GetSavedTableItemInfo(index) {
     Saved := MySoftData.MyGui.Submit()
+
     TKArrStr := ""
     ModeArrStr := ""
     HoldTimeArrStr := ""
@@ -731,6 +888,12 @@ GetSavedTableItemInfo(index) {
     TimingSerialArrStr := ""
     StartTipSoundArrStr := ""
     EndTipSoundArrStr := ""
+    GifPathArrStr := ""
+
+    UIWindowArrStr := ""
+    UIPosYArrStr := ""
+    UIBtnWidthArrStr := ""
+    UIBtnHeightArrStr := ""
 
     tableItem := MySoftData.TableInfo[index]
     symbol := GetTableSymbol(index)
@@ -747,6 +910,20 @@ GetSavedTableItemInfo(index) {
         TimingSerialArrStr .= tableItem.TimingSerialArr[A_Index]
         StartTipSoundArrStr .= tableItem.StartTipSoundArr[A_Index]
         EndTipSoundArrStr .= tableItem.EndTipSoundArr[A_Index]
+
+        GifPathArrValue := tableItem.HasProp("GifPathArr") && tableItem.GifPathArr.Has(A_Index) ? tableItem.GifPathArr[
+            A_Index] : ""
+        GifPathArrStr .= GifPathArrValue
+
+        UIWindowArrValue := tableItem.UIWindowArr.Has(A_Index) ? tableItem.UIWindowArr[A_Index] : ""
+        UIPosYArrValue := tableItem.UIPosYArr.Has(A_Index) ? tableItem.UIPosYArr[A_Index] : ""
+        UIBtnWidthArrValue := tableItem.UIBtnWidthArr.Has(A_Index) ? tableItem.UIBtnWidthArr[A_Index] : ""
+        UIBtnHeightArrValue := tableItem.UIBtnHeightArr.Has(A_Index) ? tableItem.UIBtnHeightArr[A_Index] : ""
+        UIWindowArrStr .= UIWindowArrValue
+        UIPosYArrStr .= UIPosYArrValue
+        UIBtnWidthArrStr .= UIBtnWidthArrValue
+        UIBtnHeightArrStr .= UIBtnHeightArrValue
+
         if (tableItem.ModeArr.Length > A_Index) {
             TKArrStr .= "π"
             ModeArrStr .= "π"
@@ -759,11 +936,17 @@ GetSavedTableItemInfo(index) {
             TimingSerialArrStr .= "π"
             StartTipSoundArrStr .= "π"
             EndTipSoundArrStr .= "π"
+            GifPathArrStr .= "π"
+            UIWindowArrStr .= "π"
+            UIPosYArrStr .= "π"
+            UIBtnWidthArrStr .= "π"
+            UIBtnHeightArrStr .= "π"
         }
     }
 
     return [TKArrStr, ModeArrStr, HoldTimeArrStr, ForbidArrStr, RemarkArrStr,
-        LoopCountArrStr, TriggerTypeArrStr, SerialArrStr, TimingSerialArrStr, StartTipSoundArrStr, EndTipSoundArrStr]
+        LoopCountArrStr, TriggerTypeArrStr, SerialArrStr, TimingSerialArrStr, StartTipSoundArrStr, EndTipSoundArrStr,
+        UIWindowArrStr, UIPosYArrStr, UIBtnWidthArrStr, UIBtnHeightArrStr, GifPathArrStr]
 }
 
 ;Table信息相关
@@ -927,6 +1110,8 @@ CheckIsItemTable(index) {
         return true
     if (symbol == "Replace")
         return true
+    if (symbol == "UI")
+        return true
     return false
 }
 
@@ -941,6 +1126,8 @@ CheckIsMacroTable(index) {
     if (symbol == "Timing")
         return true
     if (symbol == "Menu")
+        return true
+    if (symbol == "UI")
         return true
     return false
 }
@@ -966,6 +1153,12 @@ CheckIsMenuMacroTable(index) {
     return false
 }
 
+InitArray(tableItem, arrName) {
+    if (!tableItem.HasProp(arrName)) {
+        tableItem.%arrName% := []
+    }
+}
+
 CheckIsNoTriggerKey(index) {
     symbol := GetTableSymbol(index)
     if (symbol == "SubMacro")
@@ -973,6 +1166,8 @@ CheckIsNoTriggerKey(index) {
     if (symbol == "Timing")
         return true
     if (symbol == "Menu")
+        return true
+    if (symbol == "UI")
         return true
     return false
 }
@@ -1064,6 +1259,10 @@ CheckIfHasModifyKey(keyCombo) {
         }
     }
     return false
+}
+
+IsComboKey(keyCombo) {
+    return InStr(keyCombo, " & ")
 }
 
 LoosenModifyKey(keyCombo) {
@@ -1224,7 +1423,7 @@ GetRecordTriggerKeyMap() {
     ; 剩余部分是主键
     resultMap := Map()
     if (triggerKey != "")
-        resultMap.Set(triggerKey, true)
+        resultMap.Set(triggerKey, 0)
 
     for index, value in modifiers {
         if (value == "^" || value == "<^" || value == ">^") {
@@ -1296,13 +1495,26 @@ GetCurWinPos() {
     return GetWinPos(mouseX, mouseY)
 }
 
+; 高效的序列号拆分函数：一次遍历同时提取文本和数字部分（避免2次RegExReplace）
+SplitSerialTextAndNumbers(serialStr, &textOnly, &numbersOnly) {
+    textOnly := ""
+    numbersOnly := ""
+    loop parse serialStr {
+        ch := A_LoopField
+        if (IsInteger(ch))
+            numbersOnly .= ch
+        else
+            textOnly .= ch
+    }
+}
+
 GetMacroCMDData(serialStr) {
     if (MySoftData.DataCacheMap.Has(serialStr)) {
         return MySoftData.DataCacheMap[serialStr]
     }
 
-    textOnly := RegExReplace(serialStr, "\d+")
-    numbersOnly := RegExReplace(serialStr, "\D+")
+    ; 优化：使用单次遍历拆分（替代2次RegExReplace）
+    SplitSerialTextAndNumbers(serialStr, &textOnly, &numbersOnly)
     cmd := GetLangKey(textOnly)
 
     ; Normalize key if needed (though the cache check above might already cover common cases if they were stored with original key)
@@ -1338,7 +1550,9 @@ GetMacroCMDData(serialStr) {
 }
 
 SaveMacroCMDData(Data) {
-    cmd := RegExReplace(Data.SerialStr, "\d+")
+    ; 优化：使用单次遍历拆分（替代RegExReplace）
+    dummyNumbers := ""
+    SplitSerialTextAndNumbers(Data.SerialStr, &cmd, &dummyNumbers)
     DataFile := MySoftData.DataFileMap[cmd]
 
     saveStr := JSON.stringify(Data, 0)
@@ -1412,6 +1626,9 @@ TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
             return true
         case "当前秒":
             Value := A_Sec
+            return true
+        case "当前星期几":
+            Value := A_WDay == 1 ? 7 : A_WDay - 1
             return true
         case "当前鼠标颜色":
             CoordMode("Mouse", "Screen")
@@ -1492,16 +1709,31 @@ GetItemFoldIndex(tableItem, itemIndex) {
     return 0
 }
 
-GetItemFoldForbidState(tableItem, itemIndex) {
+; 统一获取某项的所有Fold信息（避免重复遍历IndexSpanArr）
+GetItemFoldData(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
-    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
-    return FoldInfo.ForbidStateArr[FoldIndex]
+    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
+        IndexSpan := StrSplit(IndexSpanStr, "-")
+        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
+            if (IndexSpan[1] <= itemIndex && IndexSpan[2] >= itemIndex) {
+                return {
+                    foldIndex: Index,
+                    forbidState: FoldInfo.ForbidStateArr[Index],
+                    frontInfo: FoldInfo.FrontInfoArr[Index],
+                    offset: itemIndex - IndexSpan[1] + 1
+                }
+            }
+        }
+    }
+    return { foldIndex: 0, forbidState: false, frontInfo: "", offset: 1 }
+}
+
+GetItemFoldForbidState(tableItem, itemIndex) {
+    return GetItemFoldData(tableItem, itemIndex).forbidState
 }
 
 GetItemFrontInfo(tableItem, itemIndex) {
-    FoldInfo := tableItem.FoldInfo
-    FoldIndex := GetItemFoldIndex(tableItem, itemIndex)
-    return FoldInfo.FrontInfoArr[FoldIndex]
+    return GetItemFoldData(tableItem, itemIndex).frontInfo
 }
 
 GetItemOffsetOfFold(tableItem, itemIndex) {
@@ -1681,8 +1913,9 @@ GetCmdStr(param) {
 }
 
 GetCmdSymbol(cmd) {
-    IsSkip := RegExMatch(cmd, "🚫")
-    IsDebug := RegExMatch(cmd, "⭐")
+    ; 优化：使用InStr替代RegExMatch（单字符匹配更快）
+    IsSkip := InStr(cmd, "🚫")
+    IsDebug := InStr(cmd, "⭐")
     SkipStr := IsSkip ? "🚫" : ""
     DebugStr := IsDebug ? "⭐" : ""
     Symbol := Format("{}{}", SkipStr, DebugStr)
@@ -1691,7 +1924,9 @@ GetCmdSymbol(cmd) {
 
 GetCmdOnlyText(param) {
     param := GetCmdStr(param)
-    textOnly := RegExReplace(param, "\d+")
+    ; 优化：使用单次遍历拆分（替代RegExReplace）
+    dummyNumbers := ""
+    SplitSerialTextAndNumbers(param, &textOnly, &dummyNumbers)
     return textOnly
 }
 
@@ -1761,7 +1996,7 @@ GetBrightness() {
 
 GetSystemVarArr() {
     return [GetLang("循环次数"), GetLang("宏循环次数"), GetLang("句柄ID"), GetLang("当前鼠标颜色"), GetLang("当前鼠标坐标X"),
-    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒")]
+    GetLang("当前鼠标坐标Y"), GetLang("当前日期"), GetLang("当前时间"), GetLang("当前时间(秒)"), GetLang("当前秒"), GetLang("当前星期几")]
 }
 
 DoCompare(&currentComparison, tableItem, index, CompareType, Name, OtherValue) {
@@ -1823,4 +2058,126 @@ SetClipboard(Content) {
         }
     }
     return false  ; 5次都失败
+}
+
+ValidateCmdPath(&Data, pathFieldName, selectTitle, filter, tableItem := "", index := 1, showSelect := true) {
+    if (!ObjHasOwnProp(Data, pathFieldName))
+        return true
+
+    rawPath := Data.%pathFieldName%
+    hasVariable := InStr(rawPath, "{") && InStr(rawPath, "}")
+
+    if (!hasVariable) {
+        if (rawPath == "" || FileExist(rawPath))
+            return true
+
+        if (!showSelect)
+            return false
+
+        tipStr := Format(GetLang("路径 '{}' 不存在，请重新选择"), rawPath)
+        result := CustomMsgBox(tipStr, GetLang("路径缺失"), GetLang("选择文件|跳过本条指令"))
+
+        if (result == 2)
+            return false
+
+        newPath := FileSelect(1, , GetLang(selectTitle), filter)
+        if (newPath == "")
+            return false
+
+        Data.%pathFieldName% := newPath
+        SaveMacroCMDData(Data)
+        return true
+    }
+
+    actualPath := GetReplaceVarText(tableItem, index, rawPath)
+
+    if (actualPath != "" && FileExist(actualPath))
+        return true
+
+    if (!showSelect)
+        return false
+
+    tipStr := Format("{}`n`n{}: {}`n{}: {}",
+        GetLang("变量路径解析后文件不存在"),
+        GetLang("原始配置"), rawPath,
+        GetLang("解析为"), actualPath == "" ? GetLang("(空值)") : actualPath)
+
+    result := CustomMsgBox(tipStr, GetLang("变量路径错误"), GetLang("覆盖变量|跳过本条指令"))
+
+    if (result == 2)
+        return false
+
+    newPath := FileSelect(1, , GetLang(selectTitle), filter)
+    if (newPath == "")
+        return false
+
+    Data.%pathFieldName% := newPath
+    SaveMacroCMDData(Data)
+    return true
+}
+
+; ===== 项目根目录 / OCR 懒加载/定时回收函数 =====
+
+GetProjectRoot() {
+    root := A_ScriptDir
+    if !FileExist(root '\Plugins\RapidOcr') {
+        root .= '\..'
+        loop files, root {
+            root := A_LoopFileFullPath
+            break
+        }
+    }
+    return root
+}
+
+global LastChineseOcrUseTime := 0
+global LastEnglishOcrUseTime := 0
+global OCR_IDLE_TIMEOUT := 300000
+
+GetChineseOcr() {
+    global MyChineseOcr, LastChineseOcrUseTime
+    if (!MyChineseOcr) {
+        MyChineseOcr := RapidOcr(GetProjectRoot())
+    }
+    LastChineseOcrUseTime := A_TickCount
+    return MyChineseOcr
+}
+
+GetEnglishOcr() {
+    global MyEnglishOcr, LastEnglishOcrUseTime
+    if (!MyEnglishOcr) {
+        MyEnglishOcr := RapidOcr(GetProjectRoot(), 2)
+    }
+    LastEnglishOcrUseTime := A_TickCount
+    return MyEnglishOcr
+}
+
+UnloadChineseOcr() {
+    global MyChineseOcr
+    if (MyChineseOcr) {
+        MyChineseOcr.Destroy()
+        MyChineseOcr := ""
+    }
+}
+
+UnloadEnglishOcr() {
+    global MyEnglishOcr
+    if (MyEnglishOcr) {
+        MyEnglishOcr.Destroy()
+        MyEnglishOcr := ""
+    }
+}
+
+CheckOcrIdle() {
+    global MyChineseOcr, MyEnglishOcr, LastChineseOcrUseTime, LastEnglishOcrUseTime, OCR_IDLE_TIMEOUT
+
+    currentTime := A_TickCount
+
+    if (MyChineseOcr && (currentTime - LastChineseOcrUseTime > OCR_IDLE_TIMEOUT)) {
+        UnloadChineseOcr()
+    }
+
+    if (MyEnglishOcr && (currentTime - LastEnglishOcrUseTime > OCR_IDLE_TIMEOUT)) {
+        UnloadEnglishOcr()
+    }
 }

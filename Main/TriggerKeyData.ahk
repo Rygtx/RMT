@@ -8,6 +8,7 @@ class TriggerKeyData {
         this.OriLoosenStopArr := []    ;松止
         this.OriTogArr := []   ;开关
         this.OriHoldArr := []  ;按长按
+        this.OriDblClickArr := []  ;双击触发
         this.HoldActionMap := Map()
 
         this.DownArr := []
@@ -15,6 +16,14 @@ class TriggerKeyData {
         this.LoosenStopArr := []
         this.TogArr := []
         this.HoldArr := []
+        this.DblClickArr := []
+
+        this.LastKeyDownTime := 0  ;上次按下时间（用于双击检测）
+        this.DblClickInterval := 300  ;双击间隔时间（毫秒）
+
+        ; 缓存相关字段（性能优化）
+        this.cacheTime := 0          ;上次更新缓存的时间戳
+        this.cacheValidDuration := 200  ;缓存有效期（毫秒），窗口切换通常不会频繁发生
 
         this.InitState()
     }
@@ -42,21 +51,30 @@ class TriggerKeyData {
             return false
         if (this.OriHoldArr.Length >= 1)
             return false
+        if (this.OriDblClickArr.Length >= 1)
+            return false
 
         return true
     }
 
     AddData(info) {
-        static PropNames := ["OriDownArr", "OriLoosenArr", "OriLoosenStopArr", "OriTogArr", "OriHoldArr"]
+        static PropNames := ["OriDownArr", "OriLoosenArr", "OriLoosenStopArr", "OriTogArr", "OriHoldArr", "OriDblClickArr"]
         this.%PropNames[info.GetTriggerType()]%.Push(info)
     }
 
-    UpdataArr() {
+    UpdataArr(forceUpdate := false) {
+        now := A_TickCount
+
+        ; 缓存检查：如果缓存有效且不是强制更新，跳过重建
+        if (!forceUpdate && (now - this.cacheTime) < this.cacheValidDuration)
+            return
+
         this.DownArr := []
         this.LoosenArr := []
         this.LoosenStopArr := []
         this.TogArr := []
         this.HoldArr := []
+        this.DblClickArr := []
 
         MyMouseInfo.UpdateInfo()
         this.UpdateArrByFront(this.OriDownArr, this.DownArr)
@@ -64,6 +82,21 @@ class TriggerKeyData {
         this.UpdateArrByFront(this.OriLoosenStopArr, this.LoosenStopArr)
         this.UpdateArrByFront(this.OriTogArr, this.TogArr)
         this.UpdateArrByFront(this.OriHoldArr, this.HoldArr)
+        this.UpdateArrByFront(this.OriDblClickArr, this.DblClickArr)
+
+        ;更新双击间隔时间为所有双击宏中的最小值
+        if (this.DblClickArr.Length > 0) {
+            minInterval := 300
+            for index, value in this.DblClickArr {
+                interval := value.GetDblClickInterval()
+                if (interval < minInterval)
+                    minInterval := interval
+            }
+            this.DblClickInterval := minInterval
+        }
+
+        ; 更新缓存时间戳
+        this.cacheTime := now
     }
 
     UpdateArrByFront(OriArr, ResArr) {
@@ -90,12 +123,17 @@ class TriggerKeyData {
     }
 
     OnTriggerKeyDown() {
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(this.Key)
-        isOpenMenu := MySoftData.CurMenuWheelIndex != -1
         this.UpdataArr()
         this.HandleSoftHotKeyDown()
-        if (isMenuBtnHotKey && isOpenMenu)
+
+        if (WindowHotkeyManager.IsManaged(this.Key) && WindowHotkeyManager.IsAnyWindowActive(this.Key))
             return
+
+        ;双击检测逻辑
+        currentTime := A_TickCount
+        isDblClick := (currentTime - this.LastKeyDownTime) <= this.DblClickInterval && this.LastKeyDownTime != 0
+        this.LastKeyDownTime := currentTime
+
         for index, value in this.DownArr {
             if (index == 1 && SubStr(value.GetTK(), 1, 1) != "~")
                 LoosenModifyKey(value.GetTK())
@@ -111,12 +149,23 @@ class TriggerKeyData {
             value.Action()
         }
 
+        ;如果检测到双击，则触发双击宏
+        if (isDblClick) {
+            for index, value in this.DblClickArr {
+                value.Action()
+            }
+        }
+
         this.SetHoldTimeChecker()
     }
 
     OnTriggerKeyUp() {
         this.UpdataArr()
         this.HandleSoftHotKeyUp()
+
+        if (WindowHotkeyManager.IsManaged(this.Key) && WindowHotkeyManager.IsAnyWindowActive(this.Key))
+            return
+
         for index, value in this.LoosenArr {
             value.Action()
         }
@@ -126,6 +175,11 @@ class TriggerKeyData {
         }
 
         this.DelHoldTimeChecker()
+    }
+
+    ; 强制刷新缓存（在配置重载、窗口切换等关键事件时调用）
+    ForceRefreshCache() {
+        this.cacheTime := 0  ; 使缓存失效
     }
 
     SetHoldTimeChecker() {
@@ -191,15 +245,8 @@ class TriggerKeyData {
             }
         }
 
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(this.Key)
-        if (isMenuBtnHotKey)
-            MyMenuWheel.OnSoftKey(this.Key, true)
-
-        if (this.Key == "f5" || this.Key == "f6" || this.Key == "delete" || this.Key == "numpaddot") {
-            if (MySoftData.MacroEditGui != "" && WinActive("ahk_id " MySoftData.MacroEditGui.Gui.Hwnd)) {
-                MySoftData.MacroEditGui.OnSoftKey(this.Key, true)
-            }
-        }
+        if (WindowHotkeyManager.IsManaged(this.Key) && WindowHotkeyManager.HandleKey(this.Key, true))
+            return
     }
 
     HandleSoftHotKeyUp() {
@@ -219,6 +266,9 @@ class TriggerKeyData {
         if (this.Key == "enter") {
             MyColorPanel.OnEnterUp(this.Key)
         }
+
+        if (WindowHotkeyManager.IsManaged(this.Key) && WindowHotkeyManager.HandleKey(this.Key, false))
+            return
     }
 }
 
@@ -272,6 +322,10 @@ class TriggerKeyInfo {
         return 500
     }
 
+    GetDblClickInterval() {
+        return this.GetHoldTime()
+    }
+
     GetWorkState() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1) {
@@ -313,8 +367,8 @@ class TriggerKeyInfo {
             if (triggerType == 3) {
                 WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
                 if (WorkerIndex != 0) {
-                    workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-                    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, this.tableIndex, this.itemIndex)
+                    MyWorkPool.BroadcastStop(this.tableIndex, this.itemIndex)
+                    tableItem.IsWorkIndexArr[this.itemIndex] := 0
                     return
                 }
                 KillTableItemMacro(tableItem, this.itemIndex)
@@ -323,7 +377,8 @@ class TriggerKeyInfo {
         else {
             if (triggerType == 3)
                 this.forbidTrigger := false
-            CloseMenuWheel()
+            if (triggerType != 4)
+                CloseMenuWheel()
         }
     }
 }

@@ -367,6 +367,17 @@ CompatMMPro(filePath) {
             curFix := true
         }
 
+        ;旧版使用IsRelative/IsGameView字段，新版统一为MouseMoveMode
+        if (!ObjHasOwnProp(Data, "MouseMoveMode")) {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(Data, "IsGameView") && Data.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(Data, "IsRelative") && Data.IsRelative == 1)
+                MouseMoveMode := 1
+            Data.MouseMoveMode := MouseMoveMode
+            curFix := true
+        }
+
         ;自动选择对应的窗口规则配置如果有的话
         if (!Data.ConfigArr.Length == 0) {
             curFix := CompatMMProConfig(Data) || curFix
@@ -414,6 +425,32 @@ CompatRun(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Run", "运行")
+
+    newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        curFix := false
+        if (!ObjHasOwnProp(Data, "RunMode")) {
+            Data.RunMode := 1
+            Data.SaveNameArr := ["Var1", "Var2", "Var3"]
+            curFix := true
+        } else if (ObjHasOwnProp(Data, "SaveName")) {
+            Data.SaveNameArr := [Data.SaveName, "Var2", "Var3"]
+            Data.DeleteProp("SaveName")
+            curFix := true
+        }
+
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+    }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
+
     return hasFix
 }
 
@@ -796,8 +833,16 @@ CompatMMProConfig(Data) {
         LastConfig.PosVarX := Data.PosVarX
         LastConfig.PosVarY := Data.PosVarY
         LastConfig.ActionType := Data.ActionType
-        LastConfig.IsRelative := Data.IsRelative
-        LastConfig.IsGameView := Data.IsGameView
+        if (ObjHasOwnProp(Data, "MouseMoveMode"))
+            LastConfig.MouseMoveMode := Data.MouseMoveMode
+        else {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(Data, "IsGameView") && Data.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(Data, "IsRelative") && Data.IsRelative == 1)
+                MouseMoveMode := 1
+            LastConfig.MouseMoveMode := MouseMoveMode
+        }
         LastConfig.Speed := Data.Speed
         LastConfig.Count := Data.Count
         LastConfig.Interval := Data.Interval
@@ -807,8 +852,16 @@ CompatMMProConfig(Data) {
         Data.PosVarX := ConfigData.PosVarX
         Data.PosVarY := ConfigData.PosVarY
         Data.ActionType := ConfigData.ActionType
-        Data.IsRelative := ConfigData.IsRelative
-        Data.IsGameView := ConfigData.IsGameView
+        if (ObjHasOwnProp(ConfigData, "MouseMoveMode"))
+            Data.MouseMoveMode := ConfigData.MouseMoveMode
+        else {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(ConfigData, "IsGameView") && ConfigData.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(ConfigData, "IsRelative") && ConfigData.IsRelative == 1)
+                MouseMoveMode := 1
+            Data.MouseMoveMode := MouseMoveMode
+        }
         Data.Speed := ConfigData.Speed
         Data.Count := ConfigData.Count
         Data.Interval := ConfigData.Interval

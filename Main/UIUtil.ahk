@@ -2,7 +2,7 @@
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv1.1.2"
+    MyGui.Title := "RMTv" RMT_VERSION
     MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
     isValidCollor := RegExMatch(MySoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MySoftData.SoftBGColor : "f0f0f0"
@@ -192,8 +192,8 @@ AddOperBtnUI() {
     posY += 40
 
     posY := 505
-    btnHelp := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("帮助"))
-    btnHelp.OnEvent("Click", (*) => Run(A_WorkingDir "\RMT帮助文档.html"))
+    btnHelp := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("RMT文档"))
+    btnHelp.OnEvent("Click", (*) => Run(A_WorkingDir "\index.html"))
 
     posY := 540
     MySoftData.BtnSave := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("应用并保存"))
@@ -202,10 +202,11 @@ AddOperBtnUI() {
     MyTriggerKeyGui.SureFocusCon := MySoftData.BtnSave
     MyTriggerStrGui.SureFocusCon := MySoftData.BtnSave
     MyReplaceKeyGui.SureFocusCon := MySoftData.BtnSave
+    MyUIMacroSettingGui.SureFocusCon := MySoftData.BtnSave
 }
 
 GetUIAddFunc(index) {
-    UIAddFuncArr := [LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold,
+    UIAddFuncArr := [LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold, LoadItemFold,
         AddToolUI, AddSettingUI, AddHelpUI, AddRewardUI, AddThankUI]
     return UIAddFuncArr[index]
 }
@@ -339,7 +340,7 @@ AddSettingUI(index) {
 
     posY += 30
     posX := MySoftData.TabPosX
-    con := AddTableControl("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("快捷键修改"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("快捷键修改"), tableItem)
     tableItem.AllGroup.Push(con)
 
     posY += 30
@@ -438,10 +439,10 @@ AddSettingUI(index) {
 
     posY += 40
     posX := MySoftData.TabPosX
-    con := AddTableControl("GroupBox", Format("x{} y{} w870 h140", posX + 10, posY), GetLang("数值选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("数值选项"), tableItem)
     tableItem.AllGroup.Push(con)
     posY += 30
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("按住时间浮动(%)："), tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("点击时间浮动(%)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MySoftData.HoldFloat, tableItem
     )
     MySoftData.HoldFloatCtrl := con
@@ -467,10 +468,22 @@ AddSettingUI(index) {
     tableItem)
     MySoftData.CoordYFloatCon := con
 
-    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(0~10)："), tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(-1~10)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.MutiThreadNum,
     tableItem)
     MySoftData.MutiThreadNumCtrl := con
+    Con := AddTableControl("Button", Format("x{} y{} h27", posX + 865, posY - 4), "?", tableItem)
+    Con.OnEvent("Click", OnClickMutiThreadHelpBtn)
+
+    ; posY += 40
+    ; AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("核心池大小(1~10)："), tableItem)
+    ; con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.DynamicCorePoolSize, tableItem)
+    ; MySoftData.DynamicCorePoolSizeCtrl := con
+
+    ; posY += 40
+    ; AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("弹性超时(秒)："), tableItem)
+    ; con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MySoftData.ElasticTimeout, tableItem)
+    ; MySoftData.ElasticTimeoutCtrl := con
 
     posY += 40
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件背景颜色："), tableItem)
@@ -479,40 +492,48 @@ AddSettingUI(index) {
     MySoftData.SoftBGColorCon := con
 
     posY += 40
-    con := AddTableControl("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("开关选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("开关选项"), tableItem)
     tableItem.AllGroup.Push(con)
-    posY += 30
 
+    posY += 30
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("开机自启"), tableItem)
     MySoftData.BootStartCtrl := con
     MySoftData.BootStartCtrl.Value := MySoftData.IsBootStart
     MySoftData.BootStartCtrl.OnEvent("Click", OnBootStartChanged)
 
-    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 315, posY), "", tableItem)
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("管理员启动"), tableItem)
+    MySoftData.AdminStartCtrl := con
+    MySoftData.AdminStartCtrl.Value := MySoftData.IsAdminStart
+    MySoftData.AdminStartCtrl.OnEvent("Click", OnAdminStartChanged)
+
+    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "", tableItem)
     MySoftData.CMDTipCtrl := con
     MySoftData.CMDTipCtrl.Value := MySoftData.CMDTip
-    con := AddTableControl("Button", Format("x{} y{}", posX + 315 + 15, posY - 5), GetLang("指令显示"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{}", posX + 635 + 15, posY - 5), GetLang("指令显示"), tableItem)
     con.OnEvent("Click", (*) => OnEditCMDTipGui())
-
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("录制选项"), tableItem)
-    con.OnEvent("Click", OnClickToolRecordSettingBtn)
 
     posY += 40
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("无变量提醒"), tableItem)
     MySoftData.NoVariableTipCtrl := con
     MySoftData.NoVariableTipCtrl.Value := MySoftData.NoVariableTip
 
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("菜单轮位置固定"), tableItem)
-    MySoftData.FixedMenuWheelCtrl := con
-    MySoftData.FixedMenuWheelCtrl.Value := MySoftData.FixedMenuWheel
-    MySoftData.FixedMenuWheelCtrl.OnEvent("Click", OnMenuWheelPosChanged)
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("模态子窗口"), tableItem)
+    MySoftData.ModalSubGuiCtrl := con
+    MySoftData.ModalSubGuiCtrl.Value := MySoftData.IsModalSubGui
 
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("录制选项"), tableItem)
+    con.OnEvent("Click", OnClickToolRecordSettingBtn)
+
+    posY += 40
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("分割线"), tableItem)
     MySoftData.SplitLineCtrl := con
     MySoftData.SplitLineCtrl.Value := MySoftData.ShowSplitLine
 
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("轮盘选项"), tableItem)
+    con.OnEvent("Click", (*) => MenuWheelGlobalSettingGui.ShowGui())
+
     posY += 40
-    con := AddTableControl("GroupBox", Format("x{} y{} w870 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
     ;语言/Lang： 如果外国人打开中文的话，或者中国人打开英语，方便都能找到调整的选项
@@ -608,7 +629,7 @@ AddHelpUI(index) {
 
     posY += 30
     posX := MySoftData.TabPosX + 15
-    LinkStr := A_WorkingDir "\RMT帮助文档.html"
+    LinkStr := A_WorkingDir "\index.html"
     AddTableControl("Text", Format("x{} y{} w{} h{}", posX, posY, 130, 30), GetLang("操作说明文档："), tableItem).SetFont((
         Format("S{} W{} Q{}", 12, 600, 0)))
     AddTableControl("Link", Format("x{} y{} w{} h{}", posX + 130, posY, 500, 30), Format('<a href="{}">{}</a>', LinkStr,
@@ -726,7 +747,7 @@ CustomTrayMenu() {
     tipStr := MySoftData.MyGui.Title
     if (A_IsAdmin)
         tipStr .= "`n" GetLang("管理员权限")
-    
+
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Delete("&Pause Script")

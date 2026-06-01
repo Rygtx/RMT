@@ -84,7 +84,9 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "文本处理", OnTextOps,
         "数组", OnArray,
         "输入", OnInput,
-        "文件读写", OnFileIO
+        "文件读写", OnFileIO,
+        "窗口管理", OnWindowManage,
+        "按键检测", OnKeyCheck
     )
 
     cmdArr := SplitMacro(macro)
@@ -142,15 +144,39 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-
-    isMp3 := RegExMatch(Data.RunPath, ".mp3$")
-    if (isMp3 && Data.BackPlay) {
-        playAudioCmd := Format('wscript.exe "{}" "{}"', VBSPath, Data.RunPath)
-        Run(playAudioCmd)
-        return
-    }
     processedPath := GetReplaceVarText(tableItem, index, Data.RunPath)
-    Run(processedPath)
+
+    if (Data.RunMode == 1) {
+        Run(processedPath)
+
+    } else if (Data.RunMode == 2) {
+        exitCode := RunWait(processedPath)
+        MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
+
+    } else if (Data.RunMode == 3) {
+        shell := ComObject("WScript.Shell")
+        exec := shell.Exec(processedPath)
+
+        output := ""
+        err := ""
+
+        while (!exec.StdOut.AtEndOfStream || !exec.StdErr.AtEndOfStream) {
+
+            if !exec.StdOut.AtEndOfStream
+                output .= exec.StdOut.Read(1024)
+
+            if !exec.StdErr.AtEndOfStream
+                err .= exec.StdErr.Read(1024)
+
+            Sleep(10)
+        }
+
+        MySetGlobalVariable(
+            [Data.SaveNameArr[2], Data.SaveNameArr[3], Data.SaveNameArr[1]],
+            [output, err, exec.ExitCode],
+            false
+        )
+    }
 }
 
 OnCompare(tableItem, cmd, index) {
@@ -237,7 +263,8 @@ OnMMPro(tableItem, cmd, index) {
     Data := GetMacroCMDData(paramArr[1])
 
     LastSumTime := 0
-    Data.Count := Data.IsGameView ? data.Count : 1
+    MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
+    Data.Count := MoveMode == 2 ? Data.Count : 1
     loop Data.Count {
         WaitIfPaused(tableItem, index)
 
@@ -255,6 +282,7 @@ OnMMProOnce(tableItem, index, Data) {
     SendMode("Event")
     CoordMode("Mouse", "Screen")
     Speed := 100 - Data.Speed
+    MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
 
     hasPosVarX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosVarX)
     hasPosVarY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosVarY)
@@ -265,25 +293,46 @@ OnMMProOnce(tableItem, index, Data) {
     PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
     ClickCount := Data.ActionType == 2 ? 1 : 2
-    if (Data.IsGameView) {
-        MOUSEEVENTF_MOVE := 0x0001
-        DllCall("mouse_event", "UInt", MOUSEEVENTF_MOVE, "UInt", PosX, "UInt", PosY, "UInt", 0, "UInt", 0)
+    if (MoveMode == 2) {
+        SendInput("{Click " Round(PosX) " " Round(PosY) " 0 Relative}")
     }
-    else if (Data.ActionType == 1) {
-        if (Data.IsRelative) {
+    else if (MoveMode == 1) {
+        IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
+        if (IsHumanMouse && Data.ActionType == 1) {
+            CoordMode("Mouse", "Screen")
+            MouseGetPos(&curX, &curY)
+            hm := HumanMouse.GetInstance()
+            hm.SetParams({
+                IsEnabled: true,
+                Speed: Speed
+            })
+            hm.Move(curX + PosX, curY + PosY)
+        }
+        else if (Data.ActionType == 1) {
             MouseMove(PosX, PosY, Speed, "R")
         }
-        else
+        else if (Data.ActionType == 2 || Data.ActionType == 3) {
+            SetDefaultMouseSpeed(Speed)
+            Click(Format("{} {} {} Relative"), PosX, PosY, ClickCount)
+        }
+    }
+    else if (Data.ActionType == 1) {
+        IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
+        if (IsHumanMouse) {
+            hm := HumanMouse.GetInstance()
+            hm.SetParams({
+                IsEnabled: true,
+                Speed: Speed
+            })
+            hm.Move(PosX, PosY)
+        }
+        else {
             MouseMove(PosX, PosY, Speed)
+        }
     }
     else if (Data.ActionType == 2 || Data.ActionType == 3) {
         SetDefaultMouseSpeed(Speed)
-        if (Data.IsRelative) {
-            Click(Format("{} {} {} Relative"), PosX, PosY, ClickCount)
-        }
-        else {
-            Click(Format("{} {} {}"), PosX, PosY, ClickCount)
-        }
+        Click(Format("{} {} {}"), PosX, PosY, ClickCount)
     }
 }
 
@@ -293,7 +342,12 @@ OnOutput(tableItem, cmd, index) {
     Content := GetReplaceVarText(tableItem, index, Data.Text)
 
     if (Data.OutputType == "发送内容") {     ;send
+        ; SendText(Content)
+        savedMode := A_SendMode
+        SendMode("Input")
+        SetKeyDelay(10, 10)
         SendText(Content)
+        SendMode(savedMode)
     }
     else if (Data.OutputType == "粘贴内容") {    ;粘贴文本
         SetClipboard(Content)
@@ -714,7 +768,8 @@ SendBGKey(Data, tableItem, index) {
 
     if (Data.Type == 2 || Data.Type == 3) {
         for hwnd in hwndList {
-            for key in Data.KeyArr {
+            loop Data.KeyArr.Length {
+                key := Data.KeyArr[Data.KeyArr.Length - A_Index + 1]
                 SendBGKeyState(hwnd, key, 0, tableItem, index)
             }
         }
@@ -765,13 +820,16 @@ OnMouseMove(tableItem, cmd, index) {
     PosX := Integer(paramArr[2])
     PosY := Integer(paramArr[3])
     Speed := paramArr.Length >= 4 ? 100 - Integer(paramArr[4]) : 0
-    IsRelative := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
+    MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
 
     PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
     SendMode("Event")
     CoordMode("Mouse", "Screen")
-    if (IsRelative) {
+    if (MoveMode == 2) {
+        SendInput("{Click " Round(PosX) " " Round(PosY) " 0 Relative}")
+    }
+    else if (MoveMode == 1) {
         MouseMove(PosX, PosY, Speed, "R")
     }
     else {
@@ -789,18 +847,27 @@ OnRMTCMD(tableItem, cmd, index) {
         BlockInput true
     }
     else {
+        cmd := StrReplace(cmd, "_", "⫶")
         MyExcuteRMTCMDAction(cmd)
     }
 }
 
 OnInterval(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    isVar := !IsNumber(paramArr[2])
-    interval := isVar ? 0 : Integer(paramArr[2])
-    if (isVar) {
+    TimeArr := StrSplit(paramArr[2], "~")
+    isRandom := TimeArr.Length > 1
+    if (!isRandom) {
         hasInterval := TryGetTabVarValue(&interval, tableItem, index, paramArr[2])
         if (!hasInterval)
             return
+    }
+    else {
+        hasInterval1 := TryGetTabVarValue(&interval1, tableItem, index, TimeArr[1])
+        hasInterval2 := TryGetTabVarValue(&interval2, tableItem, index, TimeArr[2])
+        if (!hasInterval1 || !hasInterval2)
+            return
+    
+        interval := Random(interval1, interval2)
     }
 
     FloatInterval := GetFloatTime(interval, MySoftData.IntervalFloat)
@@ -822,7 +889,7 @@ OnPressKey(tableItem, cmd, index) {
     isJoyKey := InStr(paramArr[2], "Joy")
     isJoyAxis := InStr(paramArr[2], "JoyAxis")
     isJoyDpad := InStr(paramArr[2], "JoyDpad")
-    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey)
+    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
     keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
     action := actionMap[Integer(tableItem.ModeArr[index])]
     action := isJoyKey ? SendJoyBtnKey : action
@@ -852,7 +919,7 @@ OnPressKey(tableItem, cmd, index) {
 OnReplaceDownKey(tableItem, info, index, *) {
     infos := StrSplit(info, ",")
     mode := Integer(tableItem.ModeArr[index])
-    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey)
+    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
     action := actionMap[mode]
     loop infos.Length {
         assistKey := infos[A_Index]
@@ -864,7 +931,7 @@ OnReplaceDownKey(tableItem, info, index, *) {
 OnReplaceUpKey(tableItem, info, index, *) {
     infos := StrSplit(info, ",")
     mode := Integer(tableItem.ModeArr[index])
-    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey)
+    actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
     action := actionMap[mode]
     loop infos.Length {
         assistKey := infos[A_Index]
@@ -885,7 +952,7 @@ OnToolTextFilterSelectImage(*) {
     path := FileSelect(, , GetLang("选择图片"))
     if (path == "")
         return
-    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? MyChineseOcr : MyEnglishOcr
+    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_file(path)
     ToolCheckInfo.ToolTextCtrl.Value := result
     SetClipboard(result)
@@ -896,24 +963,34 @@ OnClearToolText(*) {
 }
 
 OnBootStartChanged(*) {
-    global MySoftData ; 访问全局变量
+    global MySoftData
     MySoftData.IsBootStart := MySoftData.BootStartCtrl.Value
     regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
     softPath := A_ScriptFullPath
-    params := " -min"
-    if (MySoftData.IsBootStart) {
-        RegWrite(softPath params, "REG_SZ", regPath, "RMT")
-    }
-    else {
+    if (!MySoftData.IsBootStart) {
         RegDelete(regPath, "RMT")
     }
-    IniWrite(MySoftData.BootStartCtrl.Value, IniFile, IniSection, "IsBootStart")
+    else if (MySoftData.IsAdminStart) {
+        RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
+    }
+    else {
+        RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")
+    }
+    IniWrite(MySoftData.IsBootStart, IniFile, IniSection, "IsBootStart")
 }
 
-OnMenuWheelPosChanged(*) {
-    global MySoftData ; 访问全局变量
-    MySoftData.FixedMenuWheel := !MySoftData.FixedMenuWheel
-    IniWrite(MySoftData.FixedMenuWheel, IniFile, IniSection, "FixedMenuWheel")
+OnAdminStartChanged(*) {
+    global MySoftData
+    MySoftData.IsAdminStart := MySoftData.AdminStartCtrl.Value
+    IniWrite(MySoftData.IsAdminStart, IniFile, IniSection, "IsAdminStart")
+    if (MySoftData.IsBootStart) {
+        regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
+        softPath := A_ScriptFullPath
+        if (MySoftData.IsAdminStart)
+            RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
+        else
+            RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")
+    }
 }
 
 OnTextOps(tableItem, cmd, index) {
@@ -933,6 +1010,8 @@ OnTextOps(tableItem, cmd, index) {
             TextOpsUpOrLow(Data, tableItem, index)
         case "文本统计":
             TextOpsStatistics(Data, tableItem, index)
+        case "文本拼接":
+            TextOpsConcat(Data, tableItem, index)
     }
 }
 
@@ -998,10 +1077,12 @@ OnFileIO(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
 
-    if (!FileExist(Data.FilePath)) {
-        MsgBox(GetLang("{}文件不存在"), Data.FilePath)
+    FilePath := GetReplaceVarText(tableItem, index, Data.FilePath)
+    isExcel := Data.OperType == "读取Excel" || Data.OperType == "写入Excel"
+    filter := isExcel ? "Excel Files (*.xlsx)" : "Text Files (*.txt)"
+    if (!ValidateCmdPath(&Data, "FilePath", GetLang("选择文件"), filter, tableItem, index))
         return
-    }
+    FilePath := Data.FilePath
 
     switch Data.OperType {
         case "读取Excel":
@@ -1013,4 +1094,89 @@ OnFileIO(tableItem, cmd, index) {
         case "写入文本文件":
             WriteTextFile(Data, tableItem, index)
     }
+}
+
+OnWindowManage(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    searchValue := GetReplaceVarText(tableItem, index, Data.SearchValue)
+    winTitle := GetParamsWinInfoStr(searchValue)
+    if (winTitle == "")
+        return
+
+    try {
+        switch Data.ActionType {
+            case "激活窗口":
+                WinActivate(winTitle)
+            case "最大化窗口":
+                WinMaximize(winTitle)
+            case "最小化窗口":
+                WinMinimize(winTitle)
+            case "还原窗口":
+                WinRestore(winTitle)
+            case "关闭窗口":
+                WinClose(winTitle)
+            case "移动窗口":
+                hasPosX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosX)
+                hasPosY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosY)
+                if (hasPosX && hasPosY) {
+                    WinMove(Integer(PosX), Integer(PosY), , , winTitle)
+                }
+            case "调整大小":
+                hasWidth := TryGetTabVarValue(&Width, tableItem, index, Data.Width)
+                hasHeight := TryGetTabVarValue(&Height, tableItem, index, Data.Height)
+                if (hasWidth && hasHeight) {
+                    WinMove(, , Integer(Width), Integer(Height), winTitle)
+                }
+            case "置顶窗口":
+                WinSetAlwaysOnTop(1, winTitle)
+            case "取消置顶":
+                WinSetAlwaysOnTop(0, winTitle)
+            case "修改标题":
+                newTitle := GetReplaceVarText(tableItem, index, Data.NewTitle)
+                WinSetTitle(newTitle, winTitle)
+        }
+    }
+}
+
+OnKeyCheck(tableItem, cmd, index) {
+    paramArr := StrSplit(cmd, "_")
+    Data := GetMacroCMDData(paramArr[1])
+
+    keyArr := Data.KeyArr
+    if (keyArr.Length == 0)
+        return
+
+    checkType := Data.CheckType
+    stateType := Data.StateType
+    varName := Data.VarName
+    trueValue := 1
+    falseValue := 0
+
+    stateMode := stateType == 1 ? "P" : ""
+    isAllPressed := true
+    isAnyPressed := false
+
+    for index, key in keyArr {
+        isPressed := GetKeyState(key, stateMode)
+        if (isPressed) {
+            isAnyPressed := true
+            if (checkType == 2)
+                break
+        } else {
+            isAllPressed := false
+            if (checkType == 1)
+                break
+        }
+    }
+
+    result := ""
+    if (checkType == 1) {
+        result := isAllPressed ? trueValue : falseValue
+    } else {
+        result := isAnyPressed ? trueValue : falseValue
+    }
+
+    MySetGlobalVariable([varName], [result], false)
 }
