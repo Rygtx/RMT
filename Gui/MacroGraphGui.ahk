@@ -3,6 +3,11 @@
 ; ============================================================================
 ; MacroGraphGui —— 蓝图式（节点化）宏指令编辑器
 ;
+; 说明：节点数据对象 MacroGraphNode 已在 Main\DataClass.Ahk 中定义
+;       （字段 SerialStr / CurCMD / NextNodeArr）。本编辑器中每个节点仅持有
+;       完整指令字符串 CurCMD，其余信息（类型/时间/按键/点击时长…）全部通过
+;       解析 CurCMD 实时获得（见 _Parse）。
+;
 ; 交互：
 ;   - 表格行"编辑"按钮右键进入（左键仍为旧的顺序编辑器）。
 ;   - 右上角"保存"按钮：保存并关闭界面。
@@ -27,18 +32,19 @@ class MacroGraphGui {
         this.OwnerHwnd := ""
         this.ui := ""
         this.graph := ""
-        this.cmdNodes := Map()        ; nodeId -> 解析后的指令对象 { type, raw, ... }
+        this.cmdNodes := Map()        ; nodeId -> MacroGraphNode 实例（仅持有 CurCMD）
         this.order := []              ; 指令节点 id 列表（存在性，不决定连线）
-        this.pos := Map()             ; nodeId(含Start/End) -> { x, y } 逻辑坐标(不含画布偏移)
+        this.pos := Map()             ; nodeId(含Start) -> { x, y } 逻辑坐标(不含画布偏移)
         this.links := []              ; 连线 [{ from, to }]，跨重建保留
         this.seq := 0
         this.startId := "Start"
-        this.endId := "End"
         this._readyTimer := this._EnableWhenReady.Bind(this)
         this._lastClickId := ""
         this._lastClickTime := 0
         this._oldUi := ""             ; 双缓冲：重建时暂存旧窗口，待新窗口就绪后再关闭
         this.injected := Map()        ; 运行时注入(简要)的节点 id；这类节点编辑后需重建为完整内联节点
+        this.startSerial := ""        ; 本图开始节点(MacroGraphStartNode)的 SerialStr；保存后回写 MacroArr 即此值
+        this._sessionId := 0          ; 每次打开自增；用于忽略旧窗口迟到的异步关闭事件，避免覆盖写空
 
         ; 若梦兔全部指令
         this.CmdList := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输入", "输出", "循环", "宏操作",
@@ -52,29 +58,38 @@ class MacroGraphGui {
 
     ; ----------------------------------------------------------------- 入口
 
-    ShowGui(macroStr) {
+    ShowGui(macroStr, key := "") {
+        this._sessionId += 1
         this._CloseUI()
+        this.startSerial := ""
         this.cmdNodes := Map()
         this.order := []
         this.pos := Map()
         this.links := []
         this.seq := 0
 
+        ; 优先从已保存的图结构复原：macroStr 此时即开始节点(MacroGraphStartNode)的 SerialStr。
+        ; 复原成功直接显示；否则按线性宏铺开（首次打开或旧的线性宏）。
+        if (this._LoadGraph(macroStr)) {
+            this._Render()
+            return
+        }
+
+        ; 线性铺开（首次/旧数据）：开始节点 + 各指令节点依次串联，无结束节点
+        this.startSerial := GetCMDSerialStr("图形开始节点")
         baseY := 220, step := 240, x := 60
         this.pos[this.startId] := { x: x, y: baseY }
         prevId := this.startId
         x += step
         for cmd in SplitMacro(macroStr) {
             id := this._NewId()
-            this.cmdNodes[id] := this._ParseCmd(cmd)
+            this.cmdNodes[id] := this._MakeNode(cmd)
             this.order.Push(id)
             this.pos[id] := { x: x, y: baseY }
             this.links.Push({ from: prevId, to: id })
             prevId := id
             x += step
         }
-        this.pos[this.endId] := { x: x, y: baseY }
-        this.links.Push({ from: prevId, to: this.endId })
         this._Render()
     }
 
@@ -103,7 +118,6 @@ class MacroGraphGui {
         this._BuildBaseNode(this.startId, GetLang("开始"), "Input")
         for id in this.order
             this._BuildCmdNode(id, this.cmdNodes[id])
-        this._BuildBaseNode(this.endId, GetLang("结束"), "Output")
 
         ; 连线（来自 links，跨重建保留）
         for link in this.links {
@@ -111,8 +125,8 @@ class MacroGraphGui {
                 this.graph.AddConnection(link.from, link.to)
         }
 
-        ; 右键菜单必须放在所有画布内容子元素之后构建，
-        ; 否则 ContextMenu 属性元素会夹在 Children 内容之间，导致 WPF 报 Children 重复设置
+        ; 右键菜单（_BuildContextMenu 内部会把 ContextMenu 属性元素移到画布子元素最前，
+        ; 保证属性元素先于内容，避免 WPF 报 Canvas Children 重复设置）
         this._BuildContextMenu()
 
         ; ---- 宿主 ----
@@ -123,14 +137,16 @@ class MacroGraphGui {
         ; 为所有连线补绑点击事件（XNodeGraph 仅给运行时新增连线绑定，构建期连线需手动补）
         for conn in this.graph.connections
             this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(this.graph, "OnPathClicked", conn.PathId))
-        ; Start/End 也跟踪拖动位置
+        ; 用户新建连线后，对新连线加粗并补绑点击（便于单击选中）
+        this.ui.OnEvent(this.graph.id, "ConnectPorts", (*) => this._OnConnectionsChanged())
+        ; Start 跟踪拖动位置
         this.ui.OnEvent("Node_" this.startId, "DragMove", this._OnNodeDrag.Bind(this, this.startId))
-        this.ui.OnEvent("Node_" this.endId, "DragMove", this._OnNodeDrag.Bind(this, this.endId))
         for i, name in this.CmdList
             this.ui.OnEvent("MG_Add_" i, "Click", this.OnAddCmd.Bind(this, name))
         this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
         this.ui.OnEvent("Window", "KeyDown", this._OnKeyDown.Bind(this))
-        this.ui.OnEvent("Window", "Closed", (*) => this.OnWindowClosed())
+        sid := this._sessionId
+        this.ui.OnEvent("Window", "Closed", (*) => this.OnWindowClosed(sid))
 
         this.ui.Show()
         this._oldUi := oldUi
@@ -138,7 +154,7 @@ class MacroGraphGui {
     }
 
     _NodeExists(id) {
-        return id == this.startId || id == this.endId || this.cmdNodes.Has(id)
+        return id == this.startId || this.cmdNodes.Has(id)
     }
 
     _EnableWhenReady() {
@@ -146,6 +162,9 @@ class MacroGraphGui {
             return
         SetTimer(this._readyTimer, 0)
         this.graph.EnableDrag(this.ui, true)
+        this._ThickenConnections()    ; 加粗连线，增大命中区域便于单击选中
+        ; 启用画布"框选"模式：左键在空白处拖拽即可框选多个节点（C# 引擎已实现，默认 Pan 不生效）
+        this.ui.Update(this.graph.id, "SetCanvasMode", "Select")
         ; 将窗口激活置前（避免显示在主界面下方）
         try {
             WinShow("ahk_id " this.ui.wpfHwnd)
@@ -159,15 +178,20 @@ class MacroGraphGui {
         }
     }
 
-    ; 保存并关闭
+    ; 保存并关闭：先持久化图结构，再回写线性宏（从第一个节点开始）
     _OnSave() {
+        this._SaveGraph()
         this._Apply()
         if (this.ui != "")
             this.ui.Update("Window", "Close", "")
     }
 
-    OnWindowClosed(*) {
+    OnWindowClosed(sid := -1, *) {
+        ; 仅处理当前会话窗口的关闭；旧窗口迟到的异步关闭事件直接忽略，避免覆盖写空
+        if (sid != this._sessionId)
+            return
         SetTimer(this._readyTimer, 0)
+        this._SaveGraph()
         this._Apply()
         this.ui := ""
         this.graph := ""
@@ -190,27 +214,48 @@ class MacroGraphGui {
     ; ----------------------------------------------------------------- 节点事件注册
 
     _RegisterNodeEvents() {
-        for id, obj in this.cmdNodes {
-            ; 双击节点打开完整编辑器（节点是 Border，无原生双击，用 SelectNode 计时判定）
-            this.ui.OnEvent("Node_" id, "SelectNode", this._OnNodeClick.Bind(this, id))
-            this.ui.OnEvent("Node_" id, "CtrlSelectNode", this._OnNodeClick.Bind(this, id))
-            this.ui.OnEvent("Node_" id, "DragMove", this._OnNodeDrag.Bind(this, id))
+        for id, node in this.cmdNodes
+            this._RegisterMyNodeEvents(id, node, false)
+    }
 
-            if (obj.type == GetLang("间隔")) {
-                this.ui.Track("Time_" id)
-                this.ui.OnEvent("Time_" id, "LostFocus", this._OnField.Bind(this, id, "time"))
-            }
-            else if (obj.type == GetLang("按键")) {
-                this.ui.Track("TypeCmb_" id)
-                this.ui.Track("Hold_" id)
-                this.ui.Track("Count_" id)
-                this.ui.Track("Inter_" id)
-                this.ui.OnEvent("TypeCmb_" id, "SelectionChanged", this._OnKeyType.Bind(this, id))
-                this.ui.OnEvent("Hold_" id, "LostFocus", this._OnField.Bind(this, id, "hold"))
-                this.ui.OnEvent("Count_" id, "LostFocus", this._OnField.Bind(this, id, "count"))
-                this.ui.OnEvent("Inter_" id, "LostFocus", this._OnField.Bind(this, id, "inter"))
-            }
+    ; 注册单个节点的"本类"事件（双击编辑 + 内联字段）。runtime=true 时同时向引擎补绑/补采集
+    ; （运行时注入的控件不在启动期的事件/采集清单里，需用 BindEvent/Track 命令动态补上）。
+    _RegisterMyNodeEvents(id, node, runtime := false) {
+        ; 双击节点打开完整编辑器（节点是 Border，无原生双击，用 SelectNode 计时判定）
+        ; SelectNode/CtrlSelectNode/DragMove 由引擎 EnableDrag 主动下发，仅需本地 OnEvent 接收
+        this.ui.OnEvent("Node_" id, "SelectNode", this._OnNodeClick.Bind(this, id))
+        this.ui.OnEvent("Node_" id, "CtrlSelectNode", this._OnNodeClick.Bind(this, id))
+        this.ui.OnEvent("Node_" id, "DragMove", this._OnNodeDrag.Bind(this, id))
+
+        d := this._Parse(node.CurCMD)
+        if (d.type == GetLang("间隔")) {
+            this._TrackCtrl("Time_" id, runtime)
+            this._BindCtrl("Time_" id, "LostFocus", this._OnField.Bind(this, id, "time"), runtime)
         }
+        else if (d.type == GetLang("按键")) {
+            this._TrackCtrl("TypeCmb_" id, runtime)
+            this._TrackCtrl("Hold_" id, runtime)
+            this._TrackCtrl("Count_" id, runtime)
+            this._TrackCtrl("Inter_" id, runtime)
+            this._BindCtrl("TypeCmb_" id, "SelectionChanged", this._OnKeyType.Bind(this, id), runtime)
+            this._BindCtrl("Hold_" id, "LostFocus", this._OnField.Bind(this, id, "hold"), runtime)
+            this._BindCtrl("Count_" id, "LostFocus", this._OnField.Bind(this, id, "count"), runtime)
+            this._BindCtrl("Inter_" id, "LostFocus", this._OnField.Bind(this, id, "inter"), runtime)
+        }
+    }
+
+    ; 采集控件值：本地登记（启动期清单用）；运行时再用 Track 命令通知引擎纳入状态采集
+    _TrackCtrl(name, runtime) {
+        this.ui.Track(name)
+        if (runtime)
+            this.ui.Update(name, "Track", "")
+    }
+
+    ; 绑定控件事件：本地登记回调；运行时再用 BindEvent 命令让引擎为该控件挂上真实 WPF 事件
+    _BindCtrl(name, evt, cb, runtime) {
+        this.ui.OnEvent(name, evt, cb)
+        if (runtime)
+            this.ui.Update(name, "BindEvent", evt)
     }
 
     ; 拖动节点时记录其逻辑坐标（DragCoords 为画布坐标，需减去画布偏移）
@@ -247,7 +292,7 @@ class MacroGraphGui {
         for id in g.selectedNodes
             ids.Push(id)
         for id in ids {
-            if (id == this.startId || id == this.endId || !this.cmdNodes.Has(id))
+            if (id == this.startId || !this.cmdNodes.Has(id))
                 continue
             g.ui.Update("Node_" id, "Visibility", "Collapsed")
             g.ui.Update("Port_In_" id, "Visibility", "Collapsed")
@@ -292,35 +337,91 @@ class MacroGraphGui {
 
     _BuildContextMenu() {
         ; MaxHeight 触发主题 ContextMenu 模板内置的 ScrollViewer 滚动；MinWidth 加宽弹窗
-        cm := this.graph.canvas.Add("FrameworkElement.ContextMenu").Add("ContextMenu").MinWidth("220").MaxHeight("420").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        canvas := this.graph.canvas
+        cmEl := canvas.Add("FrameworkElement.ContextMenu")
+        cm := cmEl.Add("ContextMenu").MinWidth("220").MaxHeight("420").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
         for i, name in this.CmdList
             cm.Add("MenuItem").Name("MG_Add_" i).Header(name)
+        ; 将 ContextMenu 属性元素移到画布子元素最前，保证"属性元素在内容子元素之前"。
+        ; 否则该属性元素会夹在 Canvas 的隐式 Children（Rectangle 背景、各节点…）中间，
+        ; 切断 Children 集合，导致 WPF 报 XamlDuplicateMemberException：已对 Canvas 设置 Children 属性。
+        ; 注意：不能假设 cmEl 一定是最后一个子元素——按对象身份定位其真实位置后再移到最前。
+        ch := canvas._Children
+        idx := 0
+        for i, c in ch {
+            if (c == cmEl) {
+                idx := i
+                break
+            }
+        }
+        if (idx > 1) {
+            ch.RemoveAt(idx)
+            ch.InsertAt(1, cmEl)
+        }
     }
 
     OnAddCmd(cmdName, *) {
         if (this.ui == "" || !this.ui.wpfHwnd || this.graph == "")
             return
-        ; 运行时注入新节点（不重建窗口，避免闪烁）；放在右键位置，不自动连线
+        ; 在右键位置运行时注入完整内联节点（不重建窗口，避免闪烁）；不自动连线
         this._CaptureLinks()
+        this._SyncPositionsFromGraph()
         id := this._NewId()
-        this.cmdNodes[id] := this._DefaultObj(cmdName)
+        node := this._DefaultObj(cmdName)
+        this.cmdNodes[id] := node
         this.order.Push(id)
         ox := this.graph.HasProp("lastRightClickX") ? this.graph.lastRightClickX - this.graph.offsetX : 200
         oy := this.graph.HasProp("lastRightClickY") ? this.graph.lastRightClickY - this.graph.offsetY : 200
         this.pos[id] := { x: ox, y: oy }
-        this.injected[id] := true
-        this._InjectSummaryNode(id, this.cmdNodes[id])
+        this._InjectFullNode(id, node)
+        this._Apply()
+    }
+
+    ; 运行时注入一个完整可内联编辑的节点（不重建窗口）：
+    ;   片段 XAML → AddXamlItem；登记 g.nodes；补绑引擎拖动/选中事件 + 本类事件；启用拖动。
+    _InjectFullNode(id, node) {
+        g := this.graph
+        this._NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml)
+        g.ui.Update(g.id, "AddXamlItem", nodeXaml)
+        g.ui.Update(g.id, "AddXamlItem", portInXaml)
+        g.ui.Update(g.id, "AddXamlItem", portOutXaml)
+
+        p := this.pos[id]
+        x := p.x + g.offsetX
+        y := p.y + g.offsetY
+        g.nodes.Push({ Id: id, Title: this._Parse(node.CurCMD).type, X: x, Y: y, W: 160, H: 60, Type: "Process" })
+
+        ; 引擎拖动/选中处理（移动端口与连线、整体拖拽、高亮）
+        g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))
+        g.ui.OnEvent("Node_" id, "SelectNode", ObjBindMethod(g, "OnSelectNode", id))
+        g.ui.OnEvent("Node_" id, "CtrlSelectNode", ObjBindMethod(g, "OnCtrlSelectNode", id))
+        ; 本类事件（双击编辑 + 内联字段），runtime=true 同步向引擎补绑事件与采集
+        this._RegisterMyNodeEvents(id, node, true)
+        ; 启用该节点拖动（稍后，待元素就绪）
+        SetTimer(() => g.ui.Update("Node_" id, "EnableDrag", "grid=20"), -150)
+    }
+
+    ; 从引擎节点(g.nodes，含框选整体拖拽后更新的坐标)同步回 this.pos（逻辑坐标，去画布偏移）
+    _SyncPositionsFromGraph() {
+        if (this.graph == "")
+            return
+        ox := this.graph.offsetX, oy := this.graph.offsetY
+        for n in this.graph.nodes {
+            if (this.pos.Has(n.Id))
+                this.pos[n.Id] := { x: n.X - ox, y: n.Y - oy }
+        }
     }
 
     ; 运行时注入一个简要节点（标题 + 摘要 + 提示），双击可进完整编辑器
-    _InjectSummaryNode(id, obj) {
+    _InjectSummaryNode(id, node) {
         g := this.graph
         p := this.pos[id]
         x := p.x + g.offsetX
         y := p.y + g.offsetY
+        d := this._Parse(node.CurCMD)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        title := this._XmlEsc(obj.type)
-        detail := this._XmlEsc(this._Summary(obj))
+        title := this._XmlEsc(d.type)
+        detail := this._XmlEsc(this._Summary(d))
         tip := this._XmlEsc(GetLang("双击编辑"))
 
         nodeXaml := '<Border ' ns ' x:Name="Node_' id '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="160" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#3E3E50" CornerRadius="5,5,0,0" Cursor="SizeAll"><TextBlock Text="' title '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' detail '" Foreground="#DDDDDD" FontSize="11" TextWrapping="Wrap"/><TextBlock Text="' tip '" Foreground="#888888" FontSize="9" Margin="0,4,0,0"/></StackPanel></Grid></Border>'
@@ -331,7 +432,7 @@ class MacroGraphGui {
         portOut := '<Ellipse ' ns ' x:Name="Port_Out_' id '" Width="10" Height="10" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x + 155) '" Canvas.Top="' (y + 30) '" IsHitTestVisible="True" Cursor="Hand"/>'
         g.ui.Update(g.id, "AddXamlItem", portOut)
 
-        g.nodes.Push({ Id: id, Title: obj.type, X: x, Y: y, W: 160, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: id, Title: d.type, X: x, Y: y, W: 160, H: 60, Type: "Process" })
 
         ; XNodeGraph 的拖动/选中处理（移动端口与连线、高亮）
         g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))
@@ -344,16 +445,16 @@ class MacroGraphGui {
         SetTimer(() => g.ui.Update("Node_" id, "EnableDrag", "grid=20"), -150)
     }
 
-    _Summary(obj) {
-        if (obj.type == GetLang("间隔"))
-            return obj.time " ms"
-        if (obj.type == GetLang("按键")) {
-            s := obj.key " " obj.ktype
-            if (obj.ktype == GetLang("点击") && obj.count != "1" && obj.count != 1)
-                s .= "  x" obj.count
+    _Summary(d) {
+        if (d.type == GetLang("间隔"))
+            return d.time " ms"
+        if (d.type == GetLang("按键")) {
+            s := d.key " " d.ktype
+            if (d.ktype == GetLang("点击") && d.count != "1" && d.count != 1)
+                s .= "  x" d.count
             return s
         }
-        return obj.raw
+        return d.raw
     }
 
     _XmlEsc(s) {
@@ -374,13 +475,28 @@ class MacroGraphGui {
         this.links := newLinks
     }
 
+    ; 用户新建连线后：加粗连线并补绑点击事件
+    _OnConnectionsChanged() {
+        this._ThickenConnections()
+        for conn in this.graph.connections
+            this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(this.graph, "OnPathClicked", conn.PathId))
+    }
+
+    ; 把所有连线加粗，增大命中区域以便单击选中（默认 2.5px 太细难以点中）
+    _ThickenConnections() {
+        if (this.graph == "" || this.ui == "")
+            return
+        for conn in this.graph.connections
+            this.ui.Update(conn.PathId, "StrokeThickness", "6")
+    }
+
     _DefaultObj(cmdName) {
         if (cmdName == GetLang("间隔"))
-            return this._ParseCmd(GetLang("间隔") "_500")
+            return this._MakeNode(GetLang("间隔") "_500")
         if (cmdName == GetLang("按键"))
-            return this._ParseCmd(GetLang("按键") "_a_" GetLang("点击") "_100")
-        ; 其它指令：临时节点占位
-        return { type: cmdName, raw: cmdName, temp: true }
+            return this._MakeNode(GetLang("按键") "_a_" GetLang("点击") "_100")
+        ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
+        return this._MakeNode(cmdName)
     }
 
     ; ----------------------------------------------------------------- 内联编辑回调
@@ -389,10 +505,12 @@ class MacroGraphGui {
         if (!this.cmdNodes.Has(id))
             return
         key := "TypeCmb_" id
+        d := this._Parse(this.cmdNodes[id].CurCMD)
         if (state.Has(key) && state[key] != "")
-            this.cmdNodes[id].ktype := state[key]
+            d.ktype := state[key]
+        this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         this._RefreshKeyVisibility(id)
-        this._SyncNode(id)
+        this._Apply()
     }
 
     _OnField(id, field, state, ctrl, event) {
@@ -400,31 +518,25 @@ class MacroGraphGui {
             return
         nameMap := Map("time", "Time_", "hold", "Hold_", "count", "Count_", "inter", "Inter_")
         key := nameMap[field] id
+        d := this._Parse(this.cmdNodes[id].CurCMD)
         if (state.Has(key))
-            this.cmdNodes[id].%field% := state[key]
+            d.%field% := state[key]
+        this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         if (field == "count")
             this._RefreshKeyVisibility(id)
-        this._SyncNode(id)
+        this._Apply()
     }
 
     ; 重算按键节点 点击时长/次数/间隔 行的显隐
     _RefreshKeyVisibility(id) {
-        obj := this.cmdNodes[id]
-        if (obj.type != GetLang("按键") || this.ui == "")
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (d.type != GetLang("按键") || this.ui == "")
             return
-        isClick := obj.ktype == GetLang("点击")
-        showInter := isClick && IsNumber(obj.count) && (obj.count + 0) > 1
+        isClick := d.ktype == GetLang("点击")
+        showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
         this.ui.Update("HoldRow_" id, "Visibility", isClick ? "Visible" : "Collapsed")
         this.ui.Update("CountRow_" id, "Visibility", isClick ? "Visible" : "Collapsed")
         this.ui.Update("InterRow_" id, "Visibility", showInter ? "Visible" : "Collapsed")
-    }
-
-    ; 重建该节点指令字符串并实时回写
-    _SyncNode(id) {
-        if (!this.cmdNodes.Has(id))
-            return
-        this.cmdNodes[id].raw := this._BuildCmd(this.cmdNodes[id])
-        this._Apply()
     }
 
     ; ----------------------------------------------------------------- 双击打开编辑器
@@ -445,26 +557,25 @@ class MacroGraphGui {
     OpenNodeEditor(id) {
         if (!this.cmdNodes.Has(id))
             return
-        obj := this.cmdNodes[id]
+        d := this._Parse(this.cmdNodes[id].CurCMD)
         editor := ""
-        if (obj.type == GetLang("间隔"))
+        if (d.type == GetLang("间隔"))
             editor := this.IntervalGui
-        else if (obj.type == GetLang("按键"))
+        else if (d.type == GetLang("按键"))
             editor := this.KeyGui
         if (editor == "")
             return
 
         editor.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
         editor.SureBtnAction := (cmd) => this.OnEditorSure(id, cmd)
-        editor.ShowGui(obj.raw)
+        editor.ShowGui(this.cmdNodes[id].CurCMD)
     }
 
     ; 完整编辑器确定后：回写数据并刷新节点显示
     OnEditorSure(id, cmd) {
         if (!this.cmdNodes.Has(id))
             return
-        obj := this._ParseCmd(cmd)
-        this.cmdNodes[id] := obj
+        this.cmdNodes[id].CurCMD := cmd
         ; 注入的简要节点无法就地刷新内部文字 → 重建为完整内联节点
         if (this.injected.Has(id)) {
             this._CaptureLinks()
@@ -472,16 +583,17 @@ class MacroGraphGui {
             return
         }
         if (this.ui != "") {
-            this.ui.Update("Title_" id, "Text", obj.type)
-            if (obj.type == GetLang("间隔")) {
-                this.ui.Update("Time_" id, "Text", obj.time)
+            d := this._Parse(cmd)
+            this.ui.Update("Title_" id, "Text", d.type)
+            if (d.type == GetLang("间隔")) {
+                this.ui.Update("Time_" id, "Text", d.time)
             }
-            else if (obj.type == GetLang("按键")) {
-                this.ui.Update("KeyName_" id, "Text", obj.key)
-                this.ui.Update("TypeCmb_" id, "Text", obj.ktype)
-                this.ui.Update("Hold_" id, "Text", obj.hold)
-                this.ui.Update("Count_" id, "Text", obj.count)
-                this.ui.Update("Inter_" id, "Text", obj.inter)
+            else if (d.type == GetLang("按键")) {
+                this.ui.Update("KeyName_" id, "Text", d.key)
+                this.ui.Update("TypeCmb_" id, "Text", d.ktype)
+                this.ui.Update("Hold_" id, "Text", d.hold)
+                this.ui.Update("Count_" id, "Text", d.count)
+                this.ui.Update("Inter_" id, "Text", d.inter)
                 this._RefreshKeyVisibility(id)
             }
         }
@@ -490,84 +602,213 @@ class MacroGraphGui {
 
     ; ----------------------------------------------------------------- 生成/回写
 
+    ; 回写：图形宏以「开始节点(MacroGraphStartNode) 的 SerialStr」作为入口引用写回 MacroArr
     _Apply() {
         if (this.SureBtnAction == "")
             return
-        macro := this._BuildMacro()
+        this._CaptureLinks()
         action := this.SureBtnAction
-        action(macro)
+        action(this.startSerial)
     }
 
-    _BuildMacro() {
-        g := this.graph
-        if (g == "")
-            return ""
-        nextMap := Map()
-        for conn in g.connections
-            nextMap[conn.From] := conn.To
+    ; ----------------------------------------------------------------- 图结构持久化
 
-        result := []
-        cur := this.startId
-        visited := Map()
-        loop {
-            if (!nextMap.Has(cur))
-                break
-            nxt := nextMap[cur]
-            if (visited.Has(nxt))
-                break
-            visited[nxt] := true
-            if (nxt == this.endId)
-                break
-            if (this.cmdNodes.Has(nxt))
-                result.Push(this.cmdNodes[nxt].raw)
-            cur := nxt
+    ; 保存图结构（全部走项目标准 SaveMacroCMDData，无额外索引）：
+    ;   - 每个 MacroGraphNode（CurCMD、后继 NextNodeArr 的 SerialStr、坐标）存入 GraphNodeFile.ini；
+    ;   - 开始节点 MacroGraphStartNode（NodeArr=开始连向的节点、EmptyNode=无前置的自由节点、坐标）存入 GraphStartNodeFile.ini。
+    ;   - MacroArr 仅记录开始节点的 SerialStr，复原时由它即可取得全部信息。
+    _SaveGraph() {
+        if (this.graph == "")
+            return
+        if (this.startSerial == "")
+            this.startSerial := GetCMDSerialStr("图形开始节点")
+        this._CaptureLinks()
+        this._SyncPositionsFromGraph()
+
+        ; 后继表(engineId->[engineId])、入度统计、开始节点的后继
+        nextMap := Map()
+        inDeg := Map()
+        for id in this.order
+            inDeg[id] := 0
+        startNexts := []
+        for link in this.links {
+            if (link.from == this.startId) {
+                if (this.cmdNodes.Has(link.to))
+                    startNexts.Push(link.to)
+                continue
+            }
+            if (!this.cmdNodes.Has(link.from))
+                continue
+            if (!nextMap.Has(link.from))
+                nextMap[link.from] := []
+            nextMap[link.from].Push(link.to)
+            if (this.cmdNodes.Has(link.to))
+                inDeg[link.to] := inDeg[link.to] + 1
         }
 
-        macroStr := ""
-        for i, c in result
-            macroStr .= (i > 1 ? "," : "") c
-        return macroStr
+        ; NodeArr = 开始节点连向的节点 SerialStr
+        nodeArr := []
+        startedSet := Map()
+        for toE in startNexts {
+            nodeArr.Push(this.cmdNodes[toE].SerialStr)
+            startedSet[toE] := true
+        }
+
+        ; 逐指令节点保存本体
+        for id in this.order {
+            node := this.cmdNodes[id]
+            nexts := []
+            if (nextMap.Has(id)) {
+                for toE in nextMap[id] {
+                    if (this.cmdNodes.Has(toE))
+                        nexts.Push(this.cmdNodes[toE].SerialStr)
+                }
+            }
+            node.NextNodeArr := nexts
+            p := this.pos.Has(id) ? this.pos[id] : { x: 0, y: 0 }
+            node.X := p.x
+            node.Y := p.y
+            SaveMacroCMDData(node)          ; 存入 GraphNodeFile.ini（key=node.SerialStr）
+        }
+
+        ; EmptyNode = 既不被开始节点连接、也无任何前置指令节点的自由节点
+        emptyNode := []
+        for id in this.order {
+            if (startedSet.Has(id) || inDeg[id] > 0)
+                continue
+            emptyNode.Push(this.cmdNodes[id].SerialStr)
+        }
+
+        ; 保存开始节点 MacroGraphStartNode
+        sp := this.pos.Has(this.startId) ? this.pos[this.startId] : { x: 60, y: 220 }
+        startNode := MacroGraphStartNode()
+        startNode.SerialStr := this.startSerial
+        startNode.NodeArr := nodeArr
+        startNode.EmptyNode := emptyNode
+        startNode.X := sp.x
+        startNode.Y := sp.y
+        SaveMacroCMDData(startNode)         ; 存入 GraphStartNodeFile.ini（key=startSerial）
+    }
+
+    ; 从开始节点 SerialStr 复原整张图；成功返回 true（cmdNodes/pos/links/order 均已重建）。
+    ; 读 MacroGraphStartNode 拿到 NodeArr/EmptyNode 作为种子，沿各节点 NextNodeArr 广度遍历取回全部节点。
+    _LoadGraph(startSerial) {
+        if (startSerial == "")
+            return false
+        SplitSerialTextAndNumbers(startSerial, &t, &n)
+        if (t != GetLangKey("图形开始节点") || n == "")    ; 非「图形开始节点」序列码 → 按线性宏处理
+            return false
+        startData := GetMacroCMDData(startSerial)
+        if (!IsObject(startData))
+            return false
+        nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
+        emptyArr := (startData.HasOwnProp("EmptyNode") && IsObject(startData.EmptyNode)) ? startData.EmptyNode : []
+        if (nodeArr.Length == 0 && emptyArr.Length == 0)
+            return false      ; 无内容（未保存过/空图）→ 走线性铺开
+
+        this.startSerial := startSerial
+
+        ; 广度遍历收集所有节点（种子 = NodeArr ∪ EmptyNode；沿 NextNodeArr 展开）
+        serialToEngine := Map()
+        nextSerialsMap := Map()
+        loadedSerials := []
+        queue := []
+        for s in nodeArr
+            queue.Push(s)
+        for s in emptyArr
+            queue.Push(s)
+        while (queue.Length > 0) {
+            serial := queue.RemoveAt(1)
+            if (serial == "" || serialToEngine.Has(serial))
+                continue
+            nodeData := GetMacroCMDData(serial)
+            eid := this._NewId()
+            node := MacroGraphNode()
+            node.SerialStr := serial
+            node.CurCMD := (IsObject(nodeData) && nodeData.HasOwnProp("CurCMD")) ? nodeData.CurCMD : ""
+            this.cmdNodes[eid] := node
+            this.order.Push(eid)
+            x := (IsObject(nodeData) && nodeData.HasOwnProp("X")) ? nodeData.X : 0
+            y := (IsObject(nodeData) && nodeData.HasOwnProp("Y")) ? nodeData.Y : 0
+            this.pos[eid] := { x: x, y: y }
+            serialToEngine[serial] := eid
+            nexts := (IsObject(nodeData) && nodeData.HasOwnProp("NextNodeArr") && IsObject(nodeData.NextNodeArr)) ? nodeData.NextNodeArr : []
+            nextSerialsMap[serial] := nexts
+            for ns in nexts
+                queue.Push(ns)
+            loadedSerials.Push(serial)
+        }
+
+        ; 重建指令节点之间的连线（NextNodeArr 里是后继的 SerialStr）
+        for serial, eid in serialToEngine {
+            for nextSerial in nextSerialsMap[serial] {
+                if (serialToEngine.Has(nextSerial))
+                    this.links.Push({ from: eid, to: serialToEngine[nextSerial] })
+            }
+        }
+        ; 开始节点坐标 + Start->NodeArr 连线
+        this.pos[this.startId] := { x: (startData.HasOwnProp("X") ? startData.X : 60), y: (startData.HasOwnProp("Y") ? startData.Y : 220) }
+        for s in nodeArr {
+            if (serialToEngine.Has(s))
+                this.links.Push({ from: this.startId, to: serialToEngine[s] })
+        }
+        ; 登记已用序号（含开始节点），避免后续 GetCMDSerialStr 生成重复
+        loadedSerials.Push(startSerial)
+        SetSerialByArr(loadedSerials)
+        return true
     }
 
     ; ----------------------------------------------------------------- 指令解析/重建
 
-    _ParseCmd(cmd) {
-        paramArr := SplitCommand(cmd)
-        name := paramArr.Length >= 1 ? paramArr[1] : cmd
-        obj := { type: name, raw: cmd }
-
-        if (name == GetLang("间隔")) {
-            obj.time := paramArr.Length >= 2 ? paramArr[2] : "500"
-        }
-        else if (name == GetLang("按键")) {
-            obj.key := paramArr.Length >= 2 ? paramArr[2] : ""
-            obj.ktype := paramArr.Length >= 3 ? paramArr[3] : GetLang("点击")
-            obj.hold := paramArr.Length >= 4 ? paramArr[4] : "100"
-            obj.count := paramArr.Length >= 5 ? paramArr[5] : "1"
-            obj.inter := paramArr.Length >= 6 ? paramArr[6] : "200"
-        }
-        return obj
+    ; 创建节点：MacroGraphNode（来自 DataClass），持有 CurCMD，SerialStr 由 GetCMDSerialStr("图形节点") 生成
+    _MakeNode(cmd) {
+        node := MacroGraphNode()
+        node.CurCMD := cmd
+        node.SerialStr := GetCMDSerialStr("图形节点")
+        return node
     }
 
-    _BuildCmd(obj) {
-        if (obj.type == GetLang("间隔"))
-            return GetLang("间隔") "_" obj.time
+    ; 解析 CurCMD，返回包含各字段的明细对象（节点信息全部由此而来，不单独存储）
+    _Parse(cmd) {
+        paramArr := SplitCommand(cmd)
+        name := paramArr.Length >= 1 ? paramArr[1] : cmd
+        d := { type: name, raw: cmd, temp: false, time: "", key: "", ktype: "", hold: "", count: "", inter: "" }
 
-        if (obj.type == GetLang("按键")) {
-            isClick := obj.ktype == GetLang("点击")
+        if (name == GetLang("间隔")) {
+            d.time := paramArr.Length >= 2 ? paramArr[2] : "500"
+        }
+        else if (name == GetLang("按键")) {
+            d.key := paramArr.Length >= 2 ? paramArr[2] : ""
+            d.ktype := paramArr.Length >= 3 ? paramArr[3] : GetLang("点击")
+            d.hold := paramArr.Length >= 4 ? paramArr[4] : "100"
+            d.count := paramArr.Length >= 5 ? paramArr[5] : "1"
+            d.inter := paramArr.Length >= 6 ? paramArr[6] : "200"
+        }
+        else {
+            d.temp := true
+        }
+        return d
+    }
+
+    _BuildCmd(d) {
+        if (d.type == GetLang("间隔"))
+            return GetLang("间隔") "_" d.time
+
+        if (d.type == GetLang("按键")) {
+            isClick := d.ktype == GetLang("点击")
             hasHold := isClick
-            hasCount := hasHold && (obj.count != "1" && obj.count != 1)
-            hasInter := hasCount && (obj.inter != "0" && obj.inter != 0)
-            cmd := GetLang("按键") "_" obj.key "_" obj.ktype
+            hasCount := hasHold && (d.count != "1" && d.count != 1)
+            hasInter := hasCount && (d.inter != "0" && d.inter != 0)
+            cmd := GetLang("按键") "_" d.key "_" d.ktype
             if (hasHold)
-                cmd .= "_" obj.hold
+                cmd .= "_" d.hold
             if (hasCount)
-                cmd .= "_" obj.count
+                cmd .= "_" d.count
             if (hasInter)
-                cmd .= "_" obj.inter
+                cmd .= "_" d.inter
             return cmd
         }
-        return obj.raw
+        return d.raw
     }
 
     ; ----------------------------------------------------------------- 节点构建
@@ -579,34 +820,86 @@ class MacroGraphGui {
     }
 
     ; 指令节点（含内联编辑控件）
-    _BuildCmdNode(id, obj) {
-        this._NewNodeShell(id, obj.type, "Process", &body)
+    _BuildCmdNode(id, node) {
+        d := this._Parse(node.CurCMD)
+        this._NewNodeShell(id, d.type, "Process", &body)
+        this._FillNodeBody(id, d, body)
+    }
 
-        if (obj.type == GetLang("间隔")) {
+    ; 填充节点 body（内联编辑控件）。静态构建与运行时注入复用同一套生成逻辑。
+    _FillNodeBody(id, d, body) {
+        if (d.type == GetLang("间隔")) {
             body.Add("TextBlock").Text(GetLang("时间(毫秒)：")).Foreground("#DDDDDD").FontSize("11")
-            this._MakeTextBox(body, "Time_" id, obj.time, "136").Margin("0,2,0,0")
+            this._MakeTextBox(body, "Time_" id, d.time, "136").Margin("0,2,0,0")
         }
-        else if (obj.type == GetLang("按键")) {
-            body.Add("TextBlock").Name("KeyName_" id).Text(obj.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("12").TextWrapping("Wrap")
+        else if (d.type == GetLang("按键")) {
+            body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("12").TextWrapping("Wrap")
 
             body.Add("TextBlock").Text(GetLang("按键类型")).Foreground("#DDDDDD").FontSize("11").Margin("0,4,0,0")
-            cmb := body.Add("ComboBox").Name("TypeCmb_" id).Width("136").Height("22").MinHeight("0").FontSize("11").SelectedIndex(this._TypeIndex(obj.ktype))
+            cmb := body.Add("ComboBox").Name("TypeCmb_" id).Width("136").Height("22").MinHeight("0").FontSize("11").SelectedIndex(this._TypeIndex(d.ktype))
             cmb.Add("ComboBoxItem").Content(GetLang("按下"))
             cmb.Add("ComboBoxItem").Content(GetLang("松开"))
             cmb.Add("ComboBoxItem").Content(GetLang("点击"))
 
-            isClick := obj.ktype == GetLang("点击")
-            showInter := isClick && IsNumber(obj.count) && (obj.count + 0) > 1
+            isClick := d.ktype == GetLang("点击")
+            showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
 
-            this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, obj.hold, isClick)
-            this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, obj.count, isClick)
-            this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, obj.inter, showInter)
+            this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, d.hold, isClick)
+            this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, d.count, isClick)
+            this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, d.inter, showInter)
         }
         else {
             ; 临时节点占位
             body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize("11")
-            body.Add("TextBlock").Text(obj.raw).Foreground("#DDDDDD").FontSize("10").TextWrapping("Wrap")
+            body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize("10").TextWrapping("Wrap")
         }
+    }
+
+    ; 构建可运行时注入的节点片段（Border + 两个端口）的 XAML 字符串。
+    ; 复用 _FillNodeBody，确保注入节点与静态渲染节点结构/初始状态完全一致。
+    _NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml) {
+        g := this.graph
+        d := this._Parse(node.CurCMD)
+        p := this.pos.Has(id) ? this.pos[id] : { x: 200, y: 200 }
+        x := p.x + g.offsetX
+        y := p.y + g.offsetY
+        pres := "http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xns := "http://schemas.microsoft.com/winfx/2006/xaml"
+
+        border := XAMLElement("Border")
+        border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
+        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").Color("Black")
+        grid := border.Add("Grid")
+        grid.Rows("30", "*")
+        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("#3E3E50").CornerRadius("5,5,0,0")
+        header.Add("TextBlock").Name("Title_" id).Text(d.type).Foreground("White").FontWeight("Bold").FontSize("11").VerticalAlignment("Center").Margin("10,0")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
+        this._FillNodeBody(id, d, body)
+        ; 引擎接收命令后按换行符切分（ProcessMessage 的 text.Split('\n')），
+        ; 而 ToString() 生成的是带缩进/注释换行的多行 XAML。若直接注入会在第一个换行处被截断，
+        ; 导致 AddXamlItem 解析失败、节点及其内联控件根本不会创建（表现为新增节点显示异常）。
+        ; 故注入前必须压成单行。
+        nodeXaml := this._FlattenXaml(border.ToString())
+
+        portIn := XAMLElement("Ellipse")
+        portIn.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
+        portIn.Width("10").Height("10").Fill("#4CAF50").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x - 5)).SetProp("Canvas.Top", String(y + 30)).Name("Port_In_" id).IsHitTestVisible("True").Cursor("Hand")
+        portInXaml := this._FlattenXaml(portIn.ToString())
+
+        portOut := XAMLElement("Ellipse")
+        portOut.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
+        portOut.Width("10").Height("10").Fill("#FF5722").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x + 155)).SetProp("Canvas.Top", String(y + 30)).Name("Port_Out_" id).IsHitTestVisible("True").Cursor("Hand")
+        portOutXaml := this._FlattenXaml(portOut.ToString())
+    }
+
+    ; 把 XAMLElement.ToString() 的多行输出压成单行，供运行时 AddXamlItem 注入使用。
+    ; 引擎按 `n 切分命令，多行 XAML 会被截断；属性值里的换行已被 ToString 转义为 &#10;，
+    ; 故此处移除的全部是结构性换行/缩进，安全。
+    _FlattenXaml(s) {
+        s := StrReplace(s, "`r", "")
+        s := StrReplace(s, "`n", "")
+        return s
     }
 
     ; 创建节点外壳（Border + 头部标题 + 端口），body 通过引用返回供填充

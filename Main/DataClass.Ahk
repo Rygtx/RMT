@@ -841,6 +841,18 @@ class MacroGraphNode{
     __New() {
         this.SerialStr := ""
         this.CurCMD := "间隔_50"                   ;当前节点指令
-        this.NextNodeArr := []                     ;下一个节点指令数组
+        this.NextNodeArr := []                     ;下一个节点指令数组（后继节点的 SerialStr）
+        this.X := 0                                ;图形编辑器中节点的逻辑坐标X
+        this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
+    }
+}
+
+class MacroGraphStartNode{
+    __New() {
+        this.SerialStr := ""
+        this.NodeArr := []                          ;下一个节点指令数组（后续MacroGraphNode节点的 SerialStr）
+        this.EmptyNode := []                        ;图形编辑器中空节点数组（没有前置节点MacroGraphNode节点的 SerialStr）
+        this.X := 0                                ;图形编辑器中节点的逻辑坐标X
+        this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
     }
 }
