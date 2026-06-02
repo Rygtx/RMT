@@ -869,7 +869,7 @@ class MacroGraphGui {
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").Color("Black")
+        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "*")
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("#3E3E50").CornerRadius("5,5,0,0")
@@ -911,7 +911,7 @@ class MacroGraphGui {
         headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
 
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").Color("Black")
+        node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
 
         grid := node.Add("Grid")
         grid.Rows("30", "*")

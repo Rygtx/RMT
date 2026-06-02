@@ -1,0 +1,500 @@
+﻿OnCopyData: DAEMON|Ready|3936014
+
+OnCopyData: DAEMON|Ready|6558230
+
+OnCopyData: EVENT|WPF_110503046_1_2801|Engine|Error|4101:AHK_LINE:Unknown
+XAML_SNIPPET:
+   38|                         <!-- [ahk:MacroGraphGui.ahk:344] --><MenuItem Header="窗口管理" Name="MG_Add_23" />
+   39|                         <!-- [ahk:MacroGraphGui.ahk:344] --><MenuItem Header="按键检测" Name="MG_Add_24" />
+   40|                     </ContextMenu>
+   41|                 </FrameworkElement.ContextMenu>
+   42|                 <!-- [ahk:XAML_Adv_Components.ahk:368] --><Rectangle Fill="{DynamicResource GridPattern}" Height="20000" IsHitTestVisible="False" Width="20000" />
+   43|                 <!-- [ahk:MacroGraphGui.ahk:913] --><Border Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Canvas.Left="10060" Canvas.Top="10220" CornerRadius="6" Name="Node_Start" Width="160">
+   44|                     <!-- [ahk:MacroGraphGui.ahk:914] --><Border.Effect>
+>> 45|                         <!-- [ahk:MacroGraphGui.ahk:914] --><DropShadowEffect BlurRadius="8" Direction="270" Foreground="Black" Opacity="0.4" ShadowDepth="2" />
+   46|                     </Border.Effect>
+   47|                     <!-- [ahk:MacroGraphGui.ahk:916] --><Grid>
+   48|                         <!-- [ahk:XAML_Generator.ahk:337] --><Grid.RowDefinitions>
+   49|                             <!-- [ahk:XAML_Generator.ahk:339] --><RowDefinition Height="30" />
+   50|                             <!-- [ahk:XAML_Generator.ahk:339] --><RowDefinition Height="*" />
+   51|                         </Grid.RowDefinitions>
+   52|                         <!-- [ahk:MacroGraphGui.ahk:919] --><Border Background="#2E5A2E" CornerRadius="5,5,0,0" Cursor="SizeAll" Grid.Row="0">
+   53|                             <!-- [ahk:MacroGraphGui.ahk:920] --><TextBlock FontSize="11" FontWeight="Bold" Foreground="White" Margin="10,0" Name="Title_Start" Text="开始" VerticalAlignment="Center" />
+   54|                         </Border>
+REASON:
+“无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。
+
+System.Windows.Markup.XamlParseException: “无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。 ---> System.Xaml.XamlObjectWriterException: “无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。
+   在 System.Xaml.XamlObjectWriter.WriteStartMember(XamlMember property)
+   在 System.Windows.Markup.WpfXamlLoader.TransformNodes(XamlReader xamlReader, XamlObjectWriter xamlWriter, Boolean onlyLoadOneNode, Boolean skipJournaledProperties, Boolean shouldPassLineNumberInfo, IXamlLineInfo xamlLineInfo, IXamlLineInfoConsumer xamlLineInfoConsumer, XamlContextStack`1 stack, IStyleConnector styleConnector)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, IXamlObjectWriterFactory writerFactory, Boolean skipJournaledProperties, Object rootObject, XamlObjectWriterSettings settings, Uri baseUri)
+   --- 内部异常堆栈跟踪的结尾 ---
+   在 System.Windows.Markup.XamlReader.RewrapException(Exception e, IXamlLineInfo lineInfo, Uri baseUri)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, IXamlObjectWriterFactory writerFactory, Boolean skipJournaledProperties, Object rootObject, XamlObjectWriterSettings settings, Uri baseUri)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, Boolean skipJournaledProperties, Uri baseUri)
+   在 System.Windows.Markup.XamlReader.Load(XamlReader xamlReader, ParserContext parserContext)
+   在 System.Windows.Markup.XamlReader.Load(XmlReader reader, ParserContext parserContext, XamlParseMode parseMode, Boolean useRestrictiveXamlReader, List`1 safeTypes)
+   在 System.Windows.Markup.XamlReader.Load(Stream stream, ParserContext parserContext, Boolean useRestrictiveXamlReader)
+   在 AhkWpfEngine.RunEngineInline(String id, String hwndStr, String trackedCsv, String scriptName, String ownerHwndStr, String inlineData, Boolean isDaemon)
+
+OnCopyData: EVENT|WPF_110508562_2_5442|Engine|Error|4101:AHK_LINE:Unknown
+XAML_SNIPPET:
+   38|                         <!-- [ahk:MacroGraphGui.ahk:344] --><MenuItem Header="窗口管理" Name="MG_Add_23" />
+   39|                         <!-- [ahk:MacroGraphGui.ahk:344] --><MenuItem Header="按键检测" Name="MG_Add_24" />
+   40|                     </ContextMenu>
+   41|                 </FrameworkElement.ContextMenu>
+   42|                 <!-- [ahk:XAML_Adv_Components.ahk:368] --><Rectangle Fill="{DynamicResource GridPattern}" Height="20000" IsHitTestVisible="False" Width="20000" />
+   43|                 <!-- [ahk:MacroGraphGui.ahk:913] --><Border Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Canvas.Left="10060" Canvas.Top="10220" CornerRadius="6" Name="Node_Start" Width="160">
+   44|                     <!-- [ahk:MacroGraphGui.ahk:914] --><Border.Effect>
+>> 45|                         <!-- [ahk:MacroGraphGui.ahk:914] --><DropShadowEffect BlurRadius="8" Direction="270" Foreground="Black" Opacity="0.4" ShadowDepth="2" />
+   46|                     </Border.Effect>
+   47|                     <!-- [ahk:MacroGraphGui.ahk:916] --><Grid>
+   48|                         <!-- [ahk:XAML_Generator.ahk:337] --><Grid.RowDefinitions>
+   49|                             <!-- [ahk:XAML_Generator.ahk:339] --><RowDefinition Height="30" />
+   50|                             <!-- [ahk:XAML_Generator.ahk:339] --><RowDefinition Height="*" />
+   51|                         </Grid.RowDefinitions>
+   52|                         <!-- [ahk:MacroGraphGui.ahk:919] --><Border Background="#2E5A2E" CornerRadius="5,5,0,0" Cursor="SizeAll" Grid.Row="0">
+   53|                             <!-- [ahk:MacroGraphGui.ahk:920] --><TextBlock FontSize="11" FontWeight="Bold" Foreground="White" Margin="10,0" Name="Title_Start" Text="开始" VerticalAlignment="Center" />
+   54|                         </Border>
+REASON:
+“无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。
+
+System.Windows.Markup.XamlParseException: “无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。 ---> System.Xaml.XamlObjectWriterException: “无法设置未知成员“System.Windows.Media.Effects.DropShadowEffect.Foreground”。”，行号为“45”，行位置为“110”。
+   在 System.Xaml.XamlObjectWriter.WriteStartMember(XamlMember property)
+   在 System.Windows.Markup.WpfXamlLoader.TransformNodes(XamlReader xamlReader, XamlObjectWriter xamlWriter, Boolean onlyLoadOneNode, Boolean skipJournaledProperties, Boolean shouldPassLineNumberInfo, IXamlLineInfo xamlLineInfo, IXamlLineInfoConsumer xamlLineInfoConsumer, XamlContextStack`1 stack, IStyleConnector styleConnector)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, IXamlObjectWriterFactory writerFactory, Boolean skipJournaledProperties, Object rootObject, XamlObjectWriterSettings settings, Uri baseUri)
+   --- 内部异常堆栈跟踪的结尾 ---
+   在 System.Windows.Markup.XamlReader.RewrapException(Exception e, IXamlLineInfo lineInfo, Uri baseUri)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, IXamlObjectWriterFactory writerFactory, Boolean skipJournaledProperties, Object rootObject, XamlObjectWriterSettings settings, Uri baseUri)
+   在 System.Windows.Markup.WpfXamlLoader.Load(XamlReader xamlReader, Boolean skipJournaledProperties, Uri baseUri)
+   在 System.Windows.Markup.XamlReader.Load(XamlReader xamlReader, ParserContext parserContext)
+   在 System.Windows.Markup.XamlReader.Load(XmlReader reader, ParserContext parserContext, XamlParseMode parseMode, Boolean useRestrictiveXamlReader, List`1 safeTypes)
+   在 System.Windows.Markup.XamlReader.Load(Stream stream, ParserContext parserContext, Boolean useRestrictiveXamlReader)
+   在 AhkWpfEngine.RunEngineInline(String id, String hwndStr, String trackedCsv, String scriptName, String ownerHwndStr, String inlineData, Boolean isDaemon)
+
+OnCopyData: DAEMON|Ready|3675052
+
+OnCopyData: DAEMON|Ready|3215916
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Window|LoadedHwnd|6818928
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Window|Loaded
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+
+OnCopyData: EVENT|WPF_111089046_1_4603|RMTGraph|ContextMenuOpened|15:10466.2,10496.6
+
+OnCopyData: EVENT|WPF_111089046_1_4603|MG_Add_2|Click
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|SelectNode|
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10460,10500
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10460,10500
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10460,10460
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10460,10440
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10460,10440
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10440,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10400,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10360,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10340,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10320,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10320,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10300,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10300,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragEnd
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+TypeCmb_Cmd3=6:点击
+Hold_Cmd3=3:100
+Count_Cmd3=1:1
+Inter_Cmd3=3:200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|RMTGraph|ConnectPorts|27:Port_Out_Start,Port_In_Cmd3
+
+OnCopyData: EVENT|WPF_111089046_1_4603|RMTGraph|ConnectPorts|26:Port_Out_Cmd3,Port_In_Cmd2
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|SelectNode|
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragMove|11:10540,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragMove|11:10540,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragMove|11:10600,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragMove|11:10660,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragMove|11:10680,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd2|DragEnd
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+TypeCmb_Cmd3=6:点击
+Hold_Cmd3=3:100
+Count_Cmd3=1:1
+Inter_Cmd3=3:200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|SelectNode|
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10300,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10300,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10340,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10400,10220
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10400,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10400,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10400,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10400,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10380,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10380,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10360,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10340,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10340,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10340,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragMove|11:10340,10200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd1|DragEnd
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+TypeCmb_Cmd3=6:点击
+Hold_Cmd3=3:100
+Count_Cmd3=1:1
+Inter_Cmd3=3:200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|SelectNode|
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10300,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10300,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10320,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10340,10420
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10340,10400
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragMove|11:10340,10400
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Node_Cmd3|DragEnd
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+TypeCmb_Cmd3=6:点击
+Hold_Cmd3=3:100
+Count_Cmd3=1:1
+Inter_Cmd3=3:200
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Window|Closing
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Window|Closed
+
+OnCopyData: EVENT|WPF_111089046_1_4603|Window|Closed
+Count_Cmd1=2:10
+Hold_Cmd1=3:100
+Inter_Cmd1=3:200
+MG_Add_1=0:
+MG_Add_10=0:
+MG_Add_11=0:
+MG_Add_12=0:
+MG_Add_13=0:
+MG_Add_14=0:
+MG_Add_15=0:
+MG_Add_16=0:
+MG_Add_17=0:
+MG_Add_18=0:
+MG_Add_19=0:
+MG_Add_2=0:
+MG_Add_20=0:
+MG_Add_21=0:
+MG_Add_22=0:
+MG_Add_23=0:
+MG_Add_24=0:
+MG_Add_3=0:
+MG_Add_4=0:
+MG_Add_5=0:
+MG_Add_6=0:
+MG_Add_7=0:
+MG_Add_8=0:
+MG_Add_9=0:
+MG_BtnSave=0:
+Node_Cmd1=0:
+Node_Cmd2=0:
+Node_Start=0:
+RMTGraph=0:
+RMTGraph_BtnNewInput=0:
+RMTGraph_BtnNewMultiProcess=0:
+RMTGraph_BtnNewNode=0:
+RMTGraph_BtnNewOutput=0:
+RMTGraph_Path_Cmd1_Cmd2=0:
+RMTGraph_Path_Start_Cmd1=0:
+Time_Cmd2=4:3000
+TypeCmb_Cmd1=6:点击
+TypeCmb_Cmd3=6:点击
+Hold_Cmd3=3:100
+Count_Cmd3=1:1
+Inter_Cmd3=3:200
+
