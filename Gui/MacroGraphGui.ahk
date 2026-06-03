@@ -51,9 +51,34 @@ class MacroGraphGui {
             "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标",
             "后台按键", "窗口管理", "按键检测"])
 
+        ; 各指令对应图标（顺序与 CmdList 一一对应，复用 MacroEditGui 的图标资源）
+        this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png",
+            "Images\Soft\Search.png", "Images\Soft\SearchPro.png",
+            "Images\Soft\Move.png", "Images\Soft\MovePro.png",
+            "Images\Soft\Input.png", "Images\Soft\Output.png",
+            "Images\Soft\Loop.png", "Images\Soft\Sub.png",
+            "Images\Soft\Var.png", "Images\Soft\Extract.png",
+            "Images\Soft\If.png", "Images\Soft\IfPro.png",
+            "Images\Soft\Operation.png", "Images\Soft\Run.png",
+            "Images\Soft\FileIO.png", "Images\Soft\TextOps.png",
+            "Images\Soft\Arr.png", "Images\Soft\rabit.png",
+            "Images\Soft\Mouse.png", "Images\Soft\Key.png",
+            "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png"]
+
         ; 复用现有子编辑器（双击节点时打开）
         this.IntervalGui := IntervalGui()
         this.KeyGui := KeyGui()
+        this.MouseGui := MouseMoveGui()
+    }
+
+    ; 指令图标的绝对路径（正斜杠，供 WPF Image.Source 使用）；不存在则返回空
+    _IconUri(idx) {
+        if (idx < 1 || idx > this.CmdIconArr.Length)
+            return ""
+        full := A_WorkingDir "\" this.CmdIconArr[idx]
+        if (!FileExist(full))
+            return ""
+        return StrReplace(full, "\", "/")
     }
 
     ; ----------------------------------------------------------------- 入口
@@ -229,8 +254,12 @@ class MacroGraphGui {
 
         d := this._Parse(node.CurCMD)
         if (d.type == GetLang("间隔")) {
+            this._TrackCtrl("ITypeCmb_" id, runtime)
             this._TrackCtrl("Time_" id, runtime)
+            this._TrackCtrl("Time2_" id, runtime)
+            this._BindCtrl("ITypeCmb_" id, "SelectionChanged", this._OnIntervalType.Bind(this, id), runtime)
             this._BindCtrl("Time_" id, "LostFocus", this._OnField.Bind(this, id, "time"), runtime)
+            this._BindCtrl("Time2_" id, "LostFocus", this._OnField.Bind(this, id, "time2"), runtime)
         }
         else if (d.type == GetLang("按键")) {
             this._TrackCtrl("TypeCmb_" id, runtime)
@@ -241,6 +270,16 @@ class MacroGraphGui {
             this._BindCtrl("Hold_" id, "LostFocus", this._OnField.Bind(this, id, "hold"), runtime)
             this._BindCtrl("Count_" id, "LostFocus", this._OnField.Bind(this, id, "count"), runtime)
             this._BindCtrl("Inter_" id, "LostFocus", this._OnField.Bind(this, id, "inter"), runtime)
+        }
+        else if (d.type == GetLang("移动")) {
+            this._TrackCtrl("PosX_" id, runtime)
+            this._TrackCtrl("PosY_" id, runtime)
+            this._TrackCtrl("Speed_" id, runtime)
+            this._TrackCtrl("ModeCmb_" id, runtime)
+            this._BindCtrl("PosX_" id, "LostFocus", this._OnField.Bind(this, id, "posx"), runtime)
+            this._BindCtrl("PosY_" id, "LostFocus", this._OnField.Bind(this, id, "posy"), runtime)
+            this._BindCtrl("Speed_" id, "LostFocus", this._OnField.Bind(this, id, "speed"), runtime)
+            this._BindCtrl("ModeCmb_" id, "SelectionChanged", this._OnMoveMode.Bind(this, id), runtime)
         }
     }
 
@@ -340,8 +379,12 @@ class MacroGraphGui {
         canvas := this.graph.canvas
         cmEl := canvas.Add("FrameworkElement.ContextMenu")
         cm := cmEl.Add("ContextMenu").MinWidth("220").MaxHeight("420").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
-        for i, name in this.CmdList
-            cm.Add("MenuItem").Name("MG_Add_" i).Header(name)
+        for i, name in this.CmdList {
+            mi := cm.Add("MenuItem").Name("MG_Add_" i).Header(name)
+            iconUri := this._IconUri(i)
+            if (iconUri != "")
+                mi.Add("MenuItem.Icon").Add("Image").SetProp("Source", iconUri).Width("16").Height("16")
+        }
         ; 将 ContextMenu 属性元素移到画布子元素最前，保证"属性元素在内容子元素之前"。
         ; 否则该属性元素会夹在 Canvas 的隐式 Children（Rectangle 背景、各节点…）中间，
         ; 切断 Children 集合，导致 WPF 报 XamlDuplicateMemberException：已对 Canvas 设置 Children 属性。
@@ -446,14 +489,19 @@ class MacroGraphGui {
     }
 
     _Summary(d) {
-        if (d.type == GetLang("间隔"))
+        if (d.type == GetLang("间隔")) {
+            if (d.itype == GetLang("随机"))
+                return d.time "~" d.time2 " ms"
             return d.time " ms"
+        }
         if (d.type == GetLang("按键")) {
             s := d.key " " d.ktype
             if (d.ktype == GetLang("点击") && d.count != "1" && d.count != 1)
                 s .= "  x" d.count
             return s
         }
+        if (d.type == GetLang("移动"))
+            return "(" d.posx ", " d.posy ")  " GetLang("移动速度：") d.speed
         return d.raw
     }
 
@@ -495,6 +543,8 @@ class MacroGraphGui {
             return this._MakeNode(GetLang("间隔") "_500")
         if (cmdName == GetLang("按键"))
             return this._MakeNode(GetLang("按键") "_a_" GetLang("点击") "_100")
+        if (cmdName == GetLang("移动"))
+            return this._MakeNode(GetLang("移动") "_0_0_90")
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
         return this._MakeNode(cmdName)
     }
@@ -513,10 +563,94 @@ class MacroGraphGui {
         this._Apply()
     }
 
+    ; 间隔类型下拉变更：固定/随机；切换时保留当前已填的时间值，并切换第二时间行显隐
+    _OnIntervalType(id, state, ctrl, event) {
+        if (!this.cmdNodes.Has(id))
+            return
+        key := "ITypeCmb_" id
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (state.Has("Time_" id) && state["Time_" id] != "")
+            d.time := state["Time_" id]
+        if (state.Has("Time2_" id) && state["Time2_" id] != "")
+            d.time2 := state["Time2_" id]
+        if (state.Has(key) && state[key] != "")
+            d.itype := this._IntervalTypeFromText(state[key])
+        this.cmdNodes[id].CurCMD := this._BuildCmd(d)
+        this._RefreshIntervalVisibility(id)
+        this._Apply()
+    }
+
+    ; 随机模式显示第二时间行，固定模式隐藏
+    _RefreshIntervalVisibility(id) {
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (d.type != GetLang("间隔") || this.ui == "")
+            return
+        isRandom := d.itype == GetLang("随机")
+        this.ui.Update("Time2Row_" id, "Visibility", isRandom ? "Visible" : "Collapsed")
+    }
+
+    ; 间隔类型 -> 下拉项索引
+    _IntervalTypeIndex(itype) {
+        return (itype == GetLang("随机")) ? 1 : 0
+    }
+
+    ; 下拉项文本 -> 间隔类型（与显示项使用同一 GetLang，确保中英文一致匹配）
+    _IntervalTypeFromText(text) {
+        return (text == GetLang("随机")) ? GetLang("随机") : GetLang("固定")
+    }
+
+    ; 移动方式下拉变更：映射为模式编号(0/1/2)；游戏视角(2)强制速度100
+    _OnMoveMode(id, state, ctrl, event) {
+        if (!this.cmdNodes.Has(id))
+            return
+        key := "ModeCmb_" id
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (state.Has(key) && state[key] != "")
+            d.mode := this._MoveModeFromText(state[key])
+        if (d.mode == "2")
+            d.speed := "100"
+        this.cmdNodes[id].CurCMD := this._BuildCmd(d)
+        this._RefreshMoveVisibility(id)
+        this._Apply()
+    }
+
+    ; 游戏视角模式下速度固定100且禁用编辑；其余模式恢复可编辑
+    _RefreshMoveVisibility(id) {
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (d.type != GetLang("移动") || this.ui == "")
+            return
+        isGameView := (d.mode == "2" || d.mode == 2)
+        if (isGameView) {
+            this.ui.Update("Speed_" id, "Text", "100")
+            this.ui.Update("Speed_" id, "IsEnabled", "False")
+        }
+        else {
+            this.ui.Update("Speed_" id, "IsEnabled", "True")
+        }
+    }
+
+    ; 模式编号 -> 下拉项索引
+    _MoveModeIndex(mode) {
+        if (mode == "1" || mode == 1)
+            return 1
+        if (mode == "2" || mode == 2)
+            return 2
+        return 0
+    }
+
+    ; 下拉项文本 -> 模式编号（与显示项使用同一 GetLang，确保中英文一致匹配）
+    _MoveModeFromText(text) {
+        if (text == GetLang("相对移动"))
+            return "1"
+        if (text == GetLang("游戏视角"))
+            return "2"
+        return "0"
+    }
+
     _OnField(id, field, state, ctrl, event) {
         if (!this.cmdNodes.Has(id))
             return
-        nameMap := Map("time", "Time_", "hold", "Hold_", "count", "Count_", "inter", "Inter_")
+        nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
         key := nameMap[field] id
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (state.Has(key))
@@ -563,6 +697,8 @@ class MacroGraphGui {
             editor := this.IntervalGui
         else if (d.type == GetLang("按键"))
             editor := this.KeyGui
+        else if (d.type == GetLang("移动"))
+            editor := this.MouseGui
         if (editor == "")
             return
 
@@ -586,7 +722,10 @@ class MacroGraphGui {
             d := this._Parse(cmd)
             this.ui.Update("Title_" id, "Text", d.type)
             if (d.type == GetLang("间隔")) {
+                this.ui.Update("ITypeCmb_" id, "SelectedIndex", this._IntervalTypeIndex(d.itype))
                 this.ui.Update("Time_" id, "Text", d.time)
+                this.ui.Update("Time2_" id, "Text", d.time2)
+                this._RefreshIntervalVisibility(id)
             }
             else if (d.type == GetLang("按键")) {
                 this.ui.Update("KeyName_" id, "Text", d.key)
@@ -595,6 +734,13 @@ class MacroGraphGui {
                 this.ui.Update("Count_" id, "Text", d.count)
                 this.ui.Update("Inter_" id, "Text", d.inter)
                 this._RefreshKeyVisibility(id)
+            }
+            else if (d.type == GetLang("移动")) {
+                this.ui.Update("PosX_" id, "Text", d.posx)
+                this.ui.Update("PosY_" id, "Text", d.posy)
+                this.ui.Update("Speed_" id, "Text", d.speed)
+                this.ui.Update("ModeCmb_" id, "SelectedIndex", this._MoveModeIndex(d.mode))
+                this._RefreshMoveVisibility(id)
             }
         }
         this._Apply()
@@ -772,10 +918,21 @@ class MacroGraphGui {
     _Parse(cmd) {
         paramArr := SplitCommand(cmd)
         name := paramArr.Length >= 1 ? paramArr[1] : cmd
-        d := { type: name, raw: cmd, temp: false, time: "", key: "", ktype: "", hold: "", count: "", inter: "" }
+        d := { type: name, raw: cmd, temp: false, time: "", time2: "", itype: "", key: "", ktype: "", hold: "", count: "", inter: "", posx: "", posy: "", speed: "", mode: "" }
 
         if (name == GetLang("间隔")) {
-            d.time := paramArr.Length >= 2 ? paramArr[2] : "500"
+            raw := paramArr.Length >= 2 ? paramArr[2] : "500"
+            timeArr := StrSplit(raw, "~")
+            if (timeArr.Length >= 2) {
+                d.itype := GetLang("随机")
+                d.time := timeArr[1]
+                d.time2 := timeArr[2]
+            }
+            else {
+                d.itype := GetLang("固定")
+                d.time := raw
+                d.time2 := "1000"
+            }
         }
         else if (name == GetLang("按键")) {
             d.key := paramArr.Length >= 2 ? paramArr[2] : ""
@@ -784,6 +941,12 @@ class MacroGraphGui {
             d.count := paramArr.Length >= 5 ? paramArr[5] : "1"
             d.inter := paramArr.Length >= 6 ? paramArr[6] : "200"
         }
+        else if (name == GetLang("移动")) {
+            d.posx := paramArr.Length >= 2 ? paramArr[2] : "0"
+            d.posy := paramArr.Length >= 3 ? paramArr[3] : "0"
+            d.speed := paramArr.Length >= 4 ? paramArr[4] : "90"
+            d.mode := paramArr.Length >= 5 ? paramArr[5] : "0"
+        }
         else {
             d.temp := true
         }
@@ -791,8 +954,12 @@ class MacroGraphGui {
     }
 
     _BuildCmd(d) {
-        if (d.type == GetLang("间隔"))
+        if (d.type == GetLang("间隔")) {
+            if (d.itype == GetLang("随机"))
+                return GetLang("间隔") "_" d.time "~" d.time2
             return GetLang("间隔") "_" d.time
+        }
+
 
         if (d.type == GetLang("按键")) {
             isClick := d.ktype == GetLang("点击")
@@ -806,6 +973,14 @@ class MacroGraphGui {
                 cmd .= "_" d.count
             if (hasInter)
                 cmd .= "_" d.inter
+            return cmd
+        }
+
+        if (d.type == GetLang("移动")) {
+            cmd := GetLang("移动") "_" d.posx "_" d.posy "_" d.speed
+            ; 模式：0=移动(省略) 1=相对移动 2=游戏视角，与 MouseMoveGui 保持一致
+            if (d.mode != "0" && d.mode != 0 && d.mode != "")
+                cmd .= "_" d.mode
             return cmd
         }
         return d.raw
@@ -829,17 +1004,21 @@ class MacroGraphGui {
     ; 填充节点 body（内联编辑控件）。静态构建与运行时注入复用同一套生成逻辑。
     _FillNodeBody(id, d, body) {
         if (d.type == GetLang("间隔")) {
-            body.Add("TextBlock").Text(GetLang("时间(毫秒)：")).Foreground("#DDDDDD").FontSize("11")
-            this._MakeTextBox(body, "Time_" id, d.time, "136").Margin("0,2,0,0")
+            isRandom := d.itype == GetLang("随机")
+            ; 间隔类型下拉（固定/随机）—— 标签与下拉同行
+            this._AddComboRow(body, "ITypeRow_" id, GetLang("类型："), "ITypeCmb_" id
+                , [GetLang("固定"), GetLang("随机")], this._IntervalTypeIndex(d.itype), true)
+            ; 固定值 / 随机最小值
+            this._AddFieldRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, d.time, true)
+            ; 随机最大值（仅随机模式显示）
+            this._AddFieldRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, d.time2, isRandom)
         }
         else if (d.type == GetLang("按键")) {
             body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("12").TextWrapping("Wrap")
 
-            body.Add("TextBlock").Text(GetLang("按键类型")).Foreground("#DDDDDD").FontSize("11").Margin("0,4,0,0")
-            cmb := body.Add("ComboBox").Name("TypeCmb_" id).Width("136").Height("22").MinHeight("0").FontSize("11").SelectedIndex(this._TypeIndex(d.ktype))
-            cmb.Add("ComboBoxItem").Content(GetLang("按下"))
-            cmb.Add("ComboBoxItem").Content(GetLang("松开"))
-            cmb.Add("ComboBoxItem").Content(GetLang("点击"))
+            ; 按键类型下拉 —— 标签与下拉同行
+            this._AddComboRow(body, "TypeRow_" id, GetLang("按键类型"), "TypeCmb_" id
+                , [GetLang("按下"), GetLang("松开"), GetLang("点击")], this._TypeIndex(d.ktype), true)
 
             isClick := d.ktype == GetLang("点击")
             showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
@@ -847,6 +1026,16 @@ class MacroGraphGui {
             this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, d.hold, isClick)
             this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, d.count, isClick)
             this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, d.inter, showInter)
+        }
+        else if (d.type == GetLang("移动")) {
+            isGameView := (d.mode == "2" || d.mode == 2)
+            ; 坐标X / 坐标Y / 移动速度 —— 标签与数值同行
+            this._AddFieldRow(body, "PosXRow_" id, GetLang("坐标位置X:"), "PosX_" id, d.posx, true)
+            this._AddFieldRow(body, "PosYRow_" id, GetLang("坐标位置Y:"), "PosY_" id, d.posy, true)
+            this._AddFieldRow(body, "SpeedRow_" id, GetLang("移动速度："), "Speed_" id, isGameView ? "100" : d.speed, true, !isGameView)
+            ; 移动方式下拉 —— 标签与下拉同行
+            this._AddComboRow(body, "ModeRow_" id, GetLang("移动方式"), "ModeCmb_" id
+                , [GetLang("移动"), GetLang("相对移动"), GetLang("游戏视角")], this._MoveModeIndex(d.mode), true)
         }
         else {
             ; 临时节点占位
@@ -872,8 +1061,7 @@ class MacroGraphGui {
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "*")
-        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("#3E3E50").CornerRadius("5,5,0,0")
-        header.Add("TextBlock").Name("Title_" id).Text(d.type).Foreground("White").FontWeight("Bold").FontSize("11").VerticalAlignment("Center").Margin("10,0")
+        this._BuildHeader(grid, id, d.type, "#3E3E50")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
         this._FillNodeBody(id, d, body)
         ; 引擎接收命令后按换行符切分（ProcessMessage 的 text.Split('\n')），
@@ -916,8 +1104,7 @@ class MacroGraphGui {
         grid := node.Add("Grid")
         grid.Rows("30", "*")
 
-        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
-        header.Add("TextBlock").Name("Title_" id).Text(title).Foreground("White").FontWeight("Bold").FontSize("11").VerticalAlignment("Center").Margin("10,0")
+        this._BuildHeader(grid, id, title, headerColor)
 
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
 
@@ -931,13 +1118,47 @@ class MacroGraphGui {
         return node
     }
 
-    ; 一行 "标签 + 文本框"，visible 控制初始显隐
-    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible) {
+    ; 节点标题栏（图标 + 标题）。静态构建与运行时注入复用同一逻辑
+    _BuildHeader(grid, id, title, headerColor) {
+        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
+        hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
+        iconUri := this._IconForType(title)
+        if (iconUri != "")
+            hp.Add("Image").SetProp("Source", iconUri).Width("14").Height("14").Margin("0,0,5,0").VerticalAlignment("Center")
+        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("White").FontWeight("Bold").FontSize("11").VerticalAlignment("Center")
+        return header
+    }
+
+    ; 由指令类型名查找对应图标 URI（匹配 CmdList 顺序）；开始节点等无对应项返回空
+    _IconForType(typeName) {
+        for i, n in this.CmdList {
+            if (n == typeName)
+                return this._IconUri(i)
+        }
+        return ""
+    }
+
+    ; 一行 "标签 + 文本框"，visible 控制初始显隐，enabled 控制文本框是否可编辑
+    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible, enabled := true) {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,3,0,0")
         if (!visible)
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("62").VerticalAlignment("Center")
-        this._MakeTextBox(row, boxName, boxValue, "66")
+        box := this._MakeTextBox(row, boxName, boxValue, "66")
+        if (!enabled)
+            box.IsEnabled("False")
+        return row
+    }
+
+    ; 一行 "标签 + 下拉框"，visible 控制初始显隐
+    _AddComboRow(body, rowName, labelText, comboName, items, selIndex, visible) {
+        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,3,0,0")
+        if (!visible)
+            row.Visibility("Collapsed")
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("62").VerticalAlignment("Center")
+        cmb := row.Add("ComboBox").Name(comboName).Width("66").Height("22").MinHeight("0").FontSize("11").SelectedIndex(selIndex)
+        for it in items
+            cmb.Add("ComboBoxItem").Content(it)
         return row
     }
 
