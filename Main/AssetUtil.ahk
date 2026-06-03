@@ -1757,6 +1757,9 @@ GetItemFoldIndex(tableItem, itemIndex) {
 
 ; 统一获取某项的所有Fold信息（避免重复遍历IndexSpanArr）
 GetItemFoldData(tableItem, itemIndex) {
+    if (!tableItem.FoldInfo || !tableItem.FoldInfo.HasOwnProp("IndexSpanArr"))
+        return { foldIndex: 0, forbidState: false, frontInfo: "", offset: 1 }
+
     FoldInfo := tableItem.FoldInfo
     if (!IsObject(FoldInfo) || !FoldInfo.HasProp("IndexSpanArr"))
         return { foldIndex: 0, forbidState: false, frontInfo: "", offset: 1 }
