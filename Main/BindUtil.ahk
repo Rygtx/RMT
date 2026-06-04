@@ -12,6 +12,7 @@ BindKey() {
     InitTriggerKeyMap()
     BindSoftHotKey()
     BindMenuHotKey()
+    BindUIPanelHotKey()
     BindTabHotKey()
     OnExit(OnExitSoft)
 }
@@ -314,7 +315,7 @@ BindMenuHotKey() {
                     Hotkey(key " up", actionArr[2])
 
                 ; 顺序触发（默认无序）：注册反向组合键；勾选顺序时不注册
-                if (isCombo && (!FoldInfo.UnorderedTriggerArr.Has(index) || !FoldInfo.UnorderedTriggerArr[index])) {
+                if (isCombo && !FoldInfo.UnorderedTriggerArr[index]) {
                     reversedKey := GetReversedComboKey(oriKey)
                     if (reversedKey != "") {
                         try {
@@ -334,6 +335,29 @@ BindMenuHotKey() {
         if (realFrontStr != "") {
             HotIfWinActive
         }
+    }
+}
+
+; 界面宏模块级触发键：切换悬浮面板显示/隐藏
+BindUIPanelHotKey() {
+    tableItem := MySoftData.TableInfo[4]
+    if (!tableItem || !tableItem.FoldInfo)
+        return
+
+    FoldInfo := tableItem.FoldInfo
+    for Index, IndexSpanStr in FoldInfo.IndexSpanArr {
+        if (FoldInfo.ForbidStateArr[Index] || FoldInfo.TKArr[Index] == "")
+            continue
+
+        oriKey := FoldInfo.TKArr[Index]
+        if (WindowHotkeyManager.IsManaged(StrLower(oriKey)))
+            continue
+
+        key := "$*" oriKey
+        foldIndex := Index
+
+        ; 界面宏触发类型固定为"开关"：按下时切换面板
+        try Hotkey(key, (*) => MyUIMacroGui.TogglePanel(foldIndex))
     }
 }
 
@@ -416,7 +440,7 @@ BindTabHotKey() {
                         Hotkey(key " up", actionArr[2], "On")
 
                     ; 顺序触发（默认无序）：注册反向组合键；勾选顺序时不注册
-                    if (cache.isCombo && (!tableItem.UnorderedTriggerArr.Has(index) || !tableItem.UnorderedTriggerArr[index])) {
+                    if (cache.isCombo && !tableItem.UnorderedTriggerArr[index]) {
                         reversedKey := GetReversedComboKey(rawKey)
                         if (reversedKey != "") {
                             try {
@@ -468,7 +492,7 @@ InitTriggerKeyMap() {
         MySoftData.TriggerKeyMap[key].AddData(info)
 
         ; 顺序触发（默认无序）：将反向组合键也加入映射；勾选顺序时不加
-        if (!tableItem.UnorderedTriggerArr.Has(index) || !tableItem.UnorderedTriggerArr[index]) {
+        if (!tableItem.UnorderedTriggerArr[index]) {
             reversedRaw := GetReversedComboKey(tableItem.TKArr[index])
             if (reversedRaw != "") {
                 reversedKey := LTrim(reversedRaw, "~")
@@ -497,7 +521,7 @@ InitTriggerKeyMap() {
         MySoftData.TriggerKeyMap[key].AddData(info)
 
         ; 顺序触发（默认无序）：将反向组合键也加入映射；勾选顺序时不加
-        if (!FoldInfo.UnorderedTriggerArr.Has(index) || !FoldInfo.UnorderedTriggerArr[index]) {
+        if (!FoldInfo.UnorderedTriggerArr[index]) {
             reversedRaw := GetReversedComboKey(FoldInfo.TKArr[index])
             if (reversedRaw != "") {
                 reversedKey := LTrim(reversedRaw, "~")
@@ -506,6 +530,26 @@ InitTriggerKeyMap() {
                     MySoftData.TriggerKeyMap[reversedKey] := MySoftData.TriggerKeyMap[key]
                 }
             }
+        }
+    }
+
+    ; 界面宏(TableIndex==4)的Fold触发键（悬浮面板切换）
+    tableItem := MySoftData.TableInfo[4]
+    if (tableItem && tableItem.FoldInfo) {
+        uiFoldInfo := tableItem.FoldInfo
+        for index, IndexSpanStr in uiFoldInfo.IndexSpanArr {
+            if (uiFoldInfo.ForbidStateArr[index] || uiFoldInfo.TKArr[index] == "")
+                continue
+            key := LTrim(uiFoldInfo.TKArr[index], "~")
+            key := StrLower(key)
+            if (!MySoftData.TriggerKeyMap.Has(key)) {
+                MySoftData.TriggerKeyMap[key] := TriggerKeyData(key)
+            }
+            info := TriggerKeyInfo()
+            info.tableIndex := tableItem.Index
+            info.macroType := 3  ; 界面宏面板类型
+            info.foldIndex := index
+            MySoftData.TriggerKeyMap[key].AddData(info)
         }
     }
 
