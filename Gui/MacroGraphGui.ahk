@@ -965,8 +965,13 @@ class MacroGraphGui {
         nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
         key := nameMap[field] id
         d := this._Parse(this.cmdNodes[id].CurCMD)
-        if (state.Has(key))
-            d.%field% := state[key]
+        if (state.Has(key)) {
+            val := state[key]
+            ; 数值字段最小为 1
+            if (IsNumber(val) && val + 0 < 1)
+                val := "1"
+            d.%field% := val
+        }
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         if (field == "count")
             this._RefreshKeyVisibility(id)

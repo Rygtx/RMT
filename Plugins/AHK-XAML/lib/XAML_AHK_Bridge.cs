@@ -3014,6 +3014,80 @@ public class AhkWpfEngine {
                 SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ClearSelection|\n");
             }
         };
+
+        // Label 拖拽改变数值：遍历所有 TextBlock Label，如果同行有 TextBox 则支持拖拽
+        bool isLabelDragging = false;
+        System.Windows.Controls.TextBox dragTargetTextBox = null;
+        double dragStartX = 0;
+        double dragStartValue = 0;
+
+        System.Action<DependencyObject> AttachLabelDrag = null;
+        AttachLabelDrag = (DependencyObject p) => {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(p);
+            for (int i = 0; i < count; i++) {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(p, i);
+                var tb = child as System.Windows.Controls.TextBlock;
+                if (tb != null && tb.Width == 72 && tb.Cursor == null) {
+                    var sp = tb.Parent as System.Windows.Controls.StackPanel;
+                    if (sp == null) continue;
+                    System.Windows.Controls.TextBox targetBox = null;
+                    foreach (var spChild in sp.Children) {
+                        if (spChild is System.Windows.Controls.TextBox) {
+                            targetBox = (System.Windows.Controls.TextBox)spChild;
+                            break;
+                        }
+                    }
+                    if (targetBox == null) continue;
+                    var capturedBox = targetBox;
+                    tb.Cursor = System.Windows.Input.Cursors.SizeWE;
+                    tb.PreviewMouseLeftButtonDown += (s, e) => {
+                        double val;
+                        if (!double.TryParse(capturedBox.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out val))
+                            val = 0;
+                        isLabelDragging = true;
+                        dragTargetTextBox = capturedBox;
+                        dragStartX = e.GetPosition(canvas).X;
+                        dragStartValue = val;
+                        canvas.CaptureMouse();
+                        e.Handled = true;
+                    };
+                }
+                var doChild = child as DependencyObject;
+                if (doChild != null)
+                    AttachLabelDrag(doChild);
+            }
+        };
+        AttachLabelDrag(canvas);
+
+        // Label 拖拽的 MouseMove 和 MouseUp 复用 canvas 事件
+        // 在已有的 canvas.MouseMove 中追加 Label 拖拽处理（通过检查 isLabelDragging）
+        // 为避免修改已有 lambda，使用独立的事件处理
+        canvas.PreviewMouseMove += (s, e) => {
+            if (!isLabelDragging || dragTargetTextBox == null) return;
+            double dx = e.GetPosition(canvas).X - dragStartX;
+            double step = Math.Max(1, Math.Abs(dragStartValue) * 0.02);
+            double newVal = Math.Max(1, dragStartValue + dx * step);
+            // 根据原始值是否为整数决定输出格式
+            if (dragStartValue == Math.Floor(dragStartValue))
+                dragTargetTextBox.Text = ((int)Math.Round(newVal)).ToString();
+            else
+                dragTargetTextBox.Text = newVal.ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
+            e.Handled = true;
+        };
+        canvas.PreviewMouseLeftButtonUp += (s, e) => {
+            if (!isLabelDragging) return;
+            isLabelDragging = false;
+            canvas.ReleaseMouseCapture();
+            // 触发 TextBox 的 TextChanged 事件（通过清空再恢复文本）
+            if (dragTargetTextBox != null) {
+                var box = dragTargetTextBox;
+                string val = box.Text;
+                box.Text = "";
+                box.Text = val;
+                dragTargetTextBox = null;
+            }
+            e.Handled = true;
+        };
     }
         
     private void ZoomAllCanvas(Canvas canvas) {
