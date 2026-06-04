@@ -5,6 +5,7 @@ using System.Windows.Markup;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml;
@@ -134,66 +135,152 @@ public class AhkWpfEngine {
     System.Windows.Shapes.Path tempConnection = null;
     FrameworkElement connectionSourcePort = null;
 
+    // 获取任意 UIElement 在指定 Canvas 上的绝对坐标（支持嵌套子元素）
+    private Point GetCanvasPosition(UIElement element, Canvas canvas) {
+        if (element == null) return new Point(0, 0);
+        try {
+            return element.TransformToAncestor(canvas).Transform(new Point(0, 0));
+        } catch {
+            return new Point(0, 0);
+        }
+    }
+
+    // C# 端直接更新连线（避免 AHK 跨进程延迟导致卡顿）
+    private void UpdateConnectionsForNode(Canvas cvs, string nodeName, double nodeLeft, double nodeTop) {
+        if (cvs == null) return;
+        string nodeId = nodeName.StartsWith("Node_") ? nodeName.Substring(5) : nodeName;
+        foreach (var child in cvs.Children) {
+            var path = child as System.Windows.Shapes.Path;
+            if (path == null || path.Name == null || !path.Name.StartsWith("Path_")) continue;
+            // Path 名称格式: Path_FromId_ToId
+            string[] parts = path.Name.Substring(5).Split('_');
+            if (parts.Length != 2) continue;
+            bool isFrom = (parts[0] == nodeId);
+            bool isTo = (parts[1] == nodeId);
+            if (!isFrom && !isTo) continue;
+            // 获取对端节点位置
+            FrameworkElement otherNode = cvs.FindName("Node_" + (isFrom ? parts[1] : parts[0])) as FrameworkElement;
+            if (otherNode == null) continue;
+            double otherLeft = Canvas.GetLeft(otherNode);
+            double otherTop = Canvas.GetTop(otherNode);
+            // 计算连线端点（与 AHK 端 UpdatePath 一致）
+            double nodeW = 200;
+            double portY = 31; // 标题栏高度30 + 端口偏移1px
+            double startX, startY, endX, endY;
+            if (isFrom) {
+                startX = nodeLeft + nodeW; startY = nodeTop + portY;
+                endX = otherLeft; endY = otherTop + portY;
+            } else {
+                startX = otherLeft + nodeW; startY = otherTop + portY;
+                endX = nodeLeft; endY = nodeTop + portY;
+            }
+            double dx = Math.Abs(endX - startX);
+            double cpOffset = Math.Max(dx * 0.4, 50);
+            string geom = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "M {0},{1} C {2},{3} {4},{5} {6},{7}",
+                startX, startY, startX + cpOffset, startY, endX - cpOffset, endY, endX, endY);
+            try {
+                path.Data = (Geometry)System.Windows.Markup.XamlReader.Parse(
+                    "<PathGeometry xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" + geom + "</PathGeometry>");
+            } catch { }
+        }
+    }
+
+    // 递归搜索 Canvas 下所有名称匹配指定前缀的 FrameworkElement
+    private System.Collections.Generic.List<FrameworkElement> FindDescendantsByNamePrefix(DependencyObject parent, string prefix) {
+        var results = new System.Collections.Generic.List<FrameworkElement>();
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++) {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            var fe = child as FrameworkElement;
+            if (fe != null && fe.Name != null && fe.Name.StartsWith(prefix))
+                results.Add(fe);
+            results.AddRange(FindDescendantsByNamePrefix(child, prefix));
+        }
+        return results;
+    }
+
     static AhkWpfEngine() {
         EventManager.RegisterClassHandler(typeof(ScrollViewer), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnScrollViewerLoaded), false);
-        EventManager.RegisterClassHandler(typeof(ScrollViewer), UIElement.PreviewMouseWheelEvent, new System.Windows.Input.MouseWheelEventHandler(OnPreviewMouseWheel), false);
     }
     
     private static void OnScrollViewerLoaded(object sender, RoutedEventArgs e) {
         ScrollViewer sv = sender as ScrollViewer;
-        if (sv != null && (sv.Tag as string == null || !(sv.Tag as string).Contains("Trapped"))) {
-            bool inPopup = false;
-            DependencyObject d = sv;
-            while (d != null) {
-                if (d is System.Windows.Controls.Primitives.Popup || d.GetType().Name == "PopupRoot") { inPopup = true; break; }
-                if (d is System.Windows.Media.Visual || d is System.Windows.Media.Media3D.Visual3D) d = System.Windows.Media.VisualTreeHelper.GetParent(d);
-                else d = LogicalTreeHelper.GetParent(d);
+        if (sv == null) return;
+        
+        string svName = sv.Name ?? "unnamed";
+        string parentName = sv.Parent != null ? sv.Parent.GetType().Name : "null";
+        
+        // Check if this ScrollViewer is inside a MenuItem's Popup (submenu)
+        // We need to distinguish between ContextMenu's own Popup and MenuItem's Popup
+        bool inMenuItemPopup = false;
+        Popup popupRef = null;
+        DependencyObject d = sv;
+        while (d != null) {
+            if (d is Popup) {
+                popupRef = d as Popup;
+                // Check if this Popup belongs to a MenuItem (not ContextMenu)
+                // ContextMenu's Popup has PlacementTarget = ContextMenu itself
+                // MenuItem's Popup has PlacementTarget = the MenuItem
+                if (popupRef.PlacementTarget is MenuItem) {
+                    inMenuItemPopup = true;
+                }
+                break;
             }
-            if (inPopup) {
-                sv.Tag = ((sv.Tag as string) ?? "") + " Trapped";
-                System.Windows.Input.MouseWheelEventHandler handler = (s, args) => {
-                    var _sv = (ScrollViewer)s;
-                    _sv.ScrollToVerticalOffset(_sv.VerticalOffset - args.Delta / 3.0);
-                    args.Handled = true;
-                };
-                sv.PreviewMouseWheel += handler;
-                sv.MouseWheel += handler;
+            if (d.GetType().Name == "PopupRoot") { break; }
+            DependencyObject next = null;
+            if (d is Visual || d is System.Windows.Media.Media3D.Visual3D)
+                next = VisualTreeHelper.GetParent(d);
+            if (next == null)
+                next = LogicalTreeHelper.GetParent(d);
+            d = next;
+        }
+        
+        if (!inMenuItemPopup) {
+            // Not a MenuItem's Popup ScrollViewer - skip
+            LogDebug("OnScrollViewerLoaded: non-MenuItem SV [name=" + svName + " parent=" + parentName + "] - skipping");
+            return;
+        }
+        
+        // This is a MenuItem's Popup ScrollViewer (submenu)
+        LogDebug("OnScrollViewerLoaded: MenuItem Popup SV [name=" + svName + " parent=" + parentName + "]");
+        
+        // Force MaxHeight to ensure scrolling is needed
+        sv.MaxHeight = 300;
+        sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        
+        // Check ItemsControl item count for diagnostics
+        var itemsPresenter = FindVisualChild<ItemsPresenter>(sv);
+        if (itemsPresenter != null) {
+            var ic = itemsPresenter.TemplatedParent as System.Windows.Controls.ItemsControl;
+            if (ic != null) {
+                LogDebug("OnScrollViewerLoaded: MenuItem ItemsControl count=" + ic.Items.Count + " vp=" + sv.ViewportHeight + " ext=" + sv.ExtentHeight + " scrollable=" + sv.ScrollableHeight);
             }
         }
-    }
-    
-    private static void OnPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs args) {
-        if (!args.Handled) {
-            ScrollViewer sv = null;
-            if (sender is ScrollViewer) sv = (ScrollViewer)sender;
-            else sv = FindVisualChild<ScrollViewer>(sender as DependencyObject);
-            
-            if (sv == null) return;
-            if (IsEventForNestedOrPopup(args.OriginalSource as DependencyObject, sv)) return;
-            
-            bool canScroll = false;
-            if (sv.ComputedVerticalScrollBarVisibility == Visibility.Visible) {
-                if (args.Delta > 0 && sv.VerticalOffset > 0) canScroll = true;
-                else if (args.Delta < 0 && sv.VerticalOffset < sv.ScrollableHeight) canScroll = true;
-            }
-            
-            string tag = sv.Tag as string ?? "";
-            bool passScroll = tag.Contains("PassScroll");
-            bool containScroll = tag.Contains("ContainScroll");
-            
-            if (!canScroll || passScroll) {
-                args.Handled = true;
-                
-                if (containScroll) return;
-                
-                Window window = Window.GetWindow(sender as DependencyObject);
-                if (window != null && !window.IsEnabled) return;
-                
-                var eventArg = new System.Windows.Input.MouseWheelEventArgs(args.MouseDevice, args.Timestamp, args.Delta) { RoutedEvent = UIElement.MouseWheelEvent, Source = sender };
-                var parent = System.Windows.Media.VisualTreeHelper.GetParent(sender as DependencyObject) as UIElement;
-                if (parent != null) parent.RaiseEvent(eventArg);
-            }
+        
+        // Attach mouse wheel handler directly to the ScrollViewer
+        sv.PreviewMouseWheel += (s, args) => {
+            if (args.Handled) return;
+            var _sv = (ScrollViewer)s;
+            double oldOff = _sv.VerticalOffset;
+            double delta = args.Delta / 3.0;
+            double newOff = _sv.VerticalOffset - delta;
+            if (newOff < 0) newOff = 0;
+            if (newOff > _sv.ScrollableHeight) newOff = _sv.ScrollableHeight;
+            _sv.ScrollToVerticalOffset(newOff);
+            LogDebug("SubmenuWheel: delta=" + args.Delta + " old=" + oldOff + " new=" + newOff + " scrollable=" + _sv.ScrollableHeight);
+            args.Handled = true;
+        };
+        
+        // Also attach to Popup.Opened to force layout update
+        if (popupRef != null) {
+            popupRef.Opened += (s, args) => {
+                sv.UpdateLayout();
+                LogDebug("SubmenuPopup.Opened: vp=" + sv.ViewportHeight + " ext=" + sv.ExtentHeight + " scrollable=" + sv.ScrollableHeight);
+            };
         }
+        
+        LogDebug("OnScrollViewerLoaded: Attached wheel handler to MenuItem Popup SV");
     }
     
     private static bool IsEventForNestedOrPopup(DependencyObject originalSource, ScrollViewer currentScrollViewer) {
@@ -201,7 +288,8 @@ public class AhkWpfEngine {
         DependencyObject d = originalSource;
         while (d != null && d != currentScrollViewer) {
             if (d is System.Windows.Controls.Primitives.Popup || d.GetType().Name == "PopupRoot") {
-                return true;
+                // Don't skip: let the Popup's own ScrollViewer handle scrolling via OnScrollViewerLoaded
+                return false;
             }
             if (d is ScrollViewer && d != currentScrollViewer) {
                 return true;
@@ -225,6 +313,15 @@ public class AhkWpfEngine {
             }
         }
         return null;
+    }
+
+    private static void LogDebug(string msg) {
+        try {
+            string dir = System.IO.Path.Combine(System.Environment.ExpandEnvironmentVariables("%TEMP%"), "AhkWpf");
+            if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "AhkWpfDebug.log"),
+                System.DateTime.Now.ToString("HH:mm:ss.fff") + " " + msg + "\n");
+        } catch { }
     }
 
     /// <summary>
@@ -572,8 +669,12 @@ public class AhkWpfEngine {
         if (!string.IsNullOrEmpty(eventsContent)) {
             string[] pairs = eventsContent.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string p in pairs) {
-                string[] kv = p.Split(':');
-                if (kv.Length == 2) BindEvent(kv[0], kv[1]);
+                int colonIdx = p.IndexOf(':');
+                if (colonIdx > 0) {
+                    string ctrl = p.Substring(0, colonIdx);
+                    string evt = p.Substring(colonIdx + 1);
+                    BindEvent(ctrl, evt);
+                }
             }
         }
         
@@ -1000,8 +1101,12 @@ public class AhkWpfEngine {
             var bound = new System.Collections.Generic.HashSet<string>();
             foreach (string p in pairs) {
                 if (bound.Add(p)) { // Deduplicate
-                    string[] kv = p.Split(':');
-                    if (kv.Length == 2) BindEvent(kv[0], kv[1]);
+                    int colonIdx = p.IndexOf(':');
+                    if (colonIdx > 0) {
+                        string ctrl = p.Substring(0, colonIdx);
+                        string evt = p.Substring(colonIdx + 1);
+                        BindEvent(ctrl, evt);
+                    }
                 }
             }
         }
@@ -1202,6 +1307,15 @@ public class AhkWpfEngine {
         try {
             object ctrl = ctrlName == "Window" ? (object)win : win.FindName(ctrlName);
             if (ctrl == null) return;
+
+            // 支持 "KeyDown:Return" 格式：注册 KeyDown 事件，但在 handler 中过滤特定按键
+            string keyFilter = null;
+            if (eventName.Contains(":")) {
+                int colonIdx = eventName.IndexOf(':');
+                keyFilter = eventName.Substring(colonIdx + 1);
+                eventName = eventName.Substring(0, colonIdx);
+            }
+
             var evt = ctrl.GetType().GetEvent(eventName);
             if (evt == null) return;
 
@@ -1235,7 +1349,22 @@ public class AhkWpfEngine {
             }
             
             var lambda = System.Linq.Expressions.Expression.Lambda(evt.EventHandlerType, call, pExprs);
-            evt.AddEventHandler(ctrl, lambda.Compile());
+            var compiledHandler = lambda.Compile();
+
+            if (keyFilter != null && ctrl is UIElement) {
+                // 用 AddHandler + 过滤条件注册，只有匹配的按键才触发事件
+                var uiEl = (UIElement)ctrl;
+                uiEl.AddHandler(System.Windows.Input.Keyboard.KeyDownEvent,
+                    new System.Windows.Input.KeyEventHandler((s, e) => {
+                        if (e.Key.ToString() == keyFilter) {
+                            DumpStateWithArgs(ctrlName, eventName, e);
+                        }
+                    }),
+                    true  // handledEventsToo
+                );
+            } else {
+                evt.AddEventHandler(ctrl, compiledHandler);
+            }
         } catch { }
     }
 
@@ -1511,7 +1640,8 @@ public class AhkWpfEngine {
 
     private void DumpStateWithArgs(string cName, string eName, object e) {
         if (e is System.Windows.Input.KeyEventArgs) {
-            eName += ":" + ((System.Windows.Input.KeyEventArgs)e).Key.ToString();
+            var ke = (System.Windows.Input.KeyEventArgs)e;
+            eName += ":" + ke.Key.ToString() + ":" + ((int)System.Windows.Input.Keyboard.Modifiers & (int)System.Windows.Input.ModifierKeys.Control) + ":" + ((int)System.Windows.Input.Keyboard.Modifiers & (int)System.Windows.Input.ModifierKeys.Shift) + ":" + ((int)System.Windows.Input.Keyboard.Modifiers & (int)System.Windows.Input.ModifierKeys.Alt);
         }
 #if ENABLE_WEBVIEW
         else if (e is Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs) {
@@ -2110,6 +2240,10 @@ public class AhkWpfEngine {
                         Canvas.SetLeft((UIElement)ctrl, double.Parse(coords[0]));
                         Canvas.SetTop((UIElement)ctrl, double.Parse(coords[1]));
                     }
+                } else if (parts[1] == "SetVisible" && ctrl is UIElement) {
+                    ((UIElement)ctrl).Visibility = (parts[2] == "True") ? Visibility.Visible : Visibility.Collapsed;
+                } else if (parts[1] == "IsEnabled" && ctrl is FrameworkElement) {
+                    ((FrameworkElement)ctrl).IsEnabled = (parts[2] == "True");
                 } else if (parts[1] == "SetCanvasMode" && ctrl is Canvas) {
                     canvasModes[parts[0]] = parts[2];
                 } else if (parts[1] == "EnableZoomPan" && ctrl is Canvas) {
@@ -2261,6 +2395,11 @@ public class AhkWpfEngine {
         DateTime lastSend = DateTime.MinValue;
         
         ctrl.MouseLeftButtonDown += (s, e) => {
+            // 如果点击的是端口（Port_In/Port_Out），不处理拖动，让事件冒泡到 Canvas 处理连线
+            var src = e.OriginalSource as FrameworkElement;
+            if (src != null && src.Name != null && src.Name.StartsWith("Port_")) {
+                return; // 不设置 e.Handled，让事件冒泡到 Canvas
+            }
             isDragging = true;
             dragStart = e.GetPosition((UIElement)ctrl.Parent);
             startLeft = Canvas.GetLeft(ctrl);
@@ -2292,6 +2431,10 @@ public class AhkWpfEngine {
             
             Canvas.SetLeft(ctrl, newLeft);
             Canvas.SetTop(ctrl, newTop);
+            // C# 端直接更新连线（避免 AHK 跨进程延迟）
+            var parentCanvas = ctrl.Parent as Canvas;
+            if (parentCanvas != null)
+                UpdateConnectionsForNode(parentCanvas, ctrlName, newLeft, newTop);
             // Throttle event sends to every 50ms
             if ((DateTime.Now - lastSend).TotalMilliseconds > 50) {
                 lastSend = DateTime.Now;
@@ -2504,22 +2647,26 @@ public class AhkWpfEngine {
         
         canvas.PreviewMouseDown += (s, e) => {
             if (e.ChangedButton == System.Windows.Input.MouseButton.Middle) {
-                //System.IO.File.AppendAllText("ahk_pan_debug.log", "Middle PreviewMouseDown fired! Starting pan.\n");
-                isPanning = true;
-                panMoved = false;
-                panStart = e.GetPosition(parent != null ? parent : canvas);
-                panStartTX = translateTransform.X;
-                panStartTY = translateTransform.Y;
-                canvas.CaptureMouse();
-                canvas.Cursor = System.Windows.Input.Cursors.Hand;
+                // 中键不再 Pan（已改为右键 Pan），仅阻止默认行为
                 e.Handled = true;
+            }
+            // 点击非 TextBox 区域时，结束输入状态（让 TextBox 失焦）
+            if (e.OriginalSource is System.Windows.Controls.TextBox) return;
+            if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox) {
+                System.Windows.Input.Keyboard.ClearFocus();
             }
         };
             
         canvas.PreviewMouseRightButtonDown += (s, e) => {
-            var pos = e.GetPosition(canvas);
-            string coords = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");
+            isPanning = true;
+            panMoved = false;
+            panStart = e.GetPosition(parent != null ? parent : canvas);
+            panStartTX = translateTransform.X;
+            panStartTY = translateTransform.Y;
+            canvas.CaptureMouse();
+            // 不在此处切换 Cursor，等实际移动后再切换
+            if (canvas.ContextMenu != null) canvas.ContextMenu.IsOpen = false;
+            e.Handled = true;
         };
         
         // Mode logic: Left click on empty space (Canvas) triggers Pan or Select
@@ -2531,8 +2678,8 @@ public class AhkWpfEngine {
                 if (tempConnection == null) {
                     tempConnection = new System.Windows.Shapes.Path {
                         Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)),
-                        StrokeThickness = 2.5,
-                        Opacity = 0.8,
+                        StrokeThickness = 6,
+                        Opacity = 0.9,
                         IsHitTestVisible = false
                     };
                     System.Windows.Controls.Panel.SetZIndex(tempConnection, -1);
@@ -2580,13 +2727,26 @@ public class AhkWpfEngine {
             //System.IO.File.AppendAllText("ahk_pan_debug.log", "MouseLeftButtonDown fired! Mode: " + mode + "\n");
             
             if (mode == "Pan") {
-                isPanning = true;
-                panMoved = false;
-                panStart = e.GetPosition(parent != null ? parent : canvas);
-                panStartTX = translateTransform.X;
-                panStartTY = translateTransform.Y;
+                // 左键空白处：框选模式（Pan 已移至右键）
+                selectionStart = e.GetPosition(canvas);
+                if (selectionBox == null) {
+                    selectionBox = new System.Windows.Shapes.Rectangle {
+                        Stroke = System.Windows.Media.Brushes.DodgerBlue,
+                        StrokeThickness = 1,
+                        Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 30, 144, 255)),
+                        IsHitTestVisible = false
+                    };
+                    System.Windows.Controls.Panel.SetZIndex(selectionBox, 9999);
+                    canvas.Children.Add(selectionBox);
+                }
+                Canvas.SetLeft(selectionBox, selectionStart.X);
+                Canvas.SetTop(selectionBox, selectionStart.Y);
+                selectionBox.Width = 0;
+                selectionBox.Height = 0;
+                selectionBox.Visibility = Visibility.Visible;
+                lastSelectionSet = "FORCE_UPDATE";
+                lastConnSet = "FORCE_UPDATE";
                 canvas.CaptureMouse();
-                canvas.Cursor = System.Windows.Input.Cursors.Hand;
                 e.Handled = true;
             } else if (mode == "Select") {
                 selectionStart = e.GetPosition(canvas);
@@ -2631,10 +2791,12 @@ public class AhkWpfEngine {
         canvas.MouseMove += (s, e) => {
             if (isPanning) {
                 var pos = e.GetPosition(parent != null ? parent : canvas);
-                if (Math.Abs(pos.X - panStart.X) > 2 || Math.Abs(pos.Y - panStart.Y) > 2) panMoved = true;
+                if (Math.Abs(pos.X - panStart.X) > 2 || Math.Abs(pos.Y - panStart.Y) > 2) {
+                    panMoved = true;
+                    canvas.Cursor = System.Windows.Input.Cursors.Hand;
+                }
                 translateTransform.X = panStartTX + (pos.X - panStart.X);
                 translateTransform.Y = panStartTY + (pos.Y - panStart.Y);
-                //System.IO.File.AppendAllText("ahk_pan_debug.log", "Canvas Moved! New TX: " + translateTransform.X + " TY: " + translateTransform.Y + " parent: " + (parent != null ? parent.Name : "null") + "\n");
                 e.Handled = true;
             } else if (selectionBox != null && selectionBox.Visibility == Visibility.Visible) {
                 var pos = e.GetPosition(canvas);
@@ -2697,8 +2859,9 @@ public class AhkWpfEngine {
                 e.Handled = true;
             } else if (connectionSourcePort != null && tempConnection != null && tempConnection.Visibility == Visibility.Visible) {
                 var pos = e.GetPosition(canvas);
-                double startX = Canvas.GetLeft(connectionSourcePort) + connectionSourcePort.Width / 2;
-                double startY = Canvas.GetTop(connectionSourcePort) + connectionSourcePort.Height / 2;
+                Point portPos = GetCanvasPosition(connectionSourcePort, canvas);
+                double startX = portPos.X + connectionSourcePort.Width / 2;
+                double startY = portPos.Y + connectionSourcePort.Height / 2;
                 if (double.IsNaN(startX)) startX = 0;
                 if (double.IsNaN(startY)) startY = 0;
                 double endX = pos.X;
@@ -2738,10 +2901,20 @@ public class AhkWpfEngine {
             }
         };
         canvas.MouseUp += (s, e) => {
-            if (e.ChangedButton == System.Windows.Input.MouseButton.Middle && isPanning) {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.Right && isPanning) {
                 isPanning = false;
                 canvas.ReleaseMouseCapture();
                 canvas.Cursor = System.Windows.Input.Cursors.Arrow;
+                if (!panMoved) {
+                    // 右键单击（没有拖拽）：先通知 AHK 更新菜单状态，再打开 ContextMenu
+                    Point rPos = e.GetPosition(canvas);
+                    string coords = rPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + rPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");
+                    if (canvas.ContextMenu != null) {
+                        canvas.ContextMenu.PlacementTarget = canvas;
+                        canvas.ContextMenu.IsOpen = true;
+                    }
+                }
                 e.Handled = true;
             }
         };
@@ -2752,15 +2925,7 @@ public class AhkWpfEngine {
                 e.Handled = true;
                 return;
             }
-            if (isPanning) {
-                isPanning = false;
-                canvas.ReleaseMouseCapture();
-                canvas.Cursor = System.Windows.Input.Cursors.Arrow;
-                if (!panMoved) {
-                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ClearSelection|\n");
-                }
-                e.Handled = true;
-            } else if (selectionBox != null && selectionBox.Visibility == Visibility.Visible) {
+            if (selectionBox != null && selectionBox.Visibility == Visibility.Visible) {
                 selectionBox.Visibility = Visibility.Collapsed;
                 canvas.ReleaseMouseCapture();
                 if (lastSelectionSet == "FORCE_UPDATE") {
@@ -2795,39 +2960,47 @@ public class AhkWpfEngine {
                 }
 
                 if (targetNode != null) {
-                    // Extract node ID and find its complementary port
+                    // Extract node ID and find its complementary port (now inside node Border)
                     string nodeId = targetNode.Name.Substring(5);
                     string expectedPortName = connectionSourcePort.Name.StartsWith("Port_Out") ? "Port_In_" + nodeId : "Port_Out_" + nodeId;
-                    foreach (UIElement child in canvas.Children) {
-                        var fe = child as FrameworkElement;
-                        if (fe != null && fe.Name == expectedPortName) {
-                            closestPort = fe;
-                            break;
-                        }
+                    // Port is nested inside node Border, use FindName or recursive search
+                    var port = targetNode.FindName(expectedPortName) as FrameworkElement;
+                    if (port == null) {
+                        var ports = FindDescendantsByNamePrefix(targetNode, expectedPortName);
+                        if (ports.Count > 0) port = ports[0];
                     }
+                    closestPort = port;
                 }
 
-                // Second pass: if no direct node hit, do proximity search for ports
+                // Second pass: if no direct node hit, do proximity search for ports (recursive)
                 if (closestPort == null) {
-                    foreach (UIElement child in canvas.Children) {
-                        var fe = child as FrameworkElement;
-                        if (fe != null && fe.Name != null && fe.Name.StartsWith("Port_") && fe != connectionSourcePort) {
-                            double px = Canvas.GetLeft(fe) + fe.Width / 2;
-                            double py = Canvas.GetTop(fe) + fe.Height / 2;
-                            if (double.IsNaN(px) || double.IsNaN(py)) continue;
-                            
-                            double distSq = (dropPos.X - px) * (dropPos.X - px) + (dropPos.Y - py) * (dropPos.Y - py);
-                            if (distSq < minDistance) {
-                                minDistance = distSq;
-                                closestPort = fe;
-                            }
+                    var allPorts = FindDescendantsByNamePrefix(canvas, "Port_");
+                    foreach (var fe in allPorts) {
+                        if (fe == connectionSourcePort) continue;
+                        Point pp = GetCanvasPosition(fe, canvas);
+                        double px = pp.X + fe.Width / 2;
+                        double py = pp.Y + fe.Height / 2;
+
+                        double distSq = (dropPos.X - px) * (dropPos.X - px) + (dropPos.Y - py) * (dropPos.Y - py);
+                        if (distSq < minDistance) {
+                            minDistance = distSq;
+                            closestPort = fe;
                         }
                     }
                 }
                 
                 if (closestPort != null) {
-                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ConnectPorts|" + 
+                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ConnectPorts|" +
                         LengthPrefix(connectionSourcePort.Name + "," + closestPort.Name) + "\n");
+                } else {
+                    // Dropped on empty space: open context menu at drop position for adding a new node
+                    // Store source port info so AHK can auto-connect after menu selection
+                    string dropInfo = connectionSourcePort.Name + "," +
+                        dropPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," +
+                        dropPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ConnectionDropped|" +
+                        LengthPrefix(dropInfo) + "\n");
+                    // ContextMenu is now handled by AHK side (MG_DropCM) for cleaner UX
                 }
                 connectionSourcePort = null;
                 e.Handled = true;

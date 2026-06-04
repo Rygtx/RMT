@@ -69,6 +69,7 @@ class MacroGraphGui {
         this.IntervalGui := IntervalGui()
         this.KeyGui := KeyGui()
         this.MouseGui := MouseMoveGui()
+        this.SearchGui := SearchGui()
     }
 
     ; 指令图标的绝对路径（正斜杠，供 WPF Image.Source 使用）；不存在则返回空
@@ -164,14 +165,28 @@ class MacroGraphGui {
             this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(this.graph, "OnPathClicked", conn.PathId))
         ; 用户新建连线后，对新连线加粗并补绑点击（便于单击选中）
         this.ui.OnEvent(this.graph.id, "ConnectPorts", (*) => this._OnConnectionsChanged())
+        ; 出点拖拽连线到空白处松开：记录源端口和位置，弹出指令菜单
+        this.ui.OnEvent(this.graph.id, "ConnectionDropped", this._OnConnectionDropped.Bind(this))
         ; Start 跟踪拖动位置
         this.ui.OnEvent("Node_" this.startId, "DragMove", this._OnNodeDrag.Bind(this, this.startId))
         for i, name in this.CmdList
             this.ui.OnEvent("MG_Add_" i, "Click", this.OnAddCmd.Bind(this, name))
+        ; 出点连线到空白处：直接弹出指令菜单项事件（共用 OnAddCmd，内部已有 _pendingConnectionFrom 检测）
+        for i, name in this.CmdList
+            this.ui.OnEvent("MG_Drop_" i, "Click", this.OnAddCmd.Bind(this, name))
+        this.ui.OnEvent("MG_Copy", "Click", (*) => this._CopySelected())
+        this.ui.OnEvent("MG_Paste", "Click", (*) => this._PasteNodes())
+        this.ui.OnEvent("MG_Delete", "Click", (*) => this._DeleteSelected())
+        this.ui.OnEvent("MG_Edit", "Click", (*) => this._EditSelected())
+        ; 右键菜单打开前更新菜单项状态
+        this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._UpdateMenuState())
         this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
-        this.ui.OnEvent("Window", "KeyDown", this._OnKeyDown.Bind(this))
+        this.ui.OnEvent("Window", "PreviewKeyDown", this._OnKeyDown.Bind(this))
         sid := this._sessionId
         this.ui.OnEvent("Window", "Closed", (*) => this.OnWindowClosed(sid))
+
+        ; 为所有内联编辑 TextBox 绑定回车事件（输入完成后刷新节点数据）
+        this._BindTextBoxEnterEvents()
 
         this.ui.Show()
         this._oldUi := oldUi
@@ -308,11 +323,23 @@ class MacroGraphGui {
         }
     }
 
-    ; 窗口按键：选中节点/连线后按 Delete 删除（事件名形如 KeyDown:Delete，第三参为 {Key}）
+    ; 窗口按键：选中节点/连线后按 Delete 删除（事件名形如 KeyDown:Delete，第三参为 {Key} 或字符串）
     _OnKeyDown(state, ctrl, info) {
-        key := (IsObject(info) && info.HasProp("Key")) ? info.Key : ""
+        key := ""
+        ctrlDown := false
+        if (IsObject(info)) {
+            try key := info.Key
+        } else if (Type(info) == "String") {
+            parts := StrSplit(info, ":")
+            key := parts.Length >= 2 ? parts[2] : ""
+            ctrlDown := parts.Length >= 3 && (Number(parts[3]) & 2)
+        }
         if (key == "Delete" || key == "Back")
             this._DeleteSelected()
+        else if (ctrlDown && (key == "C" || key == "c"))
+            this._CopySelected()
+        else if (ctrlDown && (key == "V" || key == "v"))
+            this._PasteNodes()
     }
 
     ; 删除当前选中的节点与连线（就地隐藏，不重建窗口）
@@ -363,6 +390,103 @@ class MacroGraphGui {
         }
     }
 
+    ; 编辑选中的单个节点（打开对应编辑器）
+    _EditSelected() {
+        if (this.graph == "")
+            return
+        g := this.graph
+        if (g.selectedNodes.Count != 1)
+            return
+        for id in g.selectedNodes {
+            this.OpenNodeEditor(id)
+            break
+        }
+    }
+
+    ; 复制当前选中的节点（保存 CurCMD 和相对偏移到剪贴板）
+    _CopySelected() {
+        if (this.graph == "")
+            return
+        g := this.graph
+        if (g.selectedNodes.Count == 0)
+            return
+        ; 收集选中节点数据
+        copyData := []
+        firstX := "", firstY := ""
+        selIds := []
+        for id in g.selectedNodes {
+            if (id == this.startId || !this.cmdNodes.Has(id))
+                continue
+            node := this.cmdNodes[id]
+            p := this.pos.Has(id) ? this.pos[id] : { x: 0, y: 0 }
+            if (firstX == "") {
+                firstX := p.x
+                firstY := p.y
+            }
+            copyData.Push({ cmd: node.CurCMD, dx: p.x - firstX, dy: p.y - firstY, srcId: id })
+            selIds.Push(id)
+        }
+        if (copyData.Length == 0)
+            return
+        ; 收集选中节点之间的连线
+        copyLinks := []
+        selSet := Map()
+        for id in selIds
+            selSet[id] := true
+        for conn in g.connections {
+            if (selSet.Has(conn.From) && selSet.Has(conn.To))
+                copyLinks.Push({ from: conn.From, to: conn.To })
+        }
+        this._clipboard := { nodes: copyData, links: copyLinks }
+    }
+
+    ; 粘贴剪贴板中的节点
+    _PasteNodes() {
+        if (this.graph == "" || this.ui == "" || !this.ui.wpfHwnd)
+            return
+        if (!this.HasOwnProp("_clipboard") || !this._clipboard || !this._clipboard.nodes)
+            return
+        this._CaptureLinks()
+        this._SyncPositionsFromGraph()
+        g := this.graph
+        ; 粘贴位置：右键位置或画布中心
+        ox := g.HasProp("lastRightClickX") ? g.lastRightClickX - g.offsetX : 300
+        oy := g.HasProp("lastRightClickY") ? g.lastRightClickY - g.offsetY : 300
+        ; 创建 id 映射（旧 id -> 新 id）
+        idMap := Map()
+        newIds := []
+        for cd in this._clipboard.nodes {
+            id := this._NewId()
+            node := this._MakeNode(cd.cmd)
+            this.cmdNodes[id] := node
+            this.order.Push(id)
+            this.pos[id] := { x: ox + cd.dx + 40, y: oy + cd.dy + 40 }
+            idMap[cd.srcId] := id
+            newIds.Push(id)
+            ; 注入节点
+            d := this._Parse(node.CurCMD)
+            if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
+                this.injected[id] := true
+                this._InjectSummaryNode(id, node)
+            }
+            else {
+                this._InjectFullNode(id, node)
+            }
+        }
+        ; 恢复选中节点之间的连线
+        for link in this._clipboard.links {
+            newFrom := idMap.Has(link.from) ? idMap[link.from] : ""
+            newTo := idMap.Has(link.to) ? idMap[link.to] : ""
+            if (newFrom != "" && newTo != "" && newFrom != newTo && this._NodeExists(newFrom) && this._NodeExists(newTo)) {
+                g.AddConnection(newFrom, newTo)
+            }
+        }
+        this._ThickenConnections()
+        for conn in g.connections
+            this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(g, "OnPathClicked", conn.PathId))
+        this._Apply()
+    }
+
     _RemoveFromOrder(id) {
         no := []
         for x in this.order {
@@ -375,20 +499,46 @@ class MacroGraphGui {
     ; ----------------------------------------------------------------- 右键添加节点
 
     _BuildContextMenu() {
-        ; MaxHeight 触发主题 ContextMenu 模板内置的 ScrollViewer 滚动；MinWidth 加宽弹窗
         canvas := this.graph.canvas
         cmEl := canvas.Add("FrameworkElement.ContextMenu")
-        cm := cmEl.Add("ContextMenu").MinWidth("220").MaxHeight("420").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        cm := cmEl.Add("ContextMenu").Name("MG_CM").MinWidth("180").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+
+        ; 注入局部资源：仅 MenuItem 子菜单模板（一级菜单不需要 ScrollViewer）
+        cm.InjectResources(this._MenuItemSubmenuStyle())
+
+        ; 1. 编辑（仅选中单个节点时可交互）
+        cm.Add("MenuItem").Name("MG_Edit").Header(GetLang("编辑"))
+
+        ; 2. 新增指令（有子菜单）
+        miAdd := cm.Add("MenuItem").Name("MG_AddRoot").Header(GetLang("新增指令"))
         for i, name in this.CmdList {
-            mi := cm.Add("MenuItem").Name("MG_Add_" i).Header(name)
+            mi := miAdd.Add("MenuItem").Name("MG_Add_" i).Header(name)
             iconUri := this._IconUri(i)
             if (iconUri != "")
                 mi.Add("MenuItem.Icon").Add("Image").SetProp("Source", iconUri).Width("16").Height("16")
         }
-        ; 将 ContextMenu 属性元素移到画布子元素最前，保证"属性元素在内容子元素之前"。
-        ; 否则该属性元素会夹在 Canvas 的隐式 Children（Rectangle 背景、各节点…）中间，
-        ; 切断 Children 集合，导致 WPF 报 XamlDuplicateMemberException：已对 Canvas 设置 Children 属性。
-        ; 注意：不能假设 cmEl 一定是最后一个子元素——按对象身份定位其真实位置后再移到最前。
+
+        ; 3. 复制（快捷键提示）
+        cm.Add("MenuItem").Name("MG_Copy").Header(GetLang("复制")).InputGestureText("Ctrl+C")
+
+        ; 4. 粘贴（快捷键提示）
+        cm.Add("MenuItem").Name("MG_Paste").Header(GetLang("粘贴")).InputGestureText("Ctrl+V")
+
+        ; 5. 删除（快捷键提示）
+        cm.Add("MenuItem").Name("MG_Delete").Header(GetLang("删除")).InputGestureText("Delete")
+
+        ; ---- 出点连线到空白处用的指令弹出菜单（挂在隐藏 Border 上，与右键菜单独立） ----
+        dropHost := canvas.Add("Border").Name("MG_DropHost").Width("0").Height("0").Visibility("Collapsed")
+        dm := dropHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MG_DropCM").MinWidth("180").MaxHeight("400").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        dm.InjectResources(this._ContextMenuScrollStyle())
+        for i, name in this.CmdList {
+            mi := dm.Add("MenuItem").Name("MG_Drop_" i).Header(name)
+            iconUri := this._IconUri(i)
+            if (iconUri != "")
+                mi.Add("MenuItem.Icon").Add("Image").SetProp("Source", iconUri).Width("16").Height("16")
+        }
+
+        ; 将 ContextMenu 属性元素移到画布子元素最前
         ch := canvas._Children
         idx := 0
         for i, c in ch {
@@ -401,6 +551,121 @@ class MacroGraphGui {
             ch.RemoveAt(idx)
             ch.InsertAt(1, cmEl)
         }
+    }
+
+    ; 支持子菜单的 MenuItem 模板（含 ▸ 箭头列 + 右向弹出 Popup）。
+    ; 作为 ContextMenu 局部资源注入，覆盖全局主题中可能缺失子菜单支持的旧模板。
+    ; 悬停蓝色高亮 + 仅父级菜单项悬停时展开子菜单（叶子项不展空 Popup，避免右侧水平条出现）。
+    _MenuItemSubmenuStyle() {
+        return ''
+            . '<Style TargetType="MenuItem">'
+            .   '<Setter Property="Background" Value="Transparent"/>'
+            .   '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
+            .   '<Setter Property="Padding" Value="10,8"/>'
+            .   '<Setter Property="Template"><Setter.Value>'
+            .     '<ControlTemplate TargetType="MenuItem">'
+            .       '<Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4">'
+            .         '<Grid>'
+            .           '<Grid.ColumnDefinitions>'
+            .             '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>'
+            .           '</Grid.ColumnDefinitions>'
+            .           '<ContentPresenter ContentSource="Icon" Margin="0,0,8,0" VerticalAlignment="Center"/>'
+            .           '<ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>'
+            .           '<TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextSub}" Margin="15,0,0,0" VerticalAlignment="Center"/>'
+            .           '<Path Grid.Column="3" x:Name="ArrowPath" Data="M0,0 L4,4 L0,8 Z" Fill="{DynamicResource TextMain}" Margin="8,0,2,0" VerticalAlignment="Center" Visibility="Collapsed"/>'
+            .           '<Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Right" HorizontalOffset="-3" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Focusable="False">'
+            .             '<Border Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="180">'
+            .               '<ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="400" Margin="4"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>'
+            .             '</Border>'
+            .           '</Popup>'
+            .         '</Grid>'
+            .       '</Border>'
+            .       '<ControlTemplate.Triggers>'
+            .         '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#0078D4"/><Setter Property="Foreground" Value="White"/></Trigger>'
+            .         '<Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Bd" Property="Background" Value="#0078D4"/><Setter Property="Foreground" Value="White"/></Trigger>'
+            .         '<Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource TextSub}"/></Trigger>'
+            .         '<Trigger Property="HasItems" Value="True"><Setter TargetName="ArrowPath" Property="Visibility" Value="Visible"/></Trigger>'
+            .         '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="HasItems" Value="True"/></MultiTrigger.Conditions><Setter Property="IsSubmenuOpen" Value="True"/></MultiTrigger>'
+            .       '</ControlTemplate.Triggers>'
+            .     '</ControlTemplate>'
+            .   '</Setter.Value></Setter>'
+            . '</Style>'
+    }
+
+    ; 支持滚轮滑动的 ContextMenu 模板（ItemsPresenter 包裹在 ScrollViewer 中，修复无法通过滚轮滚动内容的问题）
+    _ContextMenuScrollStyle() {
+        return ''
+            . '<Style TargetType="ContextMenu">'
+            .   '<Setter Property="Template"><Setter.Value>'
+            .     '<ControlTemplate TargetType="ContextMenu">'
+            .       '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="4">'
+            .         '<ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False">'
+            .           '<ItemsPresenter/>'
+            .         '</ScrollViewer>'
+            .       '</Border>'
+            .     '</ControlTemplate>'
+            .   '</Setter.Value></Setter>'
+            . '</Style>'
+    }
+
+    ; 右键菜单打开前：根据当前选中状态更新菜单项的可用性
+    _UpdateMenuState() {
+        if (this.ui == "" || this.graph == "")
+            return
+        g := this.graph
+        isBlank := this._IsRightClickOnBlank()
+        ; 右键空白处时自动取消选中（含"选中节点后再右键空白处"场景）
+        if (isBlank) {
+            g.selectedNodes.Clear()
+            for n in g.nodes
+                this.ui.Update("Node_" n.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+            for conn in g.connections {
+                if (conn.Selected) {
+                    conn.Selected := false
+                    this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
+                }
+            }
+        }
+        hasSelection := g.selectedNodes.Count > 0
+        hasSingleSelection := g.selectedNodes.Count == 1
+        hasConnection := false
+        for conn in g.connections {
+            if (conn.Selected) {
+                hasConnection := true
+                break
+            }
+        }
+        hasClipboard := this.HasOwnProp("_clipboard") && this._clipboard && this._clipboard.nodes && this._clipboard.nodes.Length > 0
+
+        ; 编辑：仅选中单个节点时可交互
+        this.ui.Update("MG_Edit", "IsEnabled", hasSingleSelection ? "True" : "False")
+        ; 复制：选中节点或连线时可交互
+        this.ui.Update("MG_Copy", "IsEnabled", (hasSelection || hasConnection) ? "True" : "False")
+        ; 粘贴：有剪贴板且未选中节点/连线时可交互
+        this.ui.Update("MG_Paste", "IsEnabled", (hasClipboard && !hasSelection && !hasConnection) ? "True" : "False")
+        ; 删除：选中节点或连线时可交互
+        this.ui.Update("MG_Delete", "IsEnabled", (hasSelection || hasConnection) ? "True" : "False")
+
+        ; 新增指令：仅在右键空白处时可用；右键命中节点时禁用
+        this.ui.Update("MG_AddRoot", "IsEnabled", isBlank ? "True" : "False")
+
+        ; 右键空白处或连线拖放时：自动展开"新增指令"子菜单；右键命中节点时收起
+        forceOpen := this.HasOwnProp("_forceOpenSubmenu") && this._forceOpenSubmenu
+        this._forceOpenSubmenu := false  ; 重置标记
+        this.ui.Update("MG_AddRoot", "IsSubmenuOpen", (forceOpen || isBlank) ? "True" : "False")
+    }
+
+    ; 依据最近一次右键坐标判断是否点在空白处（未命中任何节点矩形）
+    _IsRightClickOnBlank() {
+        g := this.graph
+        if (g == "" || !g.HasProp("lastRightClickX"))
+            return true
+        rx := g.lastRightClickX, ry := g.lastRightClickY
+        for n in g.nodes {
+            if (rx >= n.X && rx <= n.X + n.W && ry >= n.Y && ry <= n.Y + n.H)
+                return false
+        }
+        return true
     }
 
     OnAddCmd(cmdName, *) {
@@ -416,7 +681,25 @@ class MacroGraphGui {
         ox := this.graph.HasProp("lastRightClickX") ? this.graph.lastRightClickX - this.graph.offsetX : 200
         oy := this.graph.HasProp("lastRightClickY") ? this.graph.lastRightClickY - this.graph.offsetY : 200
         this.pos[id] := { x: ox, y: oy }
-        this._InjectFullNode(id, node)
+        ; 搜索指令使用简要节点模式（参数在配置文件中，新建时无数据）
+        if (cmdName == GetLang("搜索") || cmdName == GetLang("搜索Pro")) {
+            this.injected[id] := true
+            this._InjectSummaryNode(id, node)
+        }
+        else {
+            this._InjectFullNode(id, node)
+        }
+        ; 如果是从出点拖拽连线触发的添加，自动连线
+        if (this.HasOwnProp("_pendingConnectionFrom") && this._pendingConnectionFrom != "") {
+            fromId := this._pendingConnectionFrom
+            this._pendingConnectionFrom := ""
+            if (fromId != id && this._NodeExists(fromId)) {
+                this.graph.AddConnection(fromId, id)
+                this._ThickenConnections()
+                for conn in this.graph.connections
+                    this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(this.graph, "OnPathClicked", conn.PathId))
+            }
+        }
         this._Apply()
     }
 
@@ -426,13 +709,12 @@ class MacroGraphGui {
         g := this.graph
         this._NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml)
         g.ui.Update(g.id, "AddXamlItem", nodeXaml)
-        g.ui.Update(g.id, "AddXamlItem", portInXaml)
-        g.ui.Update(g.id, "AddXamlItem", portOutXaml)
+        ; 端口已嵌入 nodeXaml 中，无需单独注入
 
         p := this.pos[id]
         x := p.x + g.offsetX
         y := p.y + g.offsetY
-        g.nodes.Push({ Id: id, Title: this._Parse(node.CurCMD).type, X: x, Y: y, W: 160, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: id, Title: this._Parse(node.CurCMD).type, X: x, Y: y, W: 200, H: 60, Type: "Process" })
 
         ; 引擎拖动/选中处理（移动端口与连线、整体拖拽、高亮）
         g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))
@@ -467,15 +749,15 @@ class MacroGraphGui {
         detail := this._XmlEsc(this._Summary(d))
         tip := this._XmlEsc(GetLang("双击编辑"))
 
-        nodeXaml := '<Border ' ns ' x:Name="Node_' id '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="160" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#3E3E50" CornerRadius="5,5,0,0" Cursor="SizeAll"><TextBlock Text="' title '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' detail '" Foreground="#DDDDDD" FontSize="11" TextWrapping="Wrap"/><TextBlock Text="' tip '" Foreground="#888888" FontSize="9" Margin="0,4,0,0"/></StackPanel></Grid></Border>'
+        nodeXaml := '<Border ' ns ' x:Name="Node_' id '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#3E3E50" CornerRadius="5,5,0,0" Cursor="SizeAll"><TextBlock Text="' title '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' detail '" Foreground="#DDDDDD" FontSize="11" TextWrapping="Wrap"/><TextBlock Text="' tip '" Foreground="#888888" FontSize="9" Margin="0,4,0,0"/></StackPanel></Grid>'
+        ; 端口放在内容行(Row1)顶部，向上伸出标题栏下方
+        ; 入点：左边距-15（左移），上边距-5（上伸到标题栏下方），出点：右边距-15（右移）
+        portIn := '<Ellipse ' ns ' x:Name="Port_In_' id '" Width="14" Height="14" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="-7,-7,0,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
+        portOut := '<Ellipse ' ns ' x:Name="Port_Out_' id '" Width="14" Height="14" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,-7,-7,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
+        nodeXaml := StrReplace(nodeXaml, "</Grid>", portIn portOut "</Grid>")
         g.ui.Update(g.id, "AddXamlItem", nodeXaml)
 
-        portIn := '<Ellipse ' ns ' x:Name="Port_In_' id '" Width="10" Height="10" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x - 5) '" Canvas.Top="' (y + 30) '" IsHitTestVisible="True" Cursor="Hand"/>'
-        g.ui.Update(g.id, "AddXamlItem", portIn)
-        portOut := '<Ellipse ' ns ' x:Name="Port_Out_' id '" Width="10" Height="10" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x + 155) '" Canvas.Top="' (y + 30) '" IsHitTestVisible="True" Cursor="Hand"/>'
-        g.ui.Update(g.id, "AddXamlItem", portOut)
-
-        g.nodes.Push({ Id: id, Title: d.type, X: x, Y: y, W: 160, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: id, Title: d.type, X: x, Y: y, W: 200, H: 60, Type: "Process" })
 
         ; XNodeGraph 的拖动/选中处理（移动端口与连线、高亮）
         g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))
@@ -502,6 +784,18 @@ class MacroGraphGui {
         }
         if (d.type == GetLang("移动"))
             return "(" d.posx ", " d.posy ")  " GetLang("移动速度：") d.speed
+        if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
+            typeNames := [GetLang("屏幕图片"), GetLang("屏幕颜色"), GetLang("屏幕文本")]
+            typeStr := (d.HasOwnProp("searchType") && d.searchType >= 1 && d.searchType <= 3) ? typeNames[d.searchType - 1] : typeNames[1]
+            if (d.HasOwnProp("searchType") && d.searchType == 2)
+                return typeStr "  #" d.searchColor
+            if (d.HasOwnProp("searchType") && d.searchType == 3) {
+                q := Chr(34)
+                return typeStr "  " q d.searchText q
+            }
+            imgName := d.HasOwnProp("searchImagePath") ? RegExReplace(d.searchImagePath, ".*\\", "") : GetLang("未设置")
+            return typeStr "  " imgName
+        }
         return d.raw
     }
 
@@ -530,6 +824,22 @@ class MacroGraphGui {
             this.ui.OnEvent(conn.PathId, "MouseLeftButtonDown", ObjBindMethod(this.graph, "OnPathClicked", conn.PathId))
     }
 
+    ; 出点拖拽连线到空白处松开：记录源端口和位置，直接弹出指令菜单（不再经过右键菜单子菜单）
+    _OnConnectionDropped(state, *) {
+        if (!state.Has("ConnectionDropped"))
+            return
+        parts := StrSplit(state["ConnectionDropped"], ",")
+        if (parts.Length >= 3) {
+            this._pendingConnectionFrom := RegExReplace(parts[1], "^Port_(Out|In)2?_", "")
+            this.graph.lastRightClickX := Number(parts[2])
+            this.graph.lastRightClickY := Number(parts[3])
+        }
+        ; 连线拖放到空白处：直接弹出指令菜单（延迟一帧避开 mouse up 冲突）
+        SetTimer(() => this.ui.Update("MG_DropCM", "IsOpen", "True"), -50)
+        ; 监听菜单关闭：如果用户没有选择指令，清除 pending 状态
+        this.ui.OnEvent("MG_DropCM", "Closed", (*) => (this._pendingConnectionFrom := ""))
+    }
+
     ; 把所有连线加粗，增大命中区域以便单击选中（默认 2.5px 太细难以点中）
     _ThickenConnections() {
         if (this.graph == "" || this.ui == "")
@@ -545,6 +855,8 @@ class MacroGraphGui {
             return this._MakeNode(GetLang("按键") "_a_" GetLang("点击") "_100")
         if (cmdName == GetLang("移动"))
             return this._MakeNode(GetLang("移动") "_0_0_90")
+        if (cmdName == GetLang("搜索") || cmdName == GetLang("搜索Pro"))
+            return this._MakeNode(cmdName)
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
         return this._MakeNode(cmdName)
     }
@@ -658,7 +970,29 @@ class MacroGraphGui {
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         if (field == "count")
             this._RefreshKeyVisibility(id)
+        ; 防抖：200ms 内只执行一次 _CaptureLinks + _Apply
+        if (this.HasOwnProp("_fieldDebounceTimer"))
+            SetTimer(this._fieldDebounceTimer, 0)
+        this._fieldDebounceTimer := this._DoFieldApply.Bind(this)
+        SetTimer(this._fieldDebounceTimer, -200)
+    }
+
+    _DoFieldApply() {
+        this._CaptureLinks()
         this._Apply()
+    }
+
+    ; 为所有内联编辑 TextBox 绑定回车事件和文本变化事件
+    _BindTextBoxEnterEvents() {
+        fields := ["time", "time2", "hold", "count", "inter", "posx", "posy", "speed"]
+        nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
+        for id in this.cmdNodes {
+            for field in fields {
+                boxName := nameMap[field] id
+                this.ui.OnEvent(boxName, "KeyDown:Return", ObjBindMethod(this, "_OnField", id, field))
+                this.ui.OnEvent(boxName, "TextChanged", ObjBindMethod(this, "_OnField", id, field))
+            }
+        }
     }
 
     ; 重算按键节点 点击时长/次数/间隔 行的显隐
@@ -699,6 +1033,8 @@ class MacroGraphGui {
             editor := this.KeyGui
         else if (d.type == GetLang("移动"))
             editor := this.MouseGui
+        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro"))
+            editor := this.SearchGui
         if (editor == "")
             return
 
@@ -947,6 +1283,29 @@ class MacroGraphGui {
             d.speed := paramArr.Length >= 4 ? paramArr[4] : "90"
             d.mode := paramArr.Length >= 5 ? paramArr[5] : "0"
         }
+        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
+            d.temp := true
+            ; 搜索指令参数存储在配置文件中，CurCMD 本身就是 SerialStr（如 "搜索1"、"搜索Pro2"）
+            serialStr := paramArr.Length >= 2 ? paramArr[2] : paramArr[1]
+            if (serialStr != "" && serialStr != d.type) {
+                try {
+                    data := GetMacroCMDData(serialStr)
+                    if (data) {
+                        d.searchType := data.SearchType
+                        d.searchColor := data.SearchColor
+                        d.searchText := data.SearchText
+                        d.searchImagePath := data.SearchImagePath
+                        d.similar := data.Similar
+                        d.mouseAction := data.MouseActionType
+                        d.startPosX := data.StartPosX
+                        d.startPosY := data.StartPosY
+                        d.endPosX := data.EndPosX
+                        d.endPosY := data.EndPosY
+                        d.serialStr := serialStr
+                    }
+                }
+            }
+        }
         else {
             d.temp := true
         }
@@ -1009,43 +1368,72 @@ class MacroGraphGui {
             this._AddComboRow(body, "ITypeRow_" id, GetLang("类型："), "ITypeCmb_" id
                 , [GetLang("固定"), GetLang("随机")], this._IntervalTypeIndex(d.itype), true)
             ; 固定值 / 随机最小值
-            this._AddFieldRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, d.time, true)
+            this._AddFieldRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, d.time, true, true, id, "time")
             ; 随机最大值（仅随机模式显示）
-            this._AddFieldRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, d.time2, isRandom)
+            this._AddFieldRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, d.time2, isRandom, true, id, "time2")
         }
         else if (d.type == GetLang("按键")) {
             body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("12").TextWrapping("Wrap")
 
             ; 按键类型下拉 —— 标签与下拉同行
-            this._AddComboRow(body, "TypeRow_" id, GetLang("按键类型"), "TypeCmb_" id
+            this._AddComboRow(body, "TypeRow_" id, GetLang("按键类型") "：", "TypeCmb_" id
                 , [GetLang("按下"), GetLang("松开"), GetLang("点击")], this._TypeIndex(d.ktype), true)
 
             isClick := d.ktype == GetLang("点击")
             showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
 
-            this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, d.hold, isClick)
-            this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, d.count, isClick)
-            this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, d.inter, showInter)
+            this._AddFieldRow(body, "HoldRow_" id, GetLang("点击时长:"), "Hold_" id, d.hold, isClick, true, id, "hold")
+            this._AddFieldRow(body, "CountRow_" id, GetLang("点击次数："), "Count_" id, d.count, isClick, true, id, "count")
+            this._AddFieldRow(body, "InterRow_" id, GetLang("每次间隔："), "Inter_" id, d.inter, showInter, true, id, "inter")
         }
         else if (d.type == GetLang("移动")) {
             isGameView := (d.mode == "2" || d.mode == 2)
             ; 坐标X / 坐标Y / 移动速度 —— 标签与数值同行
-            this._AddFieldRow(body, "PosXRow_" id, GetLang("坐标位置X:"), "PosX_" id, d.posx, true)
-            this._AddFieldRow(body, "PosYRow_" id, GetLang("坐标位置Y:"), "PosY_" id, d.posy, true)
-            this._AddFieldRow(body, "SpeedRow_" id, GetLang("移动速度："), "Speed_" id, isGameView ? "100" : d.speed, true, !isGameView)
+            this._AddFieldRow(body, "PosXRow_" id, GetLang("坐标位置X:"), "PosX_" id, d.posx, true, true, id, "posx")
+            this._AddFieldRow(body, "PosYRow_" id, GetLang("坐标位置Y:"), "PosY_" id, d.posy, true, true, id, "posy")
+            this._AddFieldRow(body, "SpeedRow_" id, GetLang("移动速度："), "Speed_" id, isGameView ? "100" : d.speed, true, !isGameView, id, "speed")
             ; 移动方式下拉 —— 标签与下拉同行
-            this._AddComboRow(body, "ModeRow_" id, GetLang("移动方式"), "ModeCmb_" id
+            this._AddComboRow(body, "ModeRow_" id, GetLang("移动方式") "：", "ModeCmb_" id
                 , [GetLang("移动"), GetLang("相对移动"), GetLang("游戏视角")], this._MoveModeIndex(d.mode), true)
         }
+        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
+            ; 搜索类型下拉
+            typeNames := [GetLang("屏幕图片"), GetLang("屏幕颜色"), GetLang("屏幕文本")]
+            typeIdx := (d.HasOwnProp("searchType") && d.searchType >= 1 && d.searchType <= 3) ? d.searchType - 1 : 0
+            this._AddComboRow(body, "STypeRow_" id, GetLang("搜索类型："), "STypeCmb_" id, typeNames, typeIdx, true)
+
+            ; 根据搜索类型显示不同内容
+            if (d.HasOwnProp("searchType") && d.searchType == 2) {
+                ; 颜色搜索
+                this._AddFieldRow(body, "SColorRow_" id, GetLang("搜索颜色："), "SColor_" id, d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF", true, false)
+            }
+            else if (d.HasOwnProp("searchType") && d.searchType == 3) {
+                ; 文本搜索
+                this._AddFieldRow(body, "STextRow_" id, GetLang("搜索文本："), "SText_" id, d.HasOwnProp("searchText") ? d.searchText : "", true, false)
+            }
+            else {
+                ; 图片搜索
+                imgPath := d.HasOwnProp("searchImagePath") ? d.searchImagePath : ""
+                if (imgPath != "")
+                    imgPath := RegExReplace(imgPath, ".*\\", "")  ; 只显示文件名
+                this._AddFieldRow(body, "SImgRow_" id, GetLang("搜索图片："), "SImg_" id, imgPath != "" ? imgPath : GetLang("未设置"), true, false)
+                if (d.HasOwnProp("similar"))
+                    this._AddFieldRow(body, "SSimRow_" id, GetLang("相似度："), "SSim_" id, d.similar, true, false)
+            }
+
+            ; 鼠标动作下拉
+            actionNames := [GetLang("无动作"), GetLang("移动至目标"), GetLang("移动至目标点击1次"), GetLang("移动至目标点击2次")]
+            actionIdx := (d.HasOwnProp("mouseAction") && d.mouseAction >= 1 && d.mouseAction <= 4) ? d.mouseAction - 1 : 1
+            this._AddComboRow(body, "SActRow_" id, GetLang("鼠标动作："), "SActCmb_" id, actionNames, actionIdx, true)
+        }
         else {
-            ; 临时节点占位
             body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize("11")
             body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize("10").TextWrapping("Wrap")
         }
     }
 
-    ; 构建可运行时注入的节点片段（Border + 两个端口）的 XAML 字符串。
-    ; 复用 _FillNodeBody，确保注入节点与静态渲染节点结构/初始状态完全一致。
+    ; 构建可运行时注入的节点片段（Border + 内嵌端口）的 XAML 字符串。
+    ; 端口作为 Border 子元素，用负 Margin 伸出节点边缘，拖动时自动跟随。
     _NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml) {
         g := this.graph
         d := this._Parse(node.CurCMD)
@@ -1057,28 +1445,35 @@ class MacroGraphGui {
 
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
-        grid.Rows("30", "*")
+        grid.Rows("30", "Auto")
         this._BuildHeader(grid, id, d.type, "#3E3E50")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
         this._FillNodeBody(id, d, body)
-        ; 引擎接收命令后按换行符切分（ProcessMessage 的 text.Split('\n')），
-        ; 而 ToString() 生成的是带缩进/注释换行的多行 XAML。若直接注入会在第一个换行处被截断，
-        ; 导致 AddXamlItem 解析失败、节点及其内联控件根本不会创建（表现为新增节点显示异常）。
-        ; 故注入前必须压成单行。
+
+        ; 端口：直接设置 _Props 确保属性正确
+        portInEl := XAMLElement("Ellipse")
+        portInEl.Name("Port_In_" id)
+        portInEl._Props["Width"] := "14", portInEl._Props["Height"] := "14"
+        portInEl._Props["Fill"] := "#4CAF50", portInEl._Props["Stroke"] := "#333", portInEl._Props["StrokeThickness"] := "1"
+        portInEl._Props["Grid.Row"] := "1", portInEl._Props["VerticalAlignment"] := "Top", portInEl._Props["HorizontalAlignment"] := "Left", portInEl._Props["Margin"] := "-7,-7,0,0"
+        portInEl._Props["Panel.ZIndex"] := "10", portInEl._Props["IsHitTestVisible"] := "True", portInEl._Props["Cursor"] := "Hand"
+        grid._Children.Push(portInEl)
+
+        portOutEl := XAMLElement("Ellipse")
+        portOutEl.Name("Port_Out_" id)
+        portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
+        portOutEl._Props["Fill"] := "#FF5722", portOutEl._Props["Stroke"] := "#333", portOutEl._Props["StrokeThickness"] := "1"
+        portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
+        portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
+        grid._Children.Push(portOutEl)
+
+        ; 压成单行供运行时 AddXamlItem 注入
         nodeXaml := this._FlattenXaml(border.ToString())
-
-        portIn := XAMLElement("Ellipse")
-        portIn.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        portIn.Width("10").Height("10").Fill("#4CAF50").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x - 5)).SetProp("Canvas.Top", String(y + 30)).Name("Port_In_" id).IsHitTestVisible("True").Cursor("Hand")
-        portInXaml := this._FlattenXaml(portIn.ToString())
-
-        portOut := XAMLElement("Ellipse")
-        portOut.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        portOut.Width("10").Height("10").Fill("#FF5722").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x + 155)).SetProp("Canvas.Top", String(y + 30)).Name("Port_Out_" id).IsHitTestVisible("True").Cursor("Hand")
-        portOutXaml := this._FlattenXaml(portOut.ToString())
+        portInXaml := ""
+        portOutXaml := ""
     }
 
     ; 把 XAMLElement.ToString() 的多行输出压成单行，供运行时 AddXamlItem 注入使用。
@@ -1098,22 +1493,54 @@ class MacroGraphGui {
         y := p.y + g.offsetY
         headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
 
-        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
 
         grid := node.Add("Grid")
-        grid.Rows("30", "*")
+        grid.Rows("30", "Auto")
 
         this._BuildHeader(grid, id, title, headerColor)
 
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
 
-        if (nodeType != "Input")
-            g.canvas.Add("Ellipse").Width("10").Height("10").Fill("#4CAF50").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x - 5)).SetProp("Canvas.Top", String(y + 30)).Name("Port_In_" id).IsHitTestVisible("True").Cursor("Hand")
-        if (nodeType != "Output")
-            g.canvas.Add("Ellipse").Width("10").Height("10").Fill("#FF5722").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x + 155)).SetProp("Canvas.Top", String(y + 30)).Name("Port_Out_" id).IsHitTestVisible("True").Cursor("Hand")
+        ; 端口：使用原始 XAML 字符串注入，确保属性正确
+        ; 入点在标题栏下方左侧，出点在标题栏下方右侧
+        if (nodeType != "Input") {
+            portInEl := XAMLElement("Ellipse")
+            portInEl.Name("Port_In_" id)
+            portInEl._Props["Width"] := "14"
+            portInEl._Props["Height"] := "14"
+            portInEl._Props["Fill"] := "#4CAF50"
+            portInEl._Props["Stroke"] := "#333"
+            portInEl._Props["StrokeThickness"] := "1"
+            portInEl._Props["Grid.Row"] := "1"
+            portInEl._Props["VerticalAlignment"] := "Top"
+            portInEl._Props["HorizontalAlignment"] := "Left"
+            portInEl._Props["Margin"] := "-7,-7,0,0"
+            portInEl._Props["Panel.ZIndex"] := "10"
+            portInEl._Props["IsHitTestVisible"] := "True"
+            portInEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portInEl)
+        }
+        if (nodeType != "Output") {
+            portOutEl := XAMLElement("Ellipse")
+            portOutEl.Name("Port_Out_" id)
+            portOutEl._Props["Width"] := "14"
+            portOutEl._Props["Height"] := "14"
+            portOutEl._Props["Fill"] := "#FF5722"
+            portOutEl._Props["Stroke"] := "#333"
+            portOutEl._Props["StrokeThickness"] := "1"
+            portOutEl._Props["Grid.Row"] := "1"
+            portOutEl._Props["VerticalAlignment"] := "Top"
+            portOutEl._Props["HorizontalAlignment"] := "Right"
+            portOutEl._Props["Margin"] := "0,-7,-7,0"
+            portOutEl._Props["Panel.ZIndex"] := "10"
+            portOutEl._Props["IsHitTestVisible"] := "True"
+            portOutEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portOutEl)
+        }
 
-        nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, W: 160, H: 60, Type: nodeType }
+        nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, W: 200, H: 60, Type: nodeType }
         g.nodes.Push(nodeObj)
         return node
     }
@@ -1139,32 +1566,32 @@ class MacroGraphGui {
     }
 
     ; 一行 "标签 + 文本框"，visible 控制初始显隐，enabled 控制文本框是否可编辑
-    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible, enabled := true) {
-        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,3,0,0")
+    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible, enabled := true, nodeId := "", field := "") {
+        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("62").VerticalAlignment("Center")
-        box := this._MakeTextBox(row, boxName, boxValue, "66")
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("72").VerticalAlignment("Center")
+        box := this._MakeTextBox(row, boxName, boxValue, "96", nodeId, field)
         if (!enabled)
             box.IsEnabled("False")
         return row
     }
 
-    ; 一行 "标签 + 下拉框"，visible 控制初始显隐
+    ; 一行 "标签 + 下拉框"，label 与下拉框同行显示，visible 控制初始显隐
     _AddComboRow(body, rowName, labelText, comboName, items, selIndex, visible) {
-        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,3,0,0")
+        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("62").VerticalAlignment("Center")
-        cmb := row.Add("ComboBox").Name(comboName).Width("66").Height("22").MinHeight("0").FontSize("11").SelectedIndex(selIndex)
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("72").VerticalAlignment("Center")
+        cmb := row.Add("ComboBox").Name(comboName).Width("96").Height("22").MinHeight("0").FontSize("11").Padding("2,0").SelectedIndex(selIndex)
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         return row
     }
 
     ; 统一的小高度文本框（MinHeight=0 覆盖主题默认的 36，否则高度不生效）
-    _MakeTextBox(parent, name, value, width) {
-        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
+    _MakeTextBox(parent, name, value, width, nodeId := "", field := "") {
+        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
     }
 
     ; ----------------------------------------------------------------- 辅助

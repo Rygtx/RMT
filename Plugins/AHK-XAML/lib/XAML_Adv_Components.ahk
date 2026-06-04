@@ -371,11 +371,11 @@ class XNodeGraph {
     AddNode(id, title, x, y, nodeType := "Process") {
         x += this.offsetX
         y += this.offsetY
-        node := this.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("160").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        node := this.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp('Color', "Black")
 
         grid := node.Add("Grid")
-        grid.Rows("30", "*")
+        grid.Rows("30", "Auto")
 
         ; Color-coded header by type
         headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
@@ -398,16 +398,27 @@ class XNodeGraph {
             bodyTb.Add("Run").Text("  Transform")
         }
 
-        ; Port indicators - Input port (left side)
+        ; 端口：直接设置 _Props 确保属性正确
         if (nodeType != "Input") {
-            inPort := this.canvas.Add("Ellipse").Width("10").Height("10").Fill("#4CAF50").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x - 5)).SetProp("Canvas.Top", String(y + 30)).Name("Port_In_" id).IsHitTestVisible("True").Cursor("Hand")
+            portInEl := XAMLElement("Ellipse")
+            portInEl.Name("Port_In_" id)
+            portInEl._Props["Width"] := "14", portInEl._Props["Height"] := "14"
+            portInEl._Props["Fill"] := "#4CAF50", portInEl._Props["Stroke"] := "#333", portInEl._Props["StrokeThickness"] := "1"
+            portInEl._Props["Grid.Row"] := "1", portInEl._Props["VerticalAlignment"] := "Top", portInEl._Props["HorizontalAlignment"] := "Left", portInEl._Props["Margin"] := "-7,-7,0,0"
+            portInEl._Props["Panel.ZIndex"] := "10", portInEl._Props["IsHitTestVisible"] := "True", portInEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portInEl)
         }
-        ; Output port (right side)
         if (nodeType != "Output") {
-            outPort := this.canvas.Add("Ellipse").Width("10").Height("10").Fill("#FF5722").Stroke("#333").StrokeThickness("1").SetProp("Canvas.Left", String(x + 155)).SetProp("Canvas.Top", String(y + 30)).Name("Port_Out_" id).IsHitTestVisible("True").Cursor("Hand")
+            portOutEl := XAMLElement("Ellipse")
+            portOutEl.Name("Port_Out_" id)
+            portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
+            portOutEl._Props["Fill"] := "#FF5722", portOutEl._Props["Stroke"] := "#333", portOutEl._Props["StrokeThickness"] := "1"
+            portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
+            portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portOutEl)
         }
 
-        nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, Body: body, W: 160, H: 60, Type: nodeType }
+        nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, Body: body, W: 200, H: 60, Type: nodeType }
         this.nodes.Push(nodeObj)
         return nodeObj
     }
@@ -434,7 +445,7 @@ class XNodeGraph {
             }
         }
 
-        pathEl := this.canvas.Add("Path").Name(pathId).Stroke("#60A0FF").StrokeThickness("2.5").Opacity("0.8").SetProp("Panel.ZIndex", "5")
+        pathEl := this.canvas.Add("Path").Name(pathId).Stroke("#60A0FF").StrokeThickness("6").Opacity("0.9").SetProp("Panel.ZIndex", "-1")
         conn := { From: fromId, To: toId, PathId: pathId, PathEl: pathEl, Selected: false }
         this.connections.Push(conn)
         
@@ -450,6 +461,9 @@ class XNodeGraph {
             ; UI is building, just push the initial data directly
             this.UpdatePath(fromId, toId, pathId, true, pathEl)
         }
+        ; 更新两端节点的端口可见性
+        this._RefreshPortVisibility(fromId)
+        this._RefreshPortVisibility(toId)
     }
 
     UpdatePath(fromId, toId, pathId, initial := false, pathEl := "") {
@@ -459,10 +473,16 @@ class XNodeGraph {
             return
 
         ; Connect from output port (right) to input port (left)
-        startX := n1.X + n1.W + 5
-        startY := n1.Y + 35
-        endX := n2.X - 5
-        endY := n2.Y + 35
+        ; 端口在 Row1 顶部（Row0=30px, Margin.top=-5, 端口中心=30px）
+        ; 入点中心在节点左边缘外 5px（Margin.left=-10, 宽度10, 中心=-5）
+        ; 出点中心在节点右边缘外 5px（Margin.right=-10, 宽度10, 中心=+5）
+        ; 节点宽度固定 200px
+        nodeW := (n1.W != "" && n1.W != 0) ? n1.W : 200
+        startX := n1.X + nodeW
+        startY := n1.Y + 31
+        nodeW2 := (n2.W != "" && n2.W != 0) ? n2.W : 200
+        endX := n2.X
+        endY := n2.Y + 31
 
         ; Bezier control point offset scales with distance
         dx := Abs(endX - startX) * 0.5
@@ -551,43 +571,30 @@ class XNodeGraph {
         x := this.HasProp("lastRightClickX") ? this.lastRightClickX : this.offsetX + 200
         y := this.HasProp("lastRightClickY") ? this.lastRightClickY : this.offsetY + 200
 
-        ; Port visual logic
-        inPortXAML := ""
-        outPortXAML := ""
+        ; Build raw XAML string with proper namespace for injection
+        ; 端口放在内容行(Row1)顶部，向上伸出标题栏下方
+        ; 入点：左边距-15（左移），上边距-5（上伸到标题栏下方），出点：右边距-15（右移）
+        portInXAML := ""
+        portOutXAML := ""
         if (nodeType != "Input") {
             if (nodeType == "MultiProcess") {
-                inPortXAML := '<Ellipse Name="Port_In_' newId '" Width="10" Height="10" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x - 5) '" Canvas.Top="' (y + 20) '" IsHitTestVisible="True" Cursor="Hand"/><Ellipse Name="Port_In2_' newId '" Width="10" Height="10" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x - 5) '" Canvas.Top="' (y + 40) '" IsHitTestVisible="True" Cursor="Hand"/>'
+                portInXAML := '<Ellipse Name="Port_In_' newId '" Width="14" Height="14" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="-7,-7,0,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/><Ellipse Name="Port_In2_' newId '" Width="14" Height="14" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="-7,-1,0,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
             } else {
-                inPortXAML := '<Ellipse Name="Port_In_' newId '" Width="10" Height="10" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x - 5) '" Canvas.Top="' (y + 30) '" IsHitTestVisible="True" Cursor="Hand"/>'
+                portInXAML := '<Ellipse Name="Port_In_' newId '" Width="14" Height="14" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="-7,-7,0,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
             }
         }
         if (nodeType != "Output") {
             if (nodeType == "MultiProcess") {
-                outPortXAML := '<Ellipse Name="Port_Out_' newId '" Width="10" Height="10" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x + 155) '" Canvas.Top="' (y + 20) '" IsHitTestVisible="True" Cursor="Hand"/><Ellipse Name="Port_Out2_' newId '" Width="10" Height="10" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x + 155) '" Canvas.Top="' (y + 40) '" IsHitTestVisible="True" Cursor="Hand"/>'
+                portOutXAML := '<Ellipse Name="Port_Out_' newId '" Width="14" Height="14" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,-7,-7,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/><Ellipse Name="Port_Out2_' newId '" Width="14" Height="14" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,-1,-7,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
             } else {
-                outPortXAML := '<Ellipse Name="Port_Out_' newId '" Width="10" Height="10" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Canvas.Left="' (x + 155) '" Canvas.Top="' (y + 30) '" IsHitTestVisible="True" Cursor="Hand"/>'
+                portOutXAML := '<Ellipse Name="Port_Out_' newId '" Width="14" Height="14" Fill="#FF5722" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,-7,-7,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
             }
         }
 
-        ; Build raw XAML string with proper namespace for injection
-        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="160" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="#DDDDDD" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel></Grid></Border>'
+        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="#DDDDDD" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel>' portInXAML portOutXAML '</Grid></Border>'
         this.ui.Update(this.id, "AddXamlItem", xamlStr)
-        
-        pos := 1
-        while (pos := RegExMatch(inPortXAML, "<Ellipse.*?\/>", &match, pos)) {
-            xml := StrReplace(match[0], "<Ellipse ", "<Ellipse xmlns=`"http://schemas.microsoft.com/winfx/2006/xaml/presentation`" ")
-            this.ui.Update(this.id, "AddXamlItem", xml)
-            pos += match.Len
-        }
-        
-        pos := 1
-        while (pos := RegExMatch(outPortXAML, "<Ellipse.*?\/>", &match, pos)) {
-            xml := StrReplace(match[0], "<Ellipse ", "<Ellipse xmlns=`"http://schemas.microsoft.com/winfx/2006/xaml/presentation`" ")
-            this.ui.Update(this.id, "AddXamlItem", xml)
-            pos += match.Len
-        }
 
-        nodeObj := { Id: newId, Title: nodeType " " idx, X: x, Y: y, W: 160, H: 60, Type: nodeType }
+        nodeObj := { Id: newId, Title: nodeType " " idx, X: x, Y: y, W: 200, H: 60, Type: nodeType }
         this.nodes.Push(nodeObj)
 
         SetTimer(() => this.ui.Update("Node_" newId, "EnableDrag", "grid=20"), -200)
@@ -614,41 +621,64 @@ class XNodeGraph {
                             snode.X += dx
                             snode.Y += dy
                             this.ui.Update("Node_" sid, "SetPosition", String(snode.X) "," String(snode.Y))
-                            this.UpdateNodePorts(snode)
                         }
                     }
                 }
 
                 node.X := Number(parts[1])
                 node.Y := Number(parts[2])
-                this.UpdateNodePorts(node)
+                ; 节流连线更新：用 SetTimer 合并多次 DragMove 为一次连线刷新
+                if (this.HasOwnProp("_pathUpdatePending") && this._pathUpdatePending)
+                    return
+                this._pathUpdatePending := true
+                SetTimer(ObjBindMethod(this, "_FlushPathUpdates"), -30)
             }
         }
     }
 
+    _FlushPathUpdates() {
+        this._pathUpdatePending := false
+        for conn in this.connections {
+            this.UpdatePath(conn.From, conn.To, conn.PathId)
+        }
+    }
+
     UpdateNodePorts(node) {
+        if (this.ui == "")
+            return
         nodeId := node.Id
-        ; Move port indicators
+        ; 端口已作为节点子元素，位置随节点自动移动，无需 SetPosition
+        ; 仅控制端口可见性
         if (node.Type != "Input") {
-            if (node.Type == "MultiProcess") {
-                this.ui.Update("Port_In_" nodeId, "SetPosition", String(node.X - 5) "," String(node.Y + 20))
-                this.ui.Update("Port_In2_" nodeId, "SetPosition", String(node.X - 5) "," String(node.Y + 40))
-            } else {
-                this.ui.Update("Port_In_" nodeId, "SetPosition", String(node.X - 5) "," String(node.Y + 30))
-            }
+            this.ui.Update("Port_In_" nodeId, "SetVisible", "True")
+            if (node.Type == "MultiProcess")
+                this.ui.Update("Port_In2_" nodeId, "SetVisible", "True")
         }
         if (node.Type != "Output") {
-            if (node.Type == "MultiProcess") {
-                this.ui.Update("Port_Out_" nodeId, "SetPosition", String(node.X + 155) "," String(node.Y + 20))
-                this.ui.Update("Port_Out2_" nodeId, "SetPosition", String(node.X + 155) "," String(node.Y + 40))
-            } else {
-                this.ui.Update("Port_Out_" nodeId, "SetPosition", String(node.X + 155) "," String(node.Y + 30))
-            }
+            this.ui.Update("Port_Out_" nodeId, "SetVisible", "True")
+            if (node.Type == "MultiProcess")
+                this.ui.Update("Port_Out2_" nodeId, "SetVisible", "True")
         }
         ; Update connection paths
         for conn in this.connections {
             if (conn.From == nodeId || conn.To == nodeId)
                 this.UpdatePath(conn.From, conn.To, conn.PathId)
+        }
+    }
+
+    ; 根据连线状态刷新节点端口可见性
+    _RefreshPortVisibility(nodeId) {
+        node := this.GetNode(nodeId)
+        if (!node || node.Type == "Input" || node.Type == "Output")
+            return
+        if (this.ui == "")
+            return
+        ; 入点和出点始终显示（方便用户随时拖拽连线）
+        this.ui.Update("Port_In_" nodeId, "SetVisible", "True")
+        this.ui.Update("Port_Out_" nodeId, "SetVisible", "True")
+        if (node.Type == "MultiProcess") {
+            this.ui.Update("Port_In2_" nodeId, "SetVisible", "True")
+            this.ui.Update("Port_Out2_" nodeId, "SetVisible", "True")
         }
     }
 
@@ -712,8 +742,13 @@ class XNodeGraph {
         ; Remove from tracking and UI
         for i, conn in this.connections {
             if (conn.PathId == pathId) {
+                fromId := conn.From
+                toId := conn.To
                 this.connections.RemoveAt(i)
                 this.ui.Update(pathId, "Visibility", "Collapsed")
+                ; 更新两端节点的端口可见性
+                this._RefreshPortVisibility(fromId)
+                this._RefreshPortVisibility(toId)
                 break
             }
         }
