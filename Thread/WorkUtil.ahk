@@ -144,6 +144,16 @@
                 args.Push(paramArr[A_Index + 1])
             }
             switch actionStr {
+                case "SyncVarData":
+                    ; 全量同步：清空后用主线程状态覆盖
+                    VarArr := args[1]
+                    ArrArr := args[2]
+                    MySoftData.VariableMap.Clear()
+                    for entry in VarArr
+                        MySoftData.VariableMap[entry[1]] := entry[2]
+                    MySoftData.ArrayMap.Clear()
+                    for entry in ArrArr
+                        MySoftData.ArrayMap[entry[1]] := GetArray(entry[2])
                 case "SetVari":
                     NameArr := args[1]
                     ValueArr := args[2]

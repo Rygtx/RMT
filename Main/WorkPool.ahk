@@ -236,8 +236,31 @@ class WorkPool {
         wd.hwnd := lParam > 0 ? lParam : hwnd
         wd.isPending := false
         wd.idleTick := A_TickCount
+
+        ; 动态创建的 Worker 需要同步主线程当前的变量和数组状态
+        this.SyncStateToWorker(wd)
+
         this.freePool[idx] := wd
         this.Dispatch()
+    }
+
+    ; 将主线程的全部变量和数组状态同步到指定 Worker（用于动态创建的 Worker 初始化）
+    SyncStateToWorker(wd) {
+        ; 序列化 VariableMap → [[name, value], ...]
+        VarArr := []
+        for name, value in MySoftData.VariableMap
+            VarArr.Push([name, value])
+
+        ; 序列化 ArrayMap → [[name, arrayStr], ...]
+        ArrArr := []
+        for name, arr in MySoftData.ArrayMap
+            ArrArr.Push([name, GetArrayStr(arr)])
+
+        if (VarArr.Length > 0 || ArrArr.Length > 0) {
+            payload := JSON.stringify(["SyncVarData", VarArr, ArrArr])
+            wd.tx.Push(MsgType.EVENT, 0, payload)
+            this.PostMessage(WM_MASTER_TO_WORKER, wd)
+        }
     }
 
     CleanUpWorker(wd) {
