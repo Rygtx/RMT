@@ -133,7 +133,7 @@ OnKillAllMacro(*) {
         loop tableItem.ColorStateArr.Length {
             if (tableItem.ColorStateArr[A_Index] == 1 || tableItem.ColorStateArr[A_Index] == 2) {
                 tableItem.IsWorkIndexArr[A_Index] := 0
-                MyWorkPool.BroadcastStop(tableItem.Index, A_Index)
+                MyStopMacro(tableItem.Index, A_Index)
             }
         }
     }
@@ -210,7 +210,8 @@ OnToolScreenShot(*) {
         if !FileExist(scPath)
             return
         SetClipboard("")
-        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"')
+        Run('"' scPath '" --tool:"rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"'
+        )
     }
     else {
         TogSelectArea(true, OnToolScreenShotGetArea)
@@ -263,15 +264,18 @@ OnClickKeyDownDownHelpBtn(*) {
     MsgBox(str, GetLang("按下时按下说明"))
 }
 
-
 OnExitSoft(*) {
-    global MyPToken, MyChineseOcr, MyUIMacroGui
+    global MyPToken, MyChineseOcr, MyUIMacroGui, MyWorkPool
     Gdip_Shutdown(MyPToken)
     IbSendDestroy()
     MyChineseOcr := ""
     MyEnglishOcr := ""
     CleanupAllMacroStates()
-    MyWorkPool.Clear()
+
+    if (MyWorkPool != "") {
+        MyWorkPool.Clear()
+        MyWorkPool := ""
+    }
     if (IsSet(MyUIMacroGui) && MyUIMacroGui != "")
         MyUIMacroGui.StopMonitor()
 
@@ -670,8 +674,8 @@ OnToggleTriggerMacro(tableIndex, itemIndex) {
     if (MyWorkPool.isDynamic || MyWorkPool.maxSize >= 1) {
         SetTableItemState(tableItem.index, itemIndex, 1)
         cmd := JSON.stringify(["TR_MACRO", tableIndex, itemIndex])
-        fut := MyWorkPool.Submit(cmd, tableIndex, itemIndex)
-        tableItem.IsWorkIndexArr[itemIndex] := fut.id
+        MyWorkPool.Submit(cmd, tableIndex, itemIndex)
+        tableItem.IsWorkIndexArr[itemIndex] := true
         return
     }
 
@@ -704,8 +708,8 @@ TriggerMacroHandler(tableIndex, itemIndex, *) {
     SetTableItemState(tableItem.index, itemIndex, 1)
     if (MyWorkPool.isDynamic || MyWorkPool.maxSize >= 1) {
         cmd := JSON.stringify(["TR_MACRO", tableIndex, itemIndex])
-        fut := MyWorkPool.Submit(cmd, tableIndex, itemIndex)
-        tableItem.IsWorkIndexArr[itemIndex] := fut.id
+        MyWorkPool.Submit(cmd, tableIndex, itemIndex)
+        tableItem.IsWorkIndexArr[itemIndex] := true
         return
     }
     OnTriggerMacroKeyAndInit(tableItem, macro, itemIndex)

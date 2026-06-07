@@ -29,8 +29,8 @@ global WM_LOAD_WORK := 0x500  ;资源加载完成事件
 global WM_CLEAR_WORK := 0x502  ;资源释放事件
 global WM_TR_MACRO := 0x503 ;触发宏事件
 global WM_STOP_MACRO := 0x504 ;停止宏事件
-global WM_WORK_NOTIFY := 0x509     ;工作器任務通知
-global WM_RESULT_NOTIFY := 0x50A   ;結果就緒通知
+global WM_MASTER_TO_WORKER := 0x509  ; 主进程→Worker：分发任务/广播通知
+global WM_WORKER_TO_MASTER := 0x50A  ; Worker→主进程：任务完成/事件上报
 
 ; 功能函数
 GetFloatTime(oriTime, floatValue) {

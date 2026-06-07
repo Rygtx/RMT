@@ -75,7 +75,7 @@ InputContinueAndCencel(Data, tableItem, index) {
     isHide := false
     InputBtnCancelAciton() {
         if (Data.CancelType == "终止当前宏")
-            MySubMacroStopAction(tableItem.Index, index)
+            MyStopMacro(tableItem.Index, index)
         if (Data.CancelType == "终止所有宏")
             MyExcuteRMTCMDAction("RMT指令_终止所有宏")
     }

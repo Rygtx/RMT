@@ -345,7 +345,7 @@ class TriggerKeyInfo {
             if (triggerType == 4) {
                 WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
                 if (WorkerIndex != 0) {       ;关闭开关
-                    MySubMacroStopAction(this.tableIndex, this.itemIndex)
+                    MyStopMacro(this.tableIndex, this.itemIndex)
                     return
                 }
                 OnToggleTriggerMacro(this.tableIndex, this.itemIndex)
@@ -367,7 +367,7 @@ class TriggerKeyInfo {
             if (triggerType == 3) {
                 WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
                 if (WorkerIndex != 0) {
-                    MyWorkPool.BroadcastStop(this.tableIndex, this.itemIndex)
+                    MyStopMacro(this.tableIndex, this.itemIndex)
                     tableItem.IsWorkIndexArr[this.itemIndex] := 0
                     return
                 }

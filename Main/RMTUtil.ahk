@@ -7,8 +7,10 @@ OnSaveSetting(*) {
     if (!isValid)
         return
 
-    if (IsSet(MyWorkPool) && ObjHasOwnProp(MyWorkPool, "Clear"))
+    if (MyWorkPool != "") {
         MyWorkPool.Clear()
+        MyWorkPool := ""
+    }
 
     loop MySoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
@@ -287,11 +289,15 @@ InitFilePath() {
     global GraphStartNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.ini"
 }
 
-SubMacroStopAction(tableIndex, itemIndex) {
+StopMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
     WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
     if (WorkerIndex != 0) {
-        MyWorkPool.BroadcastStop(tableIndex, itemIndex)
+        for idx, wd in MyWorkPool.usePool
+            MyWorkPool.PostMessage(WM_STOP_MACRO, wd, tableIndex, itemIndex)
+        tableItem := MySoftData.TableInfo[tableIndex]
+        KillTableItemMacro(tableItem, itemIndex)
+        SetTableItemState(tableIndex, itemIndex, 3)
         tableItem.IsWorkIndexArr[itemIndex] := 0
     }
     else
@@ -825,7 +831,7 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     dataFile := MySoftData.DataFileMap[cmd]
     Data := GetMacroCMDData(paramArr[1]).Clone()
     Data.SerialStr := GetCMDSerialStr(cmd)
-    
+
     ; 优化：使用单次遍历拆分（替代RegExReplace）
     dummyText := ""
     SplitSerialTextAndNumbers(Data.SerialStr, &dummyText, &numbersOnly)

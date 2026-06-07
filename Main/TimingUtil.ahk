@@ -136,7 +136,7 @@ class TimingScheduler {
                 continue
 
             if (index <= tableItem.IsWorkIndexArr.Length && tableItem.IsWorkIndexArr[index] != 0)
-                MyWorkPool.BroadcastStop(this.tableIndex, index)
+                MyStopMacro(this.tableIndex, index)
         }
     }
 }

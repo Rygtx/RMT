@@ -558,7 +558,7 @@ OnSubMacro(tableItem, cmd, index) {
         MySetItemPauseState(macroTableIndex, macroIndex, 0)
     }
     else if (Data.CallType == "终止") {  ;终止
-        MySubMacroStopAction(macroTableIndex, macroIndex)
+        MyStopMacro(macroTableIndex, macroIndex)
     }
 }
 

@@ -98,97 +98,52 @@
         global rx, workIndex
         payload := JSON.stringify([action, args*])
         rx.Push(MsgType.EVENT, 0, payload)
-
-        ; Notify parent if not already notified
-        if (rx.ExchangeNotifyFlag(1) == 0)
-            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
+        MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
     }
 }
 
 ;接受主程序指令后回调
 {
-    OnWorkStopMacro(wParam, lParam, msg, hwnd) {
-        tableIndex := wParam
-        itemIndex := lParam
-        tableItem := MySoftData.TableInfo[tableIndex]
-        KillTableItemMacro(tableItem, itemIndex)
-    }
-
     OnExit(wParam, lParam, msg, hwnd) {
         ExitApp()
     }
 
-    OnWorkNotify(wParam, lParam, msg, hwnd) {
-        ProcessQueue()
-    }
-
-    ProcessQueue() {
+    OnMasterToWorker(wParam, lParam, msg, hwnd) {
         global tx, rx, workIndex
 
         loop {
-            tx.ExchangeNotifyFlag(1)
-
-            while (tx.Pop(&type, &id, &cmd, &hTaskEvent)) {
+            while (tx.Pop(&type, &id, &cmd)) {
                 switch type {
                     case MsgType.TASK:
-                        Action := OnExecTask.Bind(id, cmd, hTaskEvent)
+                        Action := OnExecTask.Bind(id, cmd)
                         SetTimer(Action, -1)
-                    case MsgType.CONTROL:
-                        OnControlMessage(cmd)
                     case MsgType.EVENT:
                         OnEventMessage(cmd)
                 }
 
             }
 
-            ; Double Check Pattern
-            tx.ExchangeNotifyFlag(0) ; Full barrier to mark as idle
-
             if (tx.IsEmpty())
                 break
         }
     }
 
-    OnExecTask(id, cmd, hTaskEvent) {
-        result := ExecTask(cmd)
-        rx.Push(MsgType.RESULT, id, result)
-
-        if (rx.ExchangeNotifyFlag(1) == 0)
-            MsgPostHandler(WM_RESULT_NOTIFY, workIndex, 0)
-
-        if (hTaskEvent) {
-            SetEvent(hTaskEvent)
-            CloseHandle(hTaskEvent)
-        }
-    }
-
-    ExecTask(cmd) {
-        try {
-            paramArr := JSON.parse(cmd)
-            if (paramArr[1] == "TR_MACRO") {
-                TriggerMacro(paramArr[2], paramArr[3])
-                return 1
-            }
-        } catch as e {
-            MsgSendHandler("Error", GetFullErrorInfo(e))
-        }
-
-        return 1
-    }
-
-    OnControlMessage(cmd) {
-        ; Handle any JSON control messages
+    OnExecTask(id, cmd) {
+        paramArr := JSON.parse(cmd)
+        TriggerMacro(paramArr[2], paramArr[3])
+        rx.Push(MsgType.FINISH, id)
+        MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
     }
 
     OnEventMessage(cmd) {
         try {
             paramArr := JSON.parse(cmd)
-            action := paramArr[1]
+            actionStr := paramArr[1]
             args := []
             loop paramArr.Length - 1 {
                 args.Push(paramArr[A_Index + 1])
             }
-            switch action {
+            switch actionStr {
                 case "SetVari":
                     NameArr := args[1]
                     ValueArr := args[2]
@@ -240,6 +195,9 @@
                     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex
                         ]
                     SourceArr.RemoveAt(Index)
+                case "StopMacro":
+                    tableItem := MySoftData.TableInfo[args[1]]
+                    KillTableItemMacro(tableItem, args[2])
             }
         } catch {
         }
@@ -322,12 +280,12 @@
         OnTriggerMacroKeyAndInit(tableItem, macro, itemIndex)
     }
 
-    WorkSubMacroStopAction(tableIndex, itemIndex) {
-        MsgPostHandler(WM_STOP_MACRO, tableIndex, itemIndex)
+    WorkStopMacro(tableIndex, itemIndex) {
+        MsgSendHandler("StopMacro", tableIndex, itemIndex)
     }
 
     WorkTriggerSubMacro(tableIndex, itemIndex) {
-        MsgPostHandler(WM_TR_MACRO, tableIndex, itemIndex)
+        MsgSendHandler("TrMacro", tableIndex, itemIndex)
     }
 
     WorkSetTableItemState(tableIndex, itemIndex, state) {
