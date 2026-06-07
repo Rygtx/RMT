@@ -291,17 +291,19 @@ InitFilePath() {
 
 StopMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    WorkerIndex := tableItem.IsWorkIndexArr[itemIndex]
-    if (WorkerIndex != 0) {
-        for idx, wd in MyWorkPool.usePool
-            MyWorkPool.PostMessage(WM_STOP_MACRO, wd, tableIndex, itemIndex)
-        tableItem := MySoftData.TableInfo[tableIndex]
+    isWork := tableItem.IsWorkIndexArr[itemIndex]
+    if (isWork) {
+        ; 只通知正在执行该任务的 Worker
+        for idx, wd in MyWorkPool.usePool {
+            if (wd.tableIndex == tableIndex && wd.itemIndex == itemIndex)
+                MyWorkPool.PostMessage(WM_MASTER_TO_WORKER, wd)
+        }
         KillTableItemMacro(tableItem, itemIndex)
         SetTableItemState(tableIndex, itemIndex, 3)
         tableItem.IsWorkIndexArr[itemIndex] := 0
-    }
-    else
+    } else {
         KillTableItemMacro(tableItem, itemIndex)
+    }
 }
 
 SetGlobalArray(Name, Value) {
