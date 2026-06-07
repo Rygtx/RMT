@@ -56,6 +56,7 @@ class WorkPool {
         this.mainPID := DllCall("GetCurrentProcessId")
         this.idxCounter := 0          ; Worker 索引计数器（递增，用于分配唯一 idx）
         this.isDispatching := false    ; Dispatch 防重入标志
+        this.broadcastExcludeIdx := 0  ; Broadcast 时需要跳过的 Worker idx（发起者自己）
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -149,13 +150,18 @@ class WorkPool {
 
         payload := JSON.stringify([actionStr, args*])
         for idx, wd in this.usePool {
+            if (this.broadcastExcludeIdx && idx == this.broadcastExcludeIdx)
+                continue
             wd.tx.Push(MsgType.EVENT, 0, payload)
             this.PostMessage(WM_MASTER_TO_WORKER, wd)
         }
         for idx, wd in this.freePool {
+            if (this.broadcastExcludeIdx && idx == this.broadcastExcludeIdx)
+                continue
             wd.tx.Push(MsgType.EVENT, 0, payload)
             this.PostMessage(WM_MASTER_TO_WORKER, wd)
         }
+        this.broadcastExcludeIdx := 0  ; 重置，避免影响其他非 Worker 事件触发的 Broadcast
     }
 
     ;分配任务
@@ -291,6 +297,8 @@ class WorkPool {
     }
 
     OnWorkerEvent(wd, payload) {
+        ; 标记发起者，Broadcast 时将跳过该 Worker（发起者已在本地处理过）
+        this.broadcastExcludeIdx := wd.idx
         try {
             paramArr := JSON.parse(payload)
             action := paramArr[1]
@@ -336,11 +344,12 @@ class WorkPool {
                     MyErrorMsgBoxGui.ShowGui(args[1])
                 case "StopMacro":
                     StopMacro(args[1], args[2])
-                case "TrMacro":
+                case "TR_MACRO":
                     TriggerMacroHandler(args[1], args[2])
             }
         } catch as e {
         }
+        this.broadcastExcludeIdx := 0  ; 安全重置，防止 handler 未调用 Broadcast 时残留
     }
 
     BroadcastStop(tableIndex, itemIndex) {

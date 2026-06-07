@@ -217,20 +217,28 @@
     }
 
     WorkDeleteGlobalArray(ArrName) {
+        if (MySoftData.ArrayMap.Has(ArrName))
+            MySoftData.ArrayMap.Delete(ArrName)
         MsgSendHandler("DeleteArray", ArrName)
     }
 
     WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr[Index] := Value
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
         MsgSendHandler("ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.InsertAt(Index, Value)
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
         MsgSendHandler("InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkRemoveAtGlobalArray(ArrName, MainIndex, Index) {
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.RemoveAt(Index)
         MsgSendHandler("RemoveAtArray", ArrName, MainIndex, Index)
     }
 
@@ -285,7 +293,7 @@
     }
 
     WorkTriggerSubMacro(tableIndex, itemIndex) {
-        MsgSendHandler("TrMacro", tableIndex, itemIndex)
+        MsgSendHandler("TR_MACRO", tableIndex, itemIndex)
     }
 
     WorkSetTableItemState(tableIndex, itemIndex, state) {
@@ -293,6 +301,8 @@
     }
 
     WorkSetItemPauseState(tableIndex, itemIndex, state) {
+        tableItem := MySoftData.TableInfo[tableIndex]
+        tableItem.PauseArr[itemIndex] := state
         MsgSendHandler("PauseState", tableIndex, itemIndex, state)
     }
 }
