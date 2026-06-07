@@ -64,6 +64,7 @@
         MySoftData.isWorker := true
 
         SetTimer(CheckParentProcess, 10000)
+        SetTimer(CheckTxBuffer, 1000)  ; 兜底轮询：1000ms 检查一次环形缓冲区，防止 PostMessage 丢失
     }
 
     CheckParentProcess() {
@@ -109,8 +110,11 @@
     }
 
     OnMasterToWorker(wParam, lParam, msg, hwnd) {
-        global tx, rx, workIndex
+        CheckTxBuffer()
+    }
 
+    CheckTxBuffer() {
+        global tx
         loop {
             while (tx.Pop(&type, &id, &cmd)) {
                 switch type {
@@ -120,9 +124,7 @@
                     case MsgType.EVENT:
                         OnEventMessage(cmd)
                 }
-
             }
-
             if (tx.IsEmpty())
                 break
         }
