@@ -56,7 +56,6 @@ class WorkPool {
         this.mainPID := DllCall("GetCurrentProcessId")
         this.idxCounter := 0          ; Worker 索引计数器（递增，用于分配唯一 idx）
         this.isDispatching := false    ; Dispatch 防重入标志
-        this.broadcastExcludeIdx := 0  ; Broadcast 时需要跳过的 Worker idx（发起者自己）
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -143,24 +142,30 @@ class WorkPool {
         return 0
     }
 
+    ; 向所有 Worker 广播事件（master 本地发起，无需排除）
     Broadcast(actionStr, args*) {
+        this.BroadcastEx(0, actionStr, args*)
+    }
+
+    ; 向 Worker 广播事件，excludeIdx 为需要跳过的发起者 Worker idx（0=不跳过）。
+    ; exclude 通过参数显式传入，跟随调用栈，天然抗消息重入。
+    BroadcastEx(excludeIdx, actionStr, args*) {
         if (!this.isDynamic && this.maxSize < 1)
             return
 
         payload := JSON.stringify([actionStr, args*])
         for idx, wd in this.usePool {
-            if (this.broadcastExcludeIdx && idx == this.broadcastExcludeIdx)
+            if (excludeIdx && idx == excludeIdx)
                 continue
             wd.tx.Push(MsgType.EVENT, 0, payload)
             this.PostMessage(WM_MASTER_TO_WORKER, wd)
         }
         for idx, wd in this.freePool {
-            if (this.broadcastExcludeIdx && idx == this.broadcastExcludeIdx)
+            if (excludeIdx && idx == excludeIdx)
                 continue
             wd.tx.Push(MsgType.EVENT, 0, payload)
             this.PostMessage(WM_MASTER_TO_WORKER, wd)
         }
-        this.broadcastExcludeIdx := 0  ; 重置，避免影响其他非 Worker 事件触发的 Broadcast
     }
 
     ;分配任务
@@ -319,8 +324,8 @@ class WorkPool {
     }
 
     OnWorkerEvent(wd, payload) {
-        ; 标记发起者，Broadcast 时将跳过该 Worker（发起者已在本地处理过）
-        this.broadcastExcludeIdx := wd.idx
+        ; 发起者 idx 通过参数显式传入各处理函数，由其转发给 BroadcastEx 排除自身，
+        ; 避免发起者收到自己事件的回声而重复执行（非幂等操作会导致状态损坏）。
         try {
             paramArr := JSON.parse(payload)
             action := paramArr[1]
@@ -331,9 +336,9 @@ class WorkPool {
 
             switch action {
                 case "SetVari":
-                    SetGlobalVariable(args[1], args[2], false)
+                    SetGlobalVariable(args[1], args[2], false, wd.idx)
                 case "DelVari":
-                    DelGlobalVariable(args[1])
+                    DelGlobalVariable(args[1], wd.idx)
                 case "Report":
                     CMDReport(args[1])
                 case "RMT指令":
@@ -341,7 +346,7 @@ class WorkPool {
                 case "ItemState":
                     SetTableItemState(args[1], args[2], args[3])
                 case "PauseState":
-                    SetItemPauseState(args[1], args[2], args[3])
+                    SetItemPauseState(args[1], args[2], args[3], wd.idx)
                 case "MsgBox":
                     MsgBoxContent(args[1])
                 case "ToolTip":
@@ -351,17 +356,17 @@ class WorkPool {
                 case "Joy":
                     ViGJoySetState(args[1], args[2], args[3])
                 case "SetArray":
-                    SetGlobalArray(args[1], GetArray(args[2]))
+                    SetGlobalArray(args[1], GetArray(args[2]), wd.idx)
                 case "CloneArray":
-                    CloneGlobalArray(GetArray(args[1]), args[2])
+                    CloneGlobalArray(GetArray(args[1]), args[2], wd.idx)
                 case "DeleteArray":
-                    DeleteGlobalArray(args[1])
+                    DeleteGlobalArray(args[1], wd.idx)
                 case "ModifyArray":
-                    ModifyGlobalArray(args[1], args[2], args[3], args[4], args[5])
+                    ModifyGlobalArray(args[1], args[2], args[3], args[4], args[5], wd.idx)
                 case "InsertArray":
-                    InsertGlobalArray(args[1], args[2], args[3], args[4], args[5])
+                    InsertGlobalArray(args[1], args[2], args[3], args[4], args[5], wd.idx)
                 case "RemoveAtArray":
-                    RemoveAtGlobalArray(args[1], args[2], args[3])
+                    RemoveAtGlobalArray(args[1], args[2], args[3], wd.idx)
                 case "Error":
                     MyErrorMsgBoxGui.ShowGui(args[1])
                 case "StopMacro":
@@ -371,22 +376,6 @@ class WorkPool {
             }
         } catch as e {
         }
-        this.broadcastExcludeIdx := 0  ; 安全重置，防止 handler 未调用 Broadcast 时残留
-    }
-
-    BroadcastStop(tableIndex, itemIndex) {
-        payload := JSON.stringify(["StopMacro", tableIndex, itemIndex])
-        for idx, wd in this.usePool
-            wd.tx.Push(MsgType.EVENT, 0, payload)
-        for idx, wd in this.freePool
-            wd.tx.Push(MsgType.EVENT, 0, payload)
-        for idx, wd in this.usePool
-            this.PostMessage(WM_MASTER_TO_WORKER, wd)
-        for idx, wd in this.freePool
-            this.PostMessage(WM_MASTER_TO_WORKER, wd)
-        tableItem := MySoftData.TableInfo[tableIndex]
-        KillTableItemMacro(tableItem, itemIndex)
-        SetTableItemState(tableIndex, itemIndex, 3)
     }
 
     PostMessage(type, wd, wParam := 0, lParam := 0) {

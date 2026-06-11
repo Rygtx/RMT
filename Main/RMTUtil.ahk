@@ -294,61 +294,67 @@ StopMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
     isWork := tableItem.IsWorkIndexArr[itemIndex]
     if (isWork) {
-        ; 只通知正在执行该任务的 Worker
+        ; 把 StopMacro 事件写入目标 Worker 的发送通道，再唤醒它在自身进程内停止宏。
+        ; 此前只 PostMessage 而未投递 payload，Worker 取不到指令，宏不会真正停止。
+        payload := JSON.stringify(["StopMacro", tableIndex, itemIndex])
         for idx, wd in MyWorkPool.usePool {
-            if (wd.tableIndex == tableIndex && wd.itemIndex == itemIndex)
+            if (wd.tableIndex == tableIndex && wd.itemIndex == itemIndex) {
+                wd.tx.Push(MsgType.EVENT, 0, payload)
                 MyWorkPool.PostMessage(WM_MASTER_TO_WORKER, wd)
+            }
         }
+        ; 主进程侧设置 Killed 标记（供 Worker 完成回报时判定为"终止"状态）并释放残留按键
         KillTableItemMacro(tableItem, itemIndex)
         SetTableItemState(tableIndex, itemIndex, 3)
         tableItem.IsWorkIndexArr[itemIndex] := 0
     } else {
+        ; 主进程内执行的宏：置 Killed 标记后，宏循环会自行退出并由 OnFinishMacro 设置终止状态
         KillTableItemMacro(tableItem, itemIndex)
     }
 }
 
-SetGlobalArray(Name, Value) {
+SetGlobalArray(Name, Value, excludeIdx := 0) {
     MySoftData.ArrayMap[Name] := Value
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("SetArray", Name, GetArrayStr(Value))
+    MyWorkPool.BroadcastEx(excludeIdx, "SetArray", Name, GetArrayStr(Value))
 }
 
-CloneGlobalArray(SourceArr, NewArrName) {
+CloneGlobalArray(SourceArr, NewArrName, excludeIdx := 0) {
     MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("CloneArray", GetArrayStr(SourceArr), NewArrName)
+    MyWorkPool.BroadcastEx(excludeIdx, "CloneArray", GetArrayStr(SourceArr), NewArrName)
 }
 
-DeleteGlobalArray(ArrName) {
+DeleteGlobalArray(ArrName, excludeIdx := 0) {
     MySoftData.ArrayMap.Delete(ArrName)
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("DeleteArray", ArrName)
+    MyWorkPool.BroadcastEx(excludeIdx, "DeleteArray", ArrName)
 }
 
-ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+ModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value, excludeIdx := 0) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr[Index] := Value
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    MyWorkPool.BroadcastEx(excludeIdx, "ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
 }
 
-InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+InsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value, excludeIdx := 0) {
     ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr.InsertAt(Index, Value)
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
+    MyWorkPool.BroadcastEx(excludeIdx, "InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
 }
 
-RemoveAtGlobalArray(ArrName, MainIndex, Index) {
+RemoveAtGlobalArray(ArrName, MainIndex, Index, excludeIdx := 0) {
     SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
     SourceArr.RemoveAt(Index)
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("RemoveAtArray", ArrName, MainIndex, Index)
+    MyWorkPool.BroadcastEx(excludeIdx, "RemoveAtArray", ArrName, MainIndex, Index)
 }
 
-SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
+SetGlobalVariable(NameArr, ValueArr, ignoreExist, excludeIdx := 0) {
     RealNameArr := NameArr.Clone()
     RealValueArr := ValueArr.Clone()
     if (ignoreExist) {
@@ -368,10 +374,10 @@ SetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
     }
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("SetVari", RealNameArr, RealValueArr)
+    MyWorkPool.BroadcastEx(excludeIdx, "SetVari", RealNameArr, RealValueArr)
 }
 
-DelGlobalVariable(NameArr) {
+DelGlobalVariable(NameArr, excludeIdx := 0) {
     RealNameArr := []
     loop NameArr.Length {
         if (MySoftData.VariableMap.Has(NameArr[A_Index])) {
@@ -384,7 +390,7 @@ DelGlobalVariable(NameArr) {
         return
 
     MyVarListenGui.Refresh()
-    MyWorkPool.Broadcast("DelVari", RealNameArr)
+    MyWorkPool.BroadcastEx(excludeIdx, "DelVari", RealNameArr)
 }
 
 SetCMDTipValue(value) {
@@ -463,7 +469,7 @@ StopCancelTableItemTimer(tableIndex, itemIndex) {
     }
 }
 
-SetItemPauseState(tableIndex, itemIndex, state) {
+SetItemPauseState(tableIndex, itemIndex, state, excludeIdx := 0) {
     tableItem := MySoftData.TableInfo[tableIndex]
     tableItem.PauseArr[itemIndex] := state
 
@@ -473,7 +479,7 @@ SetItemPauseState(tableIndex, itemIndex, state) {
     else if (LastColorState == 2 && state == 0)
         SetTableItemState(tableIndex, itemIndex, 1)
 
-    MyWorkPool.Broadcast("PauseState", tableIndex, itemIndex, state)
+    MyWorkPool.BroadcastEx(excludeIdx, "PauseState", tableIndex, itemIndex, state)
 }
 
 ;恢复意外退出残留的脏状态，后面要换成热重载就会要
