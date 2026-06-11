@@ -4,8 +4,9 @@ class UIMacroPanelSettingGui {
     static instances := Map()
     static _opening := false
 
-    ; 位置选项映射（与 UIPanelDefaultPos 数值对应）
+    ; 位置选项映射（id 与 UIPanelDefaultPos 数值对应；数组顺序即下拉显示顺序）
     static PosOptions := [
+        {id: 8, label: "鼠标位置"},
         {id: 1, label: "左上"},
         {id: 2, label: "中上"},
         {id: 3, label: "右上"},
@@ -13,7 +14,8 @@ class UIMacroPanelSettingGui {
         {id: 5, label: "中心"},
         {id: 6, label: "中右"},
         {id: 7, label: "左下"},
-        {id: 8, label: "鼠标位置"}
+        {id: 9, label: "中下"},
+        {id: 10, label: "右下"}
     ]
 
     __new() {
@@ -21,7 +23,7 @@ class UIMacroPanelSettingGui {
         this.closed := false
         this._instanceKey := ""
         this._showOnActive := true
-        this._defaultPos := 8
+        this._defaultPos := 1
         this._btnColor := "#FF333333"
         this._bgColor := "#40FFB6C1"
         this._fontColor := "#FFDDDDDD"
@@ -87,11 +89,11 @@ class UIMacroPanelSettingGui {
         body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
 
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        panel := scrollViewer.Add("StackPanel").Margin("30, 16, 30, 20")
+        panel := scrollViewer.Add("StackPanel").Margin("30, 4, 30, 12")
 
         ; ====== 通用选项 ======
-        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,6,0,0")
-        inner1 := group1.Add("StackPanel").Margin("14, 12")
+        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,0,0,0")
+        inner1 := group1.Add("StackPanel").Margin("14, 8")
 
         ; 选择框：界面激活时默认显示
         row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
@@ -110,8 +112,8 @@ class UIMacroPanelSettingGui {
             posCombo.Add("ComboBoxItem").Content(opt.label)
 
         ; ====== 外观设置 ======
-        group2 := panel.Add("GroupBox").Header(GetLang("外观")).Margin("0,16,0,0")
-        inner2 := group2.Add("StackPanel").Margin("14, 12")
+        group2 := panel.Add("GroupBox").Header(GetLang("外观")).Margin("0,8,0,0")
+        inner2 := group2.Add("StackPanel").Margin("14, 8")
 
         ; 按钮颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
         row3 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
@@ -165,8 +167,8 @@ class UIMacroPanelSettingGui {
             .Background("#FFDDDDDD").Cursor("Hand")
 
         ; ====== 尺寸设置 ======
-        group3 := panel.Add("GroupBox").Header(GetLang("尺寸")).Margin("0,16,0,0")
-        inner3 := group3.Add("StackPanel").Margin("14, 12")
+        group3 := panel.Add("GroupBox").Header(GetLang("尺寸")).Margin("0,8,0,0")
+        inner3 := group3.Add("StackPanel").Margin("14, 8")
 
         ; 按钮高度
         row6 := inner3.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
@@ -228,7 +230,7 @@ class UIMacroPanelSettingGui {
         ; 底部按钮行
         PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
+        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,12,0,6")
         revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
         revertBtn.InjectResources(PrimaryBtnStyle)
         okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)
@@ -237,7 +239,7 @@ class UIMacroPanelSettingGui {
         ; 编译 XAML
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="630"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="560"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MySoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
 
@@ -321,7 +323,13 @@ class UIMacroPanelSettingGui {
     ApplyValuesToUI() {
         this.ui.Update("ShowOnActiveCon", "IsChecked", this._showOnActive ? "True" : "False")
 
-        posIdx := Max(0, this._defaultPos - 1)
+        posIdx := 0
+        for i, opt in UIMacroPanelSettingGui.PosOptions {
+            if (opt.id == this._defaultPos) {
+                posIdx := i - 1
+                break
+            }
+        }
         this.ui.Update("DefaultPosCon", "SelectedIndex", String(posIdx))
 
         this.ui.Update("BtnColorPreview", "Background", this._btnColor)
@@ -433,7 +441,7 @@ class UIMacroPanelSettingGui {
 
     OnRevertClick(state, ctrl, event) {
         this.ui.Update("ShowOnActiveCon", "IsChecked", "True")
-        this.ui.Update("DefaultPosCon", "SelectedIndex", "7")  ; 鼠标位置
+        this.ui.Update("DefaultPosCon", "SelectedIndex", "1")  ; 左上（PosOptions 第二项）
         this.ui.Update("BtnColorPreview", "Background", "#FF333333")
         this.ui.Update("BtnColorText", "Text", "#FF333333")
         this.ui.Update("BgColorPreview", "Background", "#40FFB6C1")
@@ -445,7 +453,7 @@ class UIMacroPanelSettingGui {
         this.ui.Update("ColsCon", "Value", "3")
 
         this._showOnActive := true
-        this._defaultPos := 8
+        this._defaultPos := 1
         this._btnColor := "#FF333333"
         this._bgColor := "#40FFB6C1"
         this._fontColor := "#FFDDDDDD"

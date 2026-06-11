@@ -116,14 +116,21 @@ class UIMacroGui {
         }
 
         ; 构建面板（对齐 CreateFloatingPanel）
-        panelInfo := this.BuildXAMLPanel(btnItems, foldIndex, targetHwnd, isScreenMode)
-        if (!panelInfo)
-            return
+        ; 创建期间置位 IsCreating：BuildXAMLPanel/WaitForPanelReady 内的 Sleep 会泵消息，
+        ; 导致 CheckAllPanels 重入；此时 PanelMap 尚未写入，自动显示会再建一个重复面板。
+        this.IsCreating := true
+        try {
+            panelInfo := this.BuildXAMLPanel(btnItems, foldIndex, targetHwnd, isScreenMode)
+            if (!panelInfo)
+                return
 
-        this.PanelMap.Set(foldIndex, panelInfo)
+            this.PanelMap.Set(foldIndex, panelInfo)
 
-        ; 等待窗口就绪+初始化（对齐 WaitForHwnd + OnPanelReady）
-        this.WaitForPanelReady(foldIndex)
+            ; 等待窗口就绪+初始化（对齐 WaitForHwnd + OnPanelReady）
+            this.WaitForPanelReady(foldIndex)
+        } finally {
+            this.IsCreating := false
+        }
     }
 
     ; 为指定 hwnd 创建自动面板（界面激活时默认显示），键为 foldIndex|hwnd；targetHwnd=0 时创建屏幕模式面板
@@ -173,13 +180,19 @@ class UIMacroGui {
 
         ; 自动面板：有目标窗口则窗口跟随模式，否则屏幕模式
         isScreenMode := (targetHwnd == 0)
-        panelInfo := this.BuildXAMLPanel(btnItems, foldIndex, targetHwnd, isScreenMode, true)
-        if (!panelInfo)
-            return
+        ; 创建期间置位 IsCreating，防止 Sleep 泵消息时 CheckAllPanels 重入造成重复面板
+        this.IsCreating := true
+        try {
+            panelInfo := this.BuildXAMLPanel(btnItems, foldIndex, targetHwnd, isScreenMode, true)
+            if (!panelInfo)
+                return
 
-        panelInfo.autoShow := true  ; 标记为自动面板
-        this.PanelMap.Set(panelKey, panelInfo)
-        this.WaitForPanelReady(panelKey)
+            panelInfo.autoShow := true  ; 标记为自动面板
+            this.PanelMap.Set(panelKey, panelInfo)
+            this.WaitForPanelReady(panelKey)
+        } finally {
+            this.IsCreating := false
+        }
 
         ; 确保面板在目标窗口之上（不抢焦点）
         if (IsObject(panelInfo) && panelInfo.wpfHwnd) {
@@ -229,7 +242,7 @@ class UIMacroGui {
         btnGap := 2
         bodyMarginV := 6
         cols := MySoftData.UIPanelCols
-        wpfBorderPad := 22
+        wpfBorderPad := 2
         ; 面板宽度 = 列数 * 按钮宽度 + 按钮左右边距(各2px) + 主体左右边距(各4px)
         pw := cols * (btnItemW + 4) + 8
 
@@ -248,25 +261,42 @@ class UIMacroGui {
         MouseGetPos(&initX, &initY)
 
         ; 根据配置计算初始位置
+        ; 注意：XAML 的 Window.Left/Top 使用 DIP（设备无关像素），而 A_ScreenWidth/MouseGetPos
+        ; 返回的是物理像素。屏幕模式下必须换算为 DIP，否则高分屏缩放时会整体偏移（偏右/偏下甚至出屏）。
         if (MySoftData.UIPanelDefaultPos != 8) {
-            this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
-            offsetX := initX   ; 相对于目标窗口的偏移量（预设位置值）
-            offsetY := initY
-            if (!isScreenMode && targetHwnd) {
-                try {
-                    rect := this.GetWindowRectCoords(targetHwnd)
-                    initX += rect["left"]   ; 转为屏幕绝对坐标用于 XAML Left/Top
-                    initY += rect["top"]
+            if (isScreenMode) {
+                swDIP := A_ScreenWidth * 96 // A_ScreenDPI
+                shDIP := A_ScreenHeight * 96 // A_ScreenDPI
+                this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, swDIP, shDIP)
+                offsetX := initX
+                offsetY := initY
+            } else {
+                this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
+                offsetX := initX   ; 相对于目标窗口的偏移量（预设位置值）
+                offsetY := initY
+                if (targetHwnd) {
+                    try {
+                        rect := this.GetWindowRectCoords(targetHwnd)
+                        initX += rect["left"]   ; 转为屏幕绝对坐标用于 XAML Left/Top
+                        initY += rect["top"]
+                    }
                 }
             }
         } else {
-            offsetX := initX
-            offsetY := initY
-            if (!isScreenMode && targetHwnd) {
-                try {
-                    rect := this.GetWindowRectCoords(targetHwnd)
-                    offsetX := initX - rect["left"]
-                    offsetY := initY - rect["top"]
+            if (isScreenMode) {
+                initX := initX * 96 // A_ScreenDPI   ; 鼠标物理坐标换算为 DIP
+                initY := initY * 96 // A_ScreenDPI
+                offsetX := initX
+                offsetY := initY
+            } else {
+                offsetX := initX
+                offsetY := initY
+                if (targetHwnd) {
+                    try {
+                        rect := this.GetWindowRectCoords(targetHwnd)
+                        offsetX := initX - rect["left"]
+                        offsetY := initY - rect["top"]
+                    }
                 }
             }
         }
@@ -309,11 +339,6 @@ class UIMacroGui {
 
             sp := btn.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
 
-            sp.Add("Border").Name(item.name "_State")
-                .Width(6).Height(6).CornerRadius(3)
-                .VerticalAlignment("Center").Margin("0,0,2,0")
-                .Background("Transparent")
-
             if (item.icon != "") {
                 fullIconPath := this.GetFullIconPath(item.icon)
                 if (fullIconPath != "" && FileExist(fullIconPath)) {
@@ -335,7 +360,9 @@ class UIMacroGui {
         ui.xaml := StrReplace(ui.xaml, 'AllowsTransparency="False"', 'AllowsTransparency="True"')
         ui.xaml := StrReplace(ui.xaml, 'Background="Transparent"', 'Background="' bgColor '"')
 
-        ui.xaml := StrReplace(ui.xaml, '%resources%', '<SolidColorBrush x:Key="TextMain" Color="White"/><CornerRadius x:Key="WindowRadius">8</CornerRadius><CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>')
+        ; 窗口级按钮样式：覆盖全局默认样式，取消 hover 背景变化，改为 hover/按下时显示边框
+        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="2"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        ui.xaml := StrReplace(ui.xaml, '%resources%', '<SolidColorBrush x:Key="TextMain" Color="White"/><CornerRadius x:Key="WindowRadius">8</CornerRadius><CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>' panelBtnStyle)
         ui.xaml := StrReplace(ui.xaml, '%components%', '')
 
         ; 绑定事件（对齐 floating_panel L246-249）
@@ -510,6 +537,10 @@ class UIMacroGui {
 
     ; 切换可见性（严格对齐 floating_panel TogglePanelVisibility L490-513）
     TogglePanel(foldIndex) {
+        ; 创建进行中：忽略本次触发，避免在 PanelMap 写入前重入创建出重复面板
+        if (this.IsCreating)
+            return
+
         ; ====== 前置守卫：窗口跟随模式必须先通过前台激活检查 ======
         tableItem := MySoftData.TableInfo[4]
         targetHwnd := 0
@@ -633,9 +664,17 @@ class UIMacroGui {
             this.DestroyPanel(panelKey)
         }
 
+        ; 用户主动关闭浮窗（右键关闭 / Alt+F4）会引起焦点切换，若不处理，下面的"激活时默认显示"
+        ; 会把这次焦点变化当成窗口切换而立即重建面板。这里把 _lastActiveHwnd 同步为关闭后的
+        ; 当前前台窗口，使其不立即重建，等到下次真正切换窗口时再显示 —— 与快捷键隐藏的行为一致。
+        if (deadFolds.Length > 0) {
+            try this._lastActiveHwnd := WinGetID("A")
+        }
+
         ; ====== 界面激活时默认显示（同时支持有前台和无前台模块） ======
         try {
-            if (MySoftData.UIPanelShowOnActive) {
+            ; 正在创建面板时跳过：避免创建过程中（BuildXAMLPanel 的 Sleep 泵消息）重入建出重复面板
+            if (!this.IsCreating && MySoftData.UIPanelShowOnActive) {
                 activeHwnd := WinGetID("A")
                 if (activeHwnd != this._lastActiveHwnd) {
                     this._lastActiveHwnd := activeHwnd
@@ -649,7 +688,11 @@ class UIMacroGui {
 
                             frontInfo := foldInfo.FrontInfoArr[foldIndex]
                             if (frontInfo == "") {
-                                ; 无前台模块（屏幕模式）：界面激活时也创建/显示自动面板
+                                ; 无前台模块（屏幕模式）：仅当 RMT 主界面被激活时才创建/显示，
+                                ; 避免点击任务栏或切到其它任意窗口也把已关闭的浮窗重新弹出。
+                                mainHwnd := (IsObject(MySoftData.MyGui) && MySoftData.MyGui.HasProp("Hwnd")) ? MySoftData.MyGui.Hwnd : 0
+                                if (!mainHwnd || activeHwnd != mainHwnd)
+                                    continue
                                 panelKey := foldIndex
                                 if (!this.PanelMap.Has(panelKey))
                                     this.CreateAutoPanel(foldIndex, panelKey, 0)
@@ -900,10 +943,12 @@ class UIMacroGui {
     }
 
     ; 根据配置的位置编号计算面板初始坐标
-    ; pos: 1=左上,2=中上,3=右上,4=中左,5=中心,6=中右,7=左下,8=鼠标位置
-    CalcDefaultPosition(pos, &x, &y, pw, ph) {
-        sw := A_ScreenWidth
-        sh := A_ScreenHeight
+    ; pos: 1=左上,2=中上,3=右上,4=中左,5=中心,6=中右,7=左下,8=鼠标位置,9=中下,10=右下
+    CalcDefaultPosition(pos, &x, &y, pw, ph, sw := 0, sh := 0) {
+        if (sw <= 0)
+            sw := A_ScreenWidth
+        if (sh <= 0)
+            sh := A_ScreenHeight
         switch pos {
             case 1: x := 20, y := 20                          ; 左上
             case 2: x := (sw - pw) // 2, y := 20             ; 中上
@@ -912,6 +957,8 @@ class UIMacroGui {
             case 5: x := (sw - pw) // 2, y := (sh - ph) // 2 ; 中心
             case 6: x := sw - pw - 20, y := (sh - ph) // 2  ; 中右
             case 7: x := 20, y := sh - ph - 20               ; 左下
+            case 9: x := (sw - pw) // 2, y := sh - ph - 20  ; 中下
+            case 10: x := sw - pw - 20, y := sh - ph - 20   ; 右下
         }
     }
 

@@ -127,6 +127,30 @@ public class AhkWpfEngine {
     [DllImport("shell32.dll", CharSet = CharSet.Auto)]
     public static extern uint ExtractIconEx(string szFileName, int nIconIndex, IntPtr[] phiconLarge, IntPtr[] phiconSmall, uint nIcons);
 
+    // ---- DPI 感知（修复在缩放显示器上窗口右侧留白、右键菜单弹出位置按比例偏移的问题）----
+    [DllImport("user32.dll")]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+    [DllImport("shcore.dll")]
+    private static extern int SetProcessDpiAwareness(int value);
+    [DllImport("user32.dll")]
+    private static extern bool SetProcessDPIAware();
+
+    // 必须在进程创建任何 HWND / WPF 窗口之前调用，否则不生效。
+    // 逐级降级：Per-Monitor V2(Win10 1607+) → Per-Monitor V1(Win8.1+) → System(Vista+)。
+    public static void EnableDpiAwareness() {
+        try {
+            if (SetProcessDpiAwarenessContext(new IntPtr(-4))) // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+                return;
+        } catch { }
+        try {
+            SetProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE
+            return;
+        } catch { }
+        try {
+            SetProcessDPIAware();
+        } catch { }
+    }
+
     string winId; IntPtr ahkHwnd; System.Collections.Generic.List<string> tracked; Window win;
     bool LightweightEvents = false; // When true, events only send the triggering control's value (use ui.Query() for others)
     System.Collections.Generic.Dictionary<string, string> canvasModes = new System.Collections.Generic.Dictionary<string, string>();
@@ -410,6 +434,8 @@ public class AhkWpfEngine {
 
     [STAThread]
     public static void Main(string[] args) {
+        // 进程级 DPI 感知：必须最先执行，先于任何 HwndSource/Window 的创建。
+        EnableDpiAwareness();
         try {
             if (args.Length >= 3 && args[0] == "--daemon") {
                 if (args.Contains("--no-log")) {

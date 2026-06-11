@@ -545,7 +545,10 @@ ApplyXamlTheme(ui, themeName, iniPath := "") {
         iniPath := A_WorkingDir "\Setting\themes.ini"
     if !FileExist(iniPath)
         return
+    themeData := ""
     try themeData := IniRead(iniPath, themeName)
+    if (themeData == "")
+        return
     Loop Parse, themeData, "`n", "`r" {
         parts := StrSplit(A_LoopField, "=", " `t", 2)
         if (parts.Length == 2) {
