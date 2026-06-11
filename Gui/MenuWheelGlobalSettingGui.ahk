@@ -98,44 +98,48 @@ class MenuWheelGlobalSettingGui {
         body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
 
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        panel := scrollViewer.Add("StackPanel").Margin("30, 16, 30, 20")
+        panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
 
-        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,6,0,0")
-        inner1 := group1.Add("StackPanel").Margin("14, 12")
-
-        row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        row1.Add("CheckBox").Name("FixedPosCon").Content(GetLang("固定位置（屏幕中下方）")).Foreground("{DynamicResource TextMain}").Margin("0,0,0,0")
-
-        row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row2.Add("TextBlock").Text(GetLang("选择模式")).Foreground("{DynamicResource TextSub}").FontSize(11).VerticalAlignment("Center").Width(70)
-        modeCombo := row2.Add("ComboBox").Name("SelectModeCon").Width(140).Height(28).Margin("8,0,0,0")
-        modeCombo.Add("ComboBoxItem").Content(GetLang("点击选择"))
-        modeCombo.Add("ComboBoxItem").Content(GetLang("划线选择"))
-
-        row3 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row3.Add("CheckBox").Name("ShowTooltipCon").Content(GetLang("显示扇区名称提示")).Foreground("{DynamicResource TextMain}").Margin("0,0,0,0")
-
-        row4 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
-        row4.Add("TextBlock").Text(GetLang("轮盘大小")).Foreground("{DynamicResource TextSub}").FontSize(11).VerticalAlignment("Center").Width(70)
-        scaleSlider := row4.Add("Slider").Name("WheelScaleCon").Width(160).Height(28).Margin("8,0,8,0").Minimum(50).Maximum(200).Value(100).IsSnapToTickEnabled("True").TickFrequency("10").Tag("Throttle:50")
-        scaleValText := row4.Add("TextBlock").Name("WheelScaleValText").Foreground("{DynamicResource TextMain}").FontSize(12).VerticalAlignment("Center").Width(40)
-
-        group3 := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,16,0,0")
+        ; ====== 主题预设（置于最上方） ======
+        group3 := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,0,0,0")
         inner3 := group3.Add("StackPanel").Margin("14, 10")
 
         selRow := inner3.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        selRow.Add("TextBlock").Text(GetLang("选择主题")).Foreground("{DynamicResource TextSub}").FontSize(11).VerticalAlignment("Center").Width(65)
+        selRow.Add("TextBlock").Text(GetLang("选择主题") "：").Foreground("{DynamicResource TextMain}").FontSize(13).VerticalAlignment("Center").Width(70)
         themeCombo := selRow.Add("ComboBox").Name("ThemeCombo").Width(160).Height(28).Margin("6,0,0,0")
         for item in this.Themes
             themeCombo.Add("ComboBoxItem").Content(item.Name)
 
-        previewRow := inner3.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Left").Margin("71,8,0,0")
+        ; 颜色预览块：在显示区域内居中
+        previewRow := inner3.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,8,0,0")
         this._themePrevNames := []
         for name in MenuWheelGlobalSettingGui.ColorNames {
             prevKey := "ThemePrev_" name
             previewRow.Add("Border").Name(prevKey).Width(28).Height(14).CornerRadius("2").Margin("0,0,4,0").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Background("#FF333333")
             this._themePrevNames.Push(prevKey)
         }
+
+        ; ====== 轮盘设置（原通用选项） ======
+        group1 := panel.Add("GroupBox").Header(GetLang("轮盘设置")).Margin("0,16,0,0")
+        inner1 := group1.Add("StackPanel").Margin("14, 12")
+
+        ; 顺序：固定位置、显示扇区名称、选择模式、轮盘大小
+        row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
+        row1.Add("CheckBox").Name("FixedPosCon").Content(GetLang("固定位置（屏幕中下方）")).Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,0")
+
+        row3 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
+        row3.Add("CheckBox").Name("ShowTooltipCon").Content(GetLang("显示扇区名称提示")).Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,0")
+
+        row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
+        row2.Add("TextBlock").Text(GetLang("选择模式") "：").Foreground("{DynamicResource TextMain}").FontSize(13).VerticalAlignment("Center").Width(70)
+        modeCombo := row2.Add("ComboBox").Name("SelectModeCon").Width(140).Height(28).Margin("8,0,0,0")
+        modeCombo.Add("ComboBoxItem").Content(GetLang("点击选择"))
+        modeCombo.Add("ComboBoxItem").Content(GetLang("划线选择"))
+
+        row4 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row4.Add("TextBlock").Text(GetLang("轮盘大小") "：").Foreground("{DynamicResource TextMain}").FontSize(13).VerticalAlignment("Center").Width(70)
+        scaleSlider := row4.Add("Slider").Name("WheelScaleCon").Width(160).Height(28).Margin("8,0,8,0").Minimum(50).Maximum(200).Value(100).IsSnapToTickEnabled("True").TickFrequency("10").Tag("Throttle:50")
+        scaleValText := row4.Add("TextBlock").Name("WheelScaleValText").Foreground("{DynamicResource TextMain}").FontSize(13).VerticalAlignment("Center").Width(40)
 
         PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
@@ -147,8 +151,9 @@ class MenuWheelGlobalSettingGui {
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="480"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="400"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MySoftData.FontType '"')
 
         resourceInject := '<CornerRadius x:Key="PanelRadius">8</CornerRadius>'
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', resourceInject)
