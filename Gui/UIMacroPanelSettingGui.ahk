@@ -89,37 +89,19 @@ class UIMacroPanelSettingGui {
         body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
 
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        panel := scrollViewer.Add("StackPanel").Margin("30, 4, 30, 12")
+        panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
 
-        ; ====== 通用选项 ======
-        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,0,0,0")
-        inner1 := group1.Add("StackPanel").Margin("14, 8")
+        labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 70 }
 
-        ; 选择框：界面激活时默认显示
-        row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        row1.Add("CheckBox").Name("ShowOnActiveCon")
-            .Content(GetLang("界面激活时显示"))
-            .Foreground("{DynamicResource TextMain}").Margin("0,0,0,0")
-
-        ; 下拉框：浮窗默认出现位置
-        row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row2.Add("TextBlock").Text(GetLang("默认出现位置"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(90)
-        posCombo := row2.Add("ComboBox").Name("DefaultPosCon")
-            .Width(140).Height(28).Margin("8,0,0,0")
-        for opt in UIMacroPanelSettingGui.PosOptions
-            posCombo.Add("ComboBoxItem").Content(opt.label)
-
-        ; ====== 外观设置 ======
-        group2 := panel.Add("GroupBox").Header(GetLang("外观")).Margin("0,8,0,0")
-        inner2 := group2.Add("StackPanel").Margin("14, 8")
+        ; ====== 外观（置于最上方） ======
+        group2 := panel.Add("GroupBox").Header(GetLang("外观")).Margin("0,0,0,0")
+        inner2 := group2.Add("StackPanel").Margin("14, 12")
 
         ; 按钮颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
         row3 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        row3.Add("TextBlock").Text(GetLang("按钮颜色"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
+        row3.Add("TextBlock").Text(GetLang("按钮颜色") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         row3.Add("TextBox").Name("BtnColorText")
             .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(10)
@@ -134,9 +116,9 @@ class UIMacroPanelSettingGui {
 
         ; 背景颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
         row4 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row4.Add("TextBlock").Text(GetLang("背景颜色"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
+        row4.Add("TextBlock").Text(GetLang("背景颜色") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         row4.Add("TextBox").Name("BgColorText")
             .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(10)
@@ -151,9 +133,9 @@ class UIMacroPanelSettingGui {
 
         ; 字体颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
         row5 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row5.Add("TextBlock").Text(GetLang("字体颜色"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
+        row5.Add("TextBlock").Text(GetLang("字体颜色") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         row5.Add("TextBox").Name("FontColorText")
             .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(10)
@@ -166,34 +148,31 @@ class UIMacroPanelSettingGui {
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
             .Background("#FFDDDDDD").Cursor("Hand")
 
-        ; ====== 尺寸设置 ======
-        group3 := panel.Add("GroupBox").Header(GetLang("尺寸")).Margin("0,8,0,0")
-        inner3 := group3.Add("StackPanel").Margin("14, 8")
+        ; ====== 通用选项（含尺寸设置） ======
+        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,16,0,0")
+        inner1 := group1.Add("StackPanel").Margin("14, 12")
 
-        ; 按钮高度
-        row6 := inner3.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        row6.Add("TextBlock").Text(GetLang("按钮高度"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
-        heightSlider := row6.Add("Slider").Name("BtnHeightCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
-            .Minimum(20).Maximum(60).Value(34)
-            .IsSnapToTickEnabled("True").TickFrequency("2")
-            .Tag("Throttle:50")
-        heightValBox := row6.Add("TextBox").Name("BtnHeightValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
-            .Text("{Binding Value, ElementName=BtnHeightCon}")
+        ; 选择框：界面激活时默认显示
+        row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
+        row1.Add("CheckBox").Name("ShowOnActiveCon")
+            .Content(GetLang("界面激活时显示"))
+            .Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,0")
+
+        ; 下拉框：浮窗默认出现位置
+        row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
+        row2.Add("TextBlock").Text(GetLang("默认出现位置") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(90)
+        posCombo := row2.Add("ComboBox").Name("DefaultPosCon")
+            .Width(140).Height(28).Margin("8,0,0,0")
+        for opt in UIMacroPanelSettingGui.PosOptions
+            posCombo.Add("ComboBoxItem").Content(opt.label)
 
         ; 按钮宽度
-        row6b := inner3.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
-        row6b.Add("TextBlock").Text(GetLang("按钮宽度"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
+        row6b := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row6b.Add("TextBlock").Text(GetLang("按钮宽度") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         widthSlider := row6b.Add("Slider").Name("BtnWidthCon")
             .Width(140).Height(28).Margin("8,0,8,0")
             .Minimum(40).Maximum(250).Value(80)
@@ -208,11 +187,30 @@ class UIMacroPanelSettingGui {
             .Margin("2,0,0,0")
             .Text("{Binding Value, ElementName=BtnWidthCon}")
 
+        ; 按钮高度
+        row6 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row6.Add("TextBlock").Text(GetLang("按钮高度") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        heightSlider := row6.Add("Slider").Name("BtnHeightCon")
+            .Width(140).Height(28).Margin("8,0,8,0")
+            .Minimum(20).Maximum(60).Value(34)
+            .IsSnapToTickEnabled("True").TickFrequency("2")
+            .Tag("Throttle:50")
+        heightValBox := row6.Add("TextBox").Name("BtnHeightValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=BtnHeightCon}")
+
         ; 按钮每行最大个数
-        row7 := inner3.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
-        row7.Add("TextBlock").Text(GetLang("每行个数"))
-            .Foreground("{DynamicResource TextSub}").FontSize(11)
-            .VerticalAlignment("Center").Width(70)
+        row7 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row7.Add("TextBlock").Text(GetLang("每行个数") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         colsSlider := row7.Add("Slider").Name("ColsCon")
             .Width(140).Height(28).Margin("8,0,8,0")
             .Minimum(1).Maximum(6).Value(3)
@@ -230,7 +228,7 @@ class UIMacroPanelSettingGui {
         ; 底部按钮行
         PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,12,0,6")
+        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
         revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
         revertBtn.InjectResources(PrimaryBtnStyle)
         okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)

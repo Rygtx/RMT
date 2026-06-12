@@ -32,8 +32,8 @@ class MenuWheelGlobalSettingGui {
             "SwipeLineColor", "#3A88F5"
         )
         this._fixedPos := false
-        this._selectMode := 1
-        this._showTooltip := true
+        this._selectMode := 2
+        this._showTooltip := false
         this._wheelScale := 100
         this._currentTheme := "Default"
     }
@@ -356,16 +356,16 @@ class MenuWheelGlobalSettingGui {
                 this.Colors[name] := defaultTheme.%name%
         }
         this.ui.Update("FixedPosCon", "IsChecked", "False")
-        this.ui.Update("SelectModeCon", "SelectedIndex", "0")
-        this.ui.Update("ShowTooltipCon", "IsChecked", "True")
+        this.ui.Update("SelectModeCon", "SelectedIndex", "1")
+        this.ui.Update("ShowTooltipCon", "IsChecked", "False")
         this.ui.Update("WheelScaleCon", "Value", "100")
         this.ui.Update("WheelScaleValText", "Text", "100%")
         this.ui.Update("ThemeCombo", "SelectedIndex", "0")
         this.UpdateThemePreview(defaultTheme)
 
         this._fixedPos := false
-        this._selectMode := 1
-        this._showTooltip := true
+        this._selectMode := 2
+        this._showTooltip := false
         this._wheelScale := 100
         this._currentTheme := "Default"
     }

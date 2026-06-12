@@ -201,6 +201,8 @@ class SoftData {
         this.IsAdminStart := false        ;管理员启动
         this.ShowSplitLine := false     ;显示分割线
         this.FixedMenuWheel := false    ;固定菜单轮
+        this.MenuWheelSelectMode := 2   ;选择模式(1=点击选择,2=划线选择)
+        this.MenuWheelShowTooltip := false  ;显示扇区名称提示
         this.MenuWheelScale := 100      ;轮盘大小(百分比)
         this.MenuWheelTheme := "Default"  ;轮盘主题名称
         this.Theme := "RMT_Light"   ;XAML界面主题

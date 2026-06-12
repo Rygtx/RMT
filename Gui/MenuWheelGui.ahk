@@ -27,7 +27,7 @@ class MenuWheelGui {
     ShowRadialMenu(MenuIndex) {
         this.MenuIndex := MenuIndex
         this.showTooltip := !!MySoftData.MenuWheelShowTooltip
-        this.selectMode := MySoftData.HasProp("MenuWheelSelectMode") ? MySoftData.MenuWheelSelectMode : 1
+        this.selectMode := MySoftData.HasProp("MenuWheelSelectMode") ? MySoftData.MenuWheelSelectMode : 2
         if (this.isOpen) {          ; 已有轮盘？先自清
             this.closed := true
             this._Cleanup()         ; 关闭旧窗 + sectors:=[] + 重置状态
