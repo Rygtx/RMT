@@ -269,6 +269,10 @@ class XAMLHost {
             err := FileRead(this.errLog)
             FileDelete(this.errLog)
 
+            ; 空内容不是崩溃（例如编译成功时 csc 重定向留下的 0 字节文件），忽略避免弹空崩溃框
+            if (Trim(err, " `t`r`n") == "")
+                return
+
             ahkLine := "Unknown"
             snippet := ""
             if RegExMatch(err, "s)AHK_LINE:(.*?)\nXAML_SNIPPET:(.*?)\n\n(.*)", &m) {
@@ -574,6 +578,10 @@ class XAMLHost {
 
     static CompileEngine(libDir, sharedExe, extraResources := []) {
         XAMLHost.RestoreWebView2Dlls()
+        ; 确保日志目录存在：否则 csc 的 ">" 输出重定向会因目录缺失而失败，
+        ; 导致编译命令根本不执行，既无 DLL 也无 errLog，只剩 "Unknown compilation error."
+        if !DirExist(A_WorkingDir "\Log")
+            DirCreate(A_WorkingDir "\Log")
         errLog := A_WorkingDir "\Log\AhkWpfError.log"
         sourceCs := libDir "\XAML_AHK_Bridge.cs"
         if !FileExist(sourceCs) {
@@ -631,6 +639,10 @@ class XAMLHost {
             XAMLHost.ShowErrorDialog("Engine Compile Error", "Failed to compile background engine.", "", errOut)
             return false
         }
+        ; 编译成功：csc 的 ">" 重定向会留下一个 0 字节的 errLog，
+        ; 与运行期崩溃日志同名，会被 CheckForCrashes 误判为“引擎崩溃”。成功后清掉它。
+        if FileExist(errLog)
+            FileDelete(errLog)
         return true
     }
 

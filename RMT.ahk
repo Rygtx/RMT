@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 global RMT_VERSION := "1.2F11"
 #Include Main\SelfCheck.ahk
-SelfCheckMissingFiles()
+; SelfCheckMissingFiles()   ;开发日常注释，大正式包启用，方便动态修改一些文件
 #Include Main\AssetUtil.ahk
 #Include Main\GlobalUtil.ahk
 

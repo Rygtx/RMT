@@ -36,6 +36,8 @@ public class AhkWpfEngine {
     public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [DllImport("user32.dll")]
+    static extern bool GetCursorPos(out POINT lpPoint);
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
     
@@ -226,6 +228,88 @@ public class AhkWpfEngine {
 
     static AhkWpfEngine() {
         EventManager.RegisterClassHandler(typeof(ScrollViewer), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnScrollViewerLoaded), false);
+        // 子菜单一打开必触发：直接拿到 MenuItem 和其 PART_Popup，定位最可靠（与 ScrollViewer 反查解耦）
+        EventManager.RegisterClassHandler(typeof(MenuItem), MenuItem.SubmenuOpenedEvent, new RoutedEventHandler(OnMenuItemSubmenuOpened), false);
+    }
+
+    // 子菜单定位：优先开在父项右侧（左边缘贴父项右边缘）；右侧放不下翻到左侧。
+    // 仅处理图形编辑右键菜单（名字以 MG_ 开头），避免影响其它菜单。
+    private static void OnMenuItemSubmenuOpened(object sender, RoutedEventArgs e) {
+        try {
+            MenuItem mi = sender as MenuItem;
+            if (mi == null) return;
+            string name = mi.Name ?? "";
+            if (!name.StartsWith("MG_")) {
+                LogDebug("[SubMenuCalc] skip non-MG MenuItem name=" + name);
+                return;
+            }
+            Popup pop = (mi.Template != null) ? mi.Template.FindName("PART_Popup", mi) as Popup : null;
+            if (pop == null) { LogDebug("[SubMenuCalc] PART_Popup not found for " + name); return; }
+
+            // DPI + 父项右上角/左上角（设备像素 → DIP）
+            double sx = 1.0, sy = 1.0;
+            var src = PresentationSource.FromVisual(mi);
+            Point pRightDip = mi.PointToScreen(new Point(mi.ActualWidth, 0));
+            Point pLeftDip = mi.PointToScreen(new Point(0, 0));
+            if (src != null) {
+                var mFrom = src.CompositionTarget.TransformFromDevice;
+                pRightDip = mFrom.Transform(pRightDip);
+                pLeftDip = mFrom.Transform(pLeftDip);
+                var mTo = src.CompositionTarget.TransformToDevice; sx = mTo.M11; sy = mTo.M22;
+            }
+
+            // 子菜单尺寸（DIP）
+            double subW = 200, subH = 300, measW = -1, measH = -1;
+            var childFE = pop.Child as FrameworkElement;
+            if (childFE != null) {
+                try {
+                    childFE.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    measW = childFE.DesiredSize.Width; measH = childFE.DesiredSize.Height;
+                    if (measW > 0) subW = measW;
+                    if (measH > 0) subH = measH;
+                } catch { }
+            }
+
+            var wa = System.Windows.SystemParameters.WorkArea;
+
+            // 水平：右侧优先。AbsolutePoint 下子菜单 Popup 同样是“右边缘锚定”，
+            //   故 openRight 时 offset.X = 父项右边缘 + 子宽（使左边缘落在父项右边缘）；
+            //   放不下翻到左侧：offset.X = 父项左边缘（右边缘锚定到父项左边缘）。
+            bool openRight = (pRightDip.X + subW <= wa.Right);
+            double offX = openRight ? (pRightDip.X + subW) : pLeftDip.X;
+            if (offX > wa.Right) offX = wa.Right;
+            if (offX - subW < wa.Left) offX = wa.Left + subW;
+
+            // 竖直：顶边与父项对齐，向下展开；越界贴边
+            double offY = pRightDip.Y;
+            if (offY + subH > wa.Bottom) offY = wa.Bottom - subH;
+            if (offY < wa.Top) offY = wa.Top;
+
+            pop.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+            pop.HorizontalOffset = offX;
+            pop.VerticalOffset = offY;
+
+            LogDebug("[SubMenuCalc] item=" + name
+                + " parentRightDip=(" + pRightDip.X + "," + pRightDip.Y + ")"
+                + " parentLeftDip=(" + pLeftDip.X + "," + pLeftDip.Y + ") dpi=(" + sx + "," + sy + ")"
+                + " subDip=(" + measW + "x" + measH + ") wa=[L" + wa.Left + " R" + wa.Right + " T" + wa.Top + " B" + wa.Bottom + "]"
+                + " openRight=" + openRight + " (True=向右 False=向左) offset=(" + offX + "," + offY + ")"
+                + " expectTL=(" + (openRight ? pRightDip.X : (offX - subW)) + "," + offY + ")");
+
+            // 回读子菜单真实落点（延迟到布局完成后），验证方向是否正确
+            if (childFE != null) {
+                double sxR = sx, syR = sy;
+                childFE.Dispatcher.BeginInvoke(new Action(() => {
+                    try {
+                        Point atl = childFE.PointToScreen(new Point(0, 0));
+                        LogDebug("[SubMenuOpened] item=" + name
+                            + " menuTLDev=(" + atl.X + "," + atl.Y + ")"
+                            + " menuTLDip=(" + (atl.X / sxR) + "," + (atl.Y / syR) + ")"
+                            + " actualDip=(" + childFE.ActualWidth + "x" + childFE.ActualHeight + ")");
+                    } catch (Exception exb) { LogDebug("[SubMenuOpened] err=" + exb.Message); }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        } catch (Exception ex) { LogDebug("[SubMenuCalc] EXC=" + ex.Message); }
     }
     
     private static void OnScrollViewerLoaded(object sender, RoutedEventArgs e) {
@@ -240,23 +324,19 @@ public class AhkWpfEngine {
         bool inMenuItemPopup = false;
         Popup popupRef = null;
         DependencyObject d = sv;
+        // 优先沿【逻辑树】向上爬：Popup.Child 在逻辑树上连回 Popup，可越过独立视觉树根 PopupRoot。
         while (d != null) {
             if (d is Popup) {
                 popupRef = d as Popup;
-                // Check if this Popup belongs to a MenuItem (not ContextMenu)
-                // ContextMenu's Popup has PlacementTarget = ContextMenu itself
-                // MenuItem's Popup has PlacementTarget = the MenuItem
+                // ContextMenu 自身 Popup 的 PlacementTarget 不是 MenuItem；MenuItem 子菜单 Popup 的是 MenuItem
                 if (popupRef.PlacementTarget is MenuItem) {
                     inMenuItemPopup = true;
                 }
                 break;
             }
-            if (d.GetType().Name == "PopupRoot") { break; }
-            DependencyObject next = null;
-            if (d is Visual || d is System.Windows.Media.Media3D.Visual3D)
+            DependencyObject next = LogicalTreeHelper.GetParent(d);
+            if (next == null && (d is Visual || d is System.Windows.Media.Media3D.Visual3D))
                 next = VisualTreeHelper.GetParent(d);
-            if (next == null)
-                next = LogicalTreeHelper.GetParent(d);
             d = next;
         }
         
@@ -296,9 +376,9 @@ public class AhkWpfEngine {
             args.Handled = true;
         };
         
-        // Also attach to Popup.Opened to force layout update
+        // 子菜单定位改由 MenuItem.SubmenuOpened 类处理器统一负责（见 OnMenuItemSubmenuOpened），此处仅做布局。
         if (popupRef != null) {
-            popupRef.Opened += (s, args) => {
+            popupRef.Opened += (s2, args2) => {
                 sv.UpdateLayout();
                 LogDebug("SubmenuPopup.Opened: vp=" + sv.ViewportHeight + " ext=" + sv.ExtentHeight + " scrollable=" + sv.ScrollableHeight);
             };
@@ -2348,6 +2428,11 @@ public class AhkWpfEngine {
                     sv.PreviewMouseWheel += handler;
                     sv.MouseWheel -= handler;
                     sv.MouseWheel += handler;
+                } else if (parts[1] == "IsOpen" && parts[2].ToLower() == "true" && ctrl is System.Windows.Controls.ContextMenu) {
+                    var cm = (System.Windows.Controls.ContextMenu)ctrl;
+                    POINT pt;
+                    Point mp = GetCursorPos(out pt) ? new Point(pt.x, pt.y) : new Point(0, 0);
+                    OpenContextMenuRightPreferred(cm, mp, win, "generic");
                 } else {
                     var prop = ctrl.GetType().GetProperty(parts[1]);
                     if (prop != null) {
@@ -2384,6 +2469,88 @@ public class AhkWpfEngine {
                     }
                 }
             }
+        }
+    }
+
+    // 右键菜单定位：菜单左上角对齐鼠标、向右下展开；右侧空间不足才向左翻转。
+    // 经实测确认 WPF 行为（见诊断日志 setTL vs menuTLDev）：
+    //   1) ContextMenu 在 AbsolutePoint 下，Horizontal/VerticalOffset 按【DIP】解释（不是设备像素）；
+    //   2) 水平方向是【右边缘锚定】——菜单右边缘落在 offset.X（即向左展开），越过左边界才翻为左对齐；
+    //   3) 竖直方向是【顶边锚定】——菜单顶边落在 offset.Y（即向下展开）。
+    // 因此：要让菜单左上角贴鼠标并向右展开，需把 offset.X 设为 (鼠标X + 菜单宽)，
+    //   这样右边缘=鼠标X+宽、左边缘正好=鼠标X；右侧放不下时再把 offset.X 设为鼠标X（向左展开）。
+    private void OpenContextMenuRightPreferred(System.Windows.Controls.ContextMenu cm, Point mouseDevice, Visual refVisual, string tag) {
+        try {
+            cm.FlowDirection = System.Windows.FlowDirection.LeftToRight;
+
+            // 1. 设备像素 → DIP（offset 按 DIP 解释）
+            double sx = 1.0, sy = 1.0;
+            var src = (refVisual != null) ? PresentationSource.FromVisual(refVisual) : null;
+            Point mouseDip = mouseDevice;
+            if (src != null) {
+                try {
+                    mouseDip = src.CompositionTarget.TransformFromDevice.Transform(mouseDevice);
+                    var m = src.CompositionTarget.TransformToDevice; sx = m.M11; sy = m.M22;
+                } catch { }
+            }
+
+            // 2. 测量菜单尺寸（DIP）
+            double mw = 200, mh = 400, measW = -1, measH = -1;
+            try {
+                cm.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                measW = cm.DesiredSize.Width; measH = cm.DesiredSize.Height;
+                if (cm.DesiredSize.Width > 0) mw = cm.DesiredSize.Width;
+                if (cm.DesiredSize.Height > 0) mh = cm.DesiredSize.Height;
+            } catch { }
+
+            // 3. 工作区（DIP）
+            var wa = System.Windows.SystemParameters.WorkArea;
+
+            // 4. 水平：右侧优先。openRight 时菜单左边缘=鼠标X（offset.X=鼠标X+菜单宽，因右边缘锚定）；
+            //    放不下则向左展开（offset.X=鼠标X，右边缘锚定到鼠标）。
+            bool openRight = (mouseDip.X + mw <= wa.Right);
+            double offX = openRight ? (mouseDip.X + mw) : mouseDip.X;
+            // 越界保护：右边缘不超出屏幕右侧，左边缘不超出屏幕左侧
+            if (offX > wa.Right) offX = wa.Right;
+            if (offX - mw < wa.Left) offX = wa.Left + mw;
+
+            // 5. 竖直：顶边对齐鼠标，向下展开；超出下边界则上移贴底，超出上边界则贴顶
+            double offY = mouseDip.Y;
+            if (offY + mh > wa.Bottom) offY = wa.Bottom - mh;
+            if (offY < wa.Top) offY = wa.Top;
+
+            cm.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+            cm.HorizontalOffset = offX;
+            cm.VerticalOffset = offY;
+
+            // ===== 关键节点日志（DIP 空间）=====
+            LogDebug("[CtxMenuCalc:" + tag + "] mouseDev=(" + mouseDevice.X + "," + mouseDevice.Y + ")"
+                + " mouseDip=(" + mouseDip.X + "," + mouseDip.Y + ") dpi=(" + sx + "," + sy + ")"
+                + " menuDip=(" + measW + "x" + measH + ") wa=[L" + wa.Left + " R" + wa.Right + " T" + wa.Top + " B" + wa.Bottom + "]"
+                + " openRight=" + openRight + " offset=(" + offX + "," + offY + ")"
+                + " expectTL=(" + (openRight ? mouseDip.X : (offX - mw)) + "," + offY + ")");
+
+            // 菜单打开后回读真实落点（设备像素 + 换算 DIP），核对是否与预期一致
+            var cmRef = cm;
+            string tagRef = tag;
+            double sxRef = sx, syRef = sy;
+            System.Windows.RoutedEventHandler[] h = new System.Windows.RoutedEventHandler[1];
+            h[0] = (so, eo) => {
+                try { cmRef.Opened -= h[0]; } catch { }
+                try {
+                    POINT cp; GetCursorPos(out cp);
+                    Point tl = cmRef.PointToScreen(new Point(0, 0));
+                    LogDebug("[CtxMenuOpened:" + tagRef + "] cursorDev=(" + cp.x + "," + cp.y + ")"
+                        + " menuTLDev=(" + tl.X + "," + tl.Y + ") menuTLDip=(" + (tl.X / sxRef) + "," + (tl.Y / syRef) + ")"
+                        + " actualDip=(" + cmRef.ActualWidth + "x" + cmRef.ActualHeight + ") flow=" + cmRef.FlowDirection);
+                } catch (Exception ex2) { LogDebug("[CtxMenuOpened:" + tagRef + "] err=" + ex2.Message); }
+            };
+            cm.Opened += h[0];
+
+            cm.IsOpen = true;
+        } catch (Exception ex) {
+            LogDebug("[CtxMenuCalc:" + tag + "] EXC=" + ex.Message);
+            try { cm.IsOpen = true; } catch { }
         }
     }
 
@@ -2949,8 +3116,7 @@ public class AhkWpfEngine {
                     string coords = rPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + rPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");
                     if (canvas.ContextMenu != null) {
-                        canvas.ContextMenu.PlacementTarget = canvas;
-                        canvas.ContextMenu.IsOpen = true;
+                        OpenContextMenuRightPreferred(canvas.ContextMenu, canvas.PointToScreen(rPos), canvas, "canvas");
                     }
                 }
                 e.Handled = true;
