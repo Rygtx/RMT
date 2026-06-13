@@ -523,7 +523,7 @@ class MMProData {
         this.PosVarX := 100
         this.PosVarY := 100
         this.ActionType := 1          ;鼠标动作 1移动 2移动点击1次 3移动点击2次
-        this.MouseMoveMode := 0      ;鼠标移动模式 0=移动 1=相对移动 2=游戏视角
+        this.MouseMoveMode := 0      ;鼠标移动模式 0=绝对移动 1=相对移动 2=游戏视角
         this.Speed := 90           ;移动速度
         this.Count := 1
         this.Interval := 1000

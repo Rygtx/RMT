@@ -90,7 +90,9 @@ class MouseMoveGui {
         this.SpeedCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
-        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), ["移动", "相对移动", "游戏视角"])
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动方式："))
+        PosX += 80
+        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), GetLangArr(["绝对移动", "相对移动", "游戏视角"]))
         this.MouseMoveModeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosY += 25

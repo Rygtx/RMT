@@ -120,6 +120,18 @@ class MMProGui {
             "移动点击1次", "移动点击2次"]))
         this.ActionTypeCon.Value := 1
 
+        PosY += 30
+        PosX := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动方式："))
+        PosX := 90
+        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), GetLangArr([
+            "绝对移动", "相对移动", "游戏视角"]))
+        this.MouseMoveModeCon.OnEvent("Change", (*) => this.OnTypeChange())
+
+        PosX := 230
+        this.HumanMouseTogCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("启用拟真轨迹"))
+        this.HumanMouseTogCon.OnEvent("Click", (*) => this.OnHumanMouseTogClick())
+
         PosX := 10
         PosY += 35
         this.CountTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动次数:"))
@@ -130,15 +142,6 @@ class MMProGui {
         this.IntervalTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
         PosX += 80
         this.IntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 100), 1000)
-
-        PosY += 30
-        PosX := 90
-        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), ["移动", "相对移动", "游戏视角"])
-        this.MouseMoveModeCon.OnEvent("Change", (*) => this.OnTypeChange())
-
-        PosX := 230
-        this.HumanMouseTogCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 150), GetLang("启用拟真轨迹"))
-        this.HumanMouseTogCon.OnEvent("Click", (*) => this.OnHumanMouseTogClick())
 
         PosX := 10
         PosY += 30

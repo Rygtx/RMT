@@ -1,3 +1,5 @@
+// Build touch: (1)禁用控件灰显(TextBox/CheckBox/ComboBox);(2)可编辑数值 ComboBox 也支持拖标签改值(LostFocus 触发保存);
+// 需重新编译引擎（编译触发条件为本文件比 ahk-xaml.dll 新）。
 using System;
 using System.Linq;
 using System.Windows;
@@ -226,6 +228,9 @@ public class AhkWpfEngine {
         return results;
     }
 
+    // 已挂接滚轮处理的下拉/内容滚动容器（Tag="ContainScroll"），避免 Loaded 多次触发时重复挂接
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ScrollViewer, object> _wheelHookedScrollViewers = new System.Runtime.CompilerServices.ConditionalWeakTable<ScrollViewer, object>();
+
     static AhkWpfEngine() {
         EventManager.RegisterClassHandler(typeof(ScrollViewer), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnScrollViewerLoaded), false);
         // 子菜单一打开必触发：直接拿到 MenuItem 和其 PART_Popup，定位最可靠（与 ScrollViewer 反查解耦）
@@ -318,7 +323,27 @@ public class AhkWpfEngine {
         
         string svName = sv.Name ?? "unnamed";
         string parentName = sv.Parent != null ? sv.Parent.GetType().Name : "null";
-        
+
+        // 下拉列表 / 内容滚动容器（模板里 Tag="ContainScroll"，如 ComboBox 下拉、表情面板）：
+        // 滚轮在内容上滚动时自行消费并滚动列表，并标记 Handled，避免 Popup 把未处理的滚轮事件
+        // 回传到外层画布触发缩放（图形编辑器幕布缩放问题）。
+        if (sv.Tag != null && sv.Tag.ToString() == "ContainScroll") {
+            object _hooked;
+            if (!_wheelHookedScrollViewers.TryGetValue(sv, out _hooked)) {
+                _wheelHookedScrollViewers.Add(sv, new object());
+                sv.PreviewMouseWheel += (s, args) => {
+                    if (args.Handled) return;
+                    var _sv = (ScrollViewer)s;
+                    double newOff = _sv.VerticalOffset - args.Delta / 3.0;
+                    if (newOff < 0) newOff = 0;
+                    if (newOff > _sv.ScrollableHeight) newOff = _sv.ScrollableHeight;
+                    _sv.ScrollToVerticalOffset(newOff);
+                    args.Handled = true;
+                };
+            }
+            return;
+        }
+
         // Check if this ScrollViewer is inside a MenuItem's Popup (submenu)
         // We need to distinguish between ContextMenu's own Popup and MenuItem's Popup
         bool inMenuItemPopup = false;
@@ -417,6 +442,27 @@ public class AhkWpfEngine {
             }
         }
         return null;
+    }
+
+    // 在可视树中查找当前处于"下拉打开"状态的 ComboBox（用于滚轮滚动其下拉列表而非缩放画布）
+    private static ComboBox FindOpenComboBox(DependencyObject root) {
+        if (root == null) return null;
+        var cb = root as ComboBox;
+        if (cb != null && cb.IsDropDownOpen) return cb;
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++) {
+            var r = FindOpenComboBox(System.Windows.Media.VisualTreeHelper.GetChild(root, i));
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    // 取 ComboBox 下拉(Popup)内的 ScrollViewer（模板里命名为 Popup，内部含 ContainScroll 的 ScrollViewer）
+    private static ScrollViewer GetComboBoxDropDownScrollViewer(ComboBox cb) {
+        if (cb == null || cb.Template == null) return null;
+        var popup = cb.Template.FindName("Popup", cb) as Popup;
+        if (popup == null || popup.Child == null) return null;
+        return FindVisualChild<ScrollViewer>(popup.Child as DependencyObject);
     }
 
     private static string _logDir = null;
@@ -2822,6 +2868,21 @@ public class AhkWpfEngine {
 
         canvas.PreviewMouseWheel += (s, e) => {
             //System.IO.File.AppendAllText("ahk_pan_debug.log", "PreviewMouseWheel fired! Delta: " + e.Delta + "\n");
+            // 若有 ComboBox 下拉处于打开状态：滚轮滚动其下拉列表，而不是缩放画布
+            // （ComboBox 下拉 Popup 未消费的滚轮会回传到画布，这里在画布侧拦截并改为滚动下拉）
+            var win2 = Window.GetWindow(canvas);
+            var openCb = (win2 != null) ? FindOpenComboBox(win2) : null;
+            if (openCb != null) {
+                var dsv = GetComboBoxDropDownScrollViewer(openCb);
+                if (dsv != null) {
+                    double off = dsv.VerticalOffset - e.Delta / 3.0;
+                    if (off < 0) off = 0;
+                    if (off > dsv.ScrollableHeight) off = dsv.ScrollableHeight;
+                    dsv.ScrollToVerticalOffset(off);
+                }
+                e.Handled = true;
+                return;
+            }
             double zoom = e.Delta > 0 ? 1.1 : 0.9;
             double scaleX = scaleTransform.ScaleX;
             double newScale = scaleX * zoom;
@@ -3219,76 +3280,111 @@ public class AhkWpfEngine {
             }
         };
 
-        // Label 拖拽改变数值：遍历所有 TextBlock Label，如果同行有 TextBox 则支持拖拽
+        // Label 拖拽改变数值：对【所有节点】的"标签 + 数值输入框"行生效。
+        // 采用事件委托（从命中元素向上找 TextBlock），自动适配动态新增的节点，无需逐个挂接；
+        // 仅当同行 TextBox 的当前内容是数值时才允许拖拽，避免破坏变量/文本字段。
         bool isLabelDragging = false;
-        System.Windows.Controls.TextBox dragTargetTextBox = null;
+        System.Windows.Controls.Control dragTargetCtrl = null;   // 拖拽目标：TextBox 或可编辑 ComboBox
         double dragStartX = 0;
         double dragStartValue = 0;
 
-        System.Action<DependencyObject> AttachLabelDrag = null;
-        AttachLabelDrag = (DependencyObject p) => {
-            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(p);
-            for (int i = 0; i < count; i++) {
-                var child = System.Windows.Media.VisualTreeHelper.GetChild(p, i);
-                var tb = child as System.Windows.Controls.TextBlock;
-                if (tb != null && tb.Width == 72 && tb.Cursor == null) {
-                    var sp = tb.Parent as System.Windows.Controls.StackPanel;
-                    if (sp == null) continue;
-                    System.Windows.Controls.TextBox targetBox = null;
-                    foreach (var spChild in sp.Children) {
-                        if (spChild is System.Windows.Controls.TextBox) {
-                            targetBox = (System.Windows.Controls.TextBox)spChild;
-                            break;
-                        }
-                    }
-                    if (targetBox == null) continue;
-                    var capturedBox = targetBox;
-                    tb.Cursor = System.Windows.Input.Cursors.SizeWE;
-                    tb.PreviewMouseLeftButtonDown += (s, e) => {
-                        double val;
-                        if (!double.TryParse(capturedBox.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out val))
-                            val = 0;
-                        isLabelDragging = true;
-                        dragTargetTextBox = capturedBox;
-                        dragStartX = e.GetPosition(canvas).X;
-                        dragStartValue = val;
-                        canvas.CaptureMouse();
-                        e.Handled = true;
-                    };
-                }
-                var doChild = child as DependencyObject;
-                if (doChild != null)
-                    AttachLabelDrag(doChild);
-            }
+        // 读/写控件文本（支持 TextBox 与可编辑 ComboBox）
+        System.Func<System.Windows.Controls.Control, string> getCtrlText = (c) => {
+            var t = c as System.Windows.Controls.TextBox; if (t != null) return t.Text;
+            var cb = c as System.Windows.Controls.ComboBox; if (cb != null) return cb.Text;
+            return null;
         };
-        AttachLabelDrag(canvas);
+        System.Action<System.Windows.Controls.Control, string> setCtrlText = (c, v) => {
+            var t = c as System.Windows.Controls.TextBox; if (t != null) { t.Text = v; return; }
+            var cb = c as System.Windows.Controls.ComboBox; if (cb != null) { cb.Text = v; return; }
+        };
 
-        // Label 拖拽的 MouseMove 和 MouseUp 复用 canvas 事件
-        // 在已有的 canvas.MouseMove 中追加 Label 拖拽处理（通过检查 isLabelDragging）
-        // 为避免修改已有 lambda，使用独立的事件处理
+        // 判断某 TextBlock 是否为"数值字段标签"：同一 StackPanel 内存在数值内容的 TextBox 或可编辑 ComboBox 则返回它，否则 null
+        System.Func<System.Windows.Controls.TextBlock, System.Windows.Controls.Control> findNumericPeerBox = (tb) => {
+            if (tb == null) return null;
+            var sp = tb.Parent as System.Windows.Controls.StackPanel;
+            if (sp == null) return null;
+            System.Windows.Controls.Control box = null;
+            foreach (var spChild in sp.Children) {
+                var t = spChild as System.Windows.Controls.TextBox;
+                if (t != null) { box = t; break; }
+                // 可编辑 ComboBox（如坐标/时间，内容可能是数值也可能是变量名）
+                var cb = spChild as System.Windows.Controls.ComboBox;
+                if (cb != null && cb.IsEditable) { box = cb; break; }
+            }
+            if (box == null) return null;
+            // 禁用的输入框（如游戏视角下的移动速度）不允许拖拽改值
+            if (!box.IsEnabled) return null;
+            // 仅当当前内容是纯数值时才允许拖拽（变量名/文本字段不处理）
+            double tmp;
+            if (!double.TryParse(getCtrlText(box), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tmp))
+                return null;
+            return box;
+        };
+
+        // 从命中元素向上找最近的 TextBlock（点击文字时 OriginalSource 可能是内部 Run/文本节点）
+        System.Func<object, System.Windows.Controls.TextBlock> asLabel = (src) => {
+            var d = src as DependencyObject;
+            while (d != null) {
+                var tb = d as System.Windows.Controls.TextBlock;
+                if (tb != null) return tb;
+                d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            }
+            return null;
+        };
+
+        canvas.PreviewMouseLeftButtonDown += (s, e) => {
+            var box = findNumericPeerBox(asLabel(e.OriginalSource));
+            if (box == null) return;
+            double val;
+            if (!double.TryParse(getCtrlText(box), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out val))
+                val = 0;
+            isLabelDragging = true;
+            dragTargetCtrl = box;
+            dragStartX = e.GetPosition(canvas).X;
+            dragStartValue = val;
+            canvas.CaptureMouse();
+            e.Handled = true;   // 抑制节点拖动/框选，确保拖标签只改数值
+        };
+
         canvas.PreviewMouseMove += (s, e) => {
-            if (!isLabelDragging || dragTargetTextBox == null) return;
+            if (!isLabelDragging || dragTargetCtrl == null) {
+                // 悬停在数值标签上时给出左右拖拽光标提示（懒设置，仅当命中 TextBlock 时计算）
+                if (!isLabelDragging) {
+                    var tb = asLabel(e.OriginalSource);
+                    if (tb != null && tb.Cursor == null && findNumericPeerBox(tb) != null)
+                        tb.Cursor = System.Windows.Input.Cursors.SizeWE;
+                }
+                return;
+            }
             double dx = e.GetPosition(canvas).X - dragStartX;
             double step = Math.Max(1, Math.Abs(dragStartValue) * 0.02);
             double newVal = Math.Max(1, dragStartValue + dx * step);
             // 根据原始值是否为整数决定输出格式
             if (dragStartValue == Math.Floor(dragStartValue))
-                dragTargetTextBox.Text = ((int)Math.Round(newVal)).ToString();
+                setCtrlText(dragTargetCtrl, ((int)Math.Round(newVal)).ToString());
             else
-                dragTargetTextBox.Text = newVal.ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
+                setCtrlText(dragTargetCtrl, newVal.ToString("F0", System.Globalization.CultureInfo.InvariantCulture));
             e.Handled = true;
         };
         canvas.PreviewMouseLeftButtonUp += (s, e) => {
             if (!isLabelDragging) return;
             isLabelDragging = false;
             canvas.ReleaseMouseCapture();
-            // 触发 TextBox 的 TextChanged 事件（通过清空再恢复文本）
-            if (dragTargetTextBox != null) {
-                var box = dragTargetTextBox;
-                string val = box.Text;
-                box.Text = "";
-                box.Text = val;
-                dragTargetTextBox = null;
+            if (dragTargetCtrl != null) {
+                var tb = dragTargetCtrl as System.Windows.Controls.TextBox;
+                if (tb != null) {
+                    // TextBox：清空再恢复文本以触发 TextChanged，让 AHK 端读取新值
+                    string val = tb.Text;
+                    tb.Text = "";
+                    tb.Text = val;
+                } else {
+                    var cb = dragTargetCtrl as System.Windows.Controls.ComboBox;
+                    // 可编辑 ComboBox：主动触发 LostFocus，让 AHK 端读取新文本并保存
+                    if (cb != null)
+                        cb.RaiseEvent(new RoutedEventArgs(System.Windows.UIElement.LostFocusEvent, cb));
+                }
+                dragTargetCtrl = null;
             }
             e.Handled = true;
         };

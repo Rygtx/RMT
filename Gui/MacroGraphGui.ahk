@@ -70,6 +70,7 @@ class MacroGraphGui {
         this.KeyGui := KeyGui()
         this.MouseGui := MouseMoveGui()
         this.SearchGui := SearchGui()
+        this.MMProGui := MMProGui()
     }
 
     ; 指令图标的绝对路径（正斜杠，供 WPF Image.Source 使用）；不存在则返回空
@@ -274,7 +275,9 @@ class MacroGraphGui {
             this._TrackCtrl("Time2_" id, runtime)
             this._BindCtrl("ITypeCmb_" id, "SelectionChanged", this._OnIntervalType.Bind(this, id), runtime)
             this._BindCtrl("Time_" id, "LostFocus", this._OnField.Bind(this, id, "time"), runtime)
+            this._BindCtrl("Time_" id, "SelectionChanged", this._OnField.Bind(this, id, "time"), runtime)
             this._BindCtrl("Time2_" id, "LostFocus", this._OnField.Bind(this, id, "time2"), runtime)
+            this._BindCtrl("Time2_" id, "SelectionChanged", this._OnField.Bind(this, id, "time2"), runtime)
         }
         else if (d.type == GetLang("按键")) {
             this._TrackCtrl("TypeCmb_" id, runtime)
@@ -295,6 +298,29 @@ class MacroGraphGui {
             this._BindCtrl("PosY_" id, "LostFocus", this._OnField.Bind(this, id, "posy"), runtime)
             this._BindCtrl("Speed_" id, "LostFocus", this._OnField.Bind(this, id, "speed"), runtime)
             this._BindCtrl("ModeCmb_" id, "SelectionChanged", this._OnMoveMode.Bind(this, id), runtime)
+        }
+        else if (d.type == GetLang("移动Pro")) {
+            this._TrackCtrl("MPPosX_" id, runtime)
+            this._TrackCtrl("MPPosY_" id, runtime)
+            this._TrackCtrl("MPSpeed_" id, runtime)
+            this._TrackCtrl("MPActionCmb_" id, runtime)
+            this._TrackCtrl("MPModeCmb_" id, runtime)
+            this._TrackCtrl("MPHuman_" id, runtime)
+            this._TrackCtrl("MPCount_" id, runtime)
+            this._TrackCtrl("MPInterval_" id, runtime)
+            this._BindCtrl("MPPosX_" id, "LostFocus", this._OnMMProField.Bind(this, id, "PosVarX"), runtime)
+            this._BindCtrl("MPPosX_" id, "SelectionChanged", this._OnMMProField.Bind(this, id, "PosVarX"), runtime)
+            this._BindCtrl("MPPosY_" id, "LostFocus", this._OnMMProField.Bind(this, id, "PosVarY"), runtime)
+            this._BindCtrl("MPPosY_" id, "SelectionChanged", this._OnMMProField.Bind(this, id, "PosVarY"), runtime)
+            this._BindCtrl("MPSpeed_" id, "LostFocus", this._OnMMProField.Bind(this, id, "Speed"), runtime)
+            this._BindCtrl("MPSpeed_" id, "KeyDown:Return", this._OnMMProField.Bind(this, id, "Speed"), runtime)
+            this._BindCtrl("MPActionCmb_" id, "SelectionChanged", this._OnMMProAction.Bind(this, id), runtime)
+            this._BindCtrl("MPModeCmb_" id, "SelectionChanged", this._OnMMProMode.Bind(this, id), runtime)
+            this._BindCtrl("MPHuman_" id, "Click", this._OnMMProHuman.Bind(this, id), runtime)
+            this._BindCtrl("MPCount_" id, "LostFocus", this._OnMMProField.Bind(this, id, "Count"), runtime)
+            this._BindCtrl("MPCount_" id, "KeyDown:Return", this._OnMMProField.Bind(this, id, "Count"), runtime)
+            this._BindCtrl("MPInterval_" id, "LostFocus", this._OnMMProField.Bind(this, id, "Interval"), runtime)
+            this._BindCtrl("MPInterval_" id, "KeyDown:Return", this._OnMMProField.Bind(this, id, "Interval"), runtime)
         }
     }
 
@@ -457,7 +483,12 @@ class MacroGraphGui {
         newIds := []
         for cd in this._clipboard.nodes {
             id := this._NewId()
-            node := this._MakeNode(cd.cmd)
+            ; 移动Pro 的参数存于 INI，复制时需克隆出独立序列码与数据，避免与源节点共享同一份配置
+            pasteCmd := cd.cmd
+            pasteHead := SplitCommand(pasteCmd)
+            if (pasteHead.Length >= 1 && this._IsMMProName(pasteHead[1]))
+                pasteCmd := this._CloneMMPro(pasteCmd)
+            node := this._MakeNode(pasteCmd)
             this.cmdNodes[id] := node
             this.order.Push(id)
             this.pos[id] := { x: ox + cd.dx + 40, y: oy + cd.dy + 40 }
@@ -625,6 +656,23 @@ class MacroGraphGui {
                     this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
                 }
             }
+        } else {
+            ; 右键命中节点：若该节点尚未在选区中，则将其设为唯一选中（标准编辑器行为），
+            ; 这样"编辑/复制/删除"可直接作用于右键的节点（无需先左键选中）
+            hitId := this._NodeIdAtRightClick()
+            if (hitId != "" && !g.selectedNodes.Has(hitId)) {
+                g.selectedNodes.Clear()
+                for n in g.nodes
+                    this.ui.Update("Node_" n.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+                for conn in g.connections {
+                    if (conn.Selected) {
+                        conn.Selected := false
+                        this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
+                    }
+                }
+                g.selectedNodes[hitId] := true
+                this.ui.Update("Node_" hitId, "BorderBrush", "#60A0FF")
+            }
         }
         hasSelection := g.selectedNodes.Count > 0
         hasSingleSelection := g.selectedNodes.Count == 1
@@ -666,6 +714,20 @@ class MacroGraphGui {
                 return false
         }
         return true
+    }
+
+    ; 返回最近一次右键坐标命中的节点 Id（命中多个时取最后一个，即最上层）；未命中返回 ""
+    _NodeIdAtRightClick() {
+        g := this.graph
+        if (g == "" || !g.HasProp("lastRightClickX"))
+            return ""
+        rx := g.lastRightClickX, ry := g.lastRightClickY
+        hitId := ""
+        for n in g.nodes {
+            if (rx >= n.X && rx <= n.X + n.W && ry >= n.Y && ry <= n.Y + n.H)
+                hitId := n.Id
+        }
+        return hitId
     }
 
     OnAddCmd(cmdName, *) {
@@ -855,6 +917,14 @@ class MacroGraphGui {
             return this._MakeNode(GetLang("按键") "_a_" GetLang("点击") "_100")
         if (cmdName == GetLang("移动"))
             return this._MakeNode(GetLang("移动") "_0_0_90")
+        if (cmdName == GetLang("移动Pro")) {
+            ; 移动Pro 走 INI 持久化（参数存 MMProFile.ini，CurCMD 仅为序列码引用，与执行引擎一致）
+            serial := GetCMDSerialStr("移动Pro")
+            data := MMProData()
+            data.SerialStr := serial
+            SaveMacroCMDData(data)
+            return this._MakeNode(serial)
+        }
         if (cmdName == GetLang("搜索") || cmdName == GetLang("搜索Pro"))
             return this._MakeNode(cmdName)
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
@@ -959,6 +1029,215 @@ class MacroGraphGui {
         return "0"
     }
 
+    ; ----------------------------------------------------------------- 移动Pro
+
+    ; 判断某 CurCMD 首段是否为「移动Pro」序列码（去掉结尾数字后等于「移动Pro」）
+    _IsMMProName(name) {
+        if (name == "")
+            return false
+        return RegExReplace(name, "\d+$", "") == GetLang("移动Pro")
+    }
+
+    ; 鼠标动作编号(1/2/3) -> 下拉项索引
+    _MMProActionIndex(at) {
+        if (at == "2" || at == 2)
+            return 1
+        if (at == "3" || at == 3)
+            return 2
+        return 0
+    }
+
+    ; 下拉项文本 -> 鼠标动作编号(1=移动 2=移动点击1次 3=移动点击2次)
+    _MMProActionFromText(text) {
+        if (text == GetLang("移动点击1次"))
+            return 2
+        if (text == GetLang("移动点击2次"))
+            return 3
+        return 1
+    }
+
+    ; 取 X/Y 坐标变量的显示文本（存储为 Key 形式，显示用 GetLang；数字原样返回）
+    _MMProVarText(d, prop) {
+        if (!d.HasOwnProp(prop))
+            return "100"
+        v := d.%prop%
+        return (v == "") ? "" : GetLang(v)
+    }
+
+    ; 读取节点对应的 MMProData（CurCMD 首段即其 SerialStr，可能带 "_备注" 后缀，需取首段）
+    _MMProData(id) {
+        if (!this.cmdNodes.Has(id))
+            return ""
+        arr := SplitCommand(this.cmdNodes[id].CurCMD)
+        serial := arr.Length >= 1 ? arr[1] : this.cmdNodes[id].CurCMD
+        try {
+            data := GetMacroCMDData(serial)
+            return IsObject(data) ? data : ""
+        }
+        return ""
+    }
+
+    ; X/Y 坐标(可编辑下拉) 与 速度(文本框) 变更：写回 MMProFile.ini
+    _OnMMProField(id, field, state, ctrl, event) {
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        nameMap := Map("PosVarX", "MPPosX_", "PosVarY", "MPPosY_", "Speed", "MPSpeed_", "Count", "MPCount_", "Interval", "MPInterval_")
+        key := nameMap[field] id
+        if (state.Has(key)) {
+            val := state[key]
+            if (field == "Speed" || field == "Count" || field == "Interval") {
+                ; 数值字段（速度/移动次数/每次间隔）：忽略空值，最小为 1
+                if (val == "")
+                    return
+                if (IsNumber(val) && val + 0 < 1)
+                    val := "1"
+                data.%field% := val
+            }
+            else {
+                ; 坐标支持「下拉变量名」或「手输数值」：统一以 Key 形式存储
+                ; 忽略下拉初始化阶段的空值，避免覆盖已有坐标
+                if (val == "")
+                    return
+                data.%field% := GetLangKey(val)
+            }
+            SaveMacroCMDData(data)
+        }
+        this._MMProApply()
+    }
+
+    ; 鼠标动作下拉变更
+    _OnMMProAction(id, state, ctrl, event) {
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        key := "MPActionCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.ActionType := this._MMProActionFromText(state[key])
+        SaveMacroCMDData(data)
+        this._MMProApply()
+    }
+
+    ; 移动方式下拉变更：游戏视角时动作固定移动、速度100、关闭拟真轨迹，并显示移动次数/每次间隔
+    _OnMMProMode(id, state, ctrl, event) {
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        key := "MPModeCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.MouseMoveMode := Integer(this._MoveModeFromText(state[key]))
+        if (data.MouseMoveMode == 2) {
+            data.ActionType := 1
+            data.Speed := 100
+            data.IsHumanMouse := 0
+        }
+        SaveMacroCMDData(data)
+        this._RefreshMMProVisibility(id)
+        this._MMProApply()
+    }
+
+    ; 启用拟真轨迹勾选：勾选后强制动作=移动并禁用动作/方式下拉（与 MMProGui 一致）；若处于游戏视角则切回相对移动
+    _OnMMProHuman(id, state, ctrl, event) {
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        key := "MPHuman_" id
+        if (state.Has(key)) {
+            v := state[key]
+            data.IsHumanMouse := (v == "True" || v == 1 || v == "1") ? 1 : 0
+            if (data.IsHumanMouse == 1) {
+                ; 拟真轨迹与游戏视角互斥：游戏视角时切回相对移动
+                if (data.MouseMoveMode == 2) {
+                    data.MouseMoveMode := 1
+                    this.ui.Update("MPModeCmb_" id, "SelectedIndex", this._MoveModeIndex(1))
+                }
+                data.ActionType := 1
+            }
+            SaveMacroCMDData(data)
+        }
+        this._RefreshMMProVisibility(id)
+        this._MMProApply()
+    }
+
+    ; 依据 游戏视角 / 拟真轨迹 状态联动刷新各控件的可用性与可见性（与 MMProGui.OnTypeChange / OnHumanMouseTogClick 一致）
+    _RefreshMMProVisibility(id) {
+        if (this.ui == "")
+            return
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        isGameView := (data.MouseMoveMode == 2 || data.MouseMoveMode == "2")
+        isHuman := (ObjHasOwnProp(data, "IsHumanMouse") && (data.IsHumanMouse == 1 || data.IsHumanMouse == "1"))
+
+        ; 移动速度：游戏视角固定 100 且禁用
+        if (isGameView) {
+            this.ui.Update("MPSpeed_" id, "Text", "100")
+            this.ui.Update("MPSpeed_" id, "IsEnabled", "False")
+        }
+        else {
+            this.ui.Update("MPSpeed_" id, "IsEnabled", "True")
+        }
+
+        ; 鼠标动作：游戏视角或拟真轨迹下强制「移动」且禁用
+        if (isGameView || isHuman) {
+            this.ui.Update("MPActionCmb_" id, "SelectedIndex", 0)
+            this.ui.Update("MPActionCmb_" id, "IsEnabled", "False")
+        }
+        else {
+            this.ui.Update("MPActionCmb_" id, "IsEnabled", "True")
+        }
+
+        ; 移动方式：拟真轨迹开启时禁用
+        this.ui.Update("MPModeCmb_" id, "IsEnabled", isHuman ? "False" : "True")
+
+        ; 拟真轨迹：游戏视角下取消勾选并禁用
+        if (isGameView) {
+            this.ui.Update("MPHuman_" id, "IsChecked", "False")
+            this.ui.Update("MPHuman_" id, "IsEnabled", "False")
+        }
+        else {
+            this.ui.Update("MPHuman_" id, "IsEnabled", "True")
+        }
+
+        ; 移动次数 / 每次间隔：仅游戏视角显示
+        this.ui.Update("MPCountRow_" id, "Visibility", isGameView ? "Visible" : "Collapsed")
+        this.ui.Update("MPIntervalRow_" id, "Visibility", isGameView ? "Visible" : "Collapsed")
+    }
+
+    _MMProApply() {
+        this._CaptureLinks()
+        this._Apply()
+    }
+
+    ; 克隆一个移动Pro序列：新建序列码并把源数据各字段复制过去，返回新的 CurCMD(序列码)
+    _CloneMMPro(srcCmd) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        newSerial := GetCMDSerialStr("移动Pro")
+        newData := MMProData()
+        newData.SerialStr := newSerial
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                newData.PosVarX := src.PosVarX
+                newData.PosVarY := src.PosVarY
+                newData.Speed := src.Speed
+                newData.ActionType := src.ActionType
+                newData.MouseMoveMode := src.MouseMoveMode
+                newData.Count := src.Count
+                newData.Interval := src.Interval
+                if (ObjHasOwnProp(src, "IsHumanMouse"))
+                    newData.IsHumanMouse := src.IsHumanMouse
+                if (ObjHasOwnProp(src, "ConfigName"))
+                    newData.ConfigName := src.ConfigName
+                if (ObjHasOwnProp(src, "ConfigArr"))
+                    newData.ConfigArr := src.ConfigArr
+            }
+        }
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
     _OnField(id, field, state, ctrl, event) {
         if (!this.cmdNodes.Has(id))
             return
@@ -967,6 +1246,9 @@ class MacroGraphGui {
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (state.Has(key)) {
             val := state[key]
+            ; 时间为可编辑下拉，忽略下拉初始化阶段的空值，避免覆盖已有时间
+            if ((field == "time" || field == "time2") && val == "")
+                return
             ; 数值字段最小为 1
             if (IsNumber(val) && val + 0 < 1)
                 val := "1"
@@ -988,9 +1270,10 @@ class MacroGraphGui {
     }
 
     ; 为所有内联编辑 TextBox 绑定回车事件和文本变化事件
+    ; 注：间隔的 time/time2 已改为可编辑下拉(ComboBox)，由 SelectionChanged/LostFocus 处理，不在此绑定 TextChanged
     _BindTextBoxEnterEvents() {
-        fields := ["time", "time2", "hold", "count", "inter", "posx", "posy", "speed"]
-        nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
+        fields := ["hold", "count", "inter", "posx", "posy", "speed"]
+        nameMap := Map("hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
         for id in this.cmdNodes {
             for field in fields {
                 boxName := nameMap[field] id
@@ -1038,6 +1321,8 @@ class MacroGraphGui {
             editor := this.KeyGui
         else if (d.type == GetLang("移动"))
             editor := this.MouseGui
+        else if (d.type == GetLang("移动Pro"))
+            editor := this.MMProGui
         else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro"))
             editor := this.SearchGui
         if (editor == "")
@@ -1082,6 +1367,20 @@ class MacroGraphGui {
                 this.ui.Update("Speed_" id, "Text", d.speed)
                 this.ui.Update("ModeCmb_" id, "SelectedIndex", this._MoveModeIndex(d.mode))
                 this._RefreshMoveVisibility(id)
+            }
+            else if (d.type == GetLang("移动Pro")) {
+                data := this._MMProData(id)
+                if (data != "") {
+                    this.ui.Update("MPPosX_" id, "Text", GetLang(data.PosVarX))
+                    this.ui.Update("MPPosY_" id, "Text", GetLang(data.PosVarY))
+                    this.ui.Update("MPSpeed_" id, "Text", data.Speed)
+                    this.ui.Update("MPActionCmb_" id, "SelectedIndex", this._MMProActionIndex(data.ActionType))
+                    this.ui.Update("MPModeCmb_" id, "SelectedIndex", this._MoveModeIndex(data.MouseMoveMode))
+                    this.ui.Update("MPHuman_" id, "IsChecked", (ObjHasOwnProp(data, "IsHumanMouse") && (data.IsHumanMouse == 1 || data.IsHumanMouse == "1")) ? "True" : "False")
+                    this.ui.Update("MPCount_" id, "Text", ObjHasOwnProp(data, "Count") ? data.Count : 1)
+                    this.ui.Update("MPInterval_" id, "Text", ObjHasOwnProp(data, "Interval") ? data.Interval : 1000)
+                    this._RefreshMMProVisibility(id)
+                }
             }
         }
         this._Apply()
@@ -1288,6 +1587,24 @@ class MacroGraphGui {
             d.speed := paramArr.Length >= 4 ? paramArr[4] : "90"
             d.mode := paramArr.Length >= 5 ? paramArr[5] : "0"
         }
+        else if (this._IsMMProName(name)) {
+            ; 移动Pro 参数存储在 MMProFile.ini 中，CurCMD 即其 SerialStr（如 "移动Pro3"）
+            d.type := GetLang("移动Pro")
+            d.serialStr := name
+            try {
+                data := GetMacroCMDData(name)
+                if (IsObject(data)) {
+                    d.posVarX := data.PosVarX
+                    d.posVarY := data.PosVarY
+                    d.speed := data.Speed
+                    d.actionType := data.ActionType
+                    d.mmmode := data.MouseMoveMode
+                    d.isHuman := ObjHasOwnProp(data, "IsHumanMouse") ? data.IsHumanMouse : 0
+                    d.count := ObjHasOwnProp(data, "Count") ? data.Count : 1
+                    d.interval := ObjHasOwnProp(data, "Interval") ? data.Interval : 1000
+                }
+            }
+        }
         else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
             d.temp := true
             ; 搜索指令参数存储在配置文件中，CurCMD 本身就是 SerialStr（如 "搜索1"、"搜索Pro2"）
@@ -1342,7 +1659,7 @@ class MacroGraphGui {
 
         if (d.type == GetLang("移动")) {
             cmd := GetLang("移动") "_" d.posx "_" d.posy "_" d.speed
-            ; 模式：0=移动(省略) 1=相对移动 2=游戏视角，与 MouseMoveGui 保持一致
+            ; 模式：0=绝对移动(省略) 1=相对移动 2=游戏视角，与 MouseMoveGui 保持一致
             if (d.mode != "0" && d.mode != 0 && d.mode != "")
                 cmd .= "_" d.mode
             return cmd
@@ -1372,10 +1689,12 @@ class MacroGraphGui {
             ; 间隔类型下拉（固定/随机）—— 标签与下拉同行
             this._AddComboRow(body, "ITypeRow_" id, GetLang("类型："), "ITypeCmb_" id
                 , [GetLang("固定"), GetLang("随机")], this._IntervalTypeIndex(d.itype), true)
+            ; 时间：可编辑下拉（既能下拉选变量，也能手动输入数值），与间隔编辑器一致
+            varList := GetGuiVarArr()
             ; 固定值 / 随机最小值
-            this._AddFieldRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, d.time, true, true, id, "time")
+            this._AddEditableComboRow(body, "Time1Row_" id, GetLang("时间："), "Time_" id, varList, d.time, true)
             ; 随机最大值（仅随机模式显示）
-            this._AddFieldRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, d.time2, isRandom, true, id, "time2")
+            this._AddEditableComboRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, varList, d.time2, isRandom)
         }
         else if (d.type == GetLang("按键")) {
             body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("12").TextWrapping("Wrap")
@@ -1399,7 +1718,34 @@ class MacroGraphGui {
             this._AddFieldRow(body, "SpeedRow_" id, GetLang("移动速度："), "Speed_" id, isGameView ? "100" : d.speed, true, !isGameView, id, "speed")
             ; 移动方式下拉 —— 标签与下拉同行
             this._AddComboRow(body, "ModeRow_" id, GetLang("移动方式") "：", "ModeCmb_" id
-                , [GetLang("移动"), GetLang("相对移动"), GetLang("游戏视角")], this._MoveModeIndex(d.mode), true)
+                , [GetLang("绝对移动"), GetLang("相对移动"), GetLang("游戏视角")], this._MoveModeIndex(d.mode), true)
+        }
+        else if (d.type == GetLang("移动Pro")) {
+            mmmode := d.HasOwnProp("mmmode") ? d.mmmode : 0
+            isGameView := (mmmode == "2" || mmmode == 2)
+            isHuman := (d.HasOwnProp("isHuman") && (d.isHuman == 1 || d.isHuman == "1"))
+            ; 鼠标动作/拟真轨迹/速度 的可用状态与 MMProGui 保持一致：
+            ;   游戏视角：动作=移动且禁用、速度=100且禁用、拟真轨迹取消并禁用、显示移动次数/每次间隔
+            ;   拟真轨迹：动作=移动且禁用、移动方式禁用
+            actionEnabled := !(isGameView || isHuman)
+            actionIdx := (isGameView || isHuman) ? 0 : this._MMProActionIndex(d.HasOwnProp("actionType") ? d.actionType : 1)
+            varList := GetGuiVarArr()
+            ; 坐标X / 坐标Y：可编辑下拉（既能下拉选变量，也能手动输入数值）
+            this._AddEditableComboRow(body, "MPPosXRow_" id, GetLang("坐标位置X:"), "MPPosX_" id, varList, this._MMProVarText(d, "posVarX"), true)
+            this._AddEditableComboRow(body, "MPPosYRow_" id, GetLang("坐标位置Y:"), "MPPosY_" id, varList, this._MMProVarText(d, "posVarY"), true)
+            ; 移动速度（文本框，支持标签拖拽改值）；游戏视角固定100且禁用
+            this._AddFieldRow(body, "MPSpeedRow_" id, GetLang("移动速度："), "MPSpeed_" id, isGameView ? "100" : (d.HasOwnProp("speed") ? d.speed : "90"), true, !isGameView, id, "")
+            ; 鼠标动作下拉（移动 / 移动点击1次 / 移动点击2次）
+            this._AddComboRow(body, "MPActionRow_" id, GetLang("鼠标动作："), "MPActionCmb_" id
+                , [GetLang("移动"), GetLang("移动点击1次"), GetLang("移动点击2次")], actionIdx, true, actionEnabled)
+            ; 移动方式下拉；拟真轨迹开启时禁用
+            this._AddComboRow(body, "MPModeRow_" id, GetLang("移动方式") "：", "MPModeCmb_" id
+                , [GetLang("绝对移动"), GetLang("相对移动"), GetLang("游戏视角")], this._MoveModeIndex(mmmode), true, !isHuman)
+            ; 启用拟真轨迹（复选框）；游戏视角下取消勾选并禁用
+            this._AddCheckRow(body, "MPHumanRow_" id, "MPHuman_" id, GetLang("启用拟真轨迹"), (isHuman && !isGameView) ? 1 : 0, true, !isGameView)
+            ; 移动次数 / 每次间隔（仅游戏视角显示）
+            this._AddFieldRow(body, "MPCountRow_" id, GetLang("移动次数:"), "MPCount_" id, d.HasOwnProp("count") ? d.count : "1", isGameView, true, id, "")
+            this._AddFieldRow(body, "MPIntervalRow_" id, GetLang("每次间隔："), "MPInterval_" id, d.HasOwnProp("interval") ? d.interval : "1000", isGameView, true, id, "")
         }
         else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro")) {
             ; 搜索类型下拉
@@ -1583,14 +1929,44 @@ class MacroGraphGui {
     }
 
     ; 一行 "标签 + 下拉框"，label 与下拉框同行显示，visible 控制初始显隐
-    _AddComboRow(body, rowName, labelText, comboName, items, selIndex, visible) {
+    _AddComboRow(body, rowName, labelText, comboName, items, selIndex, visible, enabled := true) {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("72").VerticalAlignment("Center")
-        cmb := row.Add("ComboBox").Name(comboName).Width("96").Height("22").MinHeight("0").FontSize("11").Padding("2,0").SelectedIndex(selIndex)
+        cmb := row.Add("ComboBox").Name(comboName).Width("96").Height("22").MinHeight("0").FontSize("11").Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+        if (!enabled)
+            cmb.IsEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
+        return row
+    }
+
+    ; 标签 + 可编辑下拉（IsEditable）：既能从下拉选项中选，也能手动输入文本/数值
+    _AddEditableComboRow(body, rowName, labelText, comboName, items, textValue, visible) {
+        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!visible)
+            row.Visibility("Collapsed")
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("11").Width("72").VerticalAlignment("Center")
+        ; MaxDropDownHeight 限制下拉高度（约 10 项），超出时模板内 ScrollViewer 自动出现滚动条
+        cmb := row.Add("ComboBox").Name(comboName).Width("96").Height("22").MinHeight("0").FontSize("11").Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        for it in items
+            cmb.Add("ComboBoxItem").Content(it)
+        ; ComboBox 上 .Text() 会被别名成 Content，需用 SetProp 直接写 Text 属性（编辑框文本，ToString 会自动转义）
+        cmb.SetProp("Text", textValue)
+        return row
+    }
+
+    ; 标签型复选框行
+    _AddCheckRow(body, rowName, chkName, labelText, isChecked, visible := true, enabled := true) {
+        row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!visible)
+            row.Visibility("Collapsed")
+        chk := row.Add("CheckBox").Name(chkName).Content(labelText).Foreground("#DDDDDD").FontSize("11").VerticalAlignment("Center")
+        if (isChecked == 1 || isChecked == "1")
+            chk.IsChecked("True")
+        if (!enabled)
+            chk.IsEnabled("False")
         return row
     }
 
