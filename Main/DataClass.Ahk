@@ -881,6 +881,7 @@ class MacroGraphNode{
         this.NextNodeArr := []                     ;下一个节点指令数组（后继节点的 SerialStr）
         this.X := 0                                ;图形编辑器中节点的逻辑坐标X
         this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
+        this.Folded := 0                           ;搜索等含分支的节点：是否折叠隐藏分支节点（0展开 1折叠）
     }
 }
 

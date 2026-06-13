@@ -3359,7 +3359,16 @@ public class AhkWpfEngine {
             }
             double dx = e.GetPosition(canvas).X - dragStartX;
             double step = Math.Max(1, Math.Abs(dragStartValue) * 0.02);
-            double newVal = Math.Max(1, dragStartValue + dx * step);
+            // 取值范围：默认下限 1、无上限；可由目标控件 Tag 中的 "Min:x" / "Max:y" 覆盖（如相似度 1~100）
+            double minV = 1, maxV = double.MaxValue;
+            string dragTag = (dragTargetCtrl.Tag as string) ?? "";
+            var mMin = System.Text.RegularExpressions.Regex.Match(dragTag, @"Min:(-?\d+(?:\.\d+)?)");
+            if (mMin.Success) double.TryParse(mMin.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out minV);
+            var mMax = System.Text.RegularExpressions.Regex.Match(dragTag, @"Max:(-?\d+(?:\.\d+)?)");
+            if (mMax.Success) double.TryParse(mMax.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out maxV);
+            double newVal = dragStartValue + dx * step;
+            if (newVal < minV) newVal = minV;
+            if (newVal > maxV) newVal = maxV;
             // 根据原始值是否为整数决定输出格式
             if (dragStartValue == Math.Floor(dragStartValue))
                 setCtrlText(dragTargetCtrl, ((int)Math.Round(newVal)).ToString());
