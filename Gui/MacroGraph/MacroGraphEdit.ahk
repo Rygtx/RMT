@@ -176,6 +176,11 @@ class MacroGraphEditMixin {
                 pasteCmd := this._CloneInput(pasteCmd)
             else if (pasteHead.Length >= 1 && this._IsOutputName(pasteHead[1]))
                 pasteCmd := this._CloneOutput(pasteCmd)
+            else if (pasteHead.Length >= 1) {
+                iniKey := this._FormalIniKeyFromName(pasteHead[1])
+                if (iniKey != "")
+                    pasteCmd := this._CloneFormalIni(pasteCmd, iniKey)
+            }
             node := this._MakeNode(pasteCmd)
             this.cmdNodes[id] := node
             this.order.Push(id)

@@ -25,7 +25,8 @@ class MacroGraphNodeUIMixin {
     ; 指令节点（含内联编辑控件）
     _BuildCmdNode(id, node) {
         d := this._Parse(node.CurCMD)
-        this._NewNodeShell(id, d.type, "Process", &body)
+        nodeW := this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : ""
+        this._NewNodeShell(id, d.type, "Process", &body, nodeW)
         this._FillNodeBody(id, d, body)
     }
 
@@ -170,6 +171,10 @@ class MacroGraphNodeUIMixin {
             ; 节点宽 200、左右 margin 6 → 内容区 188，与下方单行控件同宽
             this._AddMultilineFieldBlock(body, "OutTextBlock_" id, GetLang("输出内容："), "OutText_" id, textVal, true, "188")
         }
+        else if (this._IsFormalNodeType(d.type)) {
+            body.Margin("10,6,10,8")
+            this._FillFormalNodeBody(id, d, body)
+        }
         else {
             body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize(this._MGFontSize(12))
             body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
@@ -272,6 +277,50 @@ class MacroGraphNodeUIMixin {
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", textVal)
+    }
+
+    ; 行内单元格：标签 + 不可编辑下拉（类型选择等）
+    _ProCellCombo(rowSP, cellName, label, comboName, items, selIndex, visible, lw, cw, rightCell) {
+        cell := rowSP.Add("StackPanel").Name(cellName).Orientation("Horizontal")
+        if (rightCell)
+            cell.Margin("14,0,0,0")
+        if (!visible)
+            cell.Visibility("Collapsed")
+        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        for it in items
+            cmb.Add("ComboBoxItem").Content(it)
+    }
+
+    ; 行内单元格：复选框
+    _ProCellCheck(rowSP, cellName, chkName, label, isChecked, visible, rightCell) {
+        cell := rowSP.Add("StackPanel").Name(cellName).Orientation("Horizontal")
+        if (rightCell)
+            cell.Margin("14,0,0,0")
+        if (!visible)
+            cell.Visibility("Collapsed")
+        chk := cell.Add("CheckBox").Name(chkName).Content(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        if (isChecked == 1 || isChecked == "1")
+            chk.IsChecked("True")
+    }
+
+    ; 提取变量单元格：复选框「变量N」+ 可编辑下拉（变量名）。名称常显，便于预填，启用与否由复选框控制。
+    _FillExVarSlotCell(rowSP, id, slot, d, varList, rightCell) {
+        p := "ExV" slot
+        toggled := d.HasOwnProp("exToggle" slot) ? d["exToggle" slot] : (slot == 1 ? 1 : 0)
+        on := toggled == 1 || toggled == "1"
+        vn := d.HasOwnProp("exVariable" slot) ? d["exVariable" slot] : "Var" slot
+        cell := rowSP.Add("StackPanel").Name(p "TogRow_" id).Orientation("Horizontal")
+        if (rightCell)
+            cell.Margin("14,0,0,0")
+        chk := cell.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").Margin("0,0,4,0")
+        if (on)
+            chk.IsChecked("True")
+        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        for it in varList
+            cmb.Add("ComboBoxItem").Content(it)
+        cmb.SetProp("Text", vn)
     }
 
     ; 打开窗口信息编辑器（复用 FrontInfoGui）。用一个带 Value 属性的适配对象桥接 WPF 文本框。
@@ -618,7 +667,7 @@ class MacroGraphNodeUIMixin {
         pres := "http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xns := "http://schemas.microsoft.com/winfx/2006/xaml"
 
-        nodeW := (d.type == GetLang("搜索Pro")) ? 380 : 200
+        nodeW := (d.type == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : 200)
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
@@ -662,14 +711,14 @@ class MacroGraphNodeUIMixin {
     }
 
     ; 创建节点外壳（Border + 头部标题 + 端口），body 通过引用返回供填充
-    _NewNodeShell(id, title, nodeType, &body) {
+    _NewNodeShell(id, title, nodeType, &body, nodeW := "") {
         g := this.graph
         p := this.pos.Has(id) ? this.pos[id] : { x: 200, y: 200 }
         x := p.x + g.offsetX
         y := p.y + g.offsetY
         headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
-        ; 搜索Pro 参数多，加宽节点以容纳两列布局
-        nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
+        if (nodeW == "")
+            nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
@@ -750,6 +799,12 @@ class MacroGraphNodeUIMixin {
             btn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
             ; 图片搜索预览：浮动在节点左侧、入点下方，右上角贴近节点左边缘（不占用内容区）
             this._AddFloatingImgPreview(grid, id, d)
+        }
+        else if (title == GetLang("变量")) {
+            ; 变量节点：标题栏展开/收起按钮。展开=完整卡片；收起=各启用变量「变量名 = 值」摘要
+            folded := this._NodeFolded(id)
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
         return header
     }

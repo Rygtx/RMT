@@ -117,14 +117,16 @@ class SubMacroGui {
     }
 
     Init(cmd) {
-        cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
+        cmdArr := cmd != "" ? SplitCommand(cmd) : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(2)
 
-        this.TypeCon.Text := GetLang(this.Data.MacroType)
-        this.CallTypeCon.Text := GetLang(this.Data.CallType)
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+        callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
+        this.TypeCon.Value := this._LangArrIndex(macroTypes, this.Data.MacroType)
+        this.CallTypeCon.Value := this._LangArrIndex(callTypes, this.Data.CallType)
         this.InsertCountCon.Delete()
         this.InsertCountCon.Add(this.DLVariableArr)
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
@@ -167,11 +169,12 @@ class SubMacroGui {
     }
 
     OnRefresh() {
-        EnableIndex := this.TypeCon.Text != GetLang("当前宏")  ;类型是1的时候，不能选择序号
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+        EnableIndex := this.TypeCon.Value != 1
         this.DropDownIndexCon.Enabled := EnableIndex
         if (EnableIndex) {
             lastIndex := Max(1, this.DropDownIndexCon.Value)
-            tableIndex := GetTableIndex(GetLangKey(this.TypeCon.Text))
+            tableIndex := GetTableIndex(GetLangKey(macroTypes[this.TypeCon.Value]))
             DropDownArr := []
             for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
                 DropDownArr.Push(A_Index ". " Remark)
@@ -249,9 +252,11 @@ class SubMacroGui {
     }
 
     SaveSubMacroData() {
-        this.Data.MacroType := GetLangKey(this.TypeCon.Text)
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+        callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
+        this.Data.MacroType := GetLangKey(macroTypes[this.TypeCon.Value])
         this.Data.Index := this.DropDownIndexCon.value
-        this.Data.CallType := GetLangKey(this.CallTypeCon.Text)
+        this.Data.CallType := GetLangKey(callTypes[this.CallTypeCon.Value])
         this.Data.InsertCount := GetLangKey(this.InsertCountCon.Text)
 
         tableIndex := GetTableIndex(this.Data.MacroType)
@@ -259,5 +264,14 @@ class SubMacroGui {
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
 
         SaveMacroCMDData(this.Data)
+    }
+
+    _LangArrIndex(arr, langKey) {
+        target := GetLang(langKey)
+        loop arr.Length {
+            if (arr[A_Index] == target)
+                return A_Index
+        }
+        return 1
     }
 }

@@ -170,6 +170,13 @@ class MacroGraphEventsMixin {
             this._BindCtrl("OutVar_" id, "LostFocus", this._OnOutputField.Bind(this, id, "VariableName"), runtime)
             this._BindCtrl("OutVar_" id, "SelectionChanged", this._OnOutputField.Bind(this, id, "VariableName"), runtime)
         }
+        else if (this._IsFormalNodeType(d.type)) {
+            this._RegisterFormalNodeEvents(id, d, runtime)
+            ; 变量节点：标题栏展开/收起按钮
+            if (d.type == GetLang("变量"))
+                this._BindCtrl("SFold_" id, "Click", this._OnToggleVarFold.Bind(this, id), runtime)
+            this._RefreshFormalNode(id, d)
+        }
     }
 
     ; 采集控件值：本地登记（启动期清单用）；运行时再用 Track 命令通知引擎纳入状态采集

@@ -458,10 +458,30 @@ public class AhkWpfEngine {
         return null;
     }
 
-    // 取 ComboBox 下拉(Popup)内的 ScrollViewer（模板里命名为 Popup，内部含 ContainScroll 的 ScrollViewer）
+    // 判断鼠标事件源是否位于 ComboBox 自身或其下拉 Popup 内（含 ComboBoxItem）。
+    // 用途：可编辑 ComboBox 下拉打开时，点选下拉项会经隧道路由触发 canvas.PreviewMouseDown；
+    // 若此时清空焦点(ClearFocus)，ComboBox 会提前失焦、下拉只关不选（无 SelectionChanged）。
+    // 故命中此情形时跳过清焦。沿可视树上溯，遇 PopupRoot 再切逻辑树跨越 Popup 边界回到 ComboBox。
+    private static bool IsWithinComboBoxOrPopup(DependencyObject d) {
+        while (d != null) {
+            if (d is ComboBox || d is ComboBoxItem) return true;
+            if (d is System.Windows.Controls.Primitives.Popup) return true;
+            if (d.GetType().Name == "PopupRoot") return true;
+            DependencyObject parent = null;
+            if (d is System.Windows.Media.Visual || d is System.Windows.Media.Media3D.Visual3D)
+                parent = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            if (parent == null) {
+                try { parent = LogicalTreeHelper.GetParent(d); } catch { }
+            }
+            d = parent;
+        }
+        return false;
+    }
+
+    // 取 ComboBox 下拉(Popup)内的 ScrollViewer（模板里命名为 PART_Popup，内部含 ContainScroll 的 ScrollViewer）
     private static ScrollViewer GetComboBoxDropDownScrollViewer(ComboBox cb) {
         if (cb == null || cb.Template == null) return null;
-        var popup = cb.Template.FindName("Popup", cb) as Popup;
+        var popup = cb.Template.FindName("PART_Popup", cb) as Popup;
         if (popup == null || popup.Child == null) return null;
         return FindVisualChild<ScrollViewer>(popup.Child as DependencyObject);
     }
@@ -2974,6 +2994,10 @@ public class AhkWpfEngine {
             }
             // 点击非 TextBox 区域时，结束输入状态（让 TextBox 失焦）
             if (e.OriginalSource is System.Windows.Controls.TextBox) return;
+            // 关键：可编辑 ComboBox 下拉打开时，点选下拉项会经隧道路由触发本事件，
+            // 此时焦点在 PART_EditableTextBox(TextBox) 上。若 ClearFocus 会让 ComboBox 提前失焦，
+            // 下拉只关闭不选择（无 SelectionChanged，文本不变）。命中 ComboBox/Popup 时跳过清焦。
+            if (IsWithinComboBoxOrPopup(e.OriginalSource as DependencyObject)) return;
             if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox) {
                 System.Windows.Input.Keyboard.ClearFocus();
             }

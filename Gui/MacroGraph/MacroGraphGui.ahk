@@ -74,6 +74,20 @@ class MacroGraphGui {
         this.MMProGui := MMProGui()
         this.InputGui := InputGui()
         this.OutputGui := OutputGui()
+        this.SubMacroGui := SubMacroGui()
+        this.VariableGui := VariableGui()
+        this.ExVariableGui := ExVariableGui()
+        this.OperationGui := OperationGui()
+        this.RunGui := RunGui()
+        this.FileIOGui := FileIOGui()
+        this.TextOpsGui := TextOpsGui()
+        this.ArrayGui := ArrayGui()
+        this.RMTCMDGui := RMTCMDGui()
+        this.BGMouseGui := BGMouseGui()
+        this.BGKeyGui := BGKeyGui()
+        this.WindowManageGui := WindowManageGui()
+        this.KeyCheckGui := KeyCheckGui()
+        this.ScreenShotGui := ScreenShotGui()
         this.BranchGraphGui := ""     ; 搜索真/假分支的「嵌套节点编辑器」（懒加载，编辑分支子图）
         this._branchExpanded := Map() ; 分支节点是否展开显示全部指令（key=分支合成ID）
         this._branchInjected := Map() ; 本窗口生命周期内已注入过分支节点的搜索ID（折叠/展开时只显隐不重建）
@@ -324,6 +338,20 @@ class MacroGraphGui {
             SaveMacroCMDData(data)
             return this._MakeNode(serial)
         }
+        if (cmdName == GetLang("RMT指令"))
+            return this._MakeNode(GetLang("RMT指令") "_" GetLang("截图"))
+        for key in this._FormalIniCmdKeys() {
+            if (cmdName == GetLang(key)) {
+                serial := GetCMDSerialStr(key)
+                cls := this._FormalIniDataClass(key)
+                if (cls == "")
+                    break
+                data := cls()
+                data.SerialStr := serial
+                SaveMacroCMDData(data)
+                return this._MakeNode(serial)
+            }
+        }
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
         return this._MakeNode(cmdName)
     }
@@ -421,6 +449,11 @@ class MacroGraphGui {
             editor := this.InputGui
         else if (d.type == GetLang("输出"))
             editor := this.OutputGui
+        else {
+            editors := this._FormalEditorMap()
+            if (editors.Has(d.type))
+                editor := editors[d.type]
+        }
         if (editor == "")
             return
 
@@ -449,6 +482,17 @@ class MacroGraphGui {
         if (dEdit.type == GetLang("输出")) {
             this._RefreshOutputNode(id, dEdit)
             this._Apply()
+            return
+        }
+        if (this._IsFormalNodeType(dEdit.type)) {
+            ; 形式化节点：优先就地刷新内联控件值（避免整窗 _Render 闪烁）；
+            ; 未覆盖的类型回退到整体重建（从 INI 读取，保证字段/显隐完全同步）。
+            if (this._RefreshFormalInline(id, dEdit)) {
+                this._Apply()
+                return
+            }
+            this._CaptureLinks()
+            this._Render()
             return
         }
         ; 注入的简要节点无法就地刷新 → 重建为完整内联节点
@@ -592,6 +636,8 @@ _GraftMacroGraphMixin(mixinClass) {
 #Include MacroGraphHandlers.ahk
 #Include MacroGraphBranch.ahk
 #Include MacroGraphNodeUI.ahk
+#Include MacroGraphFormal.ahk
+#Include MacroGraphFormalHandlers.ahk
 #Include MacroGraphEvents.ahk
 #Include MacroGraphEdit.ahk
 #Include MacroGraphMenu.ahk

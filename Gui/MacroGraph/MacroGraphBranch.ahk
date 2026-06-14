@@ -28,6 +28,40 @@ class MacroGraphBranchMixin {
         this._CaptureLinks()
     }
 
+    ; 切换变量节点折叠态：折叠=只显示各启用变量「变量名 = 值」摘要；展开=完整卡片。
+    ; 摘要与完整两套容器同时存在，仅切换显隐（不整窗重建），避免闪烁；节点高度随容器自动收放。
+    _OnToggleVarFold(id, *) {
+        if (this.ui == "" || !this.cmdNodes.Has(id))
+            return
+        node := this.cmdNodes[id]
+        willFold := this._NodeFolded(id) ? 0 : 1
+        node.Folded := willFold
+        try SaveMacroCMDData(node)
+        if (willFold)
+            this._RefreshVariableSummary(id)   ; 收起前用当前值刷新摘要
+        this.ui.Update("VarSumBox_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+        this.ui.Update("VarFullBox_" id, "Visibility", willFold ? "Collapsed" : "Visible")
+        this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
+        this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
+    }
+
+    ; 就地刷新变量节点摘要（收起态显示），从当前 INI/解析数据取值，无需重建
+    _RefreshVariableSummary(id) {
+        if (this.ui == "")
+            return
+        d := this._FormalDFromId(id)
+        anyOn := false
+        loop 4 {
+            slot := A_Index
+            info := this._VarSummaryRowInfo(d, slot)
+            if (info.on)
+                anyOn := true
+            this.ui.Update("VarSumRow_" slot "_" id, "Visibility", info.on ? "Visible" : "Collapsed")
+            this.ui.Update("VarSumTxt_" slot "_" id, "Text", info.text)
+        }
+        this.ui.Update("VarSumEmpty_" id, "Visibility", anyOn ? "Collapsed" : "Visible")
+    }
+
     ; 折叠：隐藏分支节点与分支相关连线，搜索直连原后续
     _FoldSearchRuntime(searchId) {
         g := this.graph

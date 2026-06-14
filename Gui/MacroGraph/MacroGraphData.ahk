@@ -8,6 +8,17 @@
 ; 嫁接到 MacroGraphGui.Prototype。
 ; ============================================================================
 
+; 解析结果对象基类：让普通对象同时支持 d.fixedProp（点）与 d["dynKey" i]（中括号）访问。
+; AHK v2 的对象字面量默认不支持中括号取值（无 __Item），会抛 "no property named __Item"，
+; 导致 _MapIniDataToParse 里 d["toggle" i]:=... 静默失败（被 _Parse 的 try 吞掉），
+; 进而变量/运算等节点解析恒为默认值。设此基类后中括号读写统一映射到自身属性。
+class MGParseObjBase {
+    __Item[key] {
+        get => this.HasOwnProp(key) ? this.%key% : ""
+        set => this.%key% := value
+    }
+}
+
 class MacroGraphDataMixin {
     ; 克隆一个移动Pro序列：新建序列码并把源数据各字段复制过去，返回新的 CurCMD(序列码)
     _CloneMMPro(srcCmd) {
@@ -181,6 +192,205 @@ class MacroGraphDataMixin {
         }
         SaveMacroCMDData(newData)
         return newSerial
+    }
+
+    ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致）
+    _FormalIniCmdKeys() {
+        return ["宏操作", "变量", "变量提取", "运算", "运行", "文件读写", "文本处理", "数组",
+            "后台鼠标", "后台按键", "窗口管理", "按键检测", "抓图"]
+    }
+
+    _FormalIniKeyFromName(name) {
+        if (name == "")
+            return ""
+        base := RegExReplace(name, "\d+$", "")
+        for key in this._FormalIniCmdKeys() {
+            if (base == GetLang(key))
+                return key
+        }
+        return ""
+    }
+
+    _FormalIniDataClass(cmdKey) {
+        static m := ""
+        if (m == "") {
+            m := Map(
+                "宏操作", SubMacroData,
+                "变量", VariableData,
+                "变量提取", ExVariableData,
+                "运算", OperationData,
+                "运行", RunData,
+                "文件读写", FileIOData,
+                "文本处理", TextOpsData,
+                "数组", ArrayData,
+                "后台鼠标", BGMouseData,
+                "后台按键", BGKeyData,
+                "窗口管理", WindowManageData,
+                "按键检测", KeyCheckData,
+                "抓图", ScreenShotData
+            )
+        }
+        return m.Has(cmdKey) ? m[cmdKey] : ""
+    }
+
+    ; 克隆形式化 INI 指令：新建序列码并复制源 INI 数据
+    _CloneFormalIni(srcCmd, cmdKey) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        cls := this._FormalIniDataClass(cmdKey)
+        if (cls == "")
+            return srcCmd
+        newSerial := GetCMDSerialStr(cmdKey)
+        ; 用 .Clone() 整体复制源数据（应用通用机制，最可靠），再对数组逐个深拷贝，
+        ; 避免新旧节点共享同一份配置；克隆失败再回退默认对象。
+        newData := ""
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                newData := src.Clone()
+                for prop in newData.OwnProps() {
+                    val := newData.%prop%
+                    if (val is Array)
+                        newData.%prop% := val.Clone()
+                }
+            }
+        }
+        if (!IsObject(newData))
+            newData := cls()
+        newData.SerialStr := newSerial
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
+    ; 将 INI 数据对象的属性复制到解析结果 d（camelCase 字段名）
+    _MapIniDataToParse(d, data, cmdKey) {
+        if (!IsObject(data))
+            return
+        if (cmdKey == "宏操作") {
+            d.macroType := data.MacroType
+            d.callType := data.CallType
+            d.insertCount := data.InsertCount
+            d.index := data.Index
+            d.macroSerial := data.MacroSerial
+        } else if (cmdKey == "变量") {
+            d.isIgnoreExist := data.IsIgnoreExist
+            loop 4 {
+                i := A_Index
+                d["toggle" i] := data.ToggleArr[i]
+                d["operaType" i] := data.OperaTypeArr[i]
+                d["variable" i] := data.VariableArr[i]
+                d["copyVar" i] := data.CopyVariableArr[i]
+                d["minVar" i] := data.MinVariableArr[i]
+                d["maxVar" i] := data.MaxVariableArr[i]
+            }
+        } else if (cmdKey == "变量提取") {
+            d.isIgnoreExist := data.IsIgnoreExist
+            d.extractType := data.ExtractType
+            d.extractStr := data.ExtractStr
+            d.winInfo := data.WinInfo
+            d.ocrType := data.OCRType
+            d.startPosX := data.StartPosX
+            d.startPosY := data.StartPosY
+            d.endPosX := data.EndPosX
+            d.endPosY := data.EndPosY
+            d.searchCount := data.SearchCount
+            d.searchInterval := data.SearchInterval
+            loop 6 {
+                i := A_Index
+                d["exToggle" i] := data.ToggleArr[i]
+                d["exVariable" i] := data.VariableArr[i]
+            }
+        } else if (cmdKey == "运算") {
+            loop 4 {
+                i := A_Index
+                d["opToggle" i] := data.ToggleArr[i]
+                d["updateName" i] := data.UpdateNameArr[i]
+                d["expression" i] := data.ExpressionArr[i]
+            }
+        } else if (cmdKey == "运行") {
+            d.runPath := data.RunPath
+            d.runMode := data.RunMode
+            loop 3
+                d["runSave" A_Index] := data.SaveNameArr[A_Index]
+        } else if (cmdKey == "文件读写") {
+            d.operType := data.OperType
+            d.operMode := data.OperMode
+            d.encoding := data.Encoding
+            d.filePath := data.FilePath
+            d.nameOrSerial := data.NameOrSerial
+            d.rowVar := data.RowVar
+            d.colVar := data.ColVar
+            d.rowEndVar := data.RowEndVar
+            d.colEndVar := data.ColEndVar
+            d.textRowVar := data.TextRowVar
+            d.content := data.Content
+            d.arrName := data.ArrName
+            d.saveType := data.SaveType
+            d.saveName := data.SaveName
+        } else if (cmdKey == "文本处理") {
+            d.textOpsType := data.Type
+            d.textName := data.Name
+            d.argsType := data.ArgsType
+            d.argsName := data.ArgsName
+            d.search := data.Search
+            d.replace := data.Replace
+            d.matchType := data.MatchType
+            d.saveType := data.SaveType
+            d.saveName := data.SaveName
+        } else if (cmdKey == "数组") {
+            d.isIgnoreExist := data.IsIgnoreExist
+            d.arrayType := data.Type
+            d.arrayName := data.Name
+            d.initArr := data.InitArr.Clone()
+            d.mainIndex := data.MainIndex
+            d.argsIndex := data.ArgsIndex
+            d.argsType := data.ArgsType
+            d.argsName := data.ArgsName
+            d.saveType := data.SaveType
+            d.saveName := data.SaveName
+        } else if (cmdKey == "后台鼠标") {
+            d.targetTitle := data.TargetTitle
+            d.bgOperateType := data.OperateType
+            d.bgMouseType := data.MouseType
+            d.bgPosVarX := data.PosVarX
+            d.bgPosVarY := data.PosVarY
+            d.scrollV := data.ScrollV
+            d.scrollH := data.ScrollH
+            d.clickTime := data.ClickTime
+        } else if (cmdKey == "后台按键") {
+            d.bgKeyType := data.Type
+            d.frontStr := data.FrontStr
+            d.clickTime := data.ClickTime
+            d.clickCount := data.ClickCount
+            d.clickInterval := data.ClickInterval
+            d.bgKeyCount := data.KeyArr.Length
+        } else if (cmdKey == "窗口管理") {
+            d.wmActionType := data.ActionType
+            d.wmSearchValue := data.SearchValue
+            d.wmPosX := data.PosX
+            d.wmPosY := data.PosY
+            d.wmWidth := data.Width
+            d.wmHeight := data.Height
+            d.wmNewTitle := data.NewTitle
+            d.wmTransparency := data.Transparency
+        } else if (cmdKey == "按键检测") {
+            d.kcCheckType := data.CheckType
+            d.kcStateType := data.StateType
+            d.kcVarName := data.VarName
+            d.kcKeyCount := data.KeyArr.Length
+        } else if (cmdKey == "抓图") {
+            d.ssType := data.ScreenShotType
+            d.ssWinInfo := data.WinInfo
+            d.ssStartX := data.StartPosX
+            d.ssStartY := data.StartPosY
+            d.ssEndX := data.EndPosX
+            d.ssEndY := data.EndPosY
+            d.ssNameType := data.NameType
+            d.ssFixedName := data.FixedName
+            d.ssSavePath := data.SavePath
+            d.ssResultToggle := data.ResultToggle
+            d.ssResultSaveName := data.ResultSaveName
+        }
     }
 
     ; ----------------------------------------------------------------- 图结构持久化
@@ -387,6 +597,7 @@ class MacroGraphDataMixin {
         paramArr := SplitCommand(cmd)
         name := paramArr.Length >= 1 ? paramArr[1] : cmd
         d := { type: name, raw: cmd, temp: false, time: "", time2: "", itype: "", key: "", ktype: "", hold: "", count: "", inter: "", posx: "", posy: "", speed: "", mode: "" }
+        ObjSetBase(d, MGParseObjBase.Prototype)   ; 启用 d["dynKey"] 中括号读写（见 MGParseObjBase）
 
         if (name == GetLang("间隔")) {
             raw := paramArr.Length >= 2 ? paramArr[2] : "500"
@@ -495,6 +706,19 @@ class MacroGraphDataMixin {
                 }
             }
         }
+        else if (name == GetLang("RMT指令")) {
+            d.type := GetLang("RMT指令")
+            d.rmtOp := paramArr.Length >= 2 ? paramArr[2] : GetLang("截图")
+            d.rmtMenuIdx := paramArr.Length >= 3 ? paramArr[3] : "1"
+        }
+        else if (iniKey := this._FormalIniKeyFromName(name)) {
+            d.type := GetLang(iniKey)
+            d.serialStr := name
+            try {
+                data := GetMacroCMDData(name)
+                this._MapIniDataToParse(d, data, iniKey)
+            }
+        }
         else {
             d.temp := true
         }
@@ -529,6 +753,12 @@ class MacroGraphDataMixin {
             ; 模式：0=绝对移动(省略) 1=相对移动 2=游戏视角，与 MouseMoveGui 保持一致
             if (d.mode != "0" && d.mode != 0 && d.mode != "")
                 cmd .= "_" d.mode
+            return cmd
+        }
+        if (d.type == GetLang("RMT指令")) {
+            cmd := GetLang("RMT指令") "_" (d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图"))
+            if (d.HasOwnProp("rmtOp") && d.rmtOp == GetLang("显示菜单") && d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "")
+                cmd .= "_" d.rmtMenuIdx
             return cmd
         }
         return d.raw

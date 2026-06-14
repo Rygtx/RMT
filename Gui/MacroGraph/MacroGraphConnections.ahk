@@ -120,6 +120,8 @@ class MacroGraphConnectionsMixin {
                 txt := SubStr(txt, 1, 24) "..."
             return typeStr (txt != "" ? "  " txt : "")
         }
+        if (this._IsFormalNodeType(d.type))
+            return this._FormalSummary(d)
         return d.raw
     }
 
