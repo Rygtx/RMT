@@ -150,6 +150,26 @@ class MacroGraphEventsMixin {
                 this._BindCtrl("SCoordY_" id, "SelectionChanged", this._OnSearchProField.Bind(this, id, "CoordYName"), runtime)
             }
         }
+        else if (d.type == GetLang("输入")) {
+            this._TrackCtrl("InTypeCmb_" id, runtime)
+            this._TrackCtrl("InPauseCmb_" id, runtime)
+            this._TrackCtrl("InCancelCmb_" id, runtime)
+            this._TrackCtrl("InSave_" id, runtime)
+            this._BindCtrl("InTypeCmb_" id, "SelectionChanged", this._OnInputType.Bind(this, id), runtime)
+            this._BindCtrl("InPauseCmb_" id, "SelectionChanged", this._OnInputPauseType.Bind(this, id), runtime)
+            this._BindCtrl("InCancelCmb_" id, "SelectionChanged", this._OnInputCancelType.Bind(this, id), runtime)
+            this._BindCtrl("InSave_" id, "LostFocus", this._OnInputField.Bind(this, id, "SaveName"), runtime)
+            this._BindCtrl("InSave_" id, "SelectionChanged", this._OnInputField.Bind(this, id, "SaveName"), runtime)
+        }
+        else if (d.type == GetLang("输出")) {
+            this._TrackCtrl("OutTypeCmb_" id, runtime)
+            this._TrackCtrl("OutText_" id, runtime)
+            this._TrackCtrl("OutVar_" id, runtime)
+            this._BindCtrl("OutTypeCmb_" id, "SelectionChanged", this._OnOutputType.Bind(this, id), runtime)
+            this._BindCtrl("OutText_" id, "LostFocus", this._OnOutputField.Bind(this, id, "Text"), runtime)
+            this._BindCtrl("OutVar_" id, "LostFocus", this._OnOutputField.Bind(this, id, "VariableName"), runtime)
+            this._BindCtrl("OutVar_" id, "SelectionChanged", this._OnOutputField.Bind(this, id, "VariableName"), runtime)
+        }
     }
 
     ; 采集控件值：本地登记（启动期清单用）；运行时再用 Track 命令通知引擎纳入状态采集

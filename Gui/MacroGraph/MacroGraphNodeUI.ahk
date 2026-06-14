@@ -9,6 +9,11 @@
 ; ============================================================================
 
 class MacroGraphNodeUIMixin {
+    ; 图形节点字号整体偏移（临时 +1，确认效果后改回 0 即可回退）
+    _MGFontSize(base) {
+        return String(base + 1)
+    }
+
     ; ----------------------------------------------------------------- 节点构建
 
     ; 开始/结束等无内联控件的节点
@@ -39,7 +44,7 @@ class MacroGraphNodeUIMixin {
             this._AddEditableComboRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, varList, d.time2, isRandom)
         }
         else if (d.type == GetLang("按键")) {
-            body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize("13").TextWrapping("Wrap")
+            body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
 
             ; 按键类型下拉 —— 标签与下拉同行
             this._AddComboRow(body, "TypeRow_" id, GetLang("按键类型") "：", "TypeCmb_" id
@@ -123,10 +128,10 @@ class MacroGraphNodeUIMixin {
 
             ; 操作按钮（按类型显隐）：图片→截图/选择图片；颜色→定位取色器；所有类型→框选范围
             ops := body.Add("WrapPanel").Margin("0,6,0,0")
-            shotBtn := ops.Add("Button").Name("SShot_" id).Content(GetLang("截图")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-            picBtn := ops.Add("Button").Name("SPic_" id).Content(GetLang("选择图片")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-            pickBtn := ops.Add("Button").Name("SPick_" id).Content(GetLang("定位取色器")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-            ops.Add("Button").Name("SArea_" id).Content(GetLang("框选范围")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
+            shotBtn := ops.Add("Button").Name("SShot_" id).Content(GetLang("截图")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+            picBtn := ops.Add("Button").Name("SPic_" id).Content(GetLang("选择图片")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+            pickBtn := ops.Add("Button").Name("SPick_" id).Content(GetLang("定位取色器")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+            ops.Add("Button").Name("SArea_" id).Content(GetLang("框选范围")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
             if (st != 1) {
                 shotBtn.Visibility("Collapsed")
                 picBtn.Visibility("Collapsed")
@@ -135,9 +140,39 @@ class MacroGraphNodeUIMixin {
                 pickBtn.Visibility("Collapsed")
             ; 真/假分支以「强制绑定的外部分支节点」呈现（见 _BuildBranchPair），此处不再内嵌泳道
         }
+        else if (d.type == GetLang("输入")) {
+            typeKey := d.HasOwnProp("inputType") ? d.inputType : "弹窗"
+            pauseKey := d.HasOwnProp("pauseType") ? d.pauseType : "暂停当前宏"
+            cancelKey := d.HasOwnProp("cancelType") ? d.cancelType : "终止当前宏"
+            saveName := d.HasOwnProp("saveName") ? d.saveName : "Data"
+            showCancel := (typeKey == "继续&取消")
+            showRes := (typeKey == "弹窗" || typeKey == "状态")
+            typeNames := GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
+            pauseNames := GetLangArr(["暂停当前宏", "暂停所有宏"])
+            cancelNames := GetLangArr(["终止当前宏", "终止所有宏"])
+            varList := GetGuiVarArr()
+            this._AddComboRow(body, "InTypeRow_" id, GetLang("输入类型:"), "InTypeCmb_" id, typeNames, this._InputTypeIndex(typeKey), true)
+            this._AddComboRow(body, "InPauseRow_" id, GetLang("交互时:"), "InPauseCmb_" id, pauseNames, this._InputPauseTypeIndex(pauseKey), true)
+            this._AddComboRow(body, "InCancelRow_" id, GetLang("取消时:"), "InCancelCmb_" id, cancelNames, this._InputCancelTypeIndex(cancelKey), showCancel)
+            this._AddEditableComboRow(body, "InSaveRow_" id, GetLang("保存变量") "：", "InSave_" id, varList, saveName, showRes)
+        }
+        else if (d.type == GetLang("输出")) {
+            ; 内容区略收紧左右边距，使多行输出文本更贴边
+            body.Margin("6,6,6,8")
+            outputTypeKey := d.HasOwnProp("outputType") ? d.outputType : "发送内容"
+            isCharVar := (outputTypeKey == "字符变量")
+            outputTypeNames := GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"])
+            textVal := d.HasOwnProp("text") ? GetLangStr(d.text, 1) : GetLang("将要输出的文本")
+            varName := (d.HasOwnProp("variableName") && d.variableName != "") ? d.variableName : "Data"
+            varList := GetGuiVarArr()
+            this._AddComboRow(body, "OutTypeRow_" id, GetLang("输出类型:"), "OutTypeCmb_" id, outputTypeNames, this._OutputTypeIndex(outputTypeKey), true)
+            this._AddEditableComboRow(body, "OutVarRow_" id, GetLang("保存变量") "：", "OutVar_" id, varList, varName, isCharVar)
+            ; 节点宽 200、左右 margin 6 → 内容区 188，与下方单行控件同宽
+            this._AddMultilineFieldBlock(body, "OutTextBlock_" id, GetLang("输出内容："), "OutText_" id, textVal, true, "188")
+        }
         else {
-            body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize("12")
-            body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize("11").TextWrapping("Wrap")
+            body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize(this._MGFontSize(12))
+            body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
         }
     }
 
@@ -157,9 +192,9 @@ class MacroGraphNodeUIMixin {
         winRow := body.Add("StackPanel").Name("SWinRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!c.isWin)
             winRow.Visibility("Collapsed")
-        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).Foreground("#DDDDDD").FontSize("12").Width(LW).VerticalAlignment("Center")
+        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(LW).VerticalAlignment("Center")
         this._MakeTextBox(winRow, "SWin_" id, d.HasOwnProp("winInfo") ? d.winInfo : "", "196")
-        winRow.Add("Button").Name("SWinEdit_" id).Content(GetLang("编辑")).FontSize("11").Height("20").Margin("4,0,0,0").Padding("8,0")
+        winRow.Add("Button").Name("SWinEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0")
 
         ; 颜色 / 文本 / 相似度（整行，按类型显隐）
         this._AddFieldRow(body, "SColorRow_" id, GetLang("搜索颜色："), "SColor_" id, d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF", c.isColor, true, id, "", "", LW, "150")
@@ -196,10 +231,10 @@ class MacroGraphNodeUIMixin {
 
         ; 操作按钮（按类型显隐）
         ops := body.Add("WrapPanel").Margin("0,6,0,0")
-        shotBtn := ops.Add("Button").Name("SShot_" id).Content(GetLang("截图")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-        picBtn := ops.Add("Button").Name("SPic_" id).Content(GetLang("选择图片")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-        pickBtn := ops.Add("Button").Name("SPick_" id).Content(GetLang("定位取色器")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
-        ops.Add("Button").Name("SArea_" id).Content(GetLang("框选范围")).FontSize("11").Height("22").Margin("0,0,4,4").Padding("6,0")
+        shotBtn := ops.Add("Button").Name("SShot_" id).Content(GetLang("截图")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+        picBtn := ops.Add("Button").Name("SPic_" id).Content(GetLang("选择图片")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+        pickBtn := ops.Add("Button").Name("SPick_" id).Content(GetLang("定位取色器")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
+        ops.Add("Button").Name("SArea_" id).Content(GetLang("框选范围")).FontSize(this._MGFontSize(11)).Height("22").Margin("0,0,4,4").Padding("6,0")
         if (!c.isImage) {
             shotBtn.Visibility("Collapsed")
             picBtn.Visibility("Collapsed")
@@ -219,7 +254,7 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize("12").Width(lw).VerticalAlignment("Center")
+        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
         box := this._MakeTextBox(cell, boxName, val, cw, id, "")
         if (tag != "")
             box.SetProp("Tag", tag)
@@ -232,8 +267,8 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize("12").Width(lw).VerticalAlignment("Center")
-        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize("12").Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", textVal)
@@ -271,7 +306,7 @@ class MacroGraphNodeUIMixin {
 
         card := body.Add("Border").Margin("0,8,0,0").Background("#1FFFFFFF").CornerRadius("5").BorderBrush("#3E3E50").BorderThickness("1").Padding("8,6")
         sp := card.Add("StackPanel")
-        chk := sp.Add("CheckBox").Name(togName).Content(title).Foreground("#FFD27F").FontWeight("Bold").FontSize("12")
+        chk := sp.Add("CheckBox").Name(togName).Content(title).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(12))
         if (toggled)
             chk.IsChecked("True")
         fields := sp.Add("StackPanel").Name(fieldsName).Margin("0,4,0,0")
@@ -282,9 +317,9 @@ class MacroGraphNodeUIMixin {
             this._AddEditableComboRow(fields, "SResNameRow_" id, GetLang("变量名") "：", "SResName_" id, varList, "" (d.HasOwnProp("resultSaveName") ? d.resultSaveName : ""), true, "70", "240")
             ; 真值 / 假值 在变量名下方，整体左缩进 70（与变量名输入框左对齐），文本左右居中
             tfRow := fields.Add("StackPanel").Orientation("Horizontal").Margin("70,5,0,0")
-            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("#DDDDDD").FontSize("12").Width("44").VerticalAlignment("Center")
+            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width("44").VerticalAlignment("Center")
             this._MakeTextBox(tfRow, "SResTrue_" id, "" (d.HasOwnProp("trueValue") ? d.trueValue : 1), "80")
-            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("#DDDDDD").FontSize("12").Width("44").Margin("12,0,0,0").VerticalAlignment("Center")
+            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width("44").Margin("12,0,0,0").VerticalAlignment("Center")
             this._MakeTextBox(tfRow, "SResFalse_" id, "" (d.HasOwnProp("falseValue") ? d.falseValue : 0), "80")
         }
         else {
@@ -394,7 +429,7 @@ class MacroGraphNodeUIMixin {
         grid.Rows("28", "Auto")
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
-        hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize("12").VerticalAlignment("Center")
+        hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
         this._FillBranchNodeBody(searchId, isTrue, body, brId)
         this._AddNodePorts(grid, brId)
@@ -482,24 +517,24 @@ class MacroGraphNodeUIMixin {
         panel := body.Add("StackPanel").Name("SBChipsPanel_" brId)
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
         if (cmds.Length == 0) {
-            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize("11")
+            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize(this._MGFontSize(11))
         } else {
             Loop shown {
                 chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2")
-                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("#DDDDDD").FontSize("11").TextWrapping("Wrap")
+                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
             }
         }
         ; 展开/收起按钮：始终创建（便于运行时显隐），不超过预览条数时隐藏
-        btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize("10").Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
+        btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
         if (cmds.Length <= this._BranchPreviewCount())
             btn.Visibility("Collapsed")
-        body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize("10").Margin("0,4,0,0")
+        body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
     ; 单个指令小卡片的 XAML 片段（带命名空间，供运行时 AddXamlItem 注入）
     _BranchChipXaml(text) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="#DDDDDD" FontSize="11" TextWrapping="Wrap"/></Border>'
+        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="#DDDDDD" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
     }
 
     ; 运行时按当前展开态重建分支指令卡片（清空后重新注入）
@@ -507,7 +542,7 @@ class MacroGraphNodeUIMixin {
         this.ui.Update("SBChipsPanel_" brId, "ClearItems", "")
         if (cmds.Length == 0) {
             ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", '<TextBlock ' ns ' Text="（' this._XmlEsc(GetLang("空")) '）" Foreground="#888888" FontSize="11"/>')
+            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", '<TextBlock ' ns ' Text="（' this._XmlEsc(GetLang("空")) '）" Foreground="#888888" FontSize="' this._MGFontSize(11) '"/>')
             return
         }
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
@@ -698,7 +733,7 @@ class MacroGraphNodeUIMixin {
         iconUri := this._IconForType(title)
         if (iconUri != "")
             hp.Add("Image").SetProp("Source", iconUri).Width("14").Height("14").Margin("0,0,5,0").VerticalAlignment("Center")
-        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("White").FontWeight("Bold").FontSize("12").VerticalAlignment("Center")
+        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (this._IsSearchTypeTitle(title)) {
             ; 标题预览：颜色搜索显示色块（图片预览改为浮动在节点左侧，见 _AddFloatingImgPreview）
             d := this._Parse(this.cmdNodes[id].CurCMD)
@@ -711,7 +746,7 @@ class MacroGraphNodeUIMixin {
                 swEl.Visibility("Collapsed")
             folded := this._NodeFolded(id)
             ; 折叠/展开用实心三角图标（较大）：折叠态 ▶（点击展开），展开态 ▼（点击收起）
-            btn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize("14").FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            btn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             btn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
             ; 图片搜索预览：浮动在节点左侧、入点下方，右上角贴近节点左边缘（不占用内容区）
             this._AddFloatingImgPreview(grid, id, d)
@@ -755,7 +790,7 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("12").Width(labelW).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         box := this._MakeTextBox(row, boxName, boxValue, boxW, nodeId, field)
         ; boxTag 形如 "Min:1,Max:100"：限制 label 拖动改值的取值区间（引擎读取 Tag）
         if (boxTag != "")
@@ -770,8 +805,9 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("12").Width(labelW).VerticalAlignment("Center")
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize("12").Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         if (!enabled)
             cmb.IsEnabled("False")
         for it in items
@@ -779,14 +815,31 @@ class MacroGraphNodeUIMixin {
         return row
     }
 
+    ; 标签在上、多行文本框在下（输出内容等；约 3 行高；文本左上对齐）
+    _AddMultilineFieldBlock(body, blockName, labelText, boxName, boxValue, visible, boxW := "96") {
+        block := body.Add("StackPanel").Name(blockName).Margin("0,5,0,0")
+        if (!visible)
+            block.Visibility("Collapsed")
+        block.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Margin("0,0,0,4")
+        tb := block.Add("TextBox").Name(boxName).Text(boxValue).Width(boxW).Height("54").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,2")
+            .Foreground("White").CaretBrush("White").Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+        tb.SetProp("TextWrapping", "Wrap")
+        tb.SetProp("AcceptsReturn", "True")
+        tb.SetProp("VerticalScrollBarVisibility", "Auto")
+        tb.SetProp("VerticalContentAlignment", "Top")
+        tb.SetProp("HorizontalContentAlignment", "Left")
+        tb.SetProp("TextAlignment", "Left")
+        return block
+    }
+
     ; 标签 + 可编辑下拉（IsEditable）：既能从下拉选项中选，也能手动输入文本/数值
     _AddEditableComboRow(body, rowName, labelText, comboName, items, textValue, visible, labelW := "80", comboW := "96") {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize("12").Width(labelW).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         ; MaxDropDownHeight 限制下拉高度（约 10 项），超出时模板内 ScrollViewer 自动出现滚动条
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize("12").Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         ; ComboBox 上 .Text() 会被别名成 Content，需用 SetProp 直接写 Text 属性（编辑框文本，ToString 会自动转义）
@@ -799,7 +852,7 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        chk := row.Add("CheckBox").Name(chkName).Content(labelText).Foreground("#DDDDDD").FontSize("12").VerticalAlignment("Center")
+        chk := row.Add("CheckBox").Name(chkName).Content(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (isChecked == 1 || isChecked == "1")
             chk.IsChecked("True")
         if (!enabled)
@@ -809,7 +862,7 @@ class MacroGraphNodeUIMixin {
 
     ; 统一的小高度文本框（MinHeight=0 覆盖主题默认的 36，否则高度不生效）
     _MakeTextBox(parent, name, value, width, nodeId := "", field := "") {
-        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center").HorizontalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
+        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("4,0").VerticalContentAlignment("Center").HorizontalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
     }
 }
 

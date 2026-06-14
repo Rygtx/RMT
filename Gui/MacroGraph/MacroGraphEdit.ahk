@@ -172,6 +172,10 @@ class MacroGraphEditMixin {
                 pasteCmd := this._CloneMMPro(pasteCmd)
             else if (pasteHead.Length >= 1 && (this._IsSearchName(pasteHead[1]) || this._IsSearchProName(pasteHead[1])))
                 pasteCmd := this._CloneSearch(pasteCmd)
+            else if (pasteHead.Length >= 1 && this._IsInputName(pasteHead[1]))
+                pasteCmd := this._CloneInput(pasteCmd)
+            else if (pasteHead.Length >= 1 && this._IsOutputName(pasteHead[1]))
+                pasteCmd := this._CloneOutput(pasteCmd)
             node := this._MakeNode(pasteCmd)
             this.cmdNodes[id] := node
             this.order.Push(id)

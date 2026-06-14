@@ -141,6 +141,48 @@ class MacroGraphDataMixin {
         return newStart
     }
 
+    ; 克隆一个输入序列：新建序列码并把源数据各字段复制过去，返回新的 CurCMD(序列码)
+    _CloneInput(srcCmd) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        newSerial := GetCMDSerialStr("输入")
+        newData := InputData()
+        newData.SerialStr := newSerial
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                for prop in src.OwnProps() {
+                    if (prop == "SerialStr")
+                        continue
+                    newData.%prop% := src.%prop%
+                }
+            }
+        }
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
+    ; 克隆一个输出序列：新建序列码并把源数据各字段复制过去，返回新的 CurCMD(序列码)
+    _CloneOutput(srcCmd) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        newSerial := GetCMDSerialStr("输出")
+        newData := OutputData()
+        newData.SerialStr := newSerial
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                for prop in src.OwnProps() {
+                    if (prop == "SerialStr")
+                        continue
+                    newData.%prop% := src.%prop%
+                }
+            }
+        }
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
     ; ----------------------------------------------------------------- 图结构持久化
 
     ; 保存图结构（全部走项目标准 SaveMacroCMDData，无额外索引）：
@@ -423,6 +465,33 @@ class MacroGraphDataMixin {
                     d.coordToggle := ObjHasOwnProp(data, "CoordToogle") ? data.CoordToogle : 0
                     d.coordXName := ObjHasOwnProp(data, "CoordXName") ? data.CoordXName : ""
                     d.coordYName := ObjHasOwnProp(data, "CoordYName") ? data.CoordYName : ""
+                }
+            }
+        }
+        else if (this._IsInputName(name)) {
+            ; 输入参数存储在 InputFile.ini 中，CurCMD 即其 SerialStr（如 "输入1"）
+            d.type := GetLang("输入")
+            d.serialStr := name
+            try {
+                data := GetMacroCMDData(name)
+                if (IsObject(data)) {
+                    d.inputType := data.Type
+                    d.pauseType := data.PauseType
+                    d.cancelType := data.CancelType
+                    d.saveName := data.SaveName
+                }
+            }
+        }
+        else if (this._IsOutputName(name)) {
+            ; 输出参数存储在 OutputFile.ini 中，CurCMD 即其 SerialStr（如 "输出1"）
+            d.type := GetLang("输出")
+            d.serialStr := name
+            try {
+                data := GetMacroCMDData(name)
+                if (IsObject(data)) {
+                    d.outputType := data.OutputType
+                    d.text := data.Text
+                    d.variableName := (data.VariableName != "") ? data.VariableName : "Data"
                 }
             }
         }

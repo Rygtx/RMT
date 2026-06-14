@@ -72,6 +72,8 @@ class MacroGraphGui {
         this.SearchGui := SearchGui()
         this.SearchProGui := SearchProGui()
         this.MMProGui := MMProGui()
+        this.InputGui := InputGui()
+        this.OutputGui := OutputGui()
         this.BranchGraphGui := ""     ; 搜索真/假分支的「嵌套节点编辑器」（懒加载，编辑分支子图）
         this._branchExpanded := Map() ; 分支节点是否展开显示全部指令（key=分支合成ID）
         this._branchInjected := Map() ; 本窗口生命周期内已注入过分支节点的搜索ID（折叠/展开时只显隐不重建）
@@ -308,6 +310,20 @@ class MacroGraphGui {
             SaveMacroCMDData(data)
             return this._MakeNode(serial)
         }
+        if (cmdName == GetLang("输入")) {
+            serial := GetCMDSerialStr("输入")
+            data := InputData()
+            data.SerialStr := serial
+            SaveMacroCMDData(data)
+            return this._MakeNode(serial)
+        }
+        if (cmdName == GetLang("输出")) {
+            serial := GetCMDSerialStr("输出")
+            data := OutputData()
+            data.SerialStr := serial
+            SaveMacroCMDData(data)
+            return this._MakeNode(serial)
+        }
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
         return this._MakeNode(cmdName)
     }
@@ -401,6 +417,10 @@ class MacroGraphGui {
             editor := this.SearchProGui
         else if (d.type == GetLang("搜索"))
             editor := this.SearchGui
+        else if (d.type == GetLang("输入"))
+            editor := this.InputGui
+        else if (d.type == GetLang("输出"))
+            editor := this.OutputGui
         if (editor == "")
             return
 
@@ -418,6 +438,16 @@ class MacroGraphGui {
         ; 搜索/搜索Pro：就地刷新内联字段与分支节点内容，避免整窗重建（闪烁/窗口被销毁）
         if (dEdit.type == GetLang("搜索") || dEdit.type == GetLang("搜索Pro")) {
             this._RefreshSearchNode(id, dEdit)
+            this._Apply()
+            return
+        }
+        if (dEdit.type == GetLang("输入")) {
+            this._RefreshInputNode(id, dEdit)
+            this._Apply()
+            return
+        }
+        if (dEdit.type == GetLang("输出")) {
+            this._RefreshOutputNode(id, dEdit)
             this._Apply()
             return
         }

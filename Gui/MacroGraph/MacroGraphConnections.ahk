@@ -56,7 +56,7 @@ class MacroGraphConnectionsMixin {
         detail := this._XmlEsc(this._Summary(d))
         tip := this._XmlEsc(GetLang("双击编辑"))
 
-        nodeXaml := '<Border ' ns ' x:Name="Node_' id '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#3E3E50" CornerRadius="5,5,0,0" Cursor="SizeAll"><TextBlock Text="' title '" Foreground="White" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Margin="10,0"/></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' detail '" Foreground="#DDDDDD" FontSize="12" TextWrapping="Wrap"/><TextBlock Text="' tip '" Foreground="#888888" FontSize="10" Margin="0,4,0,0"/></StackPanel></Grid>'
+        nodeXaml := '<Border ' ns ' x:Name="Node_' id '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#3E3E50" CornerRadius="5,5,0,0" Cursor="SizeAll"><TextBlock Text="' title '" Foreground="White" FontWeight="Bold" FontSize="' this._MGFontSize(12) '" VerticalAlignment="Center" Margin="10,0"/></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' detail '" Foreground="#DDDDDD" FontSize="' this._MGFontSize(12) '" TextWrapping="Wrap"/><TextBlock Text="' tip '" Foreground="#888888" FontSize="' this._MGFontSize(10) '" Margin="0,4,0,0"/></StackPanel></Grid>'
         ; 端口放在内容行(Row1)顶部，向上伸出标题栏下方
         ; 入点：左边距-15（左移），上边距-5（上伸到标题栏下方），出点：右边距-15（右移）
         portIn := '<Ellipse ' ns ' x:Name="Port_In_' id '" Width="14" Height="14" Fill="#4CAF50" Stroke="#333" StrokeThickness="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="-7,-7,0,0" Panel.ZIndex="10" IsHitTestVisible="True" Cursor="Hand"/>'
@@ -104,6 +104,21 @@ class MacroGraphConnectionsMixin {
             }
             imgName := d.HasOwnProp("searchImagePath") ? RegExReplace(d.searchImagePath, ".*\\", "") : GetLang("未设置")
             return typeStr "  " imgName
+        }
+        if (d.type == GetLang("输入")) {
+            typeStr := d.HasOwnProp("inputType") ? GetLang(d.inputType) : GetLang("弹窗")
+            if (d.HasOwnProp("saveName") && d.saveName != "" && (d.inputType == "弹窗" || d.inputType == "状态"))
+                return typeStr "  → " GetLang(d.saveName)
+            return typeStr
+        }
+        if (d.type == GetLang("输出")) {
+            typeStr := d.HasOwnProp("outputType") ? GetLang(d.outputType) : GetLang("发送内容")
+            if (d.HasOwnProp("outputType") && d.outputType == "字符变量" && d.HasOwnProp("variableName") && d.variableName != "")
+                return typeStr "  → " GetLang(d.variableName)
+            txt := d.HasOwnProp("text") ? GetLangStr(d.text, 1) : ""
+            if (StrLen(txt) > 24)
+                txt := SubStr(txt, 1, 24) "..."
+            return typeStr (txt != "" ? "  " txt : "")
         }
         return d.raw
     }

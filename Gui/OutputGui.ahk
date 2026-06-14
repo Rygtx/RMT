@@ -12,14 +12,18 @@ class OutputGui {
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
+        if (this.Gui == "" || !ObjHasOwnProp(this, "TextCon")) {
+            if (this.Gui != "") {
+                try this.Gui.Destroy()
+                this.Gui := ""
+            }
+            this.AddGui()
+        }
+        else {
             if (this.OwnerHwnd != "") {
                 this.Gui.Opt("+Owner" this.OwnerHwnd)
             }
             this.Gui.Show()
-        }
-        else {
-            this.AddGui()
         }
 
         if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
@@ -34,7 +38,6 @@ class OutputGui {
 
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("输出编辑器"))
-        this.Gui := MyGui
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
@@ -57,7 +60,7 @@ class OutputGui {
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX := 10
-        PosY += 30
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("输出类型:"))
         PosX += 80
         this.OutputTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), GetLangArr(["发送内容",
@@ -65,8 +68,8 @@ class OutputGui {
         this.OutputTypeCon.Value := 1
         this.OutputTypeCon.OnEvent("Change", (*) => this.OnChangeOutputType())
 
-        PosX += 160
-        this.VariableNameTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("变量输入框:"))
+        PosX += 170
+        this.VariableNameTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("保存变量") "：")
         this.VariableNameTipCon.Visible := false
         PosX += 80
         this.VariableNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 120), [])
@@ -75,11 +78,12 @@ class OutputGui {
         PosX := 10
         PosY += 30
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("输出内容："))
-        PosX += 80
-        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 370, 50))
+        PosX := 10
+        PosY += 22
+        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi", PosX, PosY, 450, 54), "")
 
         PosX := 10
-        PosY += 55
+        PosY += 60
         this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), GetLang("变量数组："))
         PosX += 80
         this.VarTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 85), GetLangArr(["变量",
@@ -99,8 +103,9 @@ class OutputGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(500, 240)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 240))
+        this.Gui := MyGui
+        pos := GetCenterPosOnActiveMonitor(500, 245)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 245))
     }
 
     OnGuiClose() {
@@ -119,6 +124,8 @@ class OutputGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
+        if (this.Data.VariableName == "")
+            this.Data.VariableName := "Data"
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Text := GetLang(this.Data.OutputType)

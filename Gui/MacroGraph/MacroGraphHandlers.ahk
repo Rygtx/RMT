@@ -710,6 +710,254 @@ class MacroGraphHandlersMixin {
         SaveMacroCMDData(data)
         this._RefreshSearchInline(id)
     }
+
+    ; ----------------------------------------------------------------- 输入 / 输出节点内联编辑
+
+    ; 输入序列码判定（如 "输入1"）：去掉结尾数字后与「输入」完全匹配
+    _IsInputName(name) {
+        if (name == "")
+            return false
+        return RegExReplace(name, "\d+$", "") == GetLang("输入")
+    }
+
+    ; 输出序列码判定（如 "输出1"）：去掉结尾数字后与「输出」完全匹配
+    _IsOutputName(name) {
+        if (name == "")
+            return false
+        return RegExReplace(name, "\d+$", "") == GetLang("输出")
+    }
+
+    _InputData(id) {
+        if (!this.cmdNodes.Has(id))
+            return ""
+        arr := SplitCommand(this.cmdNodes[id].CurCMD)
+        serial := arr.Length >= 1 ? arr[1] : this.cmdNodes[id].CurCMD
+        try {
+            data := GetMacroCMDData(serial)
+            return IsObject(data) ? data : ""
+        }
+        return ""
+    }
+
+    _OutputData(id) {
+        if (!this.cmdNodes.Has(id))
+            return ""
+        arr := SplitCommand(this.cmdNodes[id].CurCMD)
+        serial := arr.Length >= 1 ? arr[1] : this.cmdNodes[id].CurCMD
+        try {
+            data := GetMacroCMDData(serial)
+            return IsObject(data) ? data : ""
+        }
+        return ""
+    }
+
+    _InputTypeIndex(typeKey) {
+        typeNames := GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
+        target := GetLang(typeKey)
+        Loop typeNames.Length {
+            if (typeNames[A_Index] == target)
+                return A_Index - 1
+        }
+        return 0
+    }
+
+    _InputTypeFromText(text) {
+        for key in ["弹窗", "状态", "继续", "继续&取消"] {
+            if (text == GetLang(key))
+                return key
+        }
+        return "弹窗"
+    }
+
+    _InputPauseTypeIndex(typeKey) {
+        typeNames := GetLangArr(["暂停当前宏", "暂停所有宏"])
+        target := GetLang(typeKey)
+        Loop typeNames.Length {
+            if (typeNames[A_Index] == target)
+                return A_Index - 1
+        }
+        return 0
+    }
+
+    _InputPauseTypeFromText(text) {
+        for key in ["暂停当前宏", "暂停所有宏"] {
+            if (text == GetLang(key))
+                return key
+        }
+        return "暂停当前宏"
+    }
+
+    _InputCancelTypeIndex(typeKey) {
+        typeNames := GetLangArr(["终止当前宏", "终止所有宏"])
+        target := GetLang(typeKey)
+        Loop typeNames.Length {
+            if (typeNames[A_Index] == target)
+                return A_Index - 1
+        }
+        return 0
+    }
+
+    _InputCancelTypeFromText(text) {
+        for key in ["终止当前宏", "终止所有宏"] {
+            if (text == GetLang(key))
+                return key
+        }
+        return "终止当前宏"
+    }
+
+    _OutputTypeIndex(outputTypeKey) {
+        typeNames := GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"])
+        target := GetLang(outputTypeKey)
+        Loop typeNames.Length {
+            if (typeNames[A_Index] == target)
+                return A_Index - 1
+        }
+        return 0
+    }
+
+    _OutputTypeFromText(text) {
+        for key in ["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"] {
+            if (text == GetLang(key))
+                return key
+        }
+        return "发送内容"
+    }
+
+    _OnInputType(id, state, ctrl, event) {
+        data := this._InputData(id)
+        if (data == "")
+            return
+        key := "InTypeCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.Type := this._InputTypeFromText(state[key])
+        SaveMacroCMDData(data)
+        this._RefreshInputVisibility(id)
+        this._Apply()
+    }
+
+    _OnInputPauseType(id, state, ctrl, event) {
+        data := this._InputData(id)
+        if (data == "")
+            return
+        key := "InPauseCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.PauseType := this._InputPauseTypeFromText(state[key])
+        SaveMacroCMDData(data)
+        this._Apply()
+    }
+
+    _OnInputCancelType(id, state, ctrl, event) {
+        data := this._InputData(id)
+        if (data == "")
+            return
+        key := "InCancelCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.CancelType := this._InputCancelTypeFromText(state[key])
+        SaveMacroCMDData(data)
+        this._Apply()
+    }
+
+    _OnInputField(id, field, state, ctrl, event) {
+        data := this._InputData(id)
+        if (data == "")
+            return
+        if (field == "SaveName") {
+            key := "InSave_" id
+            if (state.Has(key)) {
+                val := state[key]
+                if (val == "")
+                    return
+                data.SaveName := GetVarName(val)
+                if (data.Type == "弹窗" || data.Type == "状态")
+                    MySoftData.GlobalVariMap[data.SaveName] := true
+                SaveMacroCMDData(data)
+            }
+        }
+        this._Apply()
+    }
+
+    _RefreshInputVisibility(id) {
+        data := this._InputData(id)
+        if (data == "" || this.ui == "")
+            return
+        typeKey := data.Type
+        showCancel := (typeKey == "继续&取消")
+        showRes := (typeKey == "弹窗" || typeKey == "状态")
+        this.ui.Update("InCancelRow_" id, "Visibility", showCancel ? "Visible" : "Collapsed")
+        this.ui.Update("InSaveRow_" id, "Visibility", showRes ? "Visible" : "Collapsed")
+    }
+
+    ; 完整编辑器确定后刷新输入节点内联显示
+    _RefreshInputNode(id, d) {
+        if (this.ui == "")
+            return
+        typeKey := d.HasOwnProp("inputType") ? d.inputType : "弹窗"
+        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("InTypeCmb_" id, "SelectedIndex", this._InputTypeIndex(typeKey))
+        this.ui.Update("InPauseCmb_" id, "SelectedIndex", this._InputPauseTypeIndex(d.HasOwnProp("pauseType") ? d.pauseType : "暂停当前宏"))
+        this.ui.Update("InCancelCmb_" id, "SelectedIndex", this._InputCancelTypeIndex(d.HasOwnProp("cancelType") ? d.cancelType : "终止当前宏"))
+        if (d.HasOwnProp("saveName"))
+            this.ui.Update("InSave_" id, "Text", d.saveName)
+        this._RefreshInputVisibility(id)
+    }
+
+    _OnOutputType(id, state, ctrl, event) {
+        data := this._OutputData(id)
+        if (data == "")
+            return
+        key := "OutTypeCmb_" id
+        if (state.Has(key) && state[key] != "")
+            data.OutputType := this._OutputTypeFromText(state[key])
+        SaveMacroCMDData(data)
+        this._RefreshOutputVisibility(id)
+        this._Apply()
+    }
+
+    _OnOutputField(id, field, state, ctrl, event) {
+        data := this._OutputData(id)
+        if (data == "")
+            return
+        if (field == "Text") {
+            key := "OutText_" id
+            if (state.Has(key))
+                data.Text := GetLangStr(state[key], 2)
+        }
+        else if (field == "VariableName") {
+            key := "OutVar_" id
+            if (state.Has(key)) {
+                val := state[key]
+                if (val == "")
+                    return
+                data.VariableName := GetVarName(val)
+                if (data.OutputType == "字符变量")
+                    MySoftData.GlobalVariMap[data.VariableName] := true
+            }
+        }
+        SaveMacroCMDData(data)
+        this._Apply()
+    }
+
+    _RefreshOutputVisibility(id) {
+        data := this._OutputData(id)
+        if (data == "" || this.ui == "")
+            return
+        isCharVar := (data.OutputType == "字符变量")
+        this.ui.Update("OutVarRow_" id, "Visibility", isCharVar ? "Visible" : "Collapsed")
+    }
+
+    ; 完整编辑器确定后刷新输出节点内联显示
+    _RefreshOutputNode(id, d) {
+        if (this.ui == "")
+            return
+        outputTypeKey := d.HasOwnProp("outputType") ? d.outputType : "发送内容"
+        varName := (d.HasOwnProp("variableName") && d.variableName != "") ? d.variableName : "Data"
+        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("OutTypeCmb_" id, "SelectedIndex", this._OutputTypeIndex(outputTypeKey))
+        this.ui.Update("OutVar_" id, "Text", varName)
+        if (d.HasOwnProp("text"))
+            this.ui.Update("OutText_" id, "Text", GetLangStr(d.text, 1))
+        this._RefreshOutputVisibility(id)
+    }
 }
 
 _GraftMacroGraphMixin(MacroGraphHandlersMixin)

@@ -466,6 +466,36 @@ public class AhkWpfEngine {
         return FindVisualChild<ScrollViewer>(popup.Child as DependencyObject);
     }
 
+    // 从滚轮事件源向上查找 TextBox（模板内 Border/ScrollViewer 等会作为 OriginalSource）
+    private static TextBox FindAncestorTextBox(DependencyObject d) {
+        while (d != null) {
+            var tb = d as TextBox;
+            if (tb != null) return tb;
+            if (d is System.Windows.Media.Visual || d is System.Windows.Media.Media3D.Visual3D)
+                d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            else
+                d = LogicalTreeHelper.GetParent(d);
+        }
+        return null;
+    }
+
+    // 多行 TextBox 滚轮：滚动内容而非缩放画布
+    private static bool TryScrollTextBoxWheel(TextBox tb, System.Windows.Input.MouseWheelEventArgs e) {
+        if (tb == null || !tb.AcceptsReturn) return false;
+        var sv = FindVisualChild<ScrollViewer>(tb);
+        if (sv != null && sv.ScrollableHeight > 0) {
+            double off = sv.VerticalOffset - e.Delta / 3.0;
+            if (off < 0) off = 0;
+            if (off > sv.ScrollableHeight) off = sv.ScrollableHeight;
+            sv.ScrollToVerticalOffset(off);
+        } else if (e.Delta > 0) {
+            tb.LineUp();
+        } else {
+            tb.LineDown();
+        }
+        return true;
+    }
+
     private static string _logDir = null;
 
     private static string GetLogDir() {
@@ -2899,6 +2929,15 @@ public class AhkWpfEngine {
                 }
                 e.Handled = true;
                 return;
+            }
+            // 多行 TextBox（如输出内容）：滚轮滚动文本，不缩放幕布
+            var srcObj = e.OriginalSource as DependencyObject;
+            if (srcObj != null) {
+                var hoverTb = FindAncestorTextBox(srcObj);
+                if (TryScrollTextBoxWheel(hoverTb, e)) {
+                    e.Handled = true;
+                    return;
+                }
             }
             double zoom = e.Delta > 0 ? 1.1 : 0.9;
             double scaleX = scaleTransform.ScaleX;
