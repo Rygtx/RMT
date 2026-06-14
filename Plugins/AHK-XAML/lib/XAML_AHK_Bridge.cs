@@ -158,6 +158,7 @@ public class AhkWpfEngine {
     string winId; IntPtr ahkHwnd; System.Collections.Generic.List<string> tracked; Window win;
     bool LightweightEvents = false; // When true, events only send the triggering control's value (use ui.Query() for others)
     System.Collections.Generic.Dictionary<string, string> canvasModes = new System.Collections.Generic.Dictionary<string, string>();
+    System.Collections.Generic.Dictionary<string, string> canvasMousePos = new System.Collections.Generic.Dictionary<string, string>();
     System.Windows.Shapes.Rectangle selectionBox = null;
     Point selectionStart;
     System.Windows.Shapes.Path tempConnection = null;
@@ -1657,6 +1658,22 @@ public class AhkWpfEngine {
                         }
                     }
                     break;
+                case "CanvasMouse":
+                    if (c is Canvas) {
+                        Canvas _cmCanvas = (Canvas)c;
+                        if (canvasMousePos.ContainsKey(_cmCanvas.Name))
+                            val = canvasMousePos[_cmCanvas.Name];
+                    }
+                    break;
+                case "CanvasMouseLive":
+                    // Real-time pointer position relative to the canvas (not the cached MouseMove value).
+                    // Used for paste-at-cursor so it follows the actual cursor rather than the last click.
+                    if (c is Canvas) {
+                        Canvas _cmlCanvas = (Canvas)c;
+                        Point _cmlPos = System.Windows.Input.Mouse.GetPosition(_cmlCanvas);
+                        val = _cmlPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + _cmlPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    break;
                 case "Nodes":
                     // Canvas-based node editor: serialize node positions and data
                     if (c is Canvas) {
@@ -3055,6 +3072,8 @@ public class AhkWpfEngine {
             }
         };
         canvas.MouseMove += (s, e) => {
+            var mpos = e.GetPosition(canvas);
+            canvasMousePos[canvas.Name] = mpos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + mpos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (isPanning) {
                 var pos = e.GetPosition(parent != null ? parent : canvas);
                 if (Math.Abs(pos.X - panStart.X) > 2 || Math.Abs(pos.Y - panStart.Y) > 2) {

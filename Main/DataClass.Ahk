@@ -882,6 +882,14 @@ class MacroGraphNode{
         this.X := 0                                ;图形编辑器中节点的逻辑坐标X
         this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
         this.Folded := 0                           ;搜索等含分支的节点：是否折叠隐藏分支节点（0展开 1折叠）
+        ;搜索类节点展开态布局信息（""=未设置，使用默认计算值）：
+        this.TrueBranchDX := ""                    ;真分支节点相对本节点的X偏移
+        this.TrueBranchDY := ""                    ;真分支节点相对本节点的Y偏移
+        this.FalseBranchDX := ""                   ;假分支节点相对本节点的X偏移
+        this.FalseBranchDY := ""                   ;假分支节点相对本节点的Y偏移
+        this.ExpandShift := ""                     ;展开时为腾出分支空间对后继子树施加的横向位移（用于收起时精确还原）
+        this.SuccDX := ""                          ;展开时「最近后继(下一个)节点」相对本节点的X偏移（收起→展开时按此精确还原后继位置）
+        this.SuccDY := ""                          ;展开时「最近后继(下一个)节点」相对本节点的Y偏移
     }
 }
 

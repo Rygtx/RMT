@@ -33,7 +33,7 @@
 #Include ..\Plugins\AHK-XAML\lib\XAML_Adv_Components.ahk
 #Include ..\Plugins\AHK-XAML\lib\XAML_Dialog.ahk
 #Include ..\Plugins\AHK-XAML\lib\AXML.ahk
-#Include ..\Gui\MacroGraphGui.ahk
+#Include ..\Gui\MacroGraph\MacroGraphGui.ahk
 #Include ..\Gui\MenuWheelGui.ahk
 #Include ..\Gui\MenuMacroSettingGui.ahk
 #Include ..\Gui\UIMacroGui.ahk
