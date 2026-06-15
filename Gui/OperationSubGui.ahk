@@ -17,16 +17,9 @@ class OperationSubGui {
             if (this.OwnerHwnd != "") {
                 this.Gui.Opt("+Owner" this.OwnerHwnd)
             }
-            this.Gui.Show()
         }
         else {
             this.AddGui()
-        }
-
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
         }
 
         this.DLVariableArr := GetGuiVarArr(6)
@@ -36,7 +29,15 @@ class OperationSubGui {
         this.OperaVariableCon.Delete()
         this.OperaVariableCon.Add(this.DLVariableArr)
         this.OperaVariableCon.Text := this.DLVariableArr[1]
+        ; 设置表达式（每次打开都要设置）
         this.ExpressionCon.Value := ExpressStr
+
+        if (this.Gui != "" && this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
+        }
+        this.Gui.Show()
         this.FocusCon.Focus()
     }
 

@@ -175,6 +175,9 @@ class MacroGraphEventsMixin {
             ; 变量节点：标题栏展开/收起按钮
             if (d.type == GetLang("变量"))
                 this._BindCtrl("SFold_" id, "Click", this._OnToggleVarFold.Bind(this, id), runtime)
+            ; 运算节点：标题栏展开/收起按钮
+            else if (d.type == GetLang("运算"))
+                this._BindCtrl("SFold_" id, "Click", this._OnToggleOpFold.Bind(this, id), runtime)
             this._RefreshFormalNode(id, d)
         }
     }

@@ -1,6 +1,16 @@
 ﻿#Requires AutoHotkey v2.0
 
 class MacroGraphFormalMixin {
+    ; 转义 XAML 特殊字符：{ } 在 XAML 中是标记扩展语法，需要转义
+    _XamlEscape(text) {
+        if (text == "")
+            return text
+        ; 如果文本以 { 开头，前面加 {} 转义
+        if (SubStr(text, 1, 1) == "{")
+            text := "{}" text
+        return text
+    }
+
     _FormalNodeTypes() {
         types := []
         for key in this._FormalIniCmdKeys()
@@ -394,15 +404,137 @@ class MacroGraphFormalMixin {
         toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : (slot == 1 ? 1 : 0)
         un := d.HasOwnProp("updateName" slot) ? d["updateName" slot] : "Var" slot
         ex := d.HasOwnProp("expression" slot) ? d["expression" slot] : ""
-        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("槽") slot, toggled == 1 || toggled == "1", true)
-        this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("目标："), p "Target_" id, GetGuiVarArr(), un, toggled, lw, cw)
-        this._AddFieldRow(body, p "ExprRow_" id, GetLang("表达式："), p "Expr_" id, ex, toggled, true, "", "", "", lw, cw)
+        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, toggled == 1 || toggled == "1", true)
+        ; 表达式行：文本框 + 编辑按钮（输入框宽度140px）
+        ; 注意：表达式中可能包含 { } 变量语法，需要 XAML 转义
+        exprRow := body.Add("StackPanel").Name(p "ExprRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!toggled)
+            exprRow.Visibility("Collapsed")
+        exprRow.Add("TextBox").Name(p "Expr_" id).Text(this._XamlEscape(ex)).Width("140").Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
+        exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        ; 结果变量下拉
+        this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("结果变量："), p "Target_" id, GetGuiVarArr(), un, toggled, lw, cw)
+    }
+
+    ; 运算表达式编辑按钮：打开表达式编辑器，确定后回写表达式
+    _OnOperationExprEdit(id, slot, *) {
+        ; 先从 UI 输入框获取当前表达式（这是最新的值）
+        ex := ""
+        if (this.ui != "") {
+            try {
+                ex := this.ui.Get("OpS" slot "Expr_" id, "Text")
+            }
+        }
+        ; 如果 UI 没有，尝试从数据对象获取
+        if (ex == "") {
+            data := this._FormalIniData(id)
+            if (data != "") {
+                ; 优先从 ExpressionArr 数组获取（Data 类实例）
+                if (data.HasOwnProp("ExpressionArr") && data.ExpressionArr.Length >= slot) {
+                    ex := data.ExpressionArr[slot]
+                }
+                ; 其次从 expression1/expression2... 获取（动态对象）
+                else if (data.HasOwnProp("expression" slot)) {
+                    ex := data["expression" slot]
+                }
+            }
+        }
+        ; 确保 OperationSubGui 已初始化并创建 GUI
+        opGui := this.OperationGui
+        if (opGui.OperationSubGui == "") {
+            opGui.OperationSubGui := OperationSubGui()
+        }
+        exGui := opGui.OperationSubGui
+        exGui.ParentTile := ""
+        exGui.OwnerHwnd := ""
+        ; 确保 GUI 已创建
+        if (exGui.Gui == "") {
+            exGui.AddGui()
+        }
+        ; OperationSubGui.OnClickSureBtn 调用 action(this.Index, expression)
+        exGui.SureBtnAction := (idx, expr) => this._OnOperationExprEditSure(id, slot, idx, expr)
+        ; 显示编辑器
+        exGui.ShowGui(slot, ex)
+    }
+
+    ; 表达式编辑器确定回调
+    _OnOperationExprEditSure(id, slot, idx, expr, *) {
+        ; 直接更新输入框文本
+        if (this.ui != "") {
+            this.ui.Update("OpS" slot "Expr_" id, "Text", expr)
+        }
+        ; 同时保存数据
+        data := this._FormalIniData(id)
+        if (data != "") {
+            data.ExpressionArr[slot] := expr
+            SaveMacroCMDData(data)
+        }
+        ; 折叠态刷新摘要
+        if (this._NodeFolded(id))
+            this._RefreshOperationSummary(id)
+        this._Apply()
     }
 
     _FillOperationBody(id, d, body) {
+        ; 同时构建「摘要」与「完整」两套容器，靠显隐切换，避免折叠时整窗重建导致闪烁
+        folded := this._NodeFolded(id)
+
+        sumBox := body.Add("StackPanel").Name("OpSumBox_" id)
+        if (!folded)
+            sumBox.Visibility("Collapsed")
+        this._FillOperationSummary(id, d, sumBox)
+
+        fullBox := body.Add("StackPanel").Name("OpFullBox_" id)
+        if (folded)
+            fullBox.Visibility("Collapsed")
         loop 4
-            this._FillOperationSlot(body, id, A_Index, d)
-        this._AddFormalHint(body)
+            this._FillOperationSlot(fullBox, id, A_Index, d)
+        this._AddFormalHint(fullBox)
+    }
+
+    ; 收起态摘要：4 个固定命名行（按启用与否显隐），逐个显示「目标 = 表达式」
+    _FillOperationSummary(id, d, box) {
+        anyOn := false
+        loop 4 {
+            slot := A_Index
+            info := this._OpSummaryRowInfo(d, slot)
+            if (info.on)
+                anyOn := true
+            row := box.Add("StackPanel").Name("OpSumRow_" slot "_" id).Orientation("Horizontal").Margin("0,5,0,0")
+            if (!info.on)
+                row.Visibility("Collapsed")
+            row.Add("Ellipse").Width("7").Height("7").Fill("#5C9DED").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("TextBlock").Name("OpSumTxt_" slot "_" id).Text(this._XamlEscape(info.text)).Foreground("#E8E8E8").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
+        }
+        emptyTb := box.Add("TextBlock").Name("OpSumEmpty_" id).Text(GetLang("未启用任何变量")).Foreground("#999999").FontSize(this._MGFontSize(11)).Margin("0,5,0,0")
+        if (anyOn)
+            emptyTb.Visibility("Collapsed")
+    }
+
+    ; 单个运算槽的摘要信息
+    _OpSummaryRowInfo(d, slot) {
+        toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : (slot == 1 ? 1 : 0)
+        on := toggled == 1 || toggled == "1" || toggled == true || toggled == "True"
+        un := d.HasOwnProp("updateName" slot) ? d["updateName" slot] : "Var" slot
+        ex := d.HasOwnProp("expression" slot) ? d["expression" slot] : ""
+        return { on: on, text: un " = " (ex != "" ? ex : "...") }
+    }
+
+    ; 就地刷新运算节点摘要（收起态显示）
+    _RefreshOperationSummary(id) {
+        if (this.ui == "")
+            return
+        d := this._FormalDFromId(id)
+        loop 4 {
+            slot := A_Index
+            info := this._OpSummaryRowInfo(d, slot)
+            rowName := "OpSumRow_" slot "_" id
+            txtName := "OpSumTxt_" slot "_" id
+            try {
+                this.ui.Update(rowName, "Visibility", info.on ? "Visible" : "Collapsed")
+                this.ui.Update(txtName, "Text", info.text)
+            }
+        }
     }
 
     _FillRunBody(id, d, body) {
@@ -412,7 +544,10 @@ class MacroGraphFormalMixin {
         rm := d.HasOwnProp("runMode") ? d.runMode : 1
         rp := d.HasOwnProp("runPath") ? d.runPath : ""
         showSave := rm >= 2
-        this._AddFieldRow(body, "RunPathRow_" id, GetLang("路径："), "RunPath_" id, rp, true, true, "", "", "", lw, cw)
+        ; 路径行：输入框 + 选择文件按钮（无标签，输入框宽度+20px）
+        runPathRow := body.Add("StackPanel").Name("RunPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        runPathRow.Add("TextBox").Name("RunPath_" id).Text(rp).Width(cw + 15).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
+        runPathRow.Add("Button").Name("RunPathBrowse_" id).Content(GetLang("选择文件")).Width("60").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
         loop 3 {
             i := A_Index
@@ -420,6 +555,26 @@ class MacroGraphFormalMixin {
             this._AddEditableComboRow(body, "RunSave" i "Row_" id, saveLabels[i] "：", "RunSave" i "_" id, GetGuiVarArr(), sn, showSave, lw, cw)
         }
         this._AddFormalHint(body)
+    }
+
+    ; 选择文件按钮：打开文件选择对话框，选择后填入路径输入框
+    _OnRunPathBrowse(id, *) {
+        try {
+            ; 尝试获取当前路径作为初始目录
+            curPath := ""
+            if (this.ui != "") {
+                try {
+                    curPath := this.ui.Get("RunPath_" id, "Text")
+                }
+            }
+            ; 打开文件选择对话框（支持所有文件类型）
+            selectedPath := FileSelect(1, curPath, GetLang("选择运行程序"), "All files (*.*)")
+            if (selectedPath != "") {
+                if (this.ui != "") {
+                    this.ui.Update("RunPath_" id, "Text", selectedPath)
+                }
+            }
+        }
     }
 
     _FillFileIOBody(id, d, body) {
@@ -704,10 +859,12 @@ class MacroGraphFormalMixin {
                 this._FormalTrackCheck(id, p "Tog", h, runtime)
                 this._FormalTrackEditCombo(id, p "Target", h, runtime)
                 this._FormalTrackField(id, p "Expr", h, runtime)
+                this._BindCtrl(p "ExprEdit_" id, "Click", this._OnOperationExprEdit.Bind(this, id, A_Index), runtime)
             }
         } else if (t == GetLang("运行")) {
             h := this._OnFormalRun.Bind(this, id)
             this._FormalTrackField(id, "RunPath", h, runtime)
+            this._BindCtrl("RunPathBrowse_" id, "Click", this._OnRunPathBrowse.Bind(this, id), runtime)
             this._FormalTrackCombo(id, "RunModeCmb", h, runtime)
             loop 3
                 this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)

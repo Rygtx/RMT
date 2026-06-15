@@ -221,6 +221,8 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 变量列表：=Variable List:
 变量名=Var Name
 变量名：=Var:
+变量1~变量4=Var1~Var4
+未启用任何变量=No variables enabled
 保存变量=Save Var
 变量存在=Var Exists
 变量或值=Var / Value:

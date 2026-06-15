@@ -213,6 +213,9 @@ class MacroGraphFormalHandlersMixin {
         }
         SaveMacroCMDData(data)
         this._RefreshFormalOperationVisibility(id)
+        ; 折叠态：刷新摘要显示
+        if (this._NodeFolded(id))
+            this._RefreshOperationSummary(id)
         this._Apply()
     }
 

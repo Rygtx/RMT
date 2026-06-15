@@ -806,6 +806,12 @@ class MacroGraphNodeUIMixin {
             fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
+        else if (title == GetLang("运算")) {
+            ; 运算节点：标题栏展开/收起按钮。展开=完整卡片；收起=各启用槽「目标 = 表达式」摘要
+            folded := this._NodeFolded(id)
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
+        }
         return header
     }
 

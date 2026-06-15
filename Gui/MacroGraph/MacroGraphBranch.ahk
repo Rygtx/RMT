@@ -45,6 +45,22 @@ class MacroGraphBranchMixin {
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
     }
 
+    ; 切换运算节点折叠态：折叠=只显示各启用槽「目标 = 表达式」摘要；展开=完整卡片。
+    _OnToggleOpFold(id, *) {
+        if (this.ui == "" || !this.cmdNodes.Has(id))
+            return
+        node := this.cmdNodes[id]
+        willFold := this._NodeFolded(id) ? 0 : 1
+        node.Folded := willFold
+        try SaveMacroCMDData(node)
+        if (willFold)
+            this._RefreshOperationSummary(id)
+        this.ui.Update("OpSumBox_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+        this.ui.Update("OpFullBox_" id, "Visibility", willFold ? "Collapsed" : "Visible")
+        this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
+        this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
+    }
+
     ; 就地刷新变量节点摘要（收起态显示），从当前 INI/解析数据取值，无需重建
     _RefreshVariableSummary(id) {
         if (this.ui == "")
