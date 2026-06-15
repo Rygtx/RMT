@@ -21,7 +21,8 @@ class MacroGraphConnectionsMixin {
         x := p.x + g.offsetX
         y := p.y + g.offsetY
         nodeTitle := this._Parse(node.CurCMD).type
-        g.nodes.Push({ Id: id, Title: nodeTitle, X: x, Y: y, W: (nodeTitle == GetLang("搜索Pro")) ? 380 : 200, H: 60, Type: "Process" })
+        nodeW := (nodeTitle == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(nodeTitle) ? this._FormalNodeWidth(nodeTitle) : 200)
+        g.nodes.Push({ Id: id, Title: nodeTitle, X: x, Y: y, W: nodeW, H: 60, Type: "Process" })
 
         ; 引擎拖动/选中处理（移动端口与连线、整体拖拽、高亮）
         g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))
@@ -145,6 +146,9 @@ class MacroGraphConnectionsMixin {
                 continue
             from := conn.From
             to := conn.To
+            ; 循环回环连线（循环↔外置循环体）：纯显示用，不是逻辑后继，直接丢弃不入 links
+            if (this._IsLoopBodyId(from) || this._IsLoopBodyId(to))
+                continue
             ; 「分支 → X」翻译回「搜索 → X」（分支出点即搜索的后继出点）
             bi := this._BranchInfo(from)
             if (bi != "")

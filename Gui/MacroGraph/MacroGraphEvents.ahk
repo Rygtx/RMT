@@ -21,6 +21,11 @@ class MacroGraphEventsMixin {
                 this._RegisterBranchEvents(id, false)
             }
         }
+        ; 展开循环节点的外置循环体节点事件（双击进嵌套循环体编辑器）
+        for id in this.order {
+            if (this._IsExpandedLoop(id))
+                this._RegisterLoopBodyEvents(id)
+        }
     }
 
     ; 注册单个分支节点的事件：选中（用于双击判定）+ 展开/收起按钮。runtime=true 时为运行时注入控件补绑。
@@ -29,6 +34,15 @@ class MacroGraphEventsMixin {
         this.ui.OnEvent("Node_" brId, "SelectNode", this._OnBranchClick.Bind(this, searchId, isTrue))
         this.ui.OnEvent("Node_" brId, "CtrlSelectNode", this._OnBranchClick.Bind(this, searchId, isTrue))
         this._BindCtrl("SBExpand_" brId, "Click", this._OnBranchToggleExpand.Bind(this, searchId, isTrue), runtime)
+    }
+
+    ; 注册外置循环体节点事件：选中（双击进嵌套循环体编辑器）+ 拖动刷新回环路径。
+    _RegisterLoopBodyEvents(loopId, runtime := false) {
+        bid := this._LoopBodyId(loopId)
+        this.ui.OnEvent("Node_" bid, "SelectNode", this._OnLoopBodyClick.Bind(this, loopId))
+        this.ui.OnEvent("Node_" bid, "CtrlSelectNode", this._OnLoopBodyClick.Bind(this, loopId))
+        this.ui.OnEvent("Node_" bid, "DragMove", this._OnLoopBodyDrag.Bind(this, loopId))
+        this._BindCtrl("LoopExtExpand_" bid, "Click", this._OnLoopChipsToggle.Bind(this, bid, "LoopExtChips_" bid, "LoopExtExpand_" bid, loopId), runtime)
     }
 
     ; 注册单个节点的"本类"事件（双击编辑 + 内联字段）。runtime=true 时同时向引擎补绑/补采集
@@ -205,7 +219,19 @@ class MacroGraphEventsMixin {
             this.pos[id].x := Number(parts[1]) - this.graph.offsetX
             this.pos[id].y := Number(parts[2]) - this.graph.offsetY
             ; 注：搜索节点拖动时不再联动真/假分支节点（分支可独立摆放），仅引擎自动刷新相关连线
+            ; 循环节点拖动：实时刷新与外置循环体的两条回环路径（循环坐标用本次实时画布坐标）
+            if (this._IsExpandedLoop(id))
+                this._UpdateLoopCyclePaths(id, Number(parts[1]), Number(parts[2]))
         }
+    }
+
+    ; 外置循环体节点拖动：实时刷新两条回环路径（循环体坐标用本次实时画布坐标）
+    _OnLoopBodyDrag(loopId, state, *) {
+        if (this.graph == "" || !state.Has("DragCoords"))
+            return
+        parts := StrSplit(state["DragCoords"], ",")
+        if (parts.Length >= 2)
+            this._UpdateLoopCyclePaths(loopId, "", "", Number(parts[1]), Number(parts[2]))
     }
 
     ; 窗口按键：Delete 删除选中项；Ctrl+C/V 复制粘贴节点

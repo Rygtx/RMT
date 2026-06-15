@@ -88,9 +88,12 @@ class MacroGraphGui {
         this.WindowManageGui := WindowManageGui()
         this.KeyCheckGui := KeyCheckGui()
         this.ScreenShotGui := ScreenShotGui()
+        this.LoopGui := LoopGui()
         this.BranchGraphGui := ""     ; 搜索真/假分支的「嵌套节点编辑器」（懒加载，编辑分支子图）
         this._branchExpanded := Map() ; 分支节点是否展开显示全部指令（key=分支合成ID）
+        this._loopChipsExpanded := Map() ; 循环体指令卡片是否展开（key=内联用循环ID/外置用循环体合成ID）
         this._branchInjected := Map() ; 本窗口生命周期内已注入过分支节点的搜索ID（折叠/展开时只显隐不重建）
+        this._loopBodyInjected := Map() ; 本窗口生命周期内已注入过外置循环体节点的循环ID（折叠/展开时只显隐不重建）
         this.OnClosedAction := ""     ; 窗口关闭后回调（嵌套分支编辑器用于通知父图刷新）
         this._shotNodeId := ""        ; 正在执行截图取色的搜索节点ID（截图剪贴板回调用）
         this._searchClipAction := ObjBindMethod(this, "_SearchCheckClipboard") ; 截图剪贴板轮询回调（稳定引用，便于 SetTimer 开关）
@@ -150,6 +153,8 @@ class MacroGraphGui {
         this.graph := ""
         this.injected := Map()        ; 重建后所有节点均为完整内联节点
         this._branchInjected := Map() ; 新窗口：分支节点注入记录清零（NameScope 全新）
+        this._loopBodyInjected := Map() ; 新窗口：外置循环体节点注入记录清零（NameScope 全新）
+        this._loopChipsExpanded := Map() ; 新窗口：循环体指令卡片展开态清零
 
         win := XAML_Generator("Window")
         win.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
@@ -179,6 +184,14 @@ class MacroGraphGui {
             if (this._IsExpandedSearch(id)) {
                 this._BuildBranchPair(id)
                 this._branchInjected[id] := true
+            }
+        }
+
+        ; 循环节点（展开态）：构建外置循环体节点 + 两条回环连线（循环→体、体→循环）
+        for id in this.order {
+            if (this._IsExpandedLoop(id)) {
+                this._BuildLoopBodyNode(id)
+                this._loopBodyInjected[id] := true
             }
         }
 

@@ -54,7 +54,8 @@ class MacroGraphFormalMixin {
             GetLang("后台按键"), this.BGKeyGui,
             GetLang("窗口管理"), this.WindowManageGui,
             GetLang("按键检测"), this.KeyCheckGui,
-            GetLang("抓图"), this.ScreenShotGui
+            GetLang("抓图"), this.ScreenShotGui,
+            GetLang("循环"), this.LoopGui
         )
     }
 
@@ -178,10 +179,13 @@ class MacroGraphFormalMixin {
     _FormalInitArrText(initArr) {
         if (!IsObject(initArr) || initArr.Length == 0)
             return "1,2,3,4,5"
-        parts := []
-        for v in initArr
-            parts.Push(String(v))
-        return parts.Join(",")
+        result := ""
+        for index, v in initArr {
+            if (index > 1)
+                result .= ","
+            result .= String(v)
+        }
+        return result
     }
 
     _FillFormalNodeBody(id, d, body) {
@@ -213,6 +217,8 @@ class MacroGraphFormalMixin {
             this._FillKeyCheckBody(id, d, body)
         else if (d.type == GetLang("抓图"))
             this._FillScreenShotBody(id, d, body)
+        else if (d.type == GetLang("循环"))
+            this._FillLoopBody(id, d, body)
     }
 
     _AddFormalHint(body) {
@@ -244,7 +250,7 @@ class MacroGraphFormalMixin {
     ;   - 系统：显示系统变量下拉（SysRow）
     ;   - 随机数值：显示「最小/最大」两行
     ;   - 删除：仅变量名
-    _FillVariableSlot(body, id, slot, d) {
+    _FillVariableSlot(body, id, slot, d, visible := true) {
         lw := "66", cw := "94"
         p := "VarS" slot
         toggled := d.HasOwnProp("toggle" slot) ? d["toggle" slot] : (slot == 1 ? 1 : 0)
@@ -260,7 +266,10 @@ class MacroGraphFormalMixin {
         showSys := on && ot == 4
         showMinMax := on && ot == 2
         ; 每个变量独立卡片：分组清晰、表现更佳，开关/字段集中显示
-        card := body.Add("Border").BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,6,0,0").Padding("6,2,6,6")
+        ; 逐级展开：仅勾选上一个变量后才显示下一个（visible 控制整张卡片显隐，降低展开高度）
+        card := body.Add("Border").Name(p "Card_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,6,0,0").Padding("6,2,6,6")
+        if (!visible)
+            card.Visibility("Collapsed")
         inner := card.Add("StackPanel")
         this._AddCheckRow(inner, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, on, true)
         this._AddEditableComboRow(inner, p "NameRow_" id, GetLang("变量名："), p "Name_" id, GetGuiVarArr(), vn, on, lw, cw)
@@ -290,8 +299,14 @@ class MacroGraphFormalMixin {
         fullBox := body.Add("StackPanel").Name("VarFullBox_" id)
         if (folded)
             fullBox.Visibility("Collapsed")
-        loop 4
-            this._FillVariableSlot(fullBox, id, A_Index, d)
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            vis := (slot == 1) ? true : prevOn
+            this._FillVariableSlot(fullBox, id, slot, d, vis)
+            toggled := d.HasOwnProp("toggle" slot) ? d["toggle" slot] : (slot == 1 ? 1 : 0)
+            prevOn := vis && this._FormalVarSlotOn(toggled)
+        }
         this._AddFormalHint(fullBox)
     }
 
@@ -398,22 +413,24 @@ class MacroGraphFormalMixin {
         this._AddFormalHint(body)
     }
 
-    _FillOperationSlot(body, id, slot, d) {
+    _FillOperationSlot(body, id, slot, d, visible := true) {
         lw := this._FormalLW(), cw := this._FormalCW()
         p := "OpS" slot
         toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : (slot == 1 ? 1 : 0)
+        on := toggled == 1 || toggled == "1"
         un := d.HasOwnProp("updateName" slot) ? d["updateName" slot] : "Var" slot
         ex := d.HasOwnProp("expression" slot) ? d["expression" slot] : ""
-        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, toggled == 1 || toggled == "1", true)
+        ; 逐级展开：仅勾选上一个变量后才显示下一个（visible 控制整组行显隐，降低展开高度）
+        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, on, visible)
         ; 表达式行：文本框 + 编辑按钮（输入框宽度140px）
         ; 注意：表达式中可能包含 { } 变量语法，需要 XAML 转义
         exprRow := body.Add("StackPanel").Name(p "ExprRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
-        if (!toggled)
+        if (!(visible && on))
             exprRow.Visibility("Collapsed")
         exprRow.Add("TextBox").Name(p "Expr_" id).Text(this._XamlEscape(ex)).Width("140").Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
         exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         ; 结果变量下拉
-        this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("结果变量："), p "Target_" id, GetGuiVarArr(), un, toggled, lw, cw)
+        this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("结果变量："), p "Target_" id, GetGuiVarArr(), un, visible && on, lw, cw)
     }
 
     ; 运算表达式编辑按钮：打开表达式编辑器，确定后回写表达式
@@ -487,8 +504,14 @@ class MacroGraphFormalMixin {
         fullBox := body.Add("StackPanel").Name("OpFullBox_" id)
         if (folded)
             fullBox.Visibility("Collapsed")
-        loop 4
-            this._FillOperationSlot(fullBox, id, A_Index, d)
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            vis := (slot == 1) ? true : prevOn
+            this._FillOperationSlot(fullBox, id, slot, d, vis)
+            toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : (slot == 1 ? 1 : 0)
+            prevOn := vis && (toggled == 1 || toggled == "1")
+        }
         this._AddFormalHint(fullBox)
     }
 
@@ -612,7 +635,7 @@ class MacroGraphFormalMixin {
         IsWrite := !IsRead
         IsExcel := ot == "读取Excel" || ot == "写入Excel"
         IsText := ot == "读取文本文件" || ot == "写入文本文件"
-        IsExcelRange := om == "指定区域-行" || om == "指定区域-列"
+        IsExcelRange := IsExcel && (om == "指定行" || om == "指定列" || om == "指定区域-行" || om == "指定区域-列")
         HasTextRow := IsText && (om == "指定行" || om == "逐行读取" || om == "行号自增")
         HasRegion := IsRead && (om == "指定区域-行" || om == "指定区域-列")
         HasWriteContent := IsWrite && !IsExcelRange
@@ -634,9 +657,9 @@ class MacroGraphFormalMixin {
         this._AddEditableComboRow(body, "FIOTxtRowRow_" id, GetLang("文本行："), "FIOTxtRow_" id, GetGuiVarArr(), d.HasOwnProp("textRowVar") ? d.textRowVar : 1, HasTextRow, lw, cw)
         this._AddMultilineFieldBlock(body, "FIOContentBlock_" id, GetLang("写入内容："), "FIOContent_" id, d.HasOwnProp("content") ? d.content : GetLang("写入的内容"), HasWriteContent, this._FormalContentW())
         this._AddEditableComboRow(body, "FIOArrRow_" id, GetLang("数组名："), "FIOArr_" id, GetGuiArrNameArr(), d.HasOwnProp("arrName") ? d.arrName : "Arr", HasWriteArr, lw, cw)
-        ; 保存类型：根据模式和操作类型自动固定
+        ; 保存类型：根据模式和操作类型自动固定（结果保存仅读取时出现，与编辑器一致）
         ; 读取Excel+单元格 → 变量；读取Excel+其他模式 → 数组；读取文本+全部/指定行 → 变量；其他 → 数组
-        showSave := IsRead || HasWriteArr
+        showSave := IsRead
         IsResOnlyVar := (ot == "读取Excel" && om == "单元格") || (ot == "读取文本文件" && (om == "读取全部内容" || om == "指定行"))
         autoSaveType := IsResOnlyVar ? GetLang("变量") : GetLang("数组")
         this._AddFieldRow(body, "FIOSaveTypeRow_" id, GetLang("保存类型："), "FIOSaveType_" id, autoSaveType, showSave, false)
@@ -692,32 +715,23 @@ class MacroGraphFormalMixin {
         agn := d.HasOwnProp("argsName") ? d.argsName : "Var1"
         st := d.HasOwnProp("saveType") ? d.saveType : "变量"
         sn := d.HasOwnProp("saveName") ? d.saveName : "Data"
-        IsCreate := at == "创建"
-        IsClone := at == "克隆"
-        IsDelete := at == "删除"
-        IsContain := at == "包含"
-        IsGet := at == "取值"
-        IsSetValue := at == "赋值"
-        IsInsert := at == "插入"
-        IsAdd := at == "追加"
-        IsRemove := at == "移除"
-        IsReverse := at == "反转"
-        IsLength := at == "长度"
-        IsRemoveLast := at == "移除最后"
-        IsShowResult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain || IsReverse
-        IsShowMainIndex := !IsCreate && !IsDelete
-        IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
-        ShowIgn := IsCreate || IsClone || IsGet || IsLength || IsRemove || IsRemoveLast || IsContain
+        f := this._ArrFlags(at)
+        fixedSt := this._ArrFixedSaveType(at)
+        effSt := fixedSt != "" ? fixedSt : st
+        showIdx := f.IsShowArgs && !f.OnlyArgsData
+        showData := f.IsShowArgs && !f.OnlyArgsIndex
+        argsNameList := (agt == "数组") ? GetGuiArrNameArr() : GetGuiVarArr()
+        saveNameList := (effSt == "数组") ? GetGuiArrNameArr() : GetGuiVarArr()
         this._AddComboRow(body, "ArrTypeRow_" id, GetLang("操作："), "ArrTypeCmb_" id, typeNames, this._IndexInLangArr(typeNames, GetLang(at)), true, true, lw, cw)
         this._AddEditableComboRow(body, "ArrNameRow_" id, GetLang("数组："), "ArrName_" id, GetGuiArrNameArr(), an, true, lw, cw)
-        this._AddCheckRow(body, "ArrIgnRow_" id, "ArrIgn_" id, GetLang("忽略已存在"), (ign == 1 || ign == "1") && ShowIgn, ShowIgn)
-        this._AddFieldRow(body, "ArrInitRow_" id, GetLang("初始值："), "ArrInit_" id, initTxt, IsCreate, true, "", "", "", lw, cw)
-        this._AddEditableComboRow(body, "ArrMainRow_" id, GetLang("主索引："), "ArrMain_" id, GetGuiVarArr(), mi, IsShowMainIndex, lw, cw)
-        this._AddEditableComboRow(body, "ArrArgsIdxRow_" id, GetLang("参数索引："), "ArrArgsIdx_" id, GetGuiVarArr(), ai, IsShowArgs, lw, cw)
-        this._AddComboRow(body, "ArrArgsTypeRow_" id, GetLang("参数类型："), "ArrArgsTypeCmb_" id, argsTypes, this._IndexInLangArr(argsTypes, GetLang(agt)), IsShowArgs, true, lw, cw)
-        this._AddEditableComboRow(body, "ArrArgsNameRow_" id, GetLang("参数值："), "ArrArgsName_" id, GetGuiVarArr(), agn, IsShowArgs, lw, cw)
-        this._AddComboRow(body, "ArrSaveTypeRow_" id, GetLang("保存类型："), "ArrSaveTypeCmb_" id, saveTypes, this._IndexInLangArr(saveTypes, GetLang(st)), IsShowResult, true, lw, cw)
-        this._AddEditableComboRow(body, "ArrSaveRow_" id, GetLang("保存名："), "ArrSave_" id, GetGuiVarArr(), sn, IsShowResult, lw, cw)
+        this._AddCheckRow(body, "ArrIgnRow_" id, "ArrIgn_" id, GetLang("忽略已存在"), (ign == 1 || ign == "1") && f.ShowIgn, f.ShowIgn)
+        this._AddFieldRow(body, "ArrInitRow_" id, GetLang("初始值："), "ArrInit_" id, initTxt, f.IsCreate, true, "", "", "", lw, cw)
+        this._AddEditableComboRow(body, "ArrMainRow_" id, GetLang("子索引："), "ArrMain_" id, GetGuiVarArr(), mi, f.IsShowMainIndex, lw, cw)
+        this._AddEditableComboRow(body, "ArrArgsIdxRow_" id, GetLang("索引："), "ArrArgsIdx_" id, GetGuiVarArr(), ai, showIdx, lw, cw)
+        this._AddComboRow(body, "ArrArgsTypeRow_" id, GetLang("参数类型："), "ArrArgsTypeCmb_" id, argsTypes, this._IndexInLangArr(argsTypes, GetLang(agt)), showData, true, lw, cw)
+        this._AddEditableComboRow(body, "ArrArgsNameRow_" id, GetLang("参数值："), "ArrArgsName_" id, argsNameList, agn, showData, lw, cw)
+        this._AddComboRow(body, "ArrSaveTypeRow_" id, GetLang("保存类型："), "ArrSaveTypeCmb_" id, saveTypes, this._IndexInLangArr(saveTypes, GetLang(effSt)), f.IsShowResult, fixedSt == "", lw, cw)
+        this._AddEditableComboRow(body, "ArrSaveRow_" id, GetLang("保存名："), "ArrSave_" id, saveNameList, sn, f.IsShowResult, lw, cw)
         this._AddFormalHint(body)
     }
 
@@ -838,6 +852,238 @@ class MacroGraphFormalMixin {
         this._AddFormalHint(body)
     }
 
+    _LoopCondiTypes() {
+        return GetLangArr(["无", "继续条件", "退出条件"])
+    }
+
+    _LoopLogicTypes() {
+        return GetLangArr(["且", "或"])
+    }
+
+    _LoopCmpTypes() {
+        return GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
+    }
+
+    ; 循环体命令显示串数组（用于内联小卡片展示）。
+    ; 循环体可能保存两种形式：①图形开始节点序列码（嵌套图，复用 _BranchGraphCmds 遍历）②线性宏串。
+    _LoopBodyCmds(d) {
+        body := d.HasOwnProp("loopBody") ? d.loopBody : ""
+        if (body == "")
+            return []
+        SplitSerialTextAndNumbers(body, &t, &n)
+        if (t == GetLangKey("图形开始节点") && n != "")
+            return this._BranchGraphCmds(body)
+        result := []
+        for cmd in SplitMacro(GetLangMacro(body, 1)) {
+            if (cmd != "")
+                result.Push(cmd)
+        }
+        return result
+    }
+
+    ; 循环体卡片预览的最大条数（超出则提供展开/收起按钮，与搜索分支节点一致）。
+    _LoopPreviewCount() {
+        return 5
+    }
+
+    ; 单个循环体命令小卡片的 XAML 片段（供运行时 AddXamlItem 注入）。
+    _LoopChipXaml(text) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="6,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="#E8EAF6" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
+    }
+
+    ; 构建循环体指令卡片栈 + 展开/收起按钮（内联体与外置体共用，超过预览条数可展开，表现同搜索分支节点）。
+    ;   parent：承载容器；panelName：卡片栈命名；btnName：按钮命名；key：展开态键；cmds：指令串数组。
+    _FillLoopChips(parent, panelName, btnName, key, cmds) {
+        expanded := this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key]
+        panel := parent.Add("StackPanel").Name(panelName).Margin("0,4,0,0")
+        if (cmds.Length == 0) {
+            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#9FA8DA").FontSize(this._MGFontSize(11))
+        } else {
+            shown := expanded ? cmds.Length : Min(cmds.Length, this._LoopPreviewCount())
+            Loop shown {
+                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("6,2")
+                chip.Add("TextBlock").Text("· " cmds[A_Index]).Foreground("#E8EAF6").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
+            }
+        }
+        btn := parent.Add("Button").Name(btnName).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
+        if (cmds.Length <= this._LoopPreviewCount())
+            btn.Visibility("Collapsed")
+    }
+
+    ; 运行时按展开态重建循环体指令卡片（清空后重注入）。
+    _RebuildLoopChips(panelName, cmds, expanded) {
+        this.ui.Update(panelName, "ClearItems", "")
+        if (cmds.Length == 0) {
+            ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+            this.ui.Update(panelName, "AddXamlItem", '<TextBlock ' ns ' Text="（' this._XmlEsc(GetLang("空")) '）" Foreground="#9FA8DA" FontSize="' this._MGFontSize(11) '"/>')
+            return
+        }
+        shown := expanded ? cmds.Length : Min(cmds.Length, this._LoopPreviewCount())
+        Loop shown
+            this.ui.Update(panelName, "AddXamlItem", this._LoopChipXaml("· " cmds[A_Index]))
+    }
+
+    ; 展开/收起循环体指令卡片（内联体与外置体共用按钮回调）。loopId 用于取最新循环体指令。
+    _OnLoopChipsToggle(key, panelName, btnName, loopId, *) {
+        if (this.ui == "")
+            return
+        nv := !(this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key])
+        this._loopChipsExpanded[key] := nv
+        cmds := this._LoopBodyCmds(this._FormalDFromId(loopId))
+        this._RebuildLoopChips(panelName, cmds, nv)
+        this.ui.Update(btnName, "Content", nv ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+    }
+
+    ; 运行时刷新内联循环体卡片 + 展开按钮 + 计数徽标。
+    _RefreshLoopChips(id) {
+        if (this.ui == "")
+            return
+        cmds := this._LoopBodyCmds(this._FormalDFromId(id))
+        expanded := this._loopChipsExpanded.Has(id) && this._loopChipsExpanded[id]
+        this._RebuildLoopChips("LoopChipsPanel_" id, cmds, expanded)
+        this.ui.Update("LoopChipsExpand_" id, "Visibility", cmds.Length > this._LoopPreviewCount() ? "Visible" : "Collapsed")
+        this.ui.Update("LoopChipsExpand_" id, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+        this.ui.Update("LoopBodyCount_" id, "Text", this._LoopBodyBadge(cmds.Length))
+    }
+
+    ; 循环体徽标文本（数量已由下方展开按钮提示，此处不再显示计数）。
+    _LoopBodyBadge(count) {
+        return GetLang("循环体")
+    }
+
+    ; 循环次数行文本（无限时友好显示）。
+    _LoopCountText(d) {
+        lc := d.HasOwnProp("loopCount") ? d.loopCount : 10
+        return (lc == -1 || lc == "-1") ? GetLang("无限") : lc
+    }
+
+    ; 单个条件行卡片：开关 + 变量名 + 比较类型 + 比较值（变量存在时隐藏值）。
+    _FillLoopCondiCard(body, id, slot, d, showCard) {
+        lw := "44", cw := "108"
+        p := "LoopC" slot
+        on := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
+        nm := d.HasOwnProp("loopName" slot) ? d["loopName" slot] : "Var" slot
+        cmp := d.HasOwnProp("loopCmp" slot) ? d["loopCmp" slot] : 1
+        vr := d.HasOwnProp("loopVar" slot) ? d["loopVar" slot] : "Var" slot
+        cmpTypes := this._LoopCmpTypes()
+        showRow := showCard && on
+        showVal := showRow && cmp != 7
+        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,5,0,0").Padding("6,2,6,6")
+        if (!showCard)
+            card.Visibility("Collapsed")
+        inner := card.Add("StackPanel")
+        this._AddCheckRow(inner, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
+        this._AddEditableComboRow(inner, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
+        this._AddComboRow(inner, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
+        this._AddEditableComboRow(inner, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
+    }
+
+    ; 循环节点收起态摘要信息：循环次数 / 循环条件类型 / 逻辑关系。
+    _LoopSummaryInfo(id) {
+        info := {count: "", condiName: "", logicName: "", showLogic: false}
+        data := this._SearchData(id)
+        if (data == "")
+            return info
+        info.count := (data.LoopCount == -1 || data.LoopCount == "-1") ? GetLang("无限") : data.LoopCount
+        condiTypes := this._LoopCondiTypes()
+        ct := data.CondiType
+        info.condiName := (ct >= 1 && ct <= condiTypes.Length) ? condiTypes[ct] : condiTypes[1]
+        if (ct != 1) {
+            n := 0
+            loop 4
+                if (data.ToggleArr[A_Index])
+                    n++
+            logicTypes := this._LoopLogicTypes()
+            info.logicName := (data.LogicType >= 1 && data.LogicType <= logicTypes.Length) ? logicTypes[data.LogicType] : logicTypes[1]
+            info.showLogic := n >= 2
+        }
+        return info
+    }
+
+    ; 单个条件的收起态简要：{on, text}。on=条件类型非「无」且该条件已启用。
+    _LoopCondiSummaryRow(data, slot) {
+        res := {on: false, text: ""}
+        if (data == "" || data.CondiType == 1 || !data.ToggleArr[slot])
+            return res
+        res.on := true
+        cmpArr := this._LoopCmpTypes()
+        ct := data.CompareTypeArr[slot]
+        cmpStr := (ct >= 1 && ct <= cmpArr.Length) ? cmpArr[ct] : cmpArr[1]
+        nm := GetLang(data.NameArr[slot])
+        res.text := (ct != 7) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
+        return res
+    }
+
+    ; 收起态摘要容器：循环次数 / 循环条件 / 逻辑关系(有则显示) / 条件1~4 逐行带圆点展示。
+    _FillLoopSummary(id, box) {
+        info := this._LoopSummaryInfo(id)
+        fg := "#C5CAE9", fs := this._MGFontSize(12)
+        box.Add("TextBlock").Name("LoopSumCount_" id).Text(GetLang("循环次数") "：" info.count).Foreground(fg).FontSize(fs).TextWrapping("Wrap")
+        box.Add("TextBlock").Name("LoopSumCondi_" id).Text(GetLang("循环条件") "：" info.condiName).Foreground(fg).FontSize(fs).Margin("0,3,0,0").TextWrapping("Wrap")
+        lRow := box.Add("TextBlock").Name("LoopSumLogic_" id).Text(GetLang("逻辑关系") "：" info.logicName).Foreground(fg).FontSize(fs).Margin("0,3,0,0").TextWrapping("Wrap")
+        if (!info.showLogic)
+            lRow.Visibility("Collapsed")
+        data := this._SearchData(id)
+        loop 4 {
+            slot := A_Index
+            ci := this._LoopCondiSummaryRow(data, slot)
+            row := box.Add("StackPanel").Name("LoopSumCondiRow_" slot "_" id).Orientation("Horizontal").Margin("0,3,0,0")
+            if (!ci.on)
+                row.Visibility("Collapsed")
+            row.Add("Ellipse").Width("7").Height("7").Fill("#9575CD").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("TextBlock").Name("LoopSumCondiTxt_" slot "_" id).Text(ci.text).Foreground("#9FA8DA").FontSize(this._MGFontSize(11)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
+        }
+    }
+
+    ; 循环节点主体：两种状态共存（仅切换显隐，避免闪烁）。
+    ;   LoopFullBox（展开）：完整循环次数/条件/逻辑/4 条件卡片，循环体外置为独立节点；
+    ;   LoopSumBox（收起）：循环次数 + 条件简化摘要；
+    ;   LoopInlineBody（收起）：内置循环体卡片（chips）+ 编辑按钮。
+    _FillLoopBody(id, d, body) {
+        lw := this._FormalLW(), cw := this._FormalCW()
+        folded := this._NodeFolded(id)          ; 收起态
+        condiTypes := this._LoopCondiTypes()
+        logicTypes := this._LoopLogicTypes()
+        condiType := d.HasOwnProp("condiType") ? d.condiType : 1
+        logicType := d.HasOwnProp("logicType") ? d.logicType : 1
+        showCondi := condiType != 1
+        cmds := this._LoopBodyCmds(d)
+
+        ; ---- 收起态：简化摘要 ----
+        sumBox := body.Add("StackPanel").Name("LoopSumBox_" id)
+        sumBox.Visibility(folded ? "Visible" : "Collapsed")
+        this._FillLoopSummary(id, sumBox)
+
+        ; ---- 展开态：完整条件编辑 ----
+        fullBox := body.Add("StackPanel").Name("LoopFullBox_" id)
+        fullBox.Visibility(folded ? "Collapsed" : "Visible")
+        countItems := GetGuiVarArr()
+        countItems.Push(GetLang("无限"))
+        this._AddEditableComboRow(fullBox, "LoopCountRow_" id, GetLang("循环次数："), "LoopCount_" id, countItems, this._LoopCountText(d), true, lw, cw)
+        this._AddComboRow(fullBox, "LoopCondiRow_" id, GetLang("循环条件："), "LoopCondiCmb_" id, condiTypes, Max(0, condiType - 1), true, true, lw, cw)
+        this._AddComboRow(fullBox, "LoopLogicRow_" id, GetLang("逻辑关系："), "LoopLogicCmb_" id, logicTypes, Max(0, logicType - 1), showCondi, true, lw, cw)
+        ; 逐级展开：条件卡片仅勾选上一条件后才显示（叠加条件类型门控 showCondi），降低展开高度
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            chainVis := (slot == 1) ? true : prevOn
+            this._FillLoopCondiCard(fullBox, id, slot, d, showCondi && chainVis)
+            on := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
+            prevOn := chainVis && on
+        }
+
+        ; ---- 收起态：内置循环体卡片 ----
+        inlineBox := body.Add("Border").Name("LoopInlineBody_" id).BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Background("#2E2E45").Margin("0,8,0,0").Padding("8,6,8,8")
+        inlineBox.Visibility(folded ? "Visible" : "Collapsed")
+        inner := inlineBox.Add("StackPanel")
+        head := inner.Add("StackPanel").Orientation("Horizontal")
+        head.Add("TextBlock").Text("↻ ").Foreground("#9FA8DA").FontSize(this._MGFontSize(14))
+        head.Add("TextBlock").Name("LoopBodyCount_" id).Text(this._LoopBodyBadge(cmds.Length)).Foreground("#C5CAE9").FontSize(this._MGFontSize(12))
+        this._FillLoopChips(inner, "LoopChipsPanel_" id, "LoopChipsExpand_" id, id, cmds)
+        this._AddFormalHint(body)
+    }
+
     _IndexInLangArr(arr, target) {
         loop arr.Length {
             if (arr[A_Index] == target)
@@ -901,16 +1147,19 @@ class MacroGraphFormalMixin {
             loop 3
                 this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
         } else if (t == GetLang("文件读写")) {
-            h := this._OnFormalFileIO.Bind(this, id)
-            this._FormalTrackCombo(id, "FIOTypeCmb", h, runtime)
-            this._FormalTrackCombo(id, "FIOModeCmb", h, runtime)
-            this._FormalTrackField(id, "FIOPath", h, runtime)
+            ; 类型/模式各自独立处理（含派生选项刷新），普通字段统一走 _OnFIOField，互不干扰
+            hType := this._OnFIOType.Bind(this, id)
+            hMode := this._OnFIOMode.Bind(this, id)
+            hField := this._OnFIOField.Bind(this, id)
+            this._FormalTrackCombo(id, "FIOTypeCmb", hType, runtime)
+            this._FormalTrackCombo(id, "FIOModeCmb", hMode, runtime)
             this._BindCtrl("FIOPathBrowse_" id, "Click", this._OnFIOPathBrowse.Bind(this, id), runtime)
-            this._FormalTrackField(id, "FIOSheet", h, runtime)
-            this._FormalTrackCombo(id, "FIOEncCmb", h, runtime)
-            for nm in ["FIORow", "FIOCol", "FIORowEnd", "FIORowEnd", "FIOTxtRow", "FIORow", "FIOSave"]
-                this._FormalTrackEditCombo(id, nm, h, runtime)
-            this._FormalTrackField(id, "FIOContent", h, runtime)
+            this._FormalTrackField(id, "FIOPath", hField, runtime)
+            this._FormalTrackField(id, "FIOSheet", hField, runtime)
+            this._FormalTrackCombo(id, "FIOEncCmb", hField, runtime)
+            for nm in ["FIORow", "FIOCol", "FIORowEnd", "FIOColEnd", "FIOTxtRow", "FIOArr", "FIOSave"]
+                this._FormalTrackEditCombo(id, nm, hField, runtime)
+            this._FormalTrackField(id, "FIOContent", hField, runtime)
         } else if (t == GetLang("文本处理")) {
             h := this._OnFormalTextOps.Bind(this, id)
             this._FormalTrackCombo(id, "TxtTypeCmb", h, runtime)
@@ -922,17 +1171,18 @@ class MacroGraphFormalMixin {
             this._FormalTrackCombo(id, "TxtSaveTypeCmb", h, runtime)
             this._FormalTrackEditCombo(id, "TxtSave", h, runtime)
         } else if (t == GetLang("数组")) {
-            h := this._OnFormalArray.Bind(this, id)
-            this._FormalTrackCombo(id, "ArrTypeCmb", h, runtime)
-            this._FormalTrackEditCombo(id, "ArrName", h, runtime)
-            this._FormalTrackCheck(id, "ArrIgn", h, runtime)
-            this._FormalTrackField(id, "ArrInit", h, runtime)
-            this._FormalTrackEditCombo(id, "ArrMain", h, runtime)
-            this._FormalTrackEditCombo(id, "ArrArgsIdx", h, runtime)
-            this._FormalTrackCombo(id, "ArrArgsTypeCmb", h, runtime)
-            this._FormalTrackEditCombo(id, "ArrArgsName", h, runtime)
-            this._FormalTrackCombo(id, "ArrSaveTypeCmb", h, runtime)
-            this._FormalTrackEditCombo(id, "ArrSave", h, runtime)
+            hType := this._OnFormalArray.Bind(this, id)
+            hField := this._OnArrField.Bind(this, id)
+            this._FormalTrackCombo(id, "ArrTypeCmb", hType, runtime)
+            this._FormalTrackCombo(id, "ArrArgsTypeCmb", hType, runtime)
+            this._FormalTrackCombo(id, "ArrSaveTypeCmb", hType, runtime)
+            this._FormalTrackEditCombo(id, "ArrName", hField, runtime)
+            this._FormalTrackCheck(id, "ArrIgn", hField, runtime)
+            this._FormalTrackField(id, "ArrInit", hField, runtime)
+            this._FormalTrackEditCombo(id, "ArrMain", hField, runtime)
+            this._FormalTrackEditCombo(id, "ArrArgsIdx", hField, runtime)
+            this._FormalTrackEditCombo(id, "ArrArgsName", hField, runtime)
+            this._FormalTrackEditCombo(id, "ArrSave", hField, runtime)
         } else if (t == GetLang("RMT指令")) {
             h := this._OnFormalRmt.Bind(this, id)
             this._FormalTrackCombo(id, "RmtOpCmb", h, runtime)
@@ -976,6 +1226,20 @@ class MacroGraphFormalMixin {
             this._FormalTrackField(id, "SsPath", h, runtime)
             this._FormalTrackCheck(id, "SsResTog", h, runtime)
             this._FormalTrackEditCombo(id, "SsResName", h, runtime)
+        } else if (t == GetLang("循环")) {
+            h := this._OnFormalLoop.Bind(this, id)
+            this._FormalTrackEditCombo(id, "LoopCount", h, runtime)
+            this._FormalTrackCombo(id, "LoopCondiCmb", h, runtime)
+            this._FormalTrackCombo(id, "LoopLogicCmb", h, runtime)
+            loop 4 {
+                p := "LoopC" A_Index
+                this._FormalTrackCheck(id, p "Tog", h, runtime)
+                this._FormalTrackEditCombo(id, p "Name", h, runtime)
+                this._FormalTrackCombo(id, p "Cmp", h, runtime)
+                this._FormalTrackEditCombo(id, p "Var", h, runtime)
+            }
+            this._BindCtrl("LoopChipsExpand_" id, "Click", this._OnLoopChipsToggle.Bind(this, id, "LoopChipsPanel_" id, "LoopChipsExpand_" id, id), runtime)
+            this._BindCtrl("SFold_" id, "Click", this._OnToggleLoopFold.Bind(this, id), runtime)
         }
     }
 }

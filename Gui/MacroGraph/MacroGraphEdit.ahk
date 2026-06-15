@@ -15,17 +15,48 @@ class MacroGraphEditMixin {
             return
         ; 记录被删搜索节点（其强制绑定的真/假分支节点需随之清理）
         searchIds := []
+        loopIds := []
         for sid in this.graph.selectedNodes {
             if (this._IsSearchNodeId(sid))
                 searchIds.Push(sid)
+            if (this._IsLoopNodeId(sid))
+                loopIds.Push(sid)
         }
         this.graph.DeleteSelectedConnections()
         this._DeleteSelectedNodes()
         ; 运行时隐藏并移除分支节点（避免整窗重建闪烁）
         for sid in searchIds
             this._RemoveBranchNodesRuntime(sid)
+        ; 删除循环节点：联动隐藏并移除其外置循环体节点 + 回环路径
+        for lid in loopIds
+            this._RemoveLoopBodyNodeRuntime(lid)
         this._CaptureLinks()
         this._Apply()
+    }
+
+    ; 运行时清理一个循环节点的外置循环体节点（隐藏 UI、移除节点表、隐藏回环路径），不重建窗口
+    _RemoveLoopBodyNodeRuntime(loopId) {
+        g := this.graph
+        if (g == "")
+            return
+        bid := this._LoopBodyId(loopId)
+        g.ui.Update("Node_" bid, "Visibility", "Collapsed")
+        g.ui.Update("Port_In_" bid, "Visibility", "Collapsed")
+        g.ui.Update("Port_Out_" bid, "Visibility", "Collapsed")
+        g.ui.Update("LoopEnterPath_" loopId, "Visibility", "Collapsed")
+        g.ui.Update("LoopReturnPath_" loopId, "Visibility", "Collapsed")
+        nkeep := []
+        for n in g.nodes {
+            if (n.Id != bid)
+                nkeep.Push(n)
+        }
+        g.nodes := nkeep
+        if (this.pos.Has(bid))
+            this.pos.Delete(bid)
+        if (g.selectedNodes.Has(bid))
+            g.selectedNodes.Delete(bid)
+        if (this._loopBodyInjected.Has(loopId))
+            this._loopBodyInjected.Delete(loopId)
     }
 
     ; 运行时清理一个搜索节点的真/假分支节点（隐藏 UI、移除节点表与连线），不重建窗口
@@ -201,6 +232,8 @@ class MacroGraphEditMixin {
             this._InjectFullNode(id, node)
             if (this._IsExpandedSearch(id))
                 this._InjectBranchPair(id)
+            if (this._IsExpandedLoop(id))
+                this._InjectLoopBodyNode(id)
         }
         for link in this._clipboard.links {
             newFrom := idMap.Has(link.from) ? idMap[link.from] : ""

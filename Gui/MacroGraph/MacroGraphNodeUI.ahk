@@ -656,6 +656,237 @@ class MacroGraphNodeUIMixin {
         return result
     }
 
+    ; ----------------------------------------------------------------- 循环体外置节点（强制绑定，方案B 侧边回环）
+
+    ; 循环体合成 ID："<loopId>__LB"（循环节点本身仍是 cmdNodes 中的 id）
+    _LoopBodyId(loopId) {
+        return loopId "__LB"
+    }
+
+    ; 解析循环体合成 ID，命中返回 { loopId }，否则返回 ""
+    _LoopBodyInfo(nodeId) {
+        if (nodeId != "" && RegExMatch(nodeId, "^(.+)__LB$", &m))
+            return { loopId: m[1] }
+        return ""
+    }
+
+    _IsLoopBodyId(nodeId) {
+        return this._LoopBodyInfo(nodeId) != ""
+    }
+
+    ; 该 id 是否为循环节点
+    _IsLoopNodeId(id) {
+        if (!this.cmdNodes.Has(id))
+            return false
+        return this._Parse(this.cmdNodes[id].CurCMD).type == GetLang("循环")
+    }
+
+    ; 循环节点且未折叠（展开态需显示外置循环体节点）
+    _IsExpandedLoop(id) {
+        return this._IsLoopNodeId(id) && !this._NodeFolded(id)
+    }
+
+    ; 循环节点宽度
+    _LoopNodeWidth(loopId) {
+        return this._FormalNodeWidth(GetLang("循环"))
+    }
+
+    ; 循环体外置节点相对循环节点的逻辑坐标。
+    ; 优先使用节点上保存的相对偏移(LoopBodyDX/DY)，未保存时回退默认（落在循环节点右下方）。
+    _LoopBodyPos(loopId) {
+        sp := this.pos.Has(loopId) ? this.pos[loopId] : { x: 200, y: 200 }
+        rel := this._SavedLoopBodyOffset(loopId)
+        if (rel != "")
+            return { x: sp.x + rel.dx, y: sp.y + rel.dy }
+        ; 默认：节点水平间距 50px；纵向偏移 60(网格 20 的整数倍，吸附后仍保持)。
+        ; 此偏移下循环右侧两点与循环体左侧两点中心 Y 相等(回环路径为水平直线)：
+        ;   循环上点中心=循环Y+90 / 循环体上点(入点位)中心=循环体Y+30=循环Y+90；
+        ;   循环下点中心=循环Y+146 / 循环体下点中心=循环体Y+86=循环Y+146。
+        return { x: sp.x + this._LoopNodeWidth(loopId) + 50, y: sp.y + 60 }
+    }
+
+    ; 取循环节点上保存的循环体相对偏移 { dx, dy }；未保存返回 ""
+    _SavedLoopBodyOffset(loopId) {
+        if (!this.cmdNodes.Has(loopId))
+            return ""
+        node := this.cmdNodes[loopId]
+        if (!node.HasOwnProp("LoopBodyDX") || !node.HasOwnProp("LoopBodyDY"))
+            return ""
+        dx := node.LoopBodyDX, dy := node.LoopBodyDY
+        if (dx == "" || dy == "" || !IsNumber(dx) || !IsNumber(dy))
+            return ""
+        return { dx: dx + 0, dy: dy + 0 }
+    }
+
+    ; 给循环节点 grid 追加右侧两个回环交互点（出点不变、入点不变；额外的进入/返回点）。
+    ; 上点=进入循环体（连到循环体左上点），下点=循环体返回（来自循环体左下点）。
+    ; 中心 Y：上点 = 30(头) + 54 + 6 = 90；下点 = 30 + 110 + 6 = 146。
+    ; 该位置与循环体(默认偏移 dy=60)左侧两点中心 Y 对齐，使回环路径为水平直线（见 _LoopBodyPos）。
+    _AddLoopCyclePortEls(grid, id) {
+        vis := this._NodeFolded(id) ? "Collapsed" : "Visible"
+        oEl := XAMLElement("Ellipse")
+        oEl.Name("LoopCyO_" id)
+        oEl._Props["Width"] := "12", oEl._Props["Height"] := "12"
+        oEl._Props["Fill"] := "#5C6BC0", oEl._Props["Stroke"] := "#1A237E", oEl._Props["StrokeThickness"] := "1"
+        oEl._Props["Grid.Row"] := "1", oEl._Props["VerticalAlignment"] := "Top", oEl._Props["HorizontalAlignment"] := "Right", oEl._Props["Margin"] := "0,54,-6,0"
+        oEl._Props["Panel.ZIndex"] := "10", oEl._Props["Visibility"] := vis, oEl._Props["ToolTip"] := GetLang("进入循环体")
+        grid._Children.Push(oEl)
+        iEl := XAMLElement("Ellipse")
+        iEl.Name("LoopCyI_" id)
+        iEl._Props["Width"] := "12", iEl._Props["Height"] := "12"
+        iEl._Props["Fill"] := "#9575CD", iEl._Props["Stroke"] := "#311B92", iEl._Props["StrokeThickness"] := "1"
+        iEl._Props["Grid.Row"] := "1", iEl._Props["VerticalAlignment"] := "Top", iEl._Props["HorizontalAlignment"] := "Right", iEl._Props["Margin"] := "0,110,-6,0"
+        iEl._Props["Panel.ZIndex"] := "10", iEl._Props["Visibility"] := vis, iEl._Props["ToolTip"] := GetLang("循环体返回")
+        grid._Children.Push(iEl)
+    }
+
+    ; 给循环体外置节点 grid 追加左侧两个回环交互点（与循环节点右侧两点对应连接）。
+    ; 上点(BI)对齐通用节点「入点」位置(行顶左缘，中心 Y = 头30)；下点(BO)中心 Y = 头30+56 = 86。
+    _AddLoopBodyCyclePortEls(grid, bid) {
+        biEl := XAMLElement("Ellipse")
+        biEl.Name("LoopCyBI_" bid)
+        biEl._Props["Width"] := "12", biEl._Props["Height"] := "12"
+        biEl._Props["Fill"] := "#5C6BC0", biEl._Props["Stroke"] := "#1A237E", biEl._Props["StrokeThickness"] := "1"
+        biEl._Props["Grid.Row"] := "1", biEl._Props["VerticalAlignment"] := "Top", biEl._Props["HorizontalAlignment"] := "Left", biEl._Props["Margin"] := "-6,-6,0,0"
+        biEl._Props["Panel.ZIndex"] := "10", biEl._Props["ToolTip"] := GetLang("进入循环体")
+        grid._Children.Push(biEl)
+        boEl := XAMLElement("Ellipse")
+        boEl.Name("LoopCyBO_" bid)
+        boEl._Props["Width"] := "12", boEl._Props["Height"] := "12"
+        boEl._Props["Fill"] := "#9575CD", boEl._Props["Stroke"] := "#311B92", boEl._Props["StrokeThickness"] := "1"
+        boEl._Props["Grid.Row"] := "1", boEl._Props["VerticalAlignment"] := "Top", boEl._Props["HorizontalAlignment"] := "Left", boEl._Props["Margin"] := "-6,50,0,0"
+        boEl._Props["Panel.ZIndex"] := "10", boEl._Props["ToolTip"] := GetLang("循环体返回")
+        grid._Children.Push(boEl)
+    }
+
+    ; 回环路径的三次贝塞尔几何串（与引擎连线一致的风格，支持任意左右方向）。
+    _LoopCycGeom(sx, sy, ex, ey) {
+        off := Max(Abs(ex - sx) * 0.5, 40)
+        sgn := (ex >= sx) ? 1 : -1
+        return Format("M{},{} C{},{} {},{} {},{}", sx, sy, sx + sgn * off, sy, ex - sgn * off, ey, ex, ey)
+    }
+
+    ; 刷新循环↔循环体的两条回环路径几何。坐标缺省时从引擎节点画布坐标取（被拖动节点用其实时坐标传入）。
+    _UpdateLoopCyclePaths(loopId, loopX := "", loopY := "", bodyX := "", bodyY := "") {
+        if (this.graph == "" || this.ui == "")
+            return
+        g := this.graph
+        bid := this._LoopBodyId(loopId)
+        ln := g.GetNode(loopId), bn := g.GetNode(bid)
+        if (!ln || !bn)
+            return
+        lw := this._LoopNodeWidth(loopId)
+        lx := (loopX != "") ? loopX : ln.X
+        ly := (loopY != "") ? loopY : ln.Y
+        bx := (bodyX != "") ? bodyX : bn.X
+        by := (bodyY != "") ? bodyY : bn.Y
+        rx := lx + lw
+        ; 进入：循环右上点(Y 偏移 90) → 循环体左上点(入点位，Y 偏移 30)
+        this.ui.Update("LoopEnterPath_" loopId, "Data", this._LoopCycGeom(rx, ly + 90, bx, by + 30))
+        ; 返回：循环体左下点(Y 偏移 86) → 循环右下点(Y 偏移 146)
+        this.ui.Update("LoopReturnPath_" loopId, "Data", this._LoopCycGeom(bx, by + 86, rx, ly + 146))
+    }
+
+    ; 循环体外置节点 Border 元素（标题 + 指令小卡片 + 端口）。
+    _MakeLoopBodyBorderEl(loopId, x, y, asFragment := false) {
+        bid := this._LoopBodyId(loopId)
+        border := XAMLElement("Border")
+        if (asFragment)
+            border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
+        border.Name("Node_" bid).Background("{DynamicResource DropdownBg}").BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        grid := border.Add("Grid")
+        grid.Rows("30", "Auto")
+        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("#3949AB").CornerRadius("5,5,0,0")
+        hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
+        hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
+        this._FillLoopBodyNodeBody(loopId, body, bid)
+        ; 循环体不参与主流程，不用标准入/出端口；仅左侧两个回环交互点（与循环节点右侧两点对应）
+        this._AddLoopBodyCyclePortEls(grid, bid)
+        return border
+    }
+
+    ; 填充循环体外置节点内容：指令小卡片(预览 5 条 + 展开/收起按钮，同搜索分支节点) + 双击提示
+    _FillLoopBodyNodeBody(loopId, body, bid) {
+        cmds := this._LoopBodyCmds(this._FormalDFromId(loopId))
+        this._FillLoopChips(body, "LoopExtChips_" bid, "LoopExtExpand_" bid, bid, cmds)
+        body.Add("TextBlock").Text(GetLang("双击编辑循环体")).Foreground("#9FA8DA").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
+    }
+
+    ; 回环路径元素（Path，画布级，非引擎连线）：构建供静态加入画布。
+    _MakeLoopCyclePathEl(name, color, asFragment := false) {
+        el := XAMLElement("Path")
+        if (asFragment)
+            el.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
+        el.Name(name)
+        el._Props["Stroke"] := color, el._Props["StrokeThickness"] := "3", el._Props["Opacity"] := "0.95"
+        el._Props["Panel.ZIndex"] := "-1", el._Props["StrokeStartLineCap"] := "Round", el._Props["StrokeEndLineCap"] := "Round"
+        return el
+    }
+
+    ; ---- 静态构建（_Render 期）----
+    ; 为展开的循环节点构建外置循环体节点 + 两条自绘回环路径（进入/返回，连接两侧专用交互点）
+    _BuildLoopBodyNode(loopId) {
+        g := this.graph
+        bid := this._LoopBodyId(loopId)
+        bp := this._LoopBodyPos(loopId)
+        this.pos[bid] := bp
+        x := bp.x + g.offsetX
+        y := bp.y + g.offsetY
+        el := this._MakeLoopBodyBorderEl(loopId, x, y, false)
+        g.canvas._Children.Push(el)
+        g.nodes.Push({ Id: bid, Title: GetLang("循环体"), X: x, Y: y, W: 200, H: 60, Type: "Process" })
+        ; 两条回环路径（画布级元素）。窗口尚未就绪，初始几何用静态坐标直接 SetProp。
+        ln := g.GetNode(loopId)
+        lx := ln ? ln.X : x, ly := ln ? ln.Y : y
+        rx := lx + this._LoopNodeWidth(loopId)
+        enterEl := this._MakeLoopCyclePathEl("LoopEnterPath_" loopId, "#5C6BC0", false)
+        enterEl.SetProp("Data", this._LoopCycGeom(rx, ly + 90, x, y + 30))
+        retEl := this._MakeLoopCyclePathEl("LoopReturnPath_" loopId, "#9575CD", false)
+        retEl.SetProp("Data", this._LoopCycGeom(x, y + 86, rx, ly + 146))
+        g.canvas._Children.Push(enterEl)
+        g.canvas._Children.Push(retEl)
+    }
+
+    ; ---- 运行时注入（窗口已就绪，避免整窗重建闪烁）----
+    _InjectLoopBodyNode(loopId) {
+        g := this.graph
+        bid := this._LoopBodyId(loopId)
+        bp := this._LoopBodyPos(loopId)
+        this.pos[bid] := bp
+        x := bp.x + g.offsetX
+        y := bp.y + g.offsetY
+        el := this._MakeLoopBodyBorderEl(loopId, x, y, true)
+        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(el.ToString()))
+        g.nodes.Push({ Id: bid, Title: GetLang("循环体"), X: x, Y: y, W: 200, H: 60, Type: "Process" })
+        ; 两条回环路径（画布级元素，运行时注入）
+        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopCyclePathEl("LoopEnterPath_" loopId, "#5C6BC0", true).ToString()))
+        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopCyclePathEl("LoopReturnPath_" loopId, "#9575CD", true).ToString()))
+        g.ui.OnEvent("Node_" bid, "DragMove", ObjBindMethod(g, "OnNodeMoved", bid))
+        g.ui.OnEvent("Node_" bid, "SelectNode", ObjBindMethod(g, "OnSelectNode", bid))
+        g.ui.OnEvent("Node_" bid, "CtrlSelectNode", ObjBindMethod(g, "OnCtrlSelectNode", bid))
+        this._RegisterLoopBodyEvents(loopId, true)
+        this._loopBodyInjected[loopId] := true
+        ; 注入后下一拍刷新路径几何（节点已就位）+ 启用拖动
+        SetTimer(() => (this._UpdateLoopCyclePaths(loopId), g.ui.Update("Node_" bid, "EnableDrag", "grid=20")), -150)
+    }
+
+    ; 运行时刷新循环体外置节点 + 内联循环体卡片（循环体编辑器改动后调用）
+    _RefreshLoopBodyNode(loopId) {
+        if (this.ui == "")
+            return
+        cmds := this._LoopBodyCmds(this._FormalDFromId(loopId))
+        if (this._loopBodyInjected.Has(loopId)) {
+            bid := this._LoopBodyId(loopId)
+            expanded := this._loopChipsExpanded.Has(bid) && this._loopChipsExpanded[bid]
+            this._RebuildLoopChips("LoopExtChips_" bid, cmds, expanded)
+            this.ui.Update("LoopExtExpand_" bid, "Visibility", cmds.Length > this._LoopPreviewCount() ? "Visible" : "Collapsed")
+            this.ui.Update("LoopExtExpand_" bid, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+        }
+        this._RefreshLoopChips(loopId)
+    }
+
     ; 构建可运行时注入的节点片段（Border + 内嵌端口）的 XAML 字符串。
     ; 端口作为 Border 子元素，用负 Margin 伸出节点边缘，拖动时自动跟随。
     _NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml) {
@@ -671,6 +902,8 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        if (d.type == GetLang("循环"))
+            border.SetProp("MinHeight", "180")
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
@@ -694,6 +927,9 @@ class MacroGraphNodeUIMixin {
         portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
         portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
         grid._Children.Push(portOutEl)
+        ; 循环节点：右侧追加两个回环交互点（进入循环体 / 循环体返回）
+        if (d.type == GetLang("循环"))
+            this._AddLoopCyclePortEls(grid, id)
 
         ; 压成单行供运行时 AddXamlItem 注入
         nodeXaml := this._FlattenXaml(border.ToString())
@@ -721,6 +957,8 @@ class MacroGraphNodeUIMixin {
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        if (title == GetLang("循环"))
+            node.SetProp("MinHeight", "180")
         node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
 
         grid := node.Add("Grid")
@@ -766,6 +1004,9 @@ class MacroGraphNodeUIMixin {
             portOutEl._Props["Cursor"] := "Hand"
             grid._Children.Push(portOutEl)
         }
+        ; 循环节点：右侧追加两个回环交互点（进入循环体 / 循环体返回）
+        if (title == GetLang("循环"))
+            this._AddLoopCyclePortEls(grid, id)
 
         nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, W: nodeW, H: 60, Type: nodeType }
         g.nodes.Push(nodeObj)
@@ -808,6 +1049,12 @@ class MacroGraphNodeUIMixin {
         }
         else if (title == GetLang("运算")) {
             ; 运算节点：标题栏展开/收起按钮。展开=完整卡片；收起=各启用槽「目标 = 表达式」摘要
+            folded := this._NodeFolded(id)
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
+        }
+        else if (title == GetLang("循环")) {
+            ; 循环节点：标题栏展开/收起按钮。展开=完整条件+外置循环体；收起=简化条件+内置循环体
             folded := this._NodeFolded(id)
             fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))

@@ -223,8 +223,7 @@ class ArrayGui {
         IsShowMainIndex := !IsCreate && !IsDelete
         IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
 
-        this.IsIgnoreExistCon.Visible := IsCreate || IsClone || IsGet || IsLength || IsRemove || IsRemoveLast ||
-            IsContain
+        this.IsIgnoreExistCon.Visible := IsCreate
         this.SetConArrVisible(this.MainIndexConArr, IsShowMainIndex)
         this.SetConArrVisible(this.ResultConArr, IsShowRusult)
         this.SetConArrVisible(this.CreateConArr, IsCreate)
@@ -383,7 +382,8 @@ class ArrayGui {
     }
 
     SaveSubMacroData() {
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        ; 忽略已存在：仅 创建/克隆 生效，其余强制 false
+        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Visible ? this.IsIgnoreExistCon.Value : 0
         this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Name := this.NameCon.Text
         this.Data.InitArr := GetArray(this.InitArrCon.Text)

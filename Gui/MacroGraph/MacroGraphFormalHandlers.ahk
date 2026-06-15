@@ -239,39 +239,88 @@ class MacroGraphFormalHandlersMixin {
         this._Apply()
     }
 
-    _OnFormalFileIO(id, state, ctrl, event) {
+    ; 文件读写：结果是否仅能为「变量」（其余皆为「数组」），与编辑器 RefreshConVisable 一致。
+    _FIOResOnlyVar(operType, operMode) {
+        return (operType == "读取Excel" && operMode == "单元格")
+            || (operType == "读取文本文件" && (operMode == "读取全部内容" || operMode == "指定行"))
+    }
+
+    ; 在模式列表中查找某模式键的索引（0 基），未找到返回 -1。
+    _FIOModeIdx(modeItems, modeKey) {
+        target := GetLang(modeKey)
+        loop modeItems.Length {
+            if (modeItems[A_Index] == target)
+                return A_Index - 1
+        }
+        return -1
+    }
+
+    ; 实时读取文件读写节点当前界面上「类型/模式/保存名」的真实值（直接向 WPF 进程查询，不用事件快照、不读数据缓存）。
+    _FIOReadLive(id) {
+        res := (this.ui != "") ? this.ui.Query("FIOTypeCmb_" id, "FIOModeCmb_" id, "FIOSave_" id) : ""
+        if (!IsObject(res))
+            res := Map()
+        ot := res.Has("FIOTypeCmb_" id) ? GetLangKey(res["FIOTypeCmb_" id]) : ""
+        om := res.Has("FIOModeCmb_" id) ? GetLangKey(res["FIOModeCmb_" id]) : ""
+        sn := res.Has("FIOSave_" id) ? res["FIOSave_" id] : ""
+        return { ot: ot, om: om, sn: sn }
+    }
+
+    ; 操作类型切换：重置下方所有选项——模式列表重建并定位到「第一个」模式，再按 (类型, 第一个模式) 实时刷新下方内容。
+    ; 类型实时取自界面控件，模式固定为新类型的第一项，不依赖任何快照/缓存。
+    _OnFIOType(id, state, ctrl, event) {
+        live := this._FIOReadLive(id)
+        ot := live.ot
+        if (ot == "")
+            return
+        modeItems := this._FormalFileIOOperModes(ot)
+        om := modeItems.Length > 0 ? GetLangKey(modeItems[1]) : "单元格"   ; 切类型 → 模式回到第一个
+        if (this.ui != "") {
+            this.ui.Update("FIOModeCmb_" id, "ClearItems", "")
+            for it in modeItems
+                this.ui.Update("FIOModeCmb_" id, "AddItem", it)
+            this.ui.Update("FIOModeCmb_" id, "SelectedIndex", 0)
+        }
+        ; 按 (类型, 第一个模式) 实时刷新下方所有选项
+        this._RefreshFileIOOptions(id, ot, om, live.sn)
+        ; 持久化（仅存储，不参与上面的刷新判断）
+        data := this._FormalIniData(id)
+        if (data != "") {
+            data.OperType := ot
+            data.OperMode := om
+            data.SaveType := this._FIOResOnlyVar(ot, om) ? "变量" : "数组"
+            SaveMacroCMDData(data)
+        }
+        this._Apply()
+    }
+
+    ; 模式切换：类型与模式都【实时】取自界面控件，按 (类型, 模式) 一级一级刷新下方内容，不用快照、不读缓存。
+    _OnFIOMode(id, state, ctrl, event) {
+        live := this._FIOReadLive(id)
+        ot := live.ot, om := live.om
+        if (ot == "" || om == "")
+            return
+        ; 过滤不属于当前类型的模式（类型切换时清空/重建产生的瞬时回显）
+        if (this._FIOModeIdx(this._FormalFileIOOperModes(ot), om) < 0)
+            return
+        ; 按 (类型, 模式) 实时刷新下方所有选项
+        this._RefreshFileIOOptions(id, ot, om, live.sn)
+        ; 持久化
+        data := this._FormalIniData(id)
+        if (data != "") {
+            data.OperType := ot
+            data.OperMode := om
+            data.SaveType := this._FIOResOnlyVar(ot, om) ? "变量" : "数组"
+            SaveMacroCMDData(data)
+        }
+        this._Apply()
+    }
+
+    ; 普通字段变更：只写入对应字段，不触碰类型/模式与派生显隐（这些字段不影响布局）。
+    _OnFIOField(id, state, ctrl, event) {
         data := this._FormalIniData(id)
         if (data == "")
             return
-        encodings := GetLangArr(["UTF-8", "UTF-16", "GBK", "ANSI"])
-        saveTypes := GetLangArr(["变量", "数组"])
-        if (state.Has("FIOTypeCmb_" id) && state["FIOTypeCmb_" id] != "") {
-            data.OperType := GetLangKey(state["FIOTypeCmb_" id])
-            ; 类型改变时，清空并重新添加模式选项
-            if (this.ui != "") {
-                modeItems := this._FormalFileIOOperModes(data.OperType)
-                this.ui.Update("FIOModeCmb_" id, "ClearItems", "")
-                for it in modeItems
-                    this.ui.Update("FIOModeCmb_" id, "AddItem", it)
-                ; 设置为第一个选项
-                this.ui.Update("FIOModeCmb_" id, "SelectedIndex", 0)
-                data.OperMode := modeItems.Length > 0 ? GetLangKey(modeItems[1]) : "单元格"
-            }
-        }
-        if (state.Has("FIOModeCmb_" id) && state["FIOModeCmb_" id] != "") {
-            data.OperMode := GetLangKey(state["FIOModeCmb_" id])
-            ; 模式改变时，刷新保存类型显示和选项列表
-            if (this.ui != "") {
-                IsResOnlyVar := (data.OperType == "读取Excel" && data.OperMode == "单元格") || (data.OperType == "读取文本文件" && (data.OperMode == "读取全部内容" || data.OperMode == "指定行"))
-                autoSaveType := IsResOnlyVar ? GetLang("变量") : GetLang("数组")
-                this.ui.Update("FIOSaveType_" id, "Text", autoSaveType)
-                ; 更新保存名选项列表
-                saveNameList := IsResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
-                this.ui.Update("FIOSave_" id, "ClearItems", "")
-                for name in saveNameList
-                    this.ui.Update("FIOSave_" id, "AddItem", name)
-            }
-        }
         if (state.Has("FIOPath_" id))
             data.FilePath := state["FIOPath_" id]
         if (state.Has("FIOSheet_" id) && state["FIOSheet_" id] != "")
@@ -294,14 +343,24 @@ class MacroGraphFormalHandlersMixin {
             data.ArrName := GetVarName(state["FIOArr_" id])
         if (state.Has("FIOSave_" id) && state["FIOSave_" id] != "")
             data.SaveName := GetVarName(state["FIOSave_" id])
-        ; 保存类型自动固定：读取Excel+单元格/读取文本+全部/指定行 → 变量；其他 → 数组
-        IsResOnlyVar := (data.OperType == "读取Excel" && data.OperMode == "单元格") || (data.OperType == "读取文本文件" && (data.OperMode == "读取全部内容" || data.OperMode == "指定行"))
-        data.SaveType := IsResOnlyVar ? "变量" : "数组"
         SaveMacroCMDData(data)
-        ; 类型改变时已处理模式列表，只需刷新显隐和保存类型显示
-        ; 模式改变时只刷新显隐
-        this._RefreshFormalFileIOVisibility(id)
         this._Apply()
+    }
+
+    ; 下方所有选项的刷新：完全由 (类型, 模式) 决定，不读数据表。
+    ; 一级一级判断：保存类型文本 → 保存名列表（变量/数组）→ 各字段行显隐。saveName 仅用于回填下拉文本。
+    _RefreshFileIOOptions(id, ot, om, saveName := "") {
+        if (this.ui == "")
+            return
+        isResOnlyVar := this._FIOResOnlyVar(ot, om)
+        this.ui.Update("FIOSaveType_" id, "Text", GetLang(isResOnlyVar ? "变量" : "数组"))
+        saveNameList := isResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
+        this.ui.Update("FIOSave_" id, "ClearItems", "")
+        for name in saveNameList
+            this.ui.Update("FIOSave_" id, "AddItem", name)
+        if (saveName != "")
+            this.ui.Update("FIOSave_" id, "Text", saveName)
+        this._RefreshFormalFileIOVisibility(id, ot, om)
     }
 
     _OnFormalTextOps(id, state, ctrl, event) {
@@ -330,34 +389,138 @@ class MacroGraphFormalHandlersMixin {
         this._Apply()
     }
 
+    ; 数组：根据操作类型计算各类显隐/逻辑标志，节点与刷新共用，保证表现一致。
+    _ArrFlags(at) {
+        IsCreate := at == "创建"
+        IsClone := at == "克隆"
+        IsDelete := at == "删除"
+        IsContain := at == "包含"
+        IsGet := at == "取值"
+        IsSetValue := at == "赋值"
+        IsInsert := at == "插入"
+        IsAdd := at == "追加"
+        IsRemove := at == "移除"
+        IsRemoveLast := at == "移除最后"
+        IsReverse := at == "反转"
+        IsLength := at == "长度"
+        OnlyArgsIndex := IsGet || IsRemove                ; 取值/移除：只要 索引，不要 参数类型/参数值
+        OnlyArgsData := IsAdd || IsContain                ; 追加/包含：只要 参数类型/参数值，不要 索引
+        IsShowResult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain || IsReverse
+        IsShowMainIndex := !IsCreate && !IsDelete
+        IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
+        ShowIgn := IsCreate                               ; 仅 创建 显示「忽略已存在」
+        return { IsCreate: IsCreate, IsClone: IsClone, IsDelete: IsDelete, IsContain: IsContain
+            , IsGet: IsGet, IsSetValue: IsSetValue, IsInsert: IsInsert, IsAdd: IsAdd
+            , IsRemove: IsRemove, IsRemoveLast: IsRemoveLast, IsReverse: IsReverse, IsLength: IsLength
+            , OnlyArgsIndex: OnlyArgsIndex, OnlyArgsData: OnlyArgsData, IsShowResult: IsShowResult
+            , IsShowMainIndex: IsShowMainIndex, IsShowArgs: IsShowArgs, ShowIgn: ShowIgn }
+    }
+
+    ; 数组：某些操作类型的「保存类型」固定，返回固定值（"变量"/"数组"），无固定返回 ""。
+    _ArrFixedSaveType(at) {
+        if (at == "长度" || at == "包含")
+            return "变量"
+        if (at == "克隆" || at == "反转")
+            return "数组"
+        return ""
+    }
+
+    ; 实时读取数组节点当前界面上「操作类型/参数类型/保存类型」的真实值（直接向 WPF 查询，不用快照/缓存）。
+    _ArrReadLive(id) {
+        res := (this.ui != "") ? this.ui.Query("ArrTypeCmb_" id, "ArrArgsTypeCmb_" id, "ArrSaveTypeCmb_" id) : ""
+        if (!IsObject(res))
+            res := Map()
+        at := res.Has("ArrTypeCmb_" id) ? GetLangKey(res["ArrTypeCmb_" id]) : ""
+        agt := res.Has("ArrArgsTypeCmb_" id) ? GetLangKey(res["ArrArgsTypeCmb_" id]) : ""
+        st := res.Has("ArrSaveTypeCmb_" id) ? GetLangKey(res["ArrSaveTypeCmb_" id]) : ""
+        return { at: at, agt: agt, st: st }
+    }
+
+    ; 操作类型/参数类型/保存类型 任一变更：三者都【实时】取自界面控件，按其值一级一级刷新下方内容，不用快照/缓存。
     _OnFormalArray(id, state, ctrl, event) {
         data := this._FormalIniData(id)
         if (data == "")
             return
-        argsTypes := GetLangArr(["变量或值", "数组"])
-        saveTypes := GetLangArr(["变量", "数组"])
-        if (state.Has("ArrTypeCmb_" id) && state["ArrTypeCmb_" id] != "")
-            data.Type := GetLangKey(state["ArrTypeCmb_" id])
+        live := this._ArrReadLive(id)
+        at := live.at != "" ? live.at : (data.HasOwnProp("Type") ? data.Type : "创建")
+        agt := live.agt != "" ? live.agt : (data.HasOwnProp("ArgsType") ? data.ArgsType : "变量或值")
+        fixedSt := this._ArrFixedSaveType(at)
+        st := fixedSt != "" ? fixedSt : (live.st != "" ? live.st : (data.HasOwnProp("SaveType") ? data.SaveType : "变量"))
+        ; 持久化布局相关字段
+        data.Type := at
+        data.ArgsType := agt
+        data.SaveType := st
+        f := this._ArrFlags(at)
+        if (!f.ShowIgn)
+            data.IsIgnoreExist := 0
+        SaveMacroCMDData(data)
+        ; 实时刷新下方所有选项（含保存类型固定、参数值/保存名列表、各行显隐）
+        this._RefreshArrayOptions(id, at, agt, st
+            , data.HasOwnProp("ArgsName") ? data.ArgsName : ""
+            , data.HasOwnProp("SaveName") ? data.SaveName : "")
+        this._Apply()
+    }
+
+    ; 普通字段变更：只写入对应字段，不触碰类型/派生显隐（这些字段不影响布局）。
+    _OnArrField(id, state, ctrl, event) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
         if (state.Has("ArrName_" id) && state["ArrName_" id] != "")
             data.Name := GetVarName(state["ArrName_" id])
-        data.IsIgnoreExist := this._FormalChecked(state, "ArrIgn_" id) ? 1 : 0
         if (state.Has("ArrInit_" id))
             data.InitArr := this._FormalParseInitArr(state["ArrInit_" id])
         if (state.Has("ArrMain_" id) && state["ArrMain_" id] != "")
             data.MainIndex := state["ArrMain_" id]
         if (state.Has("ArrArgsIdx_" id) && state["ArrArgsIdx_" id] != "")
             data.ArgsIndex := state["ArrArgsIdx_" id]
-        if (state.Has("ArrArgsTypeCmb_" id) && state["ArrArgsTypeCmb_" id] != "")
-            data.ArgsType := GetLangKey(state["ArrArgsTypeCmb_" id])
         if (state.Has("ArrArgsName_" id) && state["ArrArgsName_" id] != "")
             data.ArgsName := GetVarName(state["ArrArgsName_" id])
-        if (state.Has("ArrSaveTypeCmb_" id) && state["ArrSaveTypeCmb_" id] != "")
-            data.SaveType := GetLangKey(state["ArrSaveTypeCmb_" id])
         if (state.Has("ArrSave_" id) && state["ArrSave_" id] != "")
             data.SaveName := GetVarName(state["ArrSave_" id])
+        ; 忽略已存在：仅 创建 生效，其余强制 false
+        ShowIgn := (data.Type == "创建")
+        data.IsIgnoreExist := (ShowIgn && this._FormalChecked(state, "ArrIgn_" id)) ? 1 : 0
         SaveMacroCMDData(data)
-        this._RefreshFormalArrayVisibility(id)
         this._Apply()
+    }
+
+    ; 下方所有选项的刷新：完全由 (操作类型, 参数类型, 保存类型) 决定。
+    ; 一级一级：行显隐 → 保存类型固定/释放 → 参数值列表(变量/数组) → 保存名列表(变量/数组)。
+    _RefreshArrayOptions(id, at, argsType, saveType, argsName := "", saveName := "") {
+        if (this.ui == "")
+            return
+        f := this._ArrFlags(at)
+        fixedSt := this._ArrFixedSaveType(at)
+        effSt := fixedSt != "" ? fixedSt : saveType
+        showIdx := f.IsShowArgs && !f.OnlyArgsData
+        showData := f.IsShowArgs && !f.OnlyArgsIndex
+        this._FormalSetVis(id, "ArrIgnRow_" id, f.ShowIgn)
+        this._FormalSetVis(id, "ArrInitRow_" id, f.IsCreate)
+        this._FormalSetVis(id, "ArrMainRow_" id, f.IsShowMainIndex)
+        this._FormalSetVis(id, "ArrArgsIdxRow_" id, showIdx)
+        this._FormalSetVis(id, "ArrArgsTypeRow_" id, showData)
+        this._FormalSetVis(id, "ArrArgsNameRow_" id, showData)
+        this._FormalSetVis(id, "ArrSaveTypeRow_" id, f.IsShowResult)
+        this._FormalSetVis(id, "ArrSaveRow_" id, f.IsShowResult)
+        ; 保存类型固定/释放
+        saveTypes := GetLangArr(["变量", "数组"])
+        this.ui.Update("ArrSaveTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(saveTypes, GetLang(effSt)))
+        this.ui.Update("ArrSaveTypeCmb_" id, "IsEnabled", fixedSt != "" ? "False" : "True")
+        ; 参数值列表（变量或值→变量列表；数组→数组列表）
+        argsNameList := (argsType == "数组") ? GetGuiArrNameArr() : GetGuiVarArr()
+        this.ui.Update("ArrArgsName_" id, "ClearItems", "")
+        for n in argsNameList
+            this.ui.Update("ArrArgsName_" id, "AddItem", n)
+        if (argsName != "")
+            this.ui.Update("ArrArgsName_" id, "Text", argsName)
+        ; 保存名列表（变量→变量列表；数组→数组列表）
+        saveNameList := (effSt == "数组") ? GetGuiArrNameArr() : GetGuiVarArr()
+        this.ui.Update("ArrSave_" id, "ClearItems", "")
+        for n in saveNameList
+            this.ui.Update("ArrSave_" id, "AddItem", n)
+        if (saveName != "")
+            this.ui.Update("ArrSave_" id, "Text", saveName)
     }
 
     _OnFormalRmt(id, state, ctrl, event) {
@@ -517,16 +680,19 @@ class MacroGraphFormalHandlersMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
+        prevOn := true
         loop 4 {
             slot := A_Index
             p := "VarS" slot
             st := IsSet(state) ? this._FormalVarSlotState(id, slot, d, state) : this._FormalVarSlotState(id, slot, d)
             on := st.on
             ot := st.ot
+            slotVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅上一个变量勾选后才显示本卡片
             showNum := on && ot == 1
             showChar := on && ot == 3
             showSys := on && ot == 4
             showMinMax := on && ot == 2
+            this._FormalSetVis(id, p "Card_" id, slotVis)
             this._FormalSetVis(id, p "TogRow_" id, true)
             this._FormalSetVis(id, p "OpRow_" id, on)
             this._FormalSetVis(id, p "NameRow_" id, on)
@@ -535,6 +701,7 @@ class MacroGraphFormalHandlersMixin {
             this._FormalSetVis(id, p "SysRow_" id, showSys)
             this._FormalSetVis(id, p "MinRow_" id, showMinMax)
             this._FormalSetVis(id, p "MaxRow_" id, showMinMax)
+            prevOn := slotVis && on
         }
     }
 
@@ -561,14 +728,17 @@ class MacroGraphFormalHandlersMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
+        prevOn := true
         loop 4 {
             slot := A_Index
             p := "OpS" slot
             toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : 0
             on := toggled == 1 || toggled == "1"
-            this._FormalSetVis(id, p "TogRow_" id, true)
-            this._FormalSetVis(id, p "TargetRow_" id, on)
-            this._FormalSetVis(id, p "ExprRow_" id, on)
+            slotVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅上一个变量勾选后才显示本组
+            this._FormalSetVis(id, p "TogRow_" id, slotVis)
+            this._FormalSetVis(id, p "TargetRow_" id, slotVis && on)
+            this._FormalSetVis(id, p "ExprRow_" id, slotVis && on)
+            prevOn := slotVis && on
         }
     }
 
@@ -582,12 +752,15 @@ class MacroGraphFormalHandlersMixin {
             this._FormalSetVis(id, "RunSave" A_Index "Row_" id, showSave)
     }
 
-    _RefreshFormalFileIOVisibility(id) {
+    ; ot/om 可显式传入（来自权威 data，确定且无需反解）；省略时回退到反解 CurCMD。
+    _RefreshFormalFileIOVisibility(id, ot := "", om := "") {
         if (this.ui == "")
             return
-        d := this._FormalDFromId(id)
-        ot := d.HasOwnProp("operType") ? d.operType : "读取Excel"
-        om := d.HasOwnProp("operMode") ? d.operMode : "单元格"
+        if (ot == "" || om == "") {
+            d := this._FormalDFromId(id)
+            ot := d.HasOwnProp("operType") ? d.operType : "读取Excel"
+            om := d.HasOwnProp("operMode") ? d.operMode : "单元格"
+        }
         IsRead := ot == "读取Excel" || ot == "读取文本文件"
         IsWrite := !IsRead
         IsExcel := ot == "读取Excel" || ot == "写入Excel"
@@ -606,8 +779,10 @@ class MacroGraphFormalHandlersMixin {
         this._FormalSetVis(id, "FIOTxtRowRow_" id, HasTextRow)
         this._FormalSetVis(id, "FIOContentBlock_" id, HasWriteContent)
         this._FormalSetVis(id, "FIOArrRow_" id, HasWriteArr)
-        this._FormalSetVis(id, "FIOSaveTypeRow_" id, IsRead || HasWriteArr)
-        this._FormalSetVis(id, "FIOSaveRow_" id, IsRead || HasWriteArr)
+        ; 结果保存（保存类型+保存名）仅读取时出现，与文件读写编辑器一致；
+        ; 写入Excel-指定区域只需「数组名」作为写入源，不需要保存字段。
+        this._FormalSetVis(id, "FIOSaveTypeRow_" id, IsRead)
+        this._FormalSetVis(id, "FIOSaveRow_" id, IsRead)
     }
 
     _RefreshFormalTextOpsVisibility(id) {
@@ -633,30 +808,71 @@ class MacroGraphFormalHandlersMixin {
             return
         d := this._FormalDFromId(id)
         at := d.HasOwnProp("arrayType") ? d.arrayType : "创建"
-        IsCreate := at == "创建"
-        IsClone := at == "克隆"
-        IsDelete := at == "删除"
-        IsContain := at == "包含"
-        IsGet := at == "取值"
-        IsSetValue := at == "赋值"
-        IsInsert := at == "插入"
-        IsAdd := at == "追加"
-        IsRemove := at == "移除"
-        IsReverse := at == "反转"
-        IsLength := at == "长度"
-        IsRemoveLast := at == "移除最后"
-        IsShowResult := IsGet || IsLength || IsClone || IsRemove || IsRemoveLast || IsContain || IsReverse
-        IsShowMainIndex := !IsCreate && !IsDelete
-        IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
-        ShowIgn := IsCreate || IsClone || IsGet || IsLength || IsRemove || IsRemoveLast || IsContain
-        this._FormalSetVis(id, "ArrIgnRow_" id, ShowIgn)
-        this._FormalSetVis(id, "ArrInitRow_" id, IsCreate)
-        this._FormalSetVis(id, "ArrMainRow_" id, IsShowMainIndex)
-        this._FormalSetVis(id, "ArrArgsIdxRow_" id, IsShowArgs)
-        this._FormalSetVis(id, "ArrArgsTypeRow_" id, IsShowArgs)
-        this._FormalSetVis(id, "ArrArgsNameRow_" id, IsShowArgs)
-        this._FormalSetVis(id, "ArrSaveTypeRow_" id, IsShowResult)
-        this._FormalSetVis(id, "ArrSaveRow_" id, IsShowResult)
+        agt := d.HasOwnProp("argsType") ? d.argsType : "变量或值"
+        st := d.HasOwnProp("saveType") ? d.saveType : "变量"
+        agn := d.HasOwnProp("argsName") ? d.argsName : ""
+        sn := d.HasOwnProp("saveName") ? d.saveName : ""
+        this._RefreshArrayOptions(id, at, agt, st, agn, sn)
+    }
+
+    ; 循环节点：循环次数/条件类型/逻辑关系/条件行 变更。条件行不重建下拉，标准 mega-handler + reparse 显隐即可。
+    _OnFormalLoop(id, state, ctrl, event) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        condiTypes := this._LoopCondiTypes()
+        logicTypes := this._LoopLogicTypes()
+        cmpTypes := this._LoopCmpTypes()
+        if (state.Has("LoopCount_" id) && state["LoopCount_" id] != "")
+            data.LoopCount := (state["LoopCount_" id] == GetLang("无限")) ? -1 : state["LoopCount_" id]
+        if (state.Has("LoopCondiCmb_" id) && state["LoopCondiCmb_" id] != "")
+            data.CondiType := this._IndexInLangArr(condiTypes, state["LoopCondiCmb_" id]) + 1
+        if (state.Has("LoopLogicCmb_" id) && state["LoopLogicCmb_" id] != "")
+            data.LogicType := this._IndexInLangArr(logicTypes, state["LoopLogicCmb_" id]) + 1
+        loop 4 {
+            slot := A_Index
+            p := "LoopC" slot
+            data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
+            if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
+                data.NameArr[slot] := GetLangKey(state[p "Name_" id])
+            if (state.Has(p "Cmp_" id) && state[p "Cmp_" id] != "")
+                data.CompareTypeArr[slot] := this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]) + 1
+            if (state.Has(p "Var_" id) && state[p "Var_" id] != "")
+                data.VariableArr[slot] := GetLangKey(state[p "Var_" id])
+        }
+        SaveMacroCMDData(data)
+        this._RefreshFormalLoopVisibility(id)
+        this._RefreshLoopSummary(id)
+        this._Apply()
+    }
+
+    _RefreshFormalLoopVisibility(id) {
+        if (this.ui == "")
+            return
+        d := this._FormalDFromId(id)
+        condiType := d.HasOwnProp("condiType") ? d.condiType : 1
+        showCondi := condiType != 1
+        this._FormalSetVis(id, "LoopLogicRow_" id, showCondi)
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            p := "LoopC" slot
+            tog := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
+            chainVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅勾选上一条件后才显示本卡片
+            cardVis := showCondi && chainVis
+            cmp := d.HasOwnProp("loopCmp" slot) ? d["loopCmp" slot] : 1
+            this._FormalSetVis(id, p "TogRow_" id, cardVis)   ; 整张条件卡片随条件类型 + 逐级展开显隐
+            this._FormalSetVis(id, p "NameRow_" id, cardVis && tog)
+            this._FormalSetVis(id, p "CmpRow_" id, cardVis && tog)
+            this._FormalSetVis(id, p "VarRow_" id, cardVis && tog && cmp != 7)
+            prevOn := chainVis && tog
+        }
+    }
+
+    ; 循环体「编辑」按钮：打开嵌套图形编辑器编辑循环体子图（与外置循环体节点双击一致），
+    ; 确定后就地刷新内置/外置循环体卡片，不整窗重建。
+    _OnFormalLoopBodyEdit(id, *) {
+        this._OpenLoopBodyEditor(id)
     }
 
     _RefreshFormalRmtVisibility(id) {
@@ -744,6 +960,8 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshFormalTextOpsVisibility(id)
         else if (d.type == GetLang("数组"))
             this._RefreshFormalArrayVisibility(id)
+        else if (d.type == GetLang("循环"))
+            this._RefreshFormalLoopVisibility(id)
         else if (d.type == GetLang("RMT指令"))
             this._RefreshFormalRmtVisibility(id)
         else if (d.type == GetLang("后台鼠标"))
@@ -775,7 +993,69 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshFileIOInline(id, d)
             return true
         }
+        if (d.type == GetLang("数组")) {
+            this._RefreshArrayInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("循环")) {
+            this._RefreshLoopInline(id, d)
+            return true
+        }
         return false
+    }
+
+    ; 循环节点：编辑器确定后就地刷新内联控件值与循环体卡片（避免整窗 _Render 闪烁）。
+    _RefreshLoopInline(id, d) {
+        condiTypes := this._LoopCondiTypes()
+        logicTypes := this._LoopLogicTypes()
+        cmpTypes := this._LoopCmpTypes()
+        condiType := d.HasOwnProp("condiType") ? d.condiType : 1
+        logicType := d.HasOwnProp("logicType") ? d.logicType : 1
+        this.ui.Update("LoopCount_" id, "Text", this._LoopCountText(d))
+        this.ui.Update("LoopCondiCmb_" id, "SelectedIndex", Max(0, condiType - 1))
+        this.ui.Update("LoopLogicCmb_" id, "SelectedIndex", Max(0, logicType - 1))
+        loop 4 {
+            slot := A_Index
+            p := "LoopC" slot
+            on := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
+            nm := d.HasOwnProp("loopName" slot) ? d["loopName" slot] : "Var" slot
+            cmp := d.HasOwnProp("loopCmp" slot) ? d["loopCmp" slot] : 1
+            vr := d.HasOwnProp("loopVar" slot) ? d["loopVar" slot] : "Var" slot
+            this.ui.Update(p "Tog_" id, "IsChecked", on ? "True" : "False")
+            this.ui.Update(p "Name_" id, "Text", GetLang(nm))
+            this.ui.Update(p "Cmp_" id, "SelectedIndex", cmp - 1)
+            this.ui.Update(p "Var_" id, "Text", GetLang(vr))
+        }
+        this._RefreshLoopChips(id)
+        this._RefreshLoopSummary(id)
+        this._RefreshLoopBodyNode(id)
+        this._RefreshFormalLoopVisibility(id)
+    }
+
+    ; 数组节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshArrayInline(id, d) {
+        typeNames := GetLangArr(["创建", "克隆", "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"])
+        argsTypes := GetLangArr(["变量或值", "数组"])
+        at := d.HasOwnProp("arrayType") ? d.arrayType : "创建"
+        an := d.HasOwnProp("arrayName") ? d.arrayName : "Arr"
+        ign := d.HasOwnProp("isIgnoreExist") ? d.isIgnoreExist : 0
+        initTxt := d.HasOwnProp("initArr") ? this._FormalInitArrText(d.initArr) : "1,2,3,4,5"
+        mi := d.HasOwnProp("mainIndex") ? d.mainIndex : 0
+        ai := d.HasOwnProp("argsIndex") ? d.argsIndex : 1
+        agt := d.HasOwnProp("argsType") ? d.argsType : "变量或值"
+        agn := d.HasOwnProp("argsName") ? d.argsName : "Var1"
+        st := d.HasOwnProp("saveType") ? d.saveType : "变量"
+        sn := d.HasOwnProp("saveName") ? d.saveName : "Data"
+        f := this._ArrFlags(at)
+        this.ui.Update("ArrTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(typeNames, GetLang(at)))
+        this.ui.Update("ArrName_" id, "Text", an)
+        this.ui.Update("ArrIgn_" id, "IsChecked", ((ign == 1 || ign == "1") && f.ShowIgn) ? "True" : "False")
+        this.ui.Update("ArrInit_" id, "Text", initTxt)
+        this.ui.Update("ArrMain_" id, "Text", GetLang(mi))
+        this.ui.Update("ArrArgsIdx_" id, "Text", GetLang(ai))
+        this.ui.Update("ArrArgsTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(argsTypes, GetLang(agt)))
+        ; 余下（保存类型固定/释放、参数值/保存名列表回填、各行显隐）统一交给 options 刷新
+        this._RefreshArrayOptions(id, at, agt, st, agn, sn)
     }
 
     _RefreshFileIOInline(id, d) {
@@ -803,6 +1083,7 @@ class MacroGraphFormalHandlersMixin {
         this.ui.Update("FIOSave_" id, "ClearItems", "")
         for name in saveNameList
             this.ui.Update("FIOSave_" id, "AddItem", name)
+        this.ui.Update("FIOSave_" id, "Text", d.HasOwnProp("saveName") ? d.saveName : "Data")
         ; 刷新显隐
         this._RefreshFormalFileIOVisibility(id)
     }
@@ -879,7 +1160,13 @@ class MacroGraphFormalHandlersMixin {
                         parts.Push(vn)
                 }
             }
-            return parts.Length ? parts.Join(", ") : GetLang("未配置")
+            result := ""
+            for index, part in parts {
+                if (index > 1)
+                    result .= ", "
+                result .= part
+            }
+            return parts.Length ? result : GetLang("未配置")
         }
         if (d.type == GetLang("变量提取")) {
             extKeys := GetLangArr(["屏幕", "剪切板", "窗口"])
@@ -922,6 +1209,11 @@ class MacroGraphFormalHandlersMixin {
             ssKeys := ["屏幕抓图", "窗口抓图"]
             idx := d.HasOwnProp("ssType") ? d.ssType : 1
             return GetLang(ssKeys[idx])
+        }
+        if (d.type == GetLang("循环")) {
+            lc := d.HasOwnProp("loopCount") ? d.loopCount : 10
+            cntStr := (lc == -1 || lc == "-1") ? GetLang("无限") : (GetLang("循环") " " lc)
+            return cntStr " · " this._LoopBodyCmds(d).Length
         }
         return d.raw
     }

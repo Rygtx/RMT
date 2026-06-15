@@ -61,6 +61,120 @@ class MacroGraphBranchMixin {
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
     }
 
+    ; 切换循环节点折叠态：
+    ;   展开(Folded=0)：完整条件卡片 + 外置循环体节点（回环连线）；
+    ;   收起(Folded=1)：简化条件摘要 + 内置循环体卡片（chips），隐藏外置体与回环连线。
+    ; 运行时显隐 + 连线启停，避免整窗重建闪烁。
+    _OnToggleLoopFold(id, *) {
+        if (this.ui == "" || !this.cmdNodes.Has(id))
+            return
+        node := this.cmdNodes[id]
+        willFold := this._NodeFolded(id) ? 0 : 1
+        node.Folded := willFold
+        try SaveMacroCMDData(node)
+        if (willFold) {
+            this._RefreshLoopSummary(id)       ; 收起前用当前数据刷新摘要
+            this._FoldLoopRuntime(id)          ; 隐藏外置循环体 + 停用回环连线
+        } else {
+            this._UnfoldLoopRuntime(id)        ; 显示/注入外置循环体 + 启用回环连线
+        }
+        this.ui.Update("LoopSumBox_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+        this.ui.Update("LoopFullBox_" id, "Visibility", willFold ? "Collapsed" : "Visible")
+        this.ui.Update("LoopInlineBody_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+        if (willFold)
+            this._RefreshLoopChips(id)         ; 内置循环体卡片随收起显示，刷新内容
+        this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
+        this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
+        this._CaptureLinks()
+    }
+
+    ; 折叠循环：隐藏外置循环体节点 + 两条回环路径 + 循环节点右侧两个交互点；后继子树左移靠近循环节点
+    _FoldLoopRuntime(loopId) {
+        if (this.ui == "")
+            return
+        bid := this._LoopBodyId(loopId)
+        this.ui.Update("Node_" bid, "Visibility", "Collapsed")
+        this.ui.Update("LoopEnterPath_" loopId, "Visibility", "Collapsed")
+        this.ui.Update("LoopReturnPath_" loopId, "Visibility", "Collapsed")
+        this.ui.Update("LoopCyO_" loopId, "Visibility", "Collapsed")
+        this.ui.Update("LoopCyI_" loopId, "Visibility", "Collapsed")
+        this._CaptureLinks()
+        this._SpreadForCollapse(loopId)        ; 收起：后继子树左移，与循环节点保持目标间距
+    }
+
+    ; 展开循环：显示（或首次注入）外置循环体节点 + 两条回环路径 + 循环节点右侧两个交互点；后继子树右移恢复
+    _UnfoldLoopRuntime(loopId) {
+        if (this.ui == "")
+            return
+        bid := this._LoopBodyId(loopId)
+        if (!this._loopBodyInjected.Has(loopId)) {
+            this._InjectLoopBodyNode(loopId)
+        } else {
+            this.ui.Update("Node_" bid, "Visibility", "Visible")
+            this.ui.Update("LoopEnterPath_" loopId, "Visibility", "Visible")
+            this.ui.Update("LoopReturnPath_" loopId, "Visibility", "Visible")
+            this._UpdateLoopCyclePaths(loopId)
+        }
+        this.ui.Update("LoopCyO_" loopId, "Visibility", "Visible")
+        this.ui.Update("LoopCyI_" loopId, "Visibility", "Visible")
+        this._CaptureLinks()
+        this._SpreadForExpand(loopId)          ; 展开：后继子树右移腾出外置循环体空间
+    }
+
+    ; 就地刷新循环节点收起态摘要（次数 + 条件简化信息），从当前数据取值，无需重建
+    _RefreshLoopSummary(id) {
+        if (this.ui == "")
+            return
+        info := this._LoopSummaryInfo(id)
+        this.ui.Update("LoopSumCount_" id, "Text", GetLang("循环次数") "：" info.count)
+        this.ui.Update("LoopSumCondi_" id, "Text", GetLang("循环条件") "：" info.condiName)
+        this.ui.Update("LoopSumLogic_" id, "Text", GetLang("逻辑关系") "：" info.logicName)
+        this.ui.Update("LoopSumLogic_" id, "Visibility", info.showLogic ? "Visible" : "Collapsed")
+        data := this._SearchData(id)
+        loop 4 {
+            ci := this._LoopCondiSummaryRow(data, A_Index)
+            this.ui.Update("LoopSumCondiTxt_" A_Index "_" id, "Text", ci.text)
+            this.ui.Update("LoopSumCondiRow_" A_Index "_" id, "Visibility", ci.on ? "Visible" : "Collapsed")
+        }
+    }
+
+    ; 外置循环体节点单击：计时判定双击 → 打开嵌套节点编辑器编辑循环体子图
+    _OnLoopBodyClick(loopId, *) {
+        now := A_TickCount
+        lkey := "LB_" loopId
+        if (this._lastClickId == lkey && now - this._lastClickTime < 400) {
+            this._lastClickId := ""
+            this._lastClickTime := 0
+            this._OpenLoopBodyEditor(loopId)
+        } else {
+            this._lastClickId := lkey
+            this._lastClickTime := now
+        }
+    }
+
+    ; 打开嵌套「节点编辑器」编辑循环体子图；循环体内容以「图形开始节点序列码」存于 LoopBody
+    _OpenLoopBodyEditor(loopId) {
+        data := this._SearchData(loopId)
+        if (data == "")
+            return
+        if (this.BranchGraphGui == "")
+            this.BranchGraphGui := MacroGraphGui()
+        cur := ObjHasOwnProp(data, "LoopBody") ? data.LoopBody : ""
+        this.BranchGraphGui.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
+        this.BranchGraphGui.SureBtnAction := (startSerial) => this._OnLoopBodyEditorSure(loopId, startSerial)
+        this.BranchGraphGui.OnClosedAction := (*) => this._RefreshLoopBodyNode(loopId)
+        this.BranchGraphGui.ShowGui(cur)
+    }
+
+    ; 嵌套循环体编辑器回写：保存循环体子图的开始节点序列码到 LoopData
+    _OnLoopBodyEditorSure(loopId, startSerial) {
+        data := this._SearchData(loopId)
+        if (data == "")
+            return
+        data.LoopBody := startSerial
+        SaveMacroCMDData(data)
+    }
+
     ; 就地刷新变量节点摘要（收起态显示），从当前 INI/解析数据取值，无需重建
     _RefreshVariableSummary(id) {
         if (this.ui == "")
@@ -192,6 +306,22 @@ class MacroGraphBranchMixin {
         SaveMacroCMDData(data)
     }
 
+    ; 展开循环节点的外置循环体随父节点横向平移 dx（保持相对位置）
+    _ShiftLoopBodyNode(loopId, dx) {
+        if (dx == 0 || !this._IsExpandedLoop(loopId))
+            return
+        g := this.graph
+        if (g == "")
+            return
+        bid := this._LoopBodyId(loopId)
+        if (this.pos.Has(bid) && g.GetNode(bid))
+            this._ShiftNodeX(bid, dx)
+        for conn in g.connections {
+            if (conn.From == loopId || conn.To == loopId || this._IsLoopBodyId(conn.From) || this._IsLoopBodyId(conn.To))
+                g.UpdatePath(conn.From, conn.To, conn.PathId)
+        }
+    }
+
     ; 展开搜索节点的分支节点随父节点横向平移 dx（保持用户摆放的相对位置，不重置为默认偏移）
     _ShiftBranchNodes(searchId, dx) {
         if (dx == 0 || !this._IsExpandedSearch(searchId))
@@ -305,11 +435,13 @@ class MacroGraphBranchMixin {
             return
         desc := this._DescendantsOf(searchId)
         for id in desc {
-            if (this._IsBranchId(id))
+            if (this._IsBranchId(id) || this._IsLoopBodyId(id))
                 continue
             this._ShiftNodeX(id, dx)
             if (this._IsExpandedSearch(id))
                 this._ShiftBranchNodes(id, dx)
+            if (this._IsExpandedLoop(id))
+                this._ShiftLoopBodyNode(id, dx)
         }
         for conn in g.connections
             g.UpdatePath(conn.From, conn.To, conn.PathId)
@@ -333,7 +465,7 @@ class MacroGraphBranchMixin {
     ; 修复「首次进入编辑器时搜索后面的分支错乱/重叠」。目标间距见 _ExpandTargetDX（优先用保存的后继相对位置）。
     _StaticSpreadExpandedSearches() {
         for id in this.order {
-            if (!this._IsExpandedSearch(id))
+            if (!this._IsExpandedSearch(id) && !this._IsExpandedLoop(id))
                 continue
             nearest := this._NearestSuccessorX(id)
             if (nearest == "")

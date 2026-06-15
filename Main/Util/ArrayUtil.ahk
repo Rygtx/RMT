@@ -211,9 +211,6 @@ SetArrayDataNewVar(Data) {
 }
 
 ArrayCheckIfContain(Data, tableItem, index) {
-    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
-        return
-
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")
         return
@@ -249,13 +246,10 @@ ArrayCheckIfContain(Data, tableItem, index) {
             }
         }
     }
-    MySetGlobalVariable([Data.SaveName], [Res], Data.IsIgnoreExist)
+    MySetGlobalVariable([Data.SaveName], [Res], false)
 }
 
 ArrayGetIndexValue(Data, tableItem, index) {
-    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
-        return
-
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")
         return
@@ -278,7 +272,7 @@ ArrayGetIndexValue(Data, tableItem, index) {
     Value := SourceArr[GetIndex]
 
     if (Data.SaveType == "变量")
-        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
+        MySetGlobalVariable([Data.SaveName], [Value], false)
     else if (Data.SaveType == "数组")
         MySetGlobalArray(Data.SaveName, Value)
 }
@@ -408,12 +402,9 @@ ArrayRemoveAtIndex(Data, tableItem, index) {
     MyRemoveAtGlobalArray(Data.Name, MainIndex, RemoveIndex)
 
     if (Data.SaveType == "变量")
-        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
-    else if (Data.SaveType == "数组") {
-        if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
-            return
+        MySetGlobalVariable([Data.SaveName], [Value], false)
+    else if (Data.SaveType == "数组")
         MySetGlobalArray(Data.SaveName, Value)
-    }
 }
 
 ArrayPopValue(Data, tableItem, index) {
@@ -436,19 +427,14 @@ ArrayPopValue(Data, tableItem, index) {
     MyRemoveAtGlobalArray(Data.Name, MainIndex, SourceArr.Length)
 
     if (Data.SaveType == "变量")
-        MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
-    else if (Data.SaveType == "数组") {
-        if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
-            return
+        MySetGlobalVariable([Data.SaveName], [Value], false)
+    else if (Data.SaveType == "数组")
         MySetGlobalArray(Data.SaveName, Value)
-    }
 }
 
 ArrayReverse(Data, tableItem, index) {
     SourceArr := GetCmdArray(Data, tableItem, index, true)
     if (SourceArr == "")
-        return
-    if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.Name))
         return
 
     ResArr := []
@@ -466,7 +452,7 @@ ArrayGetLength(Data, tableItem, index) {
         return
 
     Value := SourceArr.Length
-    MySetGlobalVariable([Data.SaveName], [Value], Data.IsIgnoreExist)
+    MySetGlobalVariable([Data.SaveName], [Value], false)
 }
 
 ArrayTrimRightNull(Arr) {

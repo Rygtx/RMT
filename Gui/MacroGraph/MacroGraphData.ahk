@@ -197,7 +197,7 @@ class MacroGraphDataMixin {
     ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致）
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "运算", "运行", "文件读写", "文本处理", "数组",
-            "后台鼠标", "后台按键", "窗口管理", "按键检测", "抓图"]
+            "后台鼠标", "后台按键", "窗口管理", "按键检测", "抓图", "循环"]
     }
 
     _FormalIniKeyFromName(name) {
@@ -227,7 +227,8 @@ class MacroGraphDataMixin {
                 "后台按键", BGKeyData,
                 "窗口管理", WindowManageData,
                 "按键检测", KeyCheckData,
-                "抓图", ScreenShotData
+                "抓图", ScreenShotData,
+                "循环", LoopData
             )
         }
         return m.Has(cmdKey) ? m[cmdKey] : ""
@@ -390,6 +391,18 @@ class MacroGraphDataMixin {
             d.ssSavePath := data.SavePath
             d.ssResultToggle := data.ResultToggle
             d.ssResultSaveName := data.ResultSaveName
+        } else if (cmdKey == "循环") {
+            d.loopCount := data.LoopCount
+            d.condiType := data.CondiType
+            d.logicType := data.LogicType
+            d.loopBody := data.LoopBody
+            loop 4 {
+                i := A_Index
+                d["loopTog" i] := data.ToggleArr[i]
+                d["loopName" i] := data.NameArr[i]
+                d["loopCmp" i] := data.CompareTypeArr[i]
+                d["loopVar" i] := data.VariableArr[i]
+            }
         }
     }
 
@@ -452,6 +465,8 @@ class MacroGraphDataMixin {
             node.Y := p.y
             ; 展开的搜索节点：持久化真/假分支相对偏移 + 展开位移，重载/收展时布局稳定
             this._StoreBranchLayout(id, node, p)
+            ; 展开的循环节点：持久化外置循环体相对偏移，重载/收展时布局稳定
+            this._StoreLoopBodyLayout(id, node, p)
             SaveMacroCMDData(node)          ; 存入 GraphNodeFile.ini（key=node.SerialStr）
         }
 
@@ -506,6 +521,19 @@ class MacroGraphDataMixin {
             ; 折叠态：分支不存在、后继处于收起态小间距；保留既有 SuccDX/SuccDY(展开布局记忆)与分支偏移，勿覆盖
             node.ExpandShift := ""
         }
+    }
+
+    ; 把展开循环节点的外置循环体相对位置写入其 MacroGraphNode（供重载/收展时还原）。
+    ; 折叠态：外置体不存在，保留既有 LoopBodyDX/DY（勿覆盖）。
+    _StoreLoopBodyLayout(loopId, node, loopPos) {
+        if (!this._IsExpandedLoop(loopId))
+            return
+        bid := this._LoopBodyId(loopId)
+        if (!this.pos.Has(bid))
+            return
+        bp := this.pos[bid]
+        node.LoopBodyDX := bp.x - loopPos.x
+        node.LoopBodyDY := bp.y - loopPos.y
     }
 
     ; 从开始节点 SerialStr 复原整张图；成功返回 true（cmdNodes/pos/links/order 均已重建）。

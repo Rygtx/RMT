@@ -1087,9 +1087,6 @@ OnArray(tableItem, cmd, index) {
                 return
             MySetGlobalArray(Data.Name, Data.InitArr)
         case "克隆":
-            if (Data.IsIgnoreExist && MySoftData.ArrayMap.Has(Data.SaveName))
-                return
-
             SourceArr := GetCmdArray(Data, tableItem, index, true)
             if (SourceArr == "")
                 return

@@ -237,6 +237,9 @@ class MacroGraphMenuMixin {
         ; 搜索节点：强制绑定真/假分支节点（新建默认展开）
         if (this._IsExpandedSearch(id))
             this._InjectBranchPair(id)
+        ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）
+        if (this._IsExpandedLoop(id))
+            this._InjectLoopBodyNode(id)
         ; 由出点拖拽触发的添加：自动连线（源可能是分支节点；展开搜索的直连会被规范化为双分支）
         if (pendingFrom != "" && pendingFrom != id) {
             srcOk := fromIsBranch ? this._branchInjected.Has(logicalFrom) : this._NodeExists(pendingFrom)
