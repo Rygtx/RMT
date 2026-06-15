@@ -612,7 +612,7 @@ class MacroGraphFormalMixin {
         IsWrite := !IsRead
         IsExcel := ot == "读取Excel" || ot == "写入Excel"
         IsText := ot == "读取文本文件" || ot == "写入文本文件"
-        IsExcelRange := IsExcel && (om == "指定行" || om == "指定列" || om == "指定区域-行" || om == "指定区域-列")
+        IsExcelRange := om == "指定区域-行" || om == "指定区域-列"
         HasTextRow := IsText && (om == "指定行" || om == "逐行读取" || om == "行号自增")
         HasRegion := IsRead && (om == "指定区域-行" || om == "指定区域-列")
         HasWriteContent := IsWrite && !IsExcelRange
@@ -634,8 +634,15 @@ class MacroGraphFormalMixin {
         this._AddEditableComboRow(body, "FIOTxtRowRow_" id, GetLang("文本行："), "FIOTxtRow_" id, GetGuiVarArr(), d.HasOwnProp("textRowVar") ? d.textRowVar : 1, HasTextRow, lw, cw)
         this._AddMultilineFieldBlock(body, "FIOContentBlock_" id, GetLang("写入内容："), "FIOContent_" id, d.HasOwnProp("content") ? d.content : GetLang("写入的内容"), HasWriteContent, this._FormalContentW())
         this._AddEditableComboRow(body, "FIOArrRow_" id, GetLang("数组名："), "FIOArr_" id, GetGuiArrNameArr(), d.HasOwnProp("arrName") ? d.arrName : "Arr", HasWriteArr, lw, cw)
-        this._AddComboRow(body, "FIOSaveTypeRow_" id, GetLang("保存类型："), "FIOSaveTypeCmb_" id, saveTypes, this._IndexInLangArr(saveTypes, GetLang(st)), IsRead || HasWriteArr, true, lw, cw)
-        this._AddEditableComboRow(body, "FIOSaveRow_" id, GetLang("保存名："), "FIOSave_" id, GetGuiVarArr(), sn, IsRead || HasWriteArr, lw, cw)
+        ; 保存类型：根据模式和操作类型自动固定
+        ; 读取Excel+单元格 → 变量；读取Excel+其他模式 → 数组；读取文本+全部/指定行 → 变量；其他 → 数组
+        showSave := IsRead || HasWriteArr
+        IsResOnlyVar := (ot == "读取Excel" && om == "单元格") || (ot == "读取文本文件" && (om == "读取全部内容" || om == "指定行"))
+        autoSaveType := IsResOnlyVar ? GetLang("变量") : GetLang("数组")
+        this._AddFieldRow(body, "FIOSaveTypeRow_" id, GetLang("保存类型："), "FIOSaveType_" id, autoSaveType, showSave, false)
+        ; 保存类型是变量时用变量列表，是数组时用数组列表
+        saveNameList := IsResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
+        this._AddEditableComboRow(body, "FIOSaveRow_" id, GetLang("保存名："), "FIOSave_" id, saveNameList, sn, showSave, lw, cw)
         this._AddFormalHint(body)
     }
 
@@ -901,10 +908,9 @@ class MacroGraphFormalMixin {
             this._BindCtrl("FIOPathBrowse_" id, "Click", this._OnFIOPathBrowse.Bind(this, id), runtime)
             this._FormalTrackField(id, "FIOSheet", h, runtime)
             this._FormalTrackCombo(id, "FIOEncCmb", h, runtime)
-            for nm in ["FIORow", "FIOCol", "FIORowEnd", "FIOColEnd", "FIOTxtRow", "FIOArr", "FIOSave"]
+            for nm in ["FIORow", "FIOCol", "FIORowEnd", "FIORowEnd", "FIOTxtRow", "FIORow", "FIOSave"]
                 this._FormalTrackEditCombo(id, nm, h, runtime)
             this._FormalTrackField(id, "FIOContent", h, runtime)
-            this._FormalTrackCombo(id, "FIOSaveTypeCmb", h, runtime)
         } else if (t == GetLang("文本处理")) {
             h := this._OnFormalTextOps.Bind(this, id)
             this._FormalTrackCombo(id, "TxtTypeCmb", h, runtime)

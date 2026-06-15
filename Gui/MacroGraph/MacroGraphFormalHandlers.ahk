@@ -245,10 +245,33 @@ class MacroGraphFormalHandlersMixin {
             return
         encodings := GetLangArr(["UTF-8", "UTF-16", "GBK", "ANSI"])
         saveTypes := GetLangArr(["变量", "数组"])
-        if (state.Has("FIOTypeCmb_" id) && state["FIOTypeCmb_" id] != "")
+        if (state.Has("FIOTypeCmb_" id) && state["FIOTypeCmb_" id] != "") {
             data.OperType := GetLangKey(state["FIOTypeCmb_" id])
-        if (state.Has("FIOModeCmb_" id) && state["FIOModeCmb_" id] != "")
+            ; 类型改变时，清空并重新添加模式选项
+            if (this.ui != "") {
+                modeItems := this._FormalFileIOOperModes(data.OperType)
+                this.ui.Update("FIOModeCmb_" id, "ClearItems", "")
+                for it in modeItems
+                    this.ui.Update("FIOModeCmb_" id, "AddItem", it)
+                ; 设置为第一个选项
+                this.ui.Update("FIOModeCmb_" id, "SelectedIndex", 0)
+                data.OperMode := modeItems.Length > 0 ? GetLangKey(modeItems[1]) : "单元格"
+            }
+        }
+        if (state.Has("FIOModeCmb_" id) && state["FIOModeCmb_" id] != "") {
             data.OperMode := GetLangKey(state["FIOModeCmb_" id])
+            ; 模式改变时，刷新保存类型显示和选项列表
+            if (this.ui != "") {
+                IsResOnlyVar := (data.OperType == "读取Excel" && data.OperMode == "单元格") || (data.OperType == "读取文本文件" && (data.OperMode == "读取全部内容" || data.OperMode == "指定行"))
+                autoSaveType := IsResOnlyVar ? GetLang("变量") : GetLang("数组")
+                this.ui.Update("FIOSaveType_" id, "Text", autoSaveType)
+                ; 更新保存名选项列表
+                saveNameList := IsResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
+                this.ui.Update("FIOSave_" id, "ClearItems", "")
+                for name in saveNameList
+                    this.ui.Update("FIOSave_" id, "AddItem", name)
+            }
+        }
         if (state.Has("FIOPath_" id))
             data.FilePath := state["FIOPath_" id]
         if (state.Has("FIOSheet_" id) && state["FIOSheet_" id] != "")
@@ -269,11 +292,14 @@ class MacroGraphFormalHandlersMixin {
             data.Content := state["FIOContent_" id]
         if (state.Has("FIOArr_" id) && state["FIOArr_" id] != "")
             data.ArrName := GetVarName(state["FIOArr_" id])
-        if (state.Has("FIOSaveTypeCmb_" id) && state["FIOSaveTypeCmb_" id] != "")
-            data.SaveType := GetLangKey(state["FIOSaveTypeCmb_" id])
         if (state.Has("FIOSave_" id) && state["FIOSave_" id] != "")
             data.SaveName := GetVarName(state["FIOSave_" id])
+        ; 保存类型自动固定：读取Excel+单元格/读取文本+全部/指定行 → 变量；其他 → 数组
+        IsResOnlyVar := (data.OperType == "读取Excel" && data.OperMode == "单元格") || (data.OperType == "读取文本文件" && (data.OperMode == "读取全部内容" || data.OperMode == "指定行"))
+        data.SaveType := IsResOnlyVar ? "变量" : "数组"
         SaveMacroCMDData(data)
+        ; 类型改变时已处理模式列表，只需刷新显隐和保存类型显示
+        ; 模式改变时只刷新显隐
         this._RefreshFormalFileIOVisibility(id)
         this._Apply()
     }
@@ -768,6 +794,15 @@ class MacroGraphFormalHandlersMixin {
         this.ui.Update("FIOPath_" id, "Text", d.HasOwnProp("filePath") ? d.filePath : "")
         this.ui.Update("FIOSheet_" id, "Text", d.HasOwnProp("NameOrSerial") ? d.NameOrSerial : 1)
         this.ui.Update("FIOEncCmb_" id, "SelectedIndex", this._IndexInLangArr(encodings, GetLang(enc)))
+        ; 保存类型自动固定：读取Excel+单元格/读取文本+全部/指定行 → 变量；其他 → 数组
+        IsResOnlyVar := (ot == "读取Excel" && om == "单元格") || (ot == "读取文本文件" && (om == "读取全部内容" || om == "指定行"))
+        autoSaveType := IsResOnlyVar ? GetLang("变量") : GetLang("数组")
+        this.ui.Update("FIOSaveType_" id, "Text", autoSaveType)
+        ; 更新保存名选项列表
+        saveNameList := IsResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
+        this.ui.Update("FIOSave_" id, "ClearItems", "")
+        for name in saveNameList
+            this.ui.Update("FIOSave_" id, "AddItem", name)
         ; 刷新显隐
         this._RefreshFormalFileIOVisibility(id)
     }
