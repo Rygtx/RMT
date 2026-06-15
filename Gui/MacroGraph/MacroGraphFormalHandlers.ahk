@@ -251,6 +251,8 @@ class MacroGraphFormalHandlersMixin {
             data.OperMode := GetLangKey(state["FIOModeCmb_" id])
         if (state.Has("FIOPath_" id))
             data.FilePath := state["FIOPath_" id]
+        if (state.Has("FIOSheet_" id) && state["FIOSheet_" id] != "")
+            data.NameOrSerial := state["FIOSheet_" id]
         if (state.Has("FIOEncCmb_" id) && state["FIOEncCmb_" id] != "")
             data.Encoding := GetLangKey(state["FIOEncCmb_" id])
         if (state.Has("FIORow_" id) && state["FIORow_" id] != "")
@@ -569,6 +571,7 @@ class MacroGraphFormalHandlersMixin {
         HasRegion := IsRead && (om == "指定区域-行" || om == "指定区域-列")
         HasWriteContent := IsWrite && !IsExcelRange
         HasWriteArr := IsWrite && IsExcelRange
+        this._FormalSetVis(id, "FIOSheetRow_" id, IsExcel)
         this._FormalSetVis(id, "FIOEncRow_" id, IsText)
         this._FormalSetVis(id, "FIORowRow_" id, IsExcel)
         this._FormalSetVis(id, "FIOColRow_" id, IsExcel)
@@ -742,7 +745,31 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshVariableInline(id, d)
             return true
         }
+        if (d.type == GetLang("文件读写")) {
+            this._RefreshFileIOInline(id, d)
+            return true
+        }
         return false
+    }
+
+    _RefreshFileIOInline(id, d) {
+        encodings := GetLangArr(["UTF-8", "UTF-16", "GBK", "ANSI"])
+        operTypes := GetLangArr(["读取Excel", "写入Excel", "读取文本文件", "写入文本文件"])
+        enc := d.HasOwnProp("encoding") ? d.encoding : "UTF-8"
+        ot := d.HasOwnProp("operType") ? d.operType : "读取Excel"
+        om := d.HasOwnProp("operMode") ? d.operMode : "单元格"
+        modeItems := this._FormalFileIOOperModes(ot)
+        ; 更新控件值
+        this.ui.Update("FIOTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(operTypes, GetLang(ot)))
+        this.ui.Update("FIOModeCmb_" id, "ClearItems", "")
+        for it in modeItems
+            this.ui.Update("FIOModeCmb_" id, "AddItem", it)
+        this.ui.Update("FIOModeCmb_" id, "SelectedIndex", this._IndexInLangArr(modeItems, GetLang(om)))
+        this.ui.Update("FIOPath_" id, "Text", d.HasOwnProp("filePath") ? d.filePath : "")
+        this.ui.Update("FIOSheet_" id, "Text", d.HasOwnProp("NameOrSerial") ? d.NameOrSerial : 1)
+        this.ui.Update("FIOEncCmb_" id, "SelectedIndex", this._IndexInLangArr(encodings, GetLang(enc)))
+        ; 刷新显隐
+        this._RefreshFormalFileIOVisibility(id)
     }
 
     _RefreshSubMacroInline(id, d) {

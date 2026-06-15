@@ -544,10 +544,10 @@ class MacroGraphFormalMixin {
         rm := d.HasOwnProp("runMode") ? d.runMode : 1
         rp := d.HasOwnProp("runPath") ? d.runPath : ""
         showSave := rm >= 2
-        ; 路径行：输入框 + 选择文件按钮（无标签，输入框宽度+20px）
+        ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
         runPathRow := body.Add("StackPanel").Name("RunPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
-        runPathRow.Add("TextBox").Name("RunPath_" id).Text(rp).Width(cw + 15).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        runPathRow.Add("Button").Name("RunPathBrowse_" id).Content(GetLang("选择文件")).Width("60").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        runPathRow.Add("TextBox").Name("RunPath_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
+        runPathRow.Add("Button").Name("RunPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
         loop 3 {
             i := A_Index
@@ -577,6 +577,25 @@ class MacroGraphFormalMixin {
         }
     }
 
+    ; 文件路径选择按钮：打开文件选择对话框
+    _OnFIOPathBrowse(id, *) {
+        try {
+            curPath := ""
+            if (this.ui != "") {
+                try {
+                    curPath := this.ui.Get("FIOPath_" id, "Text")
+                }
+            }
+            ; 根据文件类型显示不同的文件选择对话框
+            selectedPath := FileSelect(1, curPath, GetLang("选择文件"), "All files (*.*)")
+            if (selectedPath != "") {
+                if (this.ui != "") {
+                    this.ui.Update("FIOPath_" id, "Text", selectedPath)
+                }
+            }
+        }
+    }
+
     _FillFileIOBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
         operTypes := GetLangArr(["读取Excel", "写入Excel", "读取文本文件", "写入文本文件"])
@@ -600,7 +619,13 @@ class MacroGraphFormalMixin {
         HasWriteArr := IsWrite && IsExcelRange
         this._AddComboRow(body, "FIOTypeRow_" id, GetLang("类型："), "FIOTypeCmb_" id, operTypes, this._IndexInLangArr(operTypes, GetLang(ot)), true, true, lw, cw)
         this._AddComboRow(body, "FIOModeRow_" id, GetLang("模式："), "FIOModeCmb_" id, modeItems, this._IndexInLangArr(modeItems, GetLang(om)), true, true, lw, cw)
-        this._AddFieldRow(body, "FIOPathRow_" id, GetLang("路径："), "FIOPath_" id, fp, true, true, "", "", "", lw, cw)
+        ; 路径行：输入框 + 文件按钮（无标签，与运行节点一致）
+        fioPathRow := body.Add("StackPanel").Name("FIOPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        fioPathRow.Add("TextBox").Name("FIOPath_" id).Text(fp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
+        fioPathRow.Add("Button").Name("FIOPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        ; 表名/序号（仅Excel时显示，默认值1）
+        nameOrSerial := d.HasOwnProp("NameOrSerial") ? d.NameOrSerial : 1
+        this._AddFieldRow(body, "FIOSheetRow_" id, GetLang("表名："), "FIOSheet_" id, nameOrSerial, IsExcel, true, "", "", "", lw, cw)
         this._AddComboRow(body, "FIOEncRow_" id, GetLang("编码："), "FIOEncCmb_" id, encodings, this._IndexInLangArr(encodings, GetLang(enc)), IsText, true, lw, cw)
         this._AddEditableComboRow(body, "FIORowRow_" id, GetLang("行号："), "FIORow_" id, GetGuiVarArr(), d.HasOwnProp("rowVar") ? d.rowVar : 1, IsExcel, lw, cw)
         this._AddEditableComboRow(body, "FIOColRow_" id, GetLang("列号："), "FIOCol_" id, GetGuiVarArr(), d.HasOwnProp("colVar") ? d.colVar : 1, IsExcel, lw, cw)
@@ -873,6 +898,8 @@ class MacroGraphFormalMixin {
             this._FormalTrackCombo(id, "FIOTypeCmb", h, runtime)
             this._FormalTrackCombo(id, "FIOModeCmb", h, runtime)
             this._FormalTrackField(id, "FIOPath", h, runtime)
+            this._BindCtrl("FIOPathBrowse_" id, "Click", this._OnFIOPathBrowse.Bind(this, id), runtime)
+            this._FormalTrackField(id, "FIOSheet", h, runtime)
             this._FormalTrackCombo(id, "FIOEncCmb", h, runtime)
             for nm in ["FIORow", "FIOCol", "FIORowEnd", "FIOColEnd", "FIOTxtRow", "FIOArr", "FIOSave"]
                 this._FormalTrackEditCombo(id, nm, h, runtime)

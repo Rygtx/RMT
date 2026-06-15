@@ -377,7 +377,7 @@ BindTabHotKey() {
     loop MySoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         tableIndex := A_Index
-        canBind := tableIndex == 1 || tableIndex == 2 || tableIndex == 6
+        canBind := tableIndex == 1 || tableIndex == 2 || tableIndex == 7
         if (!canBind)
             continue
 
