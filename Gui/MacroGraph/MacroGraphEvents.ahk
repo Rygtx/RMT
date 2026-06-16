@@ -222,6 +222,25 @@ class MacroGraphEventsMixin {
             ; 循环节点拖动：实时刷新与外置循环体的两条回环路径（循环坐标用本次实时画布坐标）
             if (this._IsExpandedLoop(id))
                 this._UpdateLoopCyclePaths(id, Number(parts[1]), Number(parts[2]))
+            ; 框选拖动：检查所有选中的节点，如果有展开的循环节点也在选中中，更新其路径
+            ; （selectedNodes 在 this.graph 中，由 XAML_Adv_Components 管理）
+            selNodes := this.graph ? this.graph.selectedNodes : ""
+            if (selNodes && selNodes.Count > 1) {
+                ; 框选拖动：遍历选中的节点，更新所有展开循环的路径
+                for sid in selNodes {
+                    if (this._IsExpandedLoop(sid)) {
+                        ; 获取循环节点和循环体节点的最新坐标
+                        ln := this.graph.GetNode(sid)
+                        bid := this._LoopBodyId(sid)
+                        bn := bid != "" ? this.graph.GetNode(bid) : ""
+                        if (ln) {
+                            loopX := ln.X, loopY := ln.Y
+                            bodyX := bn ? bn.X : "", bodyY := bn ? bn.Y : ""
+                            this._UpdateLoopCyclePaths(sid, loopX, loopY, bodyX, bodyY)
+                        }
+                    }
+                }
+            }
         }
     }
 

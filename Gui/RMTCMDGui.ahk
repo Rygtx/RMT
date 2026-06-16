@@ -61,12 +61,29 @@ class RMTCMDGui {
     }
 
     Init(cmd) {
+        ; CMD格式: RMT指令_类别_指令_序号（新）或 RMT指令_指令_序号（旧兼容）
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        cmdStr := cmdArr.Length >= 2 ? cmdArr[2] : GetLang("截图")
-        menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 3 ? cmdArr[3] : 1
+        ; 新格式: RMT指令_类别_指令 或 RMT指令_类别_指令_序号
+        ; 旧格式: RMT指令_指令
+        if (cmdArr.Length >= 4) {
+            ; 新格式
+            cmdCategory := cmdArr[2]
+            cmdStr := cmdArr[3]
+            menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 5 ? cmdArr[4] : 1
+        } else if (cmdArr.Length >= 3) {
+            ; 旧格式：只有指令和序号，没有类别
+            cmdCategory := GetLang("全部")
+            cmdStr := cmdArr[2]
+            menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 4 ? cmdArr[3] : 1
+        } else {
+            ; 无效格式，使用默认值
+            cmdCategory := GetLang("全部")
+            cmdStr := GetLang("截图")
+            menuDLIndex := 1
+        }
 
         this.InitCategoriesMap()
-        Category := GetLang("全部")
+        Category := cmdCategory
         CmdStrArr := this.CategoriesMap[Category]
 
         this.CategoryCon.Text := Category
@@ -196,7 +213,8 @@ class RMTCMDGui {
     }
 
     GetCommandStr() {
-        CommandStr := Format("{}_{}", GetLang("RMT指令"), this.CmdTypeCon.Text)
+        ; CMD格式: RMT指令_类别_指令 或 RMT指令_类别_指令_序号
+        CommandStr := Format("{}_{}_{}", GetLang("RMT指令"), this.CategoryCon.Text, this.CmdTypeCon.Text)
         if (this.CmdTypeCon.Text == GetLang("显示菜单")) {
             CommandStr .= "_" this.MenuDLCon.Value
         }

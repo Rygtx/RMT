@@ -89,6 +89,15 @@ class MacroGraphFormalMixin {
         return "96"
     }
 
+    ; 检查数组是否包含指定值
+    _ArrayContains(arr, val) {
+        for item in arr {
+            if (item == val)
+                return true
+        }
+        return false
+    }
+
     _FormalContentW() {
         return "188"
     }
@@ -737,12 +746,30 @@ class MacroGraphFormalMixin {
 
     _FillRmtBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
-        ops := this._RmtOpList()
-        op := d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
-        menuIdx := d.HasOwnProp("rmtMenuIdx") ? Integer(d.rmtMenuIdx) : 1
+        categories := this._RmtCategories()
+        ; 获取当前指令和类别
+        currentOp := d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
+        currentCategory := d.HasOwnProp("rmtCategory") ? d.rmtCategory : GetLang("全部")
+        ; 根据类别获取指令列表，如果当前指令不在列表中则使用全部
+        ops := this._RmtCategoryOps(currentCategory)
+        if (!this._ArrayContains(ops, currentOp)) {
+            ops := this._RmtCategoryOps(GetLang("全部"))
+            currentCategory := GetLang("全部")
+        }
+        ; 安全获取菜单索引（确保是有效数字）
+        menuIdx := 1
+        if (d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "") {
+            parsed := Integer(d.rmtMenuIdx)
+            if (parsed > 0)
+                menuIdx := parsed
+        }
         menuItems := this._FormalMenuIndexItems()
-        showMenu := op == GetLang("显示菜单")
-        this._AddComboRow(body, "RmtOpRow_" id, GetLang("操作："), "RmtOpCmb_" id, ops, this._RmtOpIndex(op), true, true, lw, cw)
+        showMenu := currentOp == GetLang("显示菜单")
+        ; 类别下拉框
+        this._AddComboRow(body, "RmtCatRow_" id, GetLang("类别："), "RmtCatCmb_" id, categories, this._IndexInLangArr(categories, currentCategory), true, true, lw, cw)
+        ; 指令下拉框
+        this._AddComboRow(body, "RmtOpRow_" id, GetLang("指令："), "RmtOpCmb_" id, ops, this._IndexInLangArr(ops, currentOp), true, true, lw, cw)
+        ; 菜单序号（仅显示菜单时显示）
         this._AddComboRow(body, "RmtMenuRow_" id, GetLang("菜单序号："), "RmtMenuCmb_" id, menuItems, Max(0, menuIdx - 1), showMenu && menuItems.Length > 0, showMenu, lw, cw)
         this._AddFormalHint(body)
     }
@@ -1184,9 +1211,12 @@ class MacroGraphFormalMixin {
             this._FormalTrackEditCombo(id, "ArrArgsName", hField, runtime)
             this._FormalTrackEditCombo(id, "ArrSave", hField, runtime)
         } else if (t == GetLang("RMT指令")) {
-            h := this._OnFormalRmt.Bind(this, id)
-            this._FormalTrackCombo(id, "RmtOpCmb", h, runtime)
-            this._FormalTrackCombo(id, "RmtMenuCmb", h, runtime)
+            hCat := this._OnRmtCategory.Bind(this, id)
+            hOp := this._OnRmtOp.Bind(this, id)
+            hField := this._OnRmtField.Bind(this, id)
+            this._FormalTrackCombo(id, "RmtCatCmb", hCat, runtime)
+            this._FormalTrackCombo(id, "RmtOpCmb", hOp, runtime)
+            this._FormalTrackCombo(id, "RmtMenuCmb", hField, runtime)
         } else if (t == GetLang("后台鼠标")) {
             h := this._OnFormalBGMouse.Bind(this, id)
             this._FormalTrackField(id, "BgmTitle", h, runtime)

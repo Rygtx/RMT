@@ -27,6 +27,7 @@
 ; ============================================================================
 
 class MacroGraphGui {
+
     __New() {
         this.SureBtnAction := ""
         this.OwnerHwnd := ""

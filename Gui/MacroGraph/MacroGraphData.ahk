@@ -736,8 +736,22 @@ class MacroGraphDataMixin {
         }
         else if (name == GetLang("RMT指令")) {
             d.type := GetLang("RMT指令")
-            d.rmtOp := paramArr.Length >= 2 ? paramArr[2] : GetLang("截图")
-            d.rmtMenuIdx := paramArr.Length >= 3 ? paramArr[3] : "1"
+            ; CMD格式: RMT指令_类别_指令_序号（新）或 RMT指令_指令_序号（旧兼容）
+            if (paramArr.Length >= 4) {
+                ; 新格式
+                d.rmtCategory := paramArr[2]
+                d.rmtOp := paramArr[3]
+                d.rmtMenuIdx := paramArr[4]
+            } else if (paramArr.Length >= 3) {
+                ; 旧格式
+                d.rmtCategory := GetLang("全部")
+                d.rmtOp := paramArr[2]
+                d.rmtMenuIdx := paramArr[3]
+            } else {
+                d.rmtCategory := GetLang("全部")
+                d.rmtOp := GetLang("截图")
+                d.rmtMenuIdx := "1"
+            }
         }
         else if (iniKey := this._FormalIniKeyFromName(name)) {
             d.type := GetLang(iniKey)
@@ -784,8 +798,11 @@ class MacroGraphDataMixin {
             return cmd
         }
         if (d.type == GetLang("RMT指令")) {
-            cmd := GetLang("RMT指令") "_" (d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图"))
-            if (d.HasOwnProp("rmtOp") && d.rmtOp == GetLang("显示菜单") && d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "")
+            ; CMD格式: RMT指令_类别_指令_序号
+            category := d.HasOwnProp("rmtCategory") ? d.rmtCategory : GetLang("全部")
+            op := d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
+            cmd := GetLang("RMT指令") "_" category "_" op
+            if (op == GetLang("显示菜单") && d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "")
                 cmd .= "_" d.rmtMenuIdx
             return cmd
         }

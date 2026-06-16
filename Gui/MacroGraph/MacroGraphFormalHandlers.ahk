@@ -316,7 +316,133 @@ class MacroGraphFormalHandlersMixin {
         this._Apply()
     }
 
-    ; 普通字段变更：只写入对应字段，不触碰类型/模式与派生显隐（这些字段不影响布局）。
+    ; 实时读取 RMT 指令节点当前界面上「类别/指令」的真实值（直接向 WPF 进程查询，不用事件快照、不读数据缓存）。
+    _RmtReadLive(id) {
+        res := (this.ui != "") ? this.ui.Query("RmtCatCmb_" id, "RmtOpCmb_" id) : ""
+        if (!IsObject(res))
+            res := Map()
+        cat := res.Has("RmtCatCmb_" id) ? GetLangKey(res["RmtCatCmb_" id]) : ""
+        op := res.Has("RmtOpCmb_" id) ? GetLangKey(res["RmtOpCmb_" id]) : ""
+        return { cat: cat, op: op }
+    }
+
+    ; RMT 指令类别
+    _RmtCategories() {
+        return GetLangArr(["全部", "图文", "输入控制", "宏控制", "调试", "软件自身"])
+    }
+
+    ; RMT 类别对应的指令列表
+    _RmtCategoryOps(category) {
+        allOps := GetLangArr(["截图", "截图提取文本", "自由贴", "启用键鼠", "禁用键鼠", "显示菜单", "关闭菜单",
+            "暂停所有宏", "恢复所有宏", "终止所有宏", "开启变量监视", "关闭变量监视", "开启指令显示",
+            "关闭指令显示", "关闭软件", "休眠", "重载"])
+        if (category == GetLang("全部") || category == "")
+            return allOps
+        categoryOps := Map(
+            GetLang("图文"), GetLangArr(["截图", "截图提取文本", "自由贴"]),
+            GetLang("输入控制"), GetLangArr(["启用键鼠", "禁用键鼠"]),
+            GetLang("宏控制"), GetLangArr(["显示菜单", "关闭菜单", "暂停所有宏", "恢复所有宏", "终止所有宏"]),
+            GetLang("调试"), GetLangArr(["开启变量监视", "关闭变量监视", "开启指令显示", "关闭指令显示"]),
+            GetLang("软件自身"), GetLangArr(["关闭软件", "休眠", "重载"])
+        )
+        return categoryOps.Has(category) ? categoryOps[category] : allOps
+    }
+
+    ; 在指令列表中查找某指令键的索引（0 基），未找到返回 -1。
+    _RmtOpIdx(ops, opKey) {
+        target := GetLang(opKey)
+        loop ops.Length {
+            if (ops[A_Index] == target)
+                return A_Index - 1
+        }
+        return -1
+    }
+
+    ; 类别切换：重置下方所有选项——指令列表重建并定位到「第一个」指令，再按 (类别, 第一个指令) 实时刷新下方内容。
+    _OnRmtCategory(id, state, ctrl, event) {
+        live := this._RmtReadLive(id)
+        cat := live.cat
+        if (cat == "")
+            return
+        ops := this._RmtCategoryOps(cat)
+        op := ops.Length > 0 ? GetLangKey(ops[1]) : GetLang("截图")   ; 切类别 → 指令回到第一个
+        if (this.ui != "" && HasMethod(this.ui, "Update")) {
+            this.ui.Update("RmtOpCmb_" id, "ClearItems", "")
+            for it in ops
+                this.ui.Update("RmtOpCmb_" id, "AddItem", it)
+            this.ui.Update("RmtOpCmb_" id, "SelectedIndex", 0)
+        }
+        ; 按 (类别, 第一个指令) 实时刷新下方所有选项
+        this._RefreshRmtOptions(id, cat, op)
+        ; 持久化
+        data := this._FormalIniData(id)
+        if (data != "") {
+            data.rmtCategory := cat
+            data.rmtOp := op
+            SaveMacroCMDData(data)
+        }
+        this._Apply()
+    }
+
+    ; 指令切换：类别与指令都【实时】取自界面控件，按 (类别, 指令) 一级一级刷新下方内容
+    _OnRmtOp(id, state, ctrl, event) {
+        live := this._RmtReadLive(id)
+        cat := live.cat, op := live.op
+        if (cat == "" || op == "")
+            return
+        ; 过滤不属于当前类别的指令（类别切换时清空/重建产生的瞬时回显）
+        ops := this._RmtCategoryOps(cat)
+        if (this._RmtOpIdx(ops, op) < 0)
+            return
+        ; 按 (类别, 指令) 实时刷新下方所有选项
+        this._RefreshRmtOptions(id, cat, op)
+        ; 持久化
+        data := this._FormalIniData(id)
+        if (data != "") {
+            data.rmtCategory := cat
+            data.rmtOp := op
+            SaveMacroCMDData(data)
+        }
+        this._Apply()
+    }
+
+    ; 刷新 RMT 指令节点下方选项（菜单序号的显示/隐藏）
+    _RefreshRmtOptions(id, cat, op) {
+        showMenu := op == GetLang("显示菜单")
+        if (this.ui == "")
+            return
+        ; 设置行可见性
+        this._FormalSetVis(id, "RmtMenuRow_" id, showMenu)
+        ; 菜单序号显示时，确保下拉框启用并有数据
+        if (showMenu) {
+            ; 启用下拉框（因为初始创建时可能被禁用）
+            this.ui.Update("RmtMenuCmb_" id, "IsEnabled", "True")
+            ; 加载菜单选项
+            menuItems := this._FormalMenuIndexItems()
+            if (menuItems.Length > 0) {
+                this.ui.Update("RmtMenuCmb_" id, "ClearItems", "")
+                for item in menuItems {
+                    this.ui.Update("RmtMenuCmb_" id, "AddItem", item)
+                }
+                ; 设置默认选中第一个
+                this.ui.Update("RmtMenuCmb_" id, "SelectedIndex", 0)
+            }
+        }
+    }
+
+    ; 普通字段变更（RMT 菜单序号）
+    _OnRmtField(id, state, ctrl, event) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        if (state.Has("RmtMenuCmb_" id) && state["RmtMenuCmb_" id] != "")
+            data.rmtMenuIdx := this._FormalParseListIndex(state["RmtMenuCmb_" id])
+        SaveMacroCMDData(data)
+        this._Apply()
+    }
+
+    ; 文件读写普通字段变更（RMT 菜单序号）
+    ; 注：FIO 相关普通字段移到 _OnFIOField 处理
     _OnFIOField(id, state, ctrl, event) {
         data := this._FormalIniData(id)
         if (data == "")
@@ -333,7 +459,7 @@ class MacroGraphFormalHandlersMixin {
             data.ColVar := state["FIOCol_" id]
         if (state.Has("FIORowEnd_" id) && state["FIORowEnd_" id] != "")
             data.RowEndVar := state["FIORowEnd_" id]
-        if (state.Has("FIOColEnd_" id) && state["FIOColEnd_" id] != "")
+        if (state.Has("FIOColEnd_" id))
             data.ColEndVar := state["FIOColEnd_" id]
         if (state.Has("FIOTxtRow_" id) && state["FIOTxtRow_" id] != "")
             data.TextRowVar := state["FIOTxtRow_" id]
@@ -521,19 +647,6 @@ class MacroGraphFormalHandlersMixin {
             this.ui.Update("ArrSave_" id, "AddItem", n)
         if (saveName != "")
             this.ui.Update("ArrSave_" id, "Text", saveName)
-    }
-
-    _OnFormalRmt(id, state, ctrl, event) {
-        if (!this.cmdNodes.Has(id))
-            return
-        d := this._Parse(this.cmdNodes[id].CurCMD)
-        if (state.Has("RmtOpCmb_" id) && state["RmtOpCmb_" id] != "")
-            d.rmtOp := state["RmtOpCmb_" id]
-        if (state.Has("RmtMenuCmb_" id) && state["RmtMenuCmb_" id] != "")
-            d.rmtMenuIdx := this._FormalParseListIndex(state["RmtMenuCmb_" id])
-        this.cmdNodes[id].CurCMD := this._BuildCmd(d)
-        this._RefreshFormalRmtVisibility(id)
-        this._Apply()
     }
 
     _OnFormalBGMouse(id, state, ctrl, event) {
@@ -1001,7 +1114,49 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshLoopInline(id, d)
             return true
         }
+        if (d.type == GetLang("RMT指令")) {
+            this._RefreshRmtInline(id, d)
+            return true
+        }
         return false
+    }
+
+    ; RMT指令节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshRmtInline(id, d) {
+        categories := this._RmtCategories()
+        currentCategory := d.HasOwnProp("rmtCategory") ? d.rmtCategory : GetLang("全部")
+        currentOp := d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
+        ; 根据类别获取指令列表
+        ops := this._RmtCategoryOps(currentCategory)
+        ; 类别下拉框
+        this.ui.Update("RmtCatCmb_" id, "SelectedIndex", this._IndexInLangArr(categories, GetLang(currentCategory)))
+        ; 重建指令列表
+        this.ui.Update("RmtOpCmb_" id, "ClearItems", "")
+        for op in ops
+            this.ui.Update("RmtOpCmb_" id, "AddItem", op)
+        ; 设置当前指令选中
+        opIdx := 0
+        for i, op in ops {
+            if (op == GetLang(currentOp)) {
+                opIdx := i - 1
+                break
+            }
+        }
+        this.ui.Update("RmtOpCmb_" id, "SelectedIndex", opIdx)
+        ; 刷新菜单序号显隐
+        showMenu := currentOp == GetLang("显示菜单")
+        this._FormalSetVis(id, "RmtMenuRow_" id, showMenu)
+        if (showMenu) {
+            this.ui.Update("RmtMenuCmb_" id, "IsEnabled", "True")
+            menuItems := this._FormalMenuIndexItems()
+            if (menuItems.Length > 0) {
+                this.ui.Update("RmtMenuCmb_" id, "ClearItems", "")
+                for item in menuItems
+                    this.ui.Update("RmtMenuCmb_" id, "AddItem", item)
+                menuIdx := d.HasOwnProp("rmtMenuIdx") ? Integer(d.rmtMenuIdx) - 1 : 0
+                this.ui.Update("RmtMenuCmb_" id, "SelectedIndex", Max(0, menuIdx))
+            }
+        }
     }
 
     ; 循环节点：编辑器确定后就地刷新内联控件值与循环体卡片（避免整窗 _Render 闪烁）。
