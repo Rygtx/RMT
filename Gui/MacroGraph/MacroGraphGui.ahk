@@ -90,11 +90,16 @@ class MacroGraphGui {
         this.KeyCheckGui := KeyCheckGui()
         this.ScreenShotGui := ScreenShotGui()
         this.LoopGui := LoopGui()
-        this.BranchGraphGui := ""     ; 搜索真/假分支的「嵌套节点编辑器」（懒加载，编辑分支子图）
+        this.CompareGui := CompareGui()
+        this.CompareProGui := CompareProGui()
+        this.BranchGraphGui := ""     ; 搜索/如果/如果Pro 分支的「嵌套节点编辑器」（懒加载）
         this._branchExpanded := Map() ; 分支节点是否展开显示全部指令（key=分支合成ID）
         this._loopChipsExpanded := Map() ; 循环体指令卡片是否展开（key=内联用循环ID/外置用循环体合成ID）
         this._branchInjected := Map() ; 本窗口生命周期内已注入过分支节点的搜索ID（折叠/展开时只显隐不重建）
         this._loopBodyInjected := Map() ; 本窗口生命周期内已注入过外置循环体节点的循环ID（折叠/展开时只显隐不重建）
+        this._ifProUiCaseCount := Map() ; 如果Pro 节点当前 UI 已渲染的情况数（用于编辑器增删后判断是否需要重建）
+        this._ifProPortMargin := Map()  ; 如果Pro 各情况出点 Margin.Top（与连线路径对齐）
+        this._nodeShellGrid := ""       ; _NewNodeShell 最近构建的 Grid（IfPro 出点挂载用）
         this.OnClosedAction := ""     ; 窗口关闭后回调（嵌套分支编辑器用于通知父图刷新）
         this._shotNodeId := ""        ; 正在执行截图取色的搜索节点ID（截图剪贴板回调用）
         this._searchClipAction := ObjBindMethod(this, "_SearchCheckClipboard") ; 截图剪贴板轮询回调（稳定引用，便于 SetTimer 开关）
@@ -156,6 +161,9 @@ class MacroGraphGui {
         this._branchInjected := Map() ; 新窗口：分支节点注入记录清零（NameScope 全新）
         this._loopBodyInjected := Map() ; 新窗口：外置循环体节点注入记录清零（NameScope 全新）
         this._loopChipsExpanded := Map() ; 新窗口：循环体指令卡片展开态清零
+        this._ifProUiCaseCount := Map() ; 新窗口：如果Pro 情况数 UI 缓存清零
+        this._ifProPortMargin := Map()  ; 新窗口：如果Pro 出点位置缓存清零
+        this._nodeShellGrid := ""
 
         win := XAML_Generator("Window")
         win.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
@@ -167,6 +175,7 @@ class MacroGraphGui {
 
         root := win.Add("Grid")
         this.graph := root.NodeGraph("RMTGraph")
+        this._HookGraphIfProPaths()
 
         ; 右上角保存按钮（覆盖在画布之上）
         root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("#2E6E3E").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
@@ -179,11 +188,11 @@ class MacroGraphGui {
         for id in this.order
             this._BuildCmdNode(id, this.cmdNodes[id])
 
-        ; 搜索节点（展开态）：构建强制绑定的真/假分支节点。
+        ; 搜索/如果节点（展开态）：构建强制绑定的真/假分支节点。
         ; 后继位置由保存的坐标直接决定（收/展为位置式对齐，无需累加位移记录）。
         for id in this.order {
-            if (this._IsExpandedSearch(id)) {
-                this._BuildBranchPair(id)
+            if (this._HasVisibleBranches(id)) {
+                this._BuildBranches(id)
                 this._branchInjected[id] := true
             }
         }
@@ -201,9 +210,15 @@ class MacroGraphGui {
         for link in this.links {
             if (!this._NodeExists(link.from) || !this._NodeExists(link.to))
                 continue
-            if (this._IsExpandedSearch(link.from)) {
-                this.graph.AddConnection(this._BranchId(link.from, true), link.to)
-                this.graph.AddConnection(this._BranchId(link.from, false), link.to)
+            if (this._HasVisibleBranches(link.from)) {
+                if (this._IsIfProNodeId(link.from)) {
+                    count := this._IfProBranchCountFromId(link.from)
+                    loop count
+                        this.graph.AddConnection(this._ProBranchId(link.from, A_Index - 1), link.to)
+                } else {
+                    this.graph.AddConnection(this._BranchId(link.from, true), link.to)
+                    this.graph.AddConnection(this._BranchId(link.from, false), link.to)
+                }
             } else {
                 this.graph.AddConnection(link.from, link.to)
             }
@@ -217,6 +232,13 @@ class MacroGraphGui {
         ownerHwnd := this.OwnerHwnd != "" ? this.OwnerHwnd : 0
         this.ui := XAMLHost(win.ToString(), "", ownerHwnd)
         this.graph.Bind(this.ui)
+        this._HookGraphIfProPaths()
+        for id in this.order {
+            if (this._IsExpandedIfPro(id)) {
+                this._RefreshIfProPortPositions(id)
+                this._UpdateIfProBranchPaths(id)
+            }
+        }
         this._RegisterNodeEvents()
         ; 为所有连线补绑点击事件（XNodeGraph 仅给运行时新增连线绑定，构建期连线需手动补）
         for conn in this.graph.connections
@@ -261,6 +283,10 @@ class MacroGraphGui {
         SetTimer(this._readyTimer, 0)
         this.graph.EnableDrag(this.ui, true)
         this._ThickenConnections()    ; 加粗连线，增大命中区域便于单击选中
+        for id in this.order {
+            if (this._IsExpandedIfPro(id))
+                this._UpdateIfProBranchPaths(id)
+        }
         ; 启用画布"框选"模式：左键在空白处拖拽即可框选多个节点（C# 引擎已实现，默认 Pan 不生效）
         this.ui.Update(this.graph.id, "SetCanvasMode", "Select")
         ; 将窗口激活置前（避免显示在主界面下方）
@@ -656,6 +682,7 @@ _GraftMacroGraphMixin(mixinClass) {
 #Include MacroGraphNodeUI.ahk
 #Include MacroGraphFormal.ahk
 #Include MacroGraphFormalHandlers.ahk
+#Include MacroGraphIfPro.ahk
 #Include MacroGraphEvents.ahk
 #Include MacroGraphEdit.ahk
 #Include MacroGraphMenu.ahk

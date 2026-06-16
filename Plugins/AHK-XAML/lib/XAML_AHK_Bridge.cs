@@ -180,28 +180,36 @@ public class AhkWpfEngine {
         string nodeId = nodeName.StartsWith("Node_") ? nodeName.Substring(5) : nodeName;
         foreach (var child in cvs.Children) {
             var path = child as System.Windows.Shapes.Path;
-            if (path == null || path.Name == null || !path.Name.StartsWith("Path_")) continue;
-            // Path 名称格式: Path_FromId_ToId
-            string[] parts = path.Name.Substring(5).Split('_');
-            if (parts.Length != 2) continue;
-            bool isFrom = (parts[0] == nodeId);
-            bool isTo = (parts[1] == nodeId);
+            if (path == null || path.Name == null) continue;
+            int pathMarker = path.Name.IndexOf("_Path_");
+            if (pathMarker < 0) continue;
+            string fromTo = path.Name.Substring(pathMarker + 6);
+            int under = fromTo.IndexOf('_');
+            if (under < 0) continue;
+            string fromId = fromTo.Substring(0, under);
+            string toId = fromTo.Substring(under + 1);
+            bool isFrom = (fromId == nodeId);
+            bool isTo = (toId == nodeId);
             if (!isFrom && !isTo) continue;
-            // 获取对端节点位置
-            FrameworkElement otherNode = cvs.FindName("Node_" + (isFrom ? parts[1] : parts[0])) as FrameworkElement;
+            FrameworkElement otherNode = cvs.FindName("Node_" + (isFrom ? toId : fromId)) as FrameworkElement;
             if (otherNode == null) continue;
             double otherLeft = Canvas.GetLeft(otherNode);
             double otherTop = Canvas.GetTop(otherNode);
-            // 计算连线端点（与 AHK 端 UpdatePath 一致）
             double nodeW = 200;
-            double portY = 31; // 标题栏高度30 + 端口偏移1px
+            double fromPortY = 31, toPortY = 31;
+            string pathTag = path.Tag as string;
+            if (pathTag != null && pathTag.StartsWith("ifproStartY:")) {
+                double relY;
+                if (double.TryParse(pathTag.Substring(12), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out relY))
+                    fromPortY = relY;
+            }
             double startX, startY, endX, endY;
             if (isFrom) {
-                startX = nodeLeft + nodeW; startY = nodeTop + portY;
-                endX = otherLeft; endY = otherTop + portY;
+                startX = nodeLeft + nodeW; startY = nodeTop + fromPortY;
+                endX = otherLeft; endY = otherTop + toPortY;
             } else {
-                startX = otherLeft + nodeW; startY = otherTop + portY;
-                endX = nodeLeft; endY = nodeTop + portY;
+                startX = otherLeft + nodeW; startY = otherTop + fromPortY;
+                endX = nodeLeft; endY = nodeTop + toPortY;
             }
             double dx = Math.Abs(endX - startX);
             double cpOffset = Math.Max(dx * 0.4, 50);

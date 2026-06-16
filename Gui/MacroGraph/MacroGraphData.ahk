@@ -120,7 +120,7 @@ class MacroGraphDataMixin {
                 cp.Y := nd.HasOwnProp("Y") ? nd.Y : 0
                 cp.Folded := nd.HasOwnProp("Folded") ? nd.Folded : 0
                 ; 展开态布局信息一并深拷贝，保持分支位置稳定
-                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY"] {
+                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "ProBranchOff"] {
                     if (nd.HasOwnProp(layoutProp))
                         cp.%layoutProp% := nd.%layoutProp%
                 }
@@ -196,7 +196,7 @@ class MacroGraphDataMixin {
 
     ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致）
     _FormalIniCmdKeys() {
-        return ["宏操作", "变量", "变量提取", "运算", "运行", "文件读写", "文本处理", "数组",
+        return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组",
             "后台鼠标", "后台按键", "窗口管理", "按键检测", "抓图", "循环"]
     }
 
@@ -218,6 +218,8 @@ class MacroGraphDataMixin {
                 "宏操作", SubMacroData,
                 "变量", VariableData,
                 "变量提取", ExVariableData,
+                "如果", CompareData,
+                "如果Pro", CompareProData,
                 "运算", OperationData,
                 "运行", RunData,
                 "文件读写", FileIOData,
@@ -259,6 +261,79 @@ class MacroGraphDataMixin {
         if (!IsObject(newData))
             newData := cls()
         newData.SerialStr := newSerial
+        if (cmdKey == "如果") {
+            newData.TrueMacro := this._CloneBranchGraph(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
+            newData.FalseMacro := this._CloneBranchGraph(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
+        }
+        if (cmdKey == "如果Pro") {
+            if (newData.HasOwnProp("MacroArr") && IsObject(newData.MacroArr)) {
+                loop newData.MacroArr.Length
+                    newData.MacroArr[A_Index] := this._CloneBranchGraph(newData.MacroArr[A_Index])
+            }
+            if (newData.HasOwnProp("DefaultMacro"))
+                newData.DefaultMacro := this._CloneBranchGraph(newData.DefaultMacro)
+        }
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
+    ; 克隆一个如果序列：新建序列码并把源数据各字段复制过去，真/假分支子图深拷贝
+    _CloneIf(srcCmd) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        newSerial := GetCMDSerialStr("如果")
+        newData := CompareData()
+        newData.SerialStr := newSerial
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                for prop in src.OwnProps() {
+                    if (prop == "SerialStr")
+                        continue
+                    newData.%prop% := src.%prop%
+                }
+            }
+        }
+        newData.TrueMacro := this._CloneBranchGraph(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
+        newData.FalseMacro := this._CloneBranchGraph(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
+        SaveMacroCMDData(newData)
+        return newSerial
+    }
+
+    ; 克隆一个如果Pro序列：新建序列码并深拷贝各分支子图
+    _CloneComparePro(srcCmd) {
+        srcArr := SplitCommand(srcCmd)
+        srcSerial := srcArr.Length >= 1 ? srcArr[1] : srcCmd
+        newSerial := GetCMDSerialStr("如果Pro")
+        newData := CompareProData()
+        newData.SerialStr := newSerial
+        try {
+            src := GetMacroCMDData(srcSerial)
+            if (IsObject(src)) {
+                for prop in src.OwnProps() {
+                    if (prop == "SerialStr")
+                        continue
+                    val := src.%prop%
+                    if (val is Array) {
+                        cp := []
+                        for item in val {
+                            if (item is Array)
+                                cp.Push(item.Clone())
+                            else
+                                cp.Push(item)
+                        }
+                        newData.%prop% := cp
+                    } else
+                        newData.%prop% := val
+                }
+            }
+        }
+        if (newData.HasOwnProp("MacroArr") && IsObject(newData.MacroArr)) {
+            loop newData.MacroArr.Length
+                newData.MacroArr[A_Index] := this._CloneBranchGraph(newData.MacroArr[A_Index])
+        }
+        if (newData.HasOwnProp("DefaultMacro"))
+            newData.DefaultMacro := this._CloneBranchGraph(newData.DefaultMacro)
         SaveMacroCMDData(newData)
         return newSerial
     }
@@ -300,6 +375,40 @@ class MacroGraphDataMixin {
                 i := A_Index
                 d["exToggle" i] := data.ToggleArr[i]
                 d["exVariable" i] := data.VariableArr[i]
+            }
+        } else if (cmdKey == "如果") {
+            d.logicType := data.LogicalType
+            d.trueControlType := data.TrueControlType
+            d.falseControlType := data.FalseControlType
+            d.trueMacro := data.TrueMacro
+            d.falseMacro := data.FalseMacro
+            d.saveToggle := data.SaveToggle
+            d.saveName := data.SaveName
+            d.trueValue := data.TrueValue
+            d.falseValue := data.FalseValue
+            loop 4 {
+                i := A_Index
+                d["ifTog" i] := data.ToggleArr[i]
+                d["ifName" i] := data.NameArr[i]
+                d["ifCmp" i] := data.CompareTypeArr[i]
+                d["ifVar" i] := data.VariableArr[i]
+            }
+        } else if (cmdKey == "如果Pro") {
+            d.proCaseCount := data.VariNameArr.Length
+            d.proDefaultMacro := data.DefaultMacro
+            d.proDefaultControl := data.DefaultControlType
+            loop data.VariNameArr.Length {
+                ci := A_Index
+                d["proLogic" ci] := data.LogicTypeArr[ci]
+                d["proMacro" ci] := data.MacroArr[ci]
+                d["proControl" ci] := data.ControlTypeArr[ci]
+                loop data.VariNameArr[ci].Length {
+                    si := A_Index
+                    d["proVar" ci "_" si] := data.VariNameArr[ci][si]
+                    d["proCmp" ci "_" si] := data.CompareTypeArr[ci][si]
+                    d["proVal" ci "_" si] := data.VariableArr[ci][si]
+                }
+                d["proCondiCount" ci] := data.VariNameArr[ci].Length
             }
         } else if (cmdKey == "运算") {
             loop 4 {
@@ -492,7 +601,10 @@ class MacroGraphDataMixin {
     ; 把展开搜索节点的分支相对位置、最近后继相对偏移(SuccDX/DY)写入其 MacroGraphNode（供重载/收展时还原）。
     ; 折叠态：分支不存在，保留既有的分支偏移与后继偏移记忆（勿覆盖），仅清空已弃用的 ExpandShift。
     _StoreBranchLayout(searchId, node, searchPos) {
-        if (this._IsExpandedSearch(searchId)) {
+        if (this._IsExpandedIfPro(searchId)) {
+            this._StoreProBranchLayout(searchId, node, searchPos)
+            node.ExpandShift := ""
+        } else if (this._HasVisibleBranches(searchId) && !this._IsIfProNodeId(searchId)) {
             for isTrue in [true, false] {
                 brId := this._BranchId(searchId, isTrue)
                 if (!this.pos.Has(brId))
@@ -574,7 +686,7 @@ class MacroGraphDataMixin {
             node.CurCMD := (IsObject(nodeData) && nodeData.HasOwnProp("CurCMD")) ? nodeData.CurCMD : ""
             node.Folded := (IsObject(nodeData) && nodeData.HasOwnProp("Folded")) ? nodeData.Folded : 0
             ; 还原展开态布局信息（分支相对偏移 + 展开位移 + 后继相对位置）；缺失则保持默认 ""
-            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY"] {
+            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "ProBranchOff"] {
                 if (IsObject(nodeData) && nodeData.HasOwnProp(layoutProp))
                     node.%layoutProp% := nodeData.%layoutProp%
             }

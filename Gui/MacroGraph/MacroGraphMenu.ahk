@@ -235,8 +235,8 @@ class MacroGraphMenuMixin {
         ; ---- 统一走运行时注入（不重建窗口，避免闪烁；亦修复添加搜索后无法继续添加节点的问题）----
         this._InjectFullNode(id, node)
         ; 搜索节点：强制绑定真/假分支节点（新建默认展开）
-        if (this._IsExpandedSearch(id))
-            this._InjectBranchPair(id)
+        if (this._HasVisibleBranches(id))
+            this._InjectBranches(id)
         ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）
         if (this._IsExpandedLoop(id))
             this._InjectLoopBodyNode(id)

@@ -13,6 +13,7 @@ class MacroGraphConnectionsMixin {
     ;   片段 XAML → AddXamlItem；登记 g.nodes；补绑引擎拖动/选中事件 + 本类事件；启用拖动。
     _InjectFullNode(id, node) {
         g := this.graph
+        this._HookGraphIfProPaths()
         this._NodeFragments(id, node, &nodeXaml, &portInXaml, &portOutXaml)
         g.ui.Update(g.id, "AddXamlItem", nodeXaml)
         ; 端口已嵌入 nodeXaml 中，无需单独注入
@@ -153,12 +154,20 @@ class MacroGraphConnectionsMixin {
             bi := this._BranchInfo(from)
             if (bi != "")
                 from := bi.searchId
+            ; 「如果Pro 分支 → X」翻译回「如果Pro → X」
+            pi := this._ProBranchInfo(from)
+            if (pi != "")
+                from := pi.parentId
             ; 「X → 分支」翻译为「X → 分支所属搜索节点」（逻辑上汇入该搜索节点）
             bt := this._BranchInfo(to)
             if (bt != "")
                 to := bt.searchId
+            ; 「X → 如果Pro 分支」翻译为「X → 如果Pro 父节点」
+            pt := this._ProBranchInfo(to)
+            if (pt != "")
+                to := pt.parentId
             ; 丢弃「搜索 → 分支节点」的强制连线（显示用，逻辑上不是真正后继）
-            if (this._IsBranchId(conn.To) || from == to)
+            if (this._IsBranchId(conn.To) || this._IsProBranchId(conn.To) || from == to)
                 continue
             k := from "|" to
             if (seen.Has(k))
@@ -188,17 +197,32 @@ class MacroGraphConnectionsMixin {
         for conn in g.connections {
             if (conn.HasOwnProp("Active") && !conn.Active)
                 continue
-            ; ① 展开搜索的出点被直连到非分支节点：拆成双分支连线
-            if (this._IsExpandedSearch(conn.From) && !this._IsBranchId(conn.To)) {
+            ; ① 展开父节点直连后续：拆成各分支→后续
+            if (this._HasVisibleBranches(conn.From) && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To)) {
                 toDeactivate.Push(conn)
-                toActivate.Push({ from: this._BranchId(conn.From, true), to: conn.To })
-                toActivate.Push({ from: this._BranchId(conn.From, false), to: conn.To })
+                if (this._IsIfProNodeId(conn.From)) {
+                    count := this._IfProBranchCountFromId(conn.From)
+                    loop count
+                        toActivate.Push({ from: this._ProBranchId(conn.From, A_Index - 1), to: conn.To })
+                } else {
+                    toActivate.Push({ from: this._BranchId(conn.From, true), to: conn.To })
+                    toActivate.Push({ from: this._BranchId(conn.From, false), to: conn.To })
+                }
                 continue
             }
-            ; ② 分支连到后续节点：补对称的另一分支
+            ; ② 分支连到后续：补对称的其余分支
             bi := this._BranchInfo(conn.From)
-            if (bi != "" && !this._IsBranchId(conn.To))
+            if (bi != "" && bi.proIdx < 0 && !this._IsBranchId(conn.To))
                 toActivate.Push({ from: this._BranchId(bi.searchId, !bi.isTrue), to: conn.To })
+            pi := this._ProBranchInfo(conn.From)
+            if (pi != "" && !this._IsProBranchId(conn.To) && !this._IsBranchId(conn.To)) {
+                count := this._IfProBranchCountFromId(pi.parentId)
+                loop count {
+                    idx := A_Index - 1
+                    if (idx != pi.idx)
+                        toActivate.Push({ from: this._ProBranchId(pi.parentId, idx), to: conn.To })
+                }
+            }
         }
         for conn in toDeactivate
             this._DeactivateConnection(conn)

@@ -281,7 +281,7 @@ class MacroGraphBranchMixin {
 
     ; 打开嵌套「节点编辑器」编辑分支子图；分支内容以「图形开始节点序列码」存于 TrueMacro/FalseMacro
     _OpenBranchEditor(searchId, isTrue) {
-        data := this._SearchData(searchId)
+        data := this._BranchParentData(searchId)
         if (data == "")
             return
         if (this.BranchGraphGui == "")
@@ -296,7 +296,7 @@ class MacroGraphBranchMixin {
 
     ; 嵌套分支编辑器回写：保存分支子图的开始节点序列码到 SearchData（不在此处重建父图，避免实时联动抖动）
     _OnBranchEditorSure(searchId, isTrue, startSerial) {
-        data := this._SearchData(searchId)
+        data := this._BranchParentData(searchId)
         if (data == "")
             return
         if (isTrue)
@@ -324,7 +324,13 @@ class MacroGraphBranchMixin {
 
     ; 展开搜索节点的分支节点随父节点横向平移 dx（保持用户摆放的相对位置，不重置为默认偏移）
     _ShiftBranchNodes(searchId, dx) {
-        if (dx == 0 || !this._IsExpandedSearch(searchId))
+        if (dx == 0)
+            return
+        if (this._IsIfProNodeId(searchId)) {
+            this._ShiftProBranchNodes(searchId, dx)
+            return
+        }
+        if (!this._HasVisibleBranches(searchId))
             return
         g := this.graph
         if (g == "")
@@ -342,7 +348,7 @@ class MacroGraphBranchMixin {
 
     ; 展开时后继与搜索节点的最小横向间距（需越过分支节点：节点宽 + 100 偏移 + 分支宽 200 + 60 余量）
     _ExpandMinGap(searchId) {
-        return this._SearchNodeWidth(searchId) + 360
+        return this._BranchParentWidth(searchId) + 360
     }
 
     ; 收起时 A 右缘到后继节点左缘的目标间距（px）
@@ -352,7 +358,7 @@ class MacroGraphBranchMixin {
 
     ; 收起时后继节点左缘相对 A 左缘的目标 X 间距（= 节点宽 + 右缘余量）
     _CollapseGap(searchId) {
-        return this._SearchNodeWidth(searchId) + this._CollapseMargin()
+        return this._BranchParentWidth(searchId) + this._CollapseMargin()
     }
 
     ; 搜索节点逻辑X
@@ -369,7 +375,7 @@ class MacroGraphBranchMixin {
     _NearestSuccessorX(searchId) {
         nearest := ""
         for link in this.links {
-            if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to))
+            if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to) || this._IsProBranchId(link.to))
                 continue
             sx := this.pos[link.to].x
             if (nearest == "" || sx < nearest)
@@ -382,7 +388,7 @@ class MacroGraphBranchMixin {
     _NearestSuccessorId(searchId) {
         nearestId := "", nearestX := ""
         for link in this.links {
-            if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to))
+            if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to) || this._IsProBranchId(link.to))
                 continue
             sx := this.pos[link.to].x
             if (nearestX == "" || sx < nearestX) {
@@ -398,16 +404,16 @@ class MacroGraphBranchMixin {
         out := Map()
         queue := []
         for link in this.links {
-            if (link.from == startId && !this._IsBranchId(link.to))
+            if (link.from == startId && !this._IsBranchId(link.to) && !this._IsProBranchId(link.to))
                 queue.Push(link.to)
         }
         while (queue.Length) {
             cur := queue.RemoveAt(1)
-            if (out.Has(cur) || cur == startId || this._IsBranchId(cur))
+            if (out.Has(cur) || cur == startId || this._IsBranchId(cur) || this._IsProBranchId(cur))
                 continue
             out[cur] := true
             for link in this.links {
-                if (link.from == cur && !this._IsBranchId(link.to))
+                if (link.from == cur && !this._IsBranchId(link.to) && !this._IsProBranchId(link.to))
                     queue.Push(link.to)
             }
         }
@@ -435,10 +441,10 @@ class MacroGraphBranchMixin {
             return
         desc := this._DescendantsOf(searchId)
         for id in desc {
-            if (this._IsBranchId(id) || this._IsLoopBodyId(id))
+            if (this._IsBranchId(id) || this._IsProBranchId(id) || this._IsLoopBodyId(id))
                 continue
             this._ShiftNodeX(id, dx)
-            if (this._IsExpandedSearch(id))
+            if (this._HasVisibleBranches(id))
                 this._ShiftBranchNodes(id, dx)
             if (this._IsExpandedLoop(id))
                 this._ShiftLoopBodyNode(id, dx)
@@ -454,7 +460,7 @@ class MacroGraphBranchMixin {
             return
         desc := this._DescendantsOf(searchId)
         for id in desc {
-            if (this._IsBranchId(id) || !this.pos.Has(id))
+            if (this._IsBranchId(id) || this._IsProBranchId(id) || !this.pos.Has(id))
                 continue
             this.pos[id] := { x: this.pos[id].x + dx, y: this.pos[id].y }
         }
@@ -465,7 +471,7 @@ class MacroGraphBranchMixin {
     ; 修复「首次进入编辑器时搜索后面的分支错乱/重叠」。目标间距见 _ExpandTargetDX（优先用保存的后继相对位置）。
     _StaticSpreadExpandedSearches() {
         for id in this.order {
-            if (!this._IsExpandedSearch(id) && !this._IsExpandedLoop(id))
+            if (!this._HasVisibleBranches(id) && !this._IsExpandedLoop(id))
                 continue
             nearest := this._NearestSuccessorX(id)
             if (nearest == "")

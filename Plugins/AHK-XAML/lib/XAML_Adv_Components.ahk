@@ -467,6 +467,14 @@ class XNodeGraph {
     }
 
     UpdatePath(fromId, toId, pathId, initial := false, pathEl := "") {
+        if (this.HasProp("_mgIfProGui") && IsObject(this._mgIfProGui)) {
+            if (this._mgIfProGui._TryIfProUpdatePath(fromId, toId, pathId, initial, pathEl))
+                return
+        }
+        this._DefaultUpdatePath(fromId, toId, pathId, initial, pathEl)
+    }
+
+    _DefaultUpdatePath(fromId, toId, pathId, initial := false, pathEl := "") {
         n1 := this.GetNode(fromId)
         n2 := this.GetNode(toId)
         if (!n1 || !n2)
@@ -638,8 +646,13 @@ class XNodeGraph {
 
     _FlushPathUpdates() {
         this._pathUpdatePending := false
+        mg := (this.HasProp("_mgIfProGui") && IsObject(this._mgIfProGui)) ? this._mgIfProGui : ""
         for conn in this.connections {
-            this.UpdatePath(conn.From, conn.To, conn.PathId)
+            if (mg != "" && mg._IsIfProBranchLink(conn.From, conn.To)) {
+                mg._ApplyIfProConnectionPath(conn.From, conn.To, conn.PathId)
+                continue
+            }
+            this._DefaultUpdatePath(conn.From, conn.To, conn.PathId)
         }
     }
 

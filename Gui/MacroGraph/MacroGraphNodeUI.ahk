@@ -26,8 +26,11 @@ class MacroGraphNodeUIMixin {
     _BuildCmdNode(id, node) {
         d := this._Parse(node.CurCMD)
         nodeW := this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : ""
+        body := ""
         this._NewNodeShell(id, d.type, "Process", &body, nodeW)
         this._FillNodeBody(id, d, body)
+        if (d.type == GetLang("如果Pro") && this._nodeShellGrid != "")
+            this._AddIfProBranchPortEls(this._nodeShellGrid, id)
     }
 
     ; 填充节点 body（内联编辑控件）。静态构建与运行时注入复用同一套生成逻辑。
@@ -386,10 +389,12 @@ class MacroGraphNodeUIMixin {
         return searchId (isTrue ? "__BT" : "__BF")
     }
 
-    ; 解析分支合成 ID，命中返回 { searchId, isTrue }，否则返回 ""
+    ; 解析分支合成 ID，命中返回 { searchId, isTrue, proIdx }，否则返回 ""
     _BranchInfo(nodeId) {
         if (nodeId != "" && RegExMatch(nodeId, "^(.+)__B([TF])$", &m))
-            return { searchId: m[1], isTrue: (m[2] == "T") }
+            return { searchId: m[1], isTrue: (m[2] == "T"), proIdx: -1 }
+        if (nodeId != "" && RegExMatch(nodeId, "^(.+)__BP(\d+)$", &m2))
+            return { searchId: m2[1], isTrue: "", proIdx: Integer(m2[2]) }
         return ""
     }
 
@@ -397,7 +402,7 @@ class MacroGraphNodeUIMixin {
         return this._BranchInfo(nodeId) != ""
     }
 
-    ; 把分支节点 ID 归一为其所属搜索节点 ID；非分支 ID 原样返回
+    ; 把分支节点 ID 归一为其所属父节点 ID；非分支 ID 原样返回
     _LogicalNodeId(nodeId) {
         bi := this._BranchInfo(nodeId)
         return bi != "" ? bi.searchId : nodeId
@@ -412,7 +417,14 @@ class MacroGraphNodeUIMixin {
         return this._IsSearchName(serial) || this._IsSearchProName(serial)
     }
 
-    ; 该搜索节点是否处于折叠态（折叠则隐藏分支节点、搜索直连后续）
+    ; 该 id 是否为如果节点
+    _IsIfNodeId(id) {
+        if (!this.cmdNodes.Has(id))
+            return false
+        return this._Parse(this.cmdNodes[id].CurCMD).type == GetLang("如果")
+    }
+
+    ; 该节点是否处于折叠态（折叠则隐藏分支节点、搜索直连后续）
     _NodeFolded(id) {
         if (!this.cmdNodes.Has(id))
             return false
@@ -423,6 +435,27 @@ class MacroGraphNodeUIMixin {
     ; 搜索节点且未折叠（需要显示真/假分支节点）
     _IsExpandedSearch(id) {
         return this._IsSearchNodeId(id) && !this._NodeFolded(id)
+    }
+
+    ; 需要显示真/假/多分支节点的父节点（展开搜索 / 如果 / 如果Pro）
+    _HasVisibleBranches(id) {
+        return this._IsExpandedSearch(id) || this._IsIfNodeId(id) || this._IsExpandedIfPro(id)
+    }
+
+    ; 分支父节点宽度
+    _BranchParentWidth(parentId) {
+        if (this._IsIfProNodeId(parentId))
+            return this._IfProNodeWidth()
+        if (this._IsIfNodeId(parentId))
+            return 200
+        return this._SearchNodeWidth(parentId)
+    }
+
+    ; 分支节点标题
+    _BranchTitleFor(parentId, isTrue) {
+        if (this._IsIfNodeId(parentId))
+            return isTrue ? (GetLang("真") "-" GetLang("分支")) : (GetLang("假") "-" GetLang("分支"))
+        return isTrue ? GetLang("找到（真）") : GetLang("未找到（假）")
     }
 
     ; 搜索/搜索Pro 节点宽度（Pro 更宽，分支节点需据此偏移，避免重叠）
@@ -439,7 +472,7 @@ class MacroGraphNodeUIMixin {
         rel := this._SavedBranchOffset(searchId, isTrue)
         if (rel != "")
             return { x: sp.x + rel.dx, y: sp.y + rel.dy }
-        return { x: sp.x + this._SearchNodeWidth(searchId) + 100, y: sp.y + (isTrue ? 0 : 210) }
+        return { x: sp.x + this._BranchParentWidth(searchId) + 100, y: sp.y + (isTrue ? 0 : 210) }
     }
 
     ; 取节点上保存的分支相对偏移 { dx, dy }；未保存（字段为空）返回 ""
@@ -461,13 +494,18 @@ class MacroGraphNodeUIMixin {
         return isTrue ? GetLang("找到（真）") : GetLang("未找到（假）")
     }
 
+    ; 如果分支流程控制选项
+    _IfFlowTypes() {
+        return GetLangArr(["无", "循环-跳过本轮", "循环-跳出", "分支-跳出"])
+    }
+
     ; 构建单个分支节点的 Border 元素（标题 + 指令条 + 展开按钮 + 端口）。
     ; asFragment=true 时附带 xmlns 命名空间，供运行时 AddXamlItem 注入。
     _MakeBranchBorderEl(searchId, isTrue, x, y, asFragment := false) {
         brId := this._BranchId(searchId, isTrue)
         headerColor := isTrue ? "#2E7D32" : "#C62828"
         borderColor := isTrue ? "#3FA34D" : "#D04545"
-        title := this._BranchTitle(isTrue)
+        title := this._BranchTitleFor(searchId, isTrue)
 
         border := XAMLElement("Border")
         if (asFragment)
@@ -503,7 +541,7 @@ class MacroGraphNodeUIMixin {
         y := bp.y + g.offsetY
         el := this._MakeBranchBorderEl(searchId, isTrue, x, y, false)
         g.canvas._Children.Push(el)
-        g.nodes.Push({ Id: brId, Title: this._BranchTitle(isTrue), X: x, Y: y, W: 200, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: brId, Title: this._BranchTitleFor(searchId, isTrue), X: x, Y: y, W: 200, H: 60, Type: "Process" })
     }
 
     ; ---- 运行时注入（窗口已就绪，避免整窗重建闪烁）----
@@ -524,7 +562,7 @@ class MacroGraphNodeUIMixin {
         y := bp.y + g.offsetY
         el := this._MakeBranchBorderEl(searchId, isTrue, x, y, true)
         g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(el.ToString()))
-        g.nodes.Push({ Id: brId, Title: this._BranchTitle(isTrue), X: x, Y: y, W: 200, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: brId, Title: this._BranchTitleFor(searchId, isTrue), X: x, Y: y, W: 200, H: 60, Type: "Process" })
         ; 引擎拖动/选中（高亮、跟随移动）
         g.ui.OnEvent("Node_" brId, "DragMove", ObjBindMethod(g, "OnNodeMoved", brId))
         g.ui.OnEvent("Node_" brId, "SelectNode", ObjBindMethod(g, "OnSelectNode", brId))
@@ -577,6 +615,20 @@ class MacroGraphNodeUIMixin {
         btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
         if (cmds.Length <= this._BranchPreviewCount())
             btn.Visibility("Collapsed")
+        ; 如果分支：流程控制在指令执行之后（CompareGui 语义一致）
+        if (this._IsIfNodeId(searchId)) {
+            flowTypes := this._IfFlowTypes()
+            data := this._BranchParentData(searchId)
+            ct := "无"
+            if (data != "") {
+                raw := isTrue ? (data.HasOwnProp("TrueControlType") ? data.TrueControlType : "无") : (data.HasOwnProp("FalseControlType") ? data.FalseControlType : "无")
+                ct := GetLang(raw)
+            }
+            fidx := this._IndexInLangArr(flowTypes, ct)
+            if (fidx < 0)
+                fidx := this._IndexInLangArr(flowTypes, GetLang(GetLangKey(ct)))
+            this._AddComboRow(body, "BrFlowRow_" brId, GetLang("流程控制："), "BrFlowCmb_" brId, flowTypes, Max(0, fidx), true, true, "58", "120")
+        }
         body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
@@ -604,6 +656,19 @@ class MacroGraphNodeUIMixin {
         if (this.ui == "" || !this._branchInjected.Has(searchId))
             return
         brId := this._BranchId(searchId, isTrue)
+        if (this._IsIfNodeId(searchId)) {
+            flowTypes := this._IfFlowTypes()
+            data := this._BranchParentData(searchId)
+            ct := "无"
+            if (data != "") {
+                raw := isTrue ? (data.HasOwnProp("TrueControlType") ? data.TrueControlType : "无") : (data.HasOwnProp("FalseControlType") ? data.FalseControlType : "无")
+                ct := GetLang(raw)
+            }
+            fidx := this._IndexInLangArr(flowTypes, ct)
+            if (fidx < 0)
+                fidx := this._IndexInLangArr(flowTypes, GetLang(GetLangKey(ct)))
+            this.ui.Update("BrFlowCmb_" brId, "SelectedIndex", Max(0, fidx))
+        }
         cmds := this._BranchGraphCmds(this._BranchStartSerial(searchId, isTrue))
         expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
         this._RebuildBranchChips(brId, cmds, expanded)
@@ -613,7 +678,7 @@ class MacroGraphNodeUIMixin {
 
     ; 取分支保存内容（图形开始节点序列码 或 线性宏串）
     _BranchStartSerial(searchId, isTrue) {
-        data := this._SearchData(searchId)
+        data := this._BranchParentData(searchId)
         if (data == "")
             return ""
         if (isTrue)
@@ -945,6 +1010,8 @@ class MacroGraphNodeUIMixin {
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (d.type == GetLang("循环"))
             border.SetProp("MinHeight", "180")
+        if (d.type == GetLang("如果Pro"))
+            border.SetProp("MinHeight", "220")
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
@@ -961,16 +1028,29 @@ class MacroGraphNodeUIMixin {
         portInEl._Props["Panel.ZIndex"] := "10", portInEl._Props["IsHitTestVisible"] := "True", portInEl._Props["Cursor"] := "Hand"
         grid._Children.Push(portInEl)
 
-        portOutEl := XAMLElement("Ellipse")
-        portOutEl.Name("Port_Out_" id)
-        portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
-        portOutEl._Props["Fill"] := "#FF5722", portOutEl._Props["Stroke"] := "#333", portOutEl._Props["StrokeThickness"] := "1"
-        portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
-        portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
-        grid._Children.Push(portOutEl)
+        if (d.type != GetLang("如果Pro")) {
+            portOutEl := XAMLElement("Ellipse")
+            portOutEl.Name("Port_Out_" id)
+            portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
+            portOutEl._Props["Fill"] := "#FF5722", portOutEl._Props["Stroke"] := "#333", portOutEl._Props["StrokeThickness"] := "1"
+            portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
+            portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portOutEl)
+        } else {
+            ; 如果Pro：标题栏出点始终可见（展开时连到后续会自动拆分到各情况分支）
+            portOutEl := XAMLElement("Ellipse")
+            portOutEl.Name("Port_Out_" id)
+            portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
+            portOutEl._Props["Fill"] := "#FF5722", portOutEl._Props["Stroke"] := "#333", portOutEl._Props["StrokeThickness"] := "1"
+            portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
+            portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portOutEl)
+        }
         ; 循环节点：右侧追加两个回环交互点（进入循环体 / 循环体返回）
         if (d.type == GetLang("循环"))
             this._AddLoopCyclePortEls(grid, id)
+        if (d.type == GetLang("如果Pro"))
+            this._AddIfProBranchPortEls(grid, id)
 
         ; 压成单行供运行时 AddXamlItem 注入
         nodeXaml := this._FlattenXaml(border.ToString())
@@ -1000,10 +1080,16 @@ class MacroGraphNodeUIMixin {
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (title == GetLang("循环"))
             node.SetProp("MinHeight", "180")
+        if (title == GetLang("如果"))
+            node.SetProp("MinHeight", "200")
+        if (title == GetLang("如果Pro"))
+            node.SetProp("MinHeight", "220")
         node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
 
         grid := node.Add("Grid")
         grid.Rows("30", "Auto")
+
+        this._nodeShellGrid := grid
 
         this._BuildHeader(grid, id, title, headerColor)
 
@@ -1028,7 +1114,23 @@ class MacroGraphNodeUIMixin {
             portInEl._Props["Cursor"] := "Hand"
             grid._Children.Push(portInEl)
         }
-        if (nodeType != "Output") {
+        if (nodeType != "Output" && title != GetLang("如果Pro")) {
+            portOutEl := XAMLElement("Ellipse")
+            portOutEl.Name("Port_Out_" id)
+            portOutEl._Props["Width"] := "14"
+            portOutEl._Props["Height"] := "14"
+            portOutEl._Props["Fill"] := "#FF5722"
+            portOutEl._Props["Stroke"] := "#333"
+            portOutEl._Props["StrokeThickness"] := "1"
+            portOutEl._Props["Grid.Row"] := "1"
+            portOutEl._Props["VerticalAlignment"] := "Top"
+            portOutEl._Props["HorizontalAlignment"] := "Right"
+            portOutEl._Props["Margin"] := "0,-7,-7,0"
+            portOutEl._Props["Panel.ZIndex"] := "10"
+            portOutEl._Props["IsHitTestVisible"] := "True"
+            portOutEl._Props["Cursor"] := "Hand"
+            grid._Children.Push(portOutEl)
+        } else if (nodeType != "Output" && title == GetLang("如果Pro")) {
             portOutEl := XAMLElement("Ellipse")
             portOutEl.Name("Port_Out_" id)
             portOutEl._Props["Width"] := "14"
@@ -1096,6 +1198,11 @@ class MacroGraphNodeUIMixin {
         }
         else if (title == GetLang("循环")) {
             ; 循环节点：标题栏展开/收起按钮。展开=完整条件+外置循环体；收起=简化条件+内置循环体
+            folded := this._NodeFolded(id)
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
+        }
+        else if (title == GetLang("如果Pro")) {
             folded := this._NodeFolded(id)
             fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))

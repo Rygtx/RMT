@@ -14,9 +14,13 @@ class MacroGraphEventsMixin {
     _RegisterNodeEvents() {
         for id, node in this.cmdNodes
             this._RegisterMyNodeEvents(id, node, false)
-        ; 展开搜索节点的真/假分支节点事件（双击进编辑器 + 展开按钮）
+        ; 展开搜索/如果/如果Pro 节点的真/假/多分支节点事件
         for id in this.order {
-            if (this._IsExpandedSearch(id)) {
+            if (this._IsExpandedIfPro(id)) {
+                count := this._IfProBranchCountFromId(id)
+                loop count
+                    this._RegisterProBranchEvents(id, A_Index - 1)
+            } else if (this._HasVisibleBranches(id)) {
                 this._RegisterBranchEvents(id, true)
                 this._RegisterBranchEvents(id, false)
             }
@@ -34,6 +38,10 @@ class MacroGraphEventsMixin {
         this.ui.OnEvent("Node_" brId, "SelectNode", this._OnBranchClick.Bind(this, searchId, isTrue))
         this.ui.OnEvent("Node_" brId, "CtrlSelectNode", this._OnBranchClick.Bind(this, searchId, isTrue))
         this._BindCtrl("SBExpand_" brId, "Click", this._OnBranchToggleExpand.Bind(this, searchId, isTrue), runtime)
+        if (this._IsIfNodeId(searchId)) {
+            this._TrackCtrl("BrFlowCmb_" brId, runtime)
+            this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
+        }
     }
 
     ; 注册外置循环体节点事件：选中（双击进嵌套循环体编辑器）+ 拖动刷新回环路径。
@@ -222,6 +230,13 @@ class MacroGraphEventsMixin {
             ; 循环节点拖动：实时刷新与外置循环体的两条回环路径（循环坐标用本次实时画布坐标）
             if (this._IsExpandedLoop(id))
                 this._UpdateLoopCyclePaths(id, Number(parts[1]), Number(parts[2]))
+            if (this._IsExpandedIfPro(id))
+                this._ScheduleIfProPathUpdate(id, Number(parts[1]), Number(parts[2]))
+            else if (this._IsProBranchId(id)) {
+                pi := this._ProBranchInfo(id)
+                if (pi != "")
+                    this._ScheduleIfProPathUpdate(pi.parentId)
+            }
             ; 框选拖动：检查所有选中的节点，如果有展开的循环节点也在选中中，更新其路径
             ; （selectedNodes 在 this.graph 中，由 XAML_Adv_Components 管理）
             selNodes := this.graph ? this.graph.selectedNodes : ""

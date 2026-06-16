@@ -55,7 +55,9 @@ class MacroGraphFormalMixin {
             GetLang("窗口管理"), this.WindowManageGui,
             GetLang("按键检测"), this.KeyCheckGui,
             GetLang("抓图"), this.ScreenShotGui,
-            GetLang("循环"), this.LoopGui
+            GetLang("循环"), this.LoopGui,
+            GetLang("如果"), this.CompareGui,
+            GetLang("如果Pro"), this.CompareProGui
         )
     }
 
@@ -228,6 +230,10 @@ class MacroGraphFormalMixin {
             this._FillScreenShotBody(id, d, body)
         else if (d.type == GetLang("循环"))
             this._FillLoopBody(id, d, body)
+        else if (d.type == GetLang("如果"))
+            this._FillIfBody(id, d, body)
+        else if (d.type == GetLang("如果Pro"))
+            this._FillIfProBody(id, d, body)
     }
 
     _AddFormalHint(body) {
@@ -891,6 +897,63 @@ class MacroGraphFormalMixin {
         return GetLangArr(["大于", "大于等于", "等于", "小于等于", "小于", "字符包含", "变量存在", "正则匹配"])
     }
 
+    _IfLogicTypes() {
+        return this._LoopLogicTypes()
+    }
+
+    _IfCmpTypes() {
+        return this._LoopCmpTypes()
+    }
+
+    ; 如果节点：逻辑关系 + 条件1~4（逐级展开）+ 结果保存
+    _FillIfCondiCard(body, id, slot, d, showCard) {
+        lw := "44", cw := "108"
+        p := "IfC" slot
+        on := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
+        if (slot == 1 && d.HasOwnProp("ifTog1"))
+            on := d["ifTog1"] == 1 || d["ifTog1"] == "1"
+        nm := d.HasOwnProp("ifName" slot) ? d["ifName" slot] : "Var" slot
+        cmp := d.HasOwnProp("ifCmp" slot) ? d["ifCmp" slot] : 1
+        vr := d.HasOwnProp("ifVar" slot) ? d["ifVar" slot] : "Var" slot
+        cmpTypes := this._IfCmpTypes()
+        showRow := showCard && on
+        showVal := showRow && cmp != 7
+        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,5,0,0").Padding("6,2,6,6")
+        if (!showCard)
+            card.Visibility("Collapsed")
+        inner := card.Add("StackPanel")
+        this._AddCheckRow(inner, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
+        this._AddEditableComboRow(inner, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
+        this._AddComboRow(inner, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
+        this._AddEditableComboRow(inner, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
+    }
+
+    _FillIfBody(id, d, body) {
+        lw := this._FormalLW(), cw := this._FormalCW()
+        logicTypes := this._IfLogicTypes()
+        logicType := d.HasOwnProp("logicType") ? d.logicType : 1
+        saveOn := d.HasOwnProp("saveToggle") && (d.saveToggle == 1 || d.saveToggle == "1")
+        saveName := d.HasOwnProp("saveName") ? d.saveName : GetLang("结果")
+        trueVal := d.HasOwnProp("trueValue") ? d.trueValue : 1
+        falseVal := d.HasOwnProp("falseValue") ? d.falseValue : 0
+        this._AddComboRow(body, "IfLogicRow_" id, GetLang("逻辑关系："), "IfLogicCmb_" id, logicTypes, Max(0, logicType - 1), true, true, lw, cw)
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            chainVis := (slot == 1) ? true : prevOn
+            this._FillIfCondiCard(body, id, slot, d, chainVis)
+            on := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
+            if (slot == 1 && d.HasOwnProp("ifTog1"))
+                on := d["ifTog1"] == 1 || d["ifTog1"] == "1"
+            prevOn := chainVis && on
+        }
+        this._AddCheckRow(body, "IfSaveTogRow_" id, "IfSaveTog_" id, GetLang("结果保存"), saveOn, true)
+        this._AddEditableComboRow(body, "IfSaveNameRow_" id, GetLang("变量名："), "IfSaveName_" id, GetGuiVarArr(), GetLang(saveName), saveOn, lw, cw)
+        this._AddFieldRow(body, "IfTrueValRow_" id, GetLang("真值："), "IfTrueVal_" id, trueVal, saveOn, true, "", "", "", lw, cw)
+        this._AddFieldRow(body, "IfFalseValRow_" id, GetLang("假值："), "IfFalseVal_" id, falseVal, saveOn, true, "", "", "", lw, cw)
+        this._AddFormalHint(body)
+    }
+
     ; 循环体命令显示串数组（用于内联小卡片展示）。
     ; 循环体可能保存两种形式：①图形开始节点序列码（嵌套图，复用 _BranchGraphCmds 遍历）②线性宏串。
     _LoopBodyCmds(d) {
@@ -1270,6 +1333,40 @@ class MacroGraphFormalMixin {
             }
             this._BindCtrl("LoopChipsExpand_" id, "Click", this._OnLoopChipsToggle.Bind(this, id, "LoopChipsPanel_" id, "LoopChipsExpand_" id, id), runtime)
             this._BindCtrl("SFold_" id, "Click", this._OnToggleLoopFold.Bind(this, id), runtime)
+        } else if (t == GetLang("如果")) {
+            h := this._OnFormalIf.Bind(this, id)
+            this._FormalTrackCombo(id, "IfLogicCmb", h, runtime)
+            loop 4 {
+                p := "IfC" A_Index
+                this._FormalTrackCheck(id, p "Tog", h, runtime)
+                this._FormalTrackEditCombo(id, p "Name", h, runtime)
+                this._FormalTrackCombo(id, p "Cmp", h, runtime)
+                this._FormalTrackEditCombo(id, p "Var", h, runtime)
+            }
+            this._FormalTrackCheck(id, "IfSaveTog", h, runtime)
+            this._FormalTrackEditCombo(id, "IfSaveName", h, runtime)
+            this._FormalTrackField(id, "IfTrueVal", h, runtime)
+            this._FormalTrackField(id, "IfFalseVal", h, runtime)
+        } else if (t == GetLang("如果Pro")) {
+            h := this._OnFormalIfPro.Bind(this, id)
+            data := this._IfProData(id)
+            if (data != "") {
+                cc := this._IfProCaseCountFromData(data)
+                loop cc {
+                    ci := A_Index
+                    p := "IfProC" ci
+                    this._FormalTrackCombo(id, p "LogicCmb", h, runtime)
+                    loop 4 {
+                        slot := A_Index
+                        ps := p "S" slot
+                        this._FormalTrackCheck(id, ps "Tog", h, runtime)
+                        this._FormalTrackEditCombo(id, ps "Name", h, runtime)
+                        this._FormalTrackCombo(id, ps "Cmp", h, runtime)
+                        this._FormalTrackEditCombo(id, ps "Var", h, runtime)
+                    }
+                }
+            }
+            this._BindCtrl("SFold_" id, "Click", this._OnToggleIfProFold.Bind(this, id), runtime)
         }
     }
 }

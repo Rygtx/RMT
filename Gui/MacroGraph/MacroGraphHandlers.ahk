@@ -130,6 +130,20 @@ class MacroGraphHandlersMixin {
         return RegExReplace(name, "\d+$", "") == GetLang("搜索Pro")
     }
 
+    ; 如果Pro序列码判定（如 "如果Pro1"）
+    _IsCompareProName(name) {
+        if (name == "")
+            return false
+        return RegExReplace(name, "\d+$", "") == GetLang("如果Pro")
+    }
+
+    ; 如果序列码判定（如 "如果1"）：去掉结尾数字后与「如果」完全匹配
+    _IsCompareName(name) {
+        if (name == "")
+            return false
+        return RegExReplace(name, "\d+$", "") == GetLang("如果")
+    }
+
     ; 鼠标动作编号(1/2/3) -> 下拉项索引
     _MMProActionIndex(at) {
         if (at == "2" || at == 2)
@@ -313,6 +327,17 @@ class MacroGraphHandlersMixin {
             data := GetMacroCMDData(serial)
             return IsObject(data) ? data : ""
         }
+        return ""
+    }
+
+    ; 读取分支父节点数据（搜索/搜索Pro 或 如果）
+    _BranchParentData(parentId) {
+        if (this._IsSearchNodeId(parentId))
+            return this._SearchData(parentId)
+        if (this._IsIfNodeId(parentId))
+            return this._FormalIniData(parentId)
+        if (this._IsIfProNodeId(parentId))
+            return this._FormalIniData(parentId)
         return ""
     }
 

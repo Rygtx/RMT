@@ -17,19 +17,22 @@ class MacroGraphEditMixin {
         searchIds := []
         loopIds := []
         for sid in this.graph.selectedNodes {
-            if (this._IsSearchNodeId(sid))
+            if (this._IsSearchNodeId(sid) || this._IsIfNodeId(sid) || this._IsIfProNodeId(sid))
                 searchIds.Push(sid)
             if (this._IsLoopNodeId(sid))
                 loopIds.Push(sid)
         }
         this.graph.DeleteSelectedConnections()
-        this._DeleteSelectedNodes()
-        ; 运行时隐藏并移除分支节点（避免整窗重建闪烁）
-        for sid in searchIds
-            this._RemoveBranchNodesRuntime(sid)
-        ; 删除循环节点：联动隐藏并移除其外置循环体节点 + 回环路径
+        ; 先清理分支/循环体外置节点（删除父节点后无法再读到分支数量等数据）
+        for sid in searchIds {
+            if (this._IsIfProNodeId(sid))
+                this._RemoveProBranchNodesRuntime(sid)
+            else
+                this._RemoveBranchNodesRuntime(sid)
+        }
         for lid in loopIds
             this._RemoveLoopBodyNodeRuntime(lid)
+        this._DeleteSelectedNodes()
         this._CaptureLinks()
         this._Apply()
     }
@@ -205,6 +208,10 @@ class MacroGraphEditMixin {
                 pasteCmd := this._CloneMMPro(pasteCmd)
             else if (pasteHead.Length >= 1 && (this._IsSearchName(pasteHead[1]) || this._IsSearchProName(pasteHead[1])))
                 pasteCmd := this._CloneSearch(pasteCmd)
+            else if (pasteHead.Length >= 1 && this._IsCompareName(pasteHead[1]))
+                pasteCmd := this._CloneIf(pasteCmd)
+            else if (pasteHead.Length >= 1 && this._IsCompareProName(pasteHead[1]))
+                pasteCmd := this._CloneComparePro(pasteCmd)
             else if (pasteHead.Length >= 1 && this._IsInputName(pasteHead[1]))
                 pasteCmd := this._CloneInput(pasteCmd)
             else if (pasteHead.Length >= 1 && this._IsOutputName(pasteHead[1]))
@@ -232,8 +239,8 @@ class MacroGraphEditMixin {
         for id in newIds {
             node := this.cmdNodes[id]
             this._InjectFullNode(id, node)
-            if (this._IsExpandedSearch(id))
-                this._InjectBranchPair(id)
+            if (this._HasVisibleBranches(id))
+                this._InjectBranches(id)
             if (this._IsExpandedLoop(id))
                 this._InjectLoopBodyNode(id)
         }

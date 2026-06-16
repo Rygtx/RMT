@@ -933,6 +933,192 @@ class MacroGraphFormalHandlersMixin {
         this._RefreshArrayOptions(id, at, agt, st, agn, sn)
     }
 
+    ; 如果Pro：各情况条件/逻辑关系 内联变更
+    _OnFormalIfPro(id, state, ctrl, event) {
+        data := this._IfProData(id)
+        if (data == "")
+            return
+        logicTypes := this._IfProLogicTypes()
+        cmpTypes := this._IfProCmpTypes()
+        cc := this._IfProCaseCountFromData(data)
+        loop cc {
+            ci := A_Index
+            p := "IfProC" ci
+            if (state.Has(p "LogicCmb_" id) && state[p "LogicCmb_" id] != "")
+                data.LogicTypeArr[ci] := this._IndexInLangArr(logicTypes, state[p "LogicCmb_" id]) + 1
+            names := []
+            cmps := []
+            vals := []
+            loop 4 {
+                slot := A_Index
+                ps := p "S" slot
+                if (!this._FormalChecked(state, ps "Tog_" id))
+                    continue
+                nm := state.Has(ps "Name_" id) ? GetLangKey(state[ps "Name_" id]) : ("Var" slot)
+                cmp := 3
+                if (state.Has(ps "Cmp_" id) && state[ps "Cmp_" id] != "")
+                    cmp := this._IndexInLangArr(cmpTypes, state[ps "Cmp_" id]) + 1
+                vr := state.Has(ps "Var_" id) ? GetLangKey(state[ps "Var_" id]) : ("Var" slot)
+                names.Push(nm)
+                cmps.Push(cmp)
+                vals.Push(vr)
+            }
+            if (names.Length == 0) {
+                names.Push("Var1")
+                cmps.Push(3)
+                vals.Push("Var1")
+            }
+            data.VariNameArr[ci] := names
+            data.CompareTypeArr[ci] := cmps
+            data.VariableArr[ci] := vals
+        }
+        SaveMacroCMDData(data)
+        this._RefreshFormalIfProVisibility(id)
+        this._RefreshIfProSummary(id)
+        this._RefreshIfProPortPositions(id)
+        this._Apply()
+    }
+
+    _RefreshFormalIfProVisibility(id) {
+        if (this.ui == "")
+            return
+        data := this._IfProData(id)
+        if (data == "")
+            return
+        cc := this._IfProCaseCountFromData(data)
+        loop cc {
+            ci := A_Index
+            p := "IfProC" ci
+            condiN := data.VariNameArr[ci].Length
+            this._FormalSetVis(id, p "LogicRow_" id, condiN > 1)
+            prevOn := true
+            loop 4 {
+                slot := A_Index
+                ps := p "S" slot
+                on := slot <= condiN
+                chainVis := (slot == 1) ? true : prevOn
+                cmp := (slot <= data.CompareTypeArr[ci].Length) ? data.CompareTypeArr[ci][slot] : 3
+                this._FormalSetVis(id, ps "Row_" id, chainVis)
+                this._FormalSetVis(id, ps "NameRow_" id, chainVis && on)
+                this._FormalSetVis(id, ps "CmpRow_" id, chainVis && on)
+                this._FormalSetVis(id, ps "VarRow_" id, chainVis && on && cmp != 7)
+                prevOn := chainVis && on
+            }
+        }
+    }
+
+    _RefreshIfProInline(id, d) {
+        data := this._IfProData(id)
+        if (data == "" || this.ui == "")
+            return false
+        cc := this._IfProCaseCountFromData(data)
+        oldCc := this._ifProUiCaseCount.Has(id) ? this._ifProUiCaseCount[id] : cc
+        if (cc != oldCc)
+            return false
+        logicTypes := this._IfProLogicTypes()
+        cmpTypes := this._IfProCmpTypes()
+        loop cc {
+            ci := A_Index
+            p := "IfProC" ci
+            lt := data.LogicTypeArr[ci]
+            this.ui.Update(p "LogicCmb_" id, "SelectedIndex", Max(0, lt - 1))
+            condiN := data.VariNameArr[ci].Length
+            loop 4 {
+                slot := A_Index
+                ps := p "S" slot
+                on := slot <= condiN
+                nm := on ? data.VariNameArr[ci][slot] : ("Var" slot)
+                cmp := on ? data.CompareTypeArr[ci][slot] : 3
+                vr := on ? data.VariableArr[ci][slot] : ("Var" slot)
+                this.ui.Update(ps "Tog_" id, "IsChecked", on ? "True" : "False")
+                this.ui.Update(ps "Name_" id, "Text", GetLang(nm))
+                this.ui.Update(ps "Cmp_" id, "SelectedIndex", cmp - 1)
+                this.ui.Update(ps "Var_" id, "Text", GetLang(vr))
+            }
+        }
+        this._RefreshIfProSummary(id)
+        this._RefreshFormalIfProVisibility(id)
+        this._RefreshIfProPortPositions(id)
+        this._RebuildIfProBranches(id)
+        return true
+    }
+
+    ; 如果节点：逻辑关系/条件行/结果保存 变更
+    _OnFormalIf(id, state, ctrl, event) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        logicTypes := this._IfLogicTypes()
+        cmpTypes := this._IfCmpTypes()
+        if (state.Has("IfLogicCmb_" id) && state["IfLogicCmb_" id] != "")
+            data.LogicalType := this._IndexInLangArr(logicTypes, state["IfLogicCmb_" id]) + 1
+        data.SaveToggle := this._FormalChecked(state, "IfSaveTog_" id) ? 1 : 0
+        if (state.Has("IfSaveName_" id) && state["IfSaveName_" id] != "")
+            data.SaveName := GetVarName(state["IfSaveName_" id])
+        if (state.Has("IfTrueVal_" id))
+            data.TrueValue := state["IfTrueVal_" id]
+        if (state.Has("IfFalseVal_" id))
+            data.FalseValue := state["IfFalseVal_" id]
+        loop 4 {
+            slot := A_Index
+            p := "IfC" slot
+            data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
+            if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
+                data.NameArr[slot] := GetLangKey(state[p "Name_" id])
+            if (state.Has(p "Cmp_" id) && state[p "Cmp_" id] != "")
+                data.CompareTypeArr[slot] := this._IndexInLangArr(cmpTypes, state[p "Cmp_" id]) + 1
+            if (state.Has(p "Var_" id) && state[p "Var_" id] != "")
+                data.VariableArr[slot] := GetLangKey(state[p "Var_" id])
+        }
+        SaveMacroCMDData(data)
+        this._RefreshFormalIfVisibility(id)
+        this._Apply()
+    }
+
+    _RefreshFormalIfVisibility(id) {
+        if (this.ui == "")
+            return
+        d := this._FormalDFromId(id)
+        saveOn := d.HasOwnProp("saveToggle") && (d.saveToggle == 1 || d.saveToggle == "1")
+        this._FormalSetVis(id, "IfSaveNameRow_" id, saveOn)
+        this._FormalSetVis(id, "IfTrueValRow_" id, saveOn)
+        this._FormalSetVis(id, "IfFalseValRow_" id, saveOn)
+        prevOn := true
+        loop 4 {
+            slot := A_Index
+            p := "IfC" slot
+            tog := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
+            if (slot == 1 && d.HasOwnProp("ifTog1"))
+                tog := d["ifTog1"] == 1 || d["ifTog1"] == "1"
+            chainVis := (slot == 1) ? true : prevOn
+            cmp := d.HasOwnProp("ifCmp" slot) ? d["ifCmp" slot] : 1
+            this._FormalSetVis(id, p "TogRow_" id, chainVis)
+            this._FormalSetVis(id, p "NameRow_" id, chainVis && tog)
+            this._FormalSetVis(id, p "CmpRow_" id, chainVis && tog)
+            this._FormalSetVis(id, p "VarRow_" id, chainVis && tog && cmp != 7)
+            prevOn := chainVis && tog
+        }
+    }
+
+    ; 如果分支节点：流程控制下拉变更
+    _OnBranchFlowControl(parentId, isTrue, state, ctrl, event) {
+        data := this._FormalIniData(parentId)
+        if (data == "")
+            return
+        brId := this._BranchId(parentId, isTrue)
+        key := "BrFlowCmb_" brId
+        flowTypes := this._IfFlowTypes()
+        if (state.Has(key) && state[key] != "") {
+            val := GetLangKey(state[key])
+            if (isTrue)
+                data.TrueControlType := val
+            else
+                data.FalseControlType := val
+        }
+        SaveMacroCMDData(data)
+        this._Apply()
+    }
+
     ; 循环节点：循环次数/条件类型/逻辑关系/条件行 变更。条件行不重建下拉，标准 mega-handler + reparse 显隐即可。
     _OnFormalLoop(id, state, ctrl, event) {
         data := this._FormalIniData(id)
@@ -1080,6 +1266,10 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshFormalArrayVisibility(id)
         else if (d.type == GetLang("循环"))
             this._RefreshFormalLoopVisibility(id)
+        else if (d.type == GetLang("如果"))
+            this._RefreshFormalIfVisibility(id)
+        else if (d.type == GetLang("如果Pro"))
+            this._RefreshFormalIfProVisibility(id)
         else if (d.type == GetLang("RMT指令"))
             this._RefreshFormalRmtVisibility(id)
         else if (d.type == GetLang("后台鼠标"))
@@ -1117,6 +1307,14 @@ class MacroGraphFormalHandlersMixin {
         }
         if (d.type == GetLang("循环")) {
             this._RefreshLoopInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("如果")) {
+            this._RefreshIfInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("如果Pro")) {
+            this._RefreshIfProInline(id, d)
             return true
         }
         if (d.type == GetLang("RMT指令")) {
@@ -1188,6 +1386,41 @@ class MacroGraphFormalHandlersMixin {
         this._RefreshLoopSummary(id)
         this._RefreshLoopBodyNode(id)
         this._RefreshFormalLoopVisibility(id)
+    }
+
+    ; 如果节点：编辑器确定后就地刷新内联控件值与分支节点内容（避免整窗 _Render 闪烁）。
+    _RefreshIfInline(id, d) {
+        logicTypes := this._IfLogicTypes()
+        cmpTypes := this._IfCmpTypes()
+        logicType := d.HasOwnProp("logicType") ? d.logicType : 1
+        saveOn := d.HasOwnProp("saveToggle") && (d.saveToggle == 1 || d.saveToggle == "1")
+        saveName := d.HasOwnProp("saveName") ? d.saveName : GetLang("结果")
+        trueVal := d.HasOwnProp("trueValue") ? d.trueValue : 1
+        falseVal := d.HasOwnProp("falseValue") ? d.falseValue : 0
+        this.ui.Update("IfLogicCmb_" id, "SelectedIndex", Max(0, logicType - 1))
+        loop 4 {
+            slot := A_Index
+            p := "IfC" slot
+            on := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
+            if (slot == 1 && d.HasOwnProp("ifTog1"))
+                on := d["ifTog1"] == 1 || d["ifTog1"] == "1"
+            nm := d.HasOwnProp("ifName" slot) ? d["ifName" slot] : "Var" slot
+            cmp := d.HasOwnProp("ifCmp" slot) ? d["ifCmp" slot] : 1
+            vr := d.HasOwnProp("ifVar" slot) ? d["ifVar" slot] : "Var" slot
+            this.ui.Update(p "Tog_" id, "IsChecked", on ? "True" : "False")
+            this.ui.Update(p "Name_" id, "Text", GetLang(nm))
+            this.ui.Update(p "Cmp_" id, "SelectedIndex", cmp - 1)
+            this.ui.Update(p "Var_" id, "Text", GetLang(vr))
+        }
+        this.ui.Update("IfSaveTog_" id, "IsChecked", saveOn ? "True" : "False")
+        this.ui.Update("IfSaveName_" id, "Text", GetLang(saveName))
+        this.ui.Update("IfTrueVal_" id, "Text", trueVal)
+        this.ui.Update("IfFalseVal_" id, "Text", falseVal)
+        this._RefreshFormalIfVisibility(id)
+        if (this._branchInjected.Has(id)) {
+            this._RefreshBranchBody(id, true)
+            this._RefreshBranchBody(id, false)
+        }
     }
 
     ; 数组节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
