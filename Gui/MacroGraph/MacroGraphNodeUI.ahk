@@ -718,10 +718,13 @@ class MacroGraphNodeUIMixin {
         return { dx: dx + 0, dy: dy + 0 }
     }
 
+    ; 回环交互点中心 Y 偏移（相对节点顶边，与 _LoopBodyPos 默认 dy=60 配套，吸附后仍水平对齐）。
+    _LoopCyEnterY() => 90      ; 循环右侧上点（进入循环体），margin top 54
+    _LoopCyReturnY() => 146    ; 循环右侧下点（循环体返回），margin top 110
+    _LoopBodyEnterY() => 30    ; 循环体左侧上点（通用入点），margin top -6
+    _LoopBodyReturnY() => 86   ; 循环体左侧下点，margin top 50
+
     ; 给循环节点 grid 追加右侧两个回环交互点（出点不变、入点不变；额外的进入/返回点）。
-    ; 上点=进入循环体（连到循环体左上点），下点=循环体返回（来自循环体左下点）。
-    ; 中心 Y：上点 = 30(头) + 54 + 6 = 90；下点 = 30 + 110 + 6 = 146。
-    ; 该位置与循环体(默认偏移 dy=60)左侧两点中心 Y 对齐，使回环路径为水平直线（见 _LoopBodyPos）。
     _AddLoopCyclePortEls(grid, id) {
         vis := this._NodeFolded(id) ? "Collapsed" : "Visible"
         oEl := XAMLElement("Ellipse")
@@ -783,17 +786,15 @@ class MacroGraphNodeUIMixin {
         bx := (bodyX != "") ? bodyX : bn.X
         by := (bodyY != "") ? bodyY : bn.Y
         rx := lx + lw
-        ; 进入：循环右上点(Y 偏移 91) → 循环体左上点(入点位，Y 偏移 30)，高度 61px（奇数居中）
-        this.ui.Update("LoopEnterPath_" loopId, "Data", this._LoopCycGeom(rx, ly + 91, bx, by + 30))
-        ; 返回：循环体左下点(Y 偏移 85) → 循环右下点(Y 偏移 146)，高度 61px（奇数居中）
-        this.ui.Update("LoopReturnPath_" loopId, "Data", this._LoopCycGeom(bx, by + 85, rx, ly + 146))
-        ; 更新连接线上的三角字符位置
-        ; 进入路径：从(rx, ly+91)到(bx, by+30)，三角偏向循环体一侧（指向右）
-        enterMidX := (rx + bx) / 2 + 10, enterMidY := (ly + 91 + by + 30) / 2
-        this.ui.Update("LoopEnterTri_" loopId, "SetPosition", Format("{},{}", enterMidX, enterMidY - 9))
-        ; 返回路径：从(bx, by+85)到(rx, ly+146)，三角偏向循环体一侧（指向左）
-        retMidX := (bx + rx) / 2 - 20, retMidY := (by + 85 + ly + 146) / 2
-        this.ui.Update("LoopReturnTri_" loopId, "SetPosition", Format("{},{}", retMidX, retMidY - 9))
+        ey := this._LoopCyEnterY(), ry := this._LoopCyReturnY()
+        bey := this._LoopBodyEnterY(), bry := this._LoopBodyReturnY()
+        ; 进入：循环右上点 → 循环体入点（水平对齐时 Y 相同）
+        this.ui.Update("LoopEnterPath_" loopId, "Data", this._LoopCycGeom(rx, ly + ey, bx, by + bey))
+        ; 返回：循环体左下点 → 循环右下点（水平对齐时 Y 相同）
+        this.ui.Update("LoopReturnPath_" loopId, "Data", this._LoopCycGeom(bx, by + bry, rx, ly + ry))
+        ; 三角固定在端点：进入 ▶ 在循环体入点；返回 ◀ 在循环节点右侧返回入点
+        this.ui.Update("LoopEnterTri_" loopId, "SetPosition", Format("{},{}", bx - 12, by + bey - 9))
+        this.ui.Update("LoopReturnTri_" loopId, "SetPosition", Format("{},{}", rx + 4, ly + ry - 9))
     }
 
     ; 循环体外置节点 Border 元素（标题 + 指令小卡片 + 端口）。
@@ -867,17 +868,16 @@ class MacroGraphNodeUIMixin {
         ln := g.GetNode(loopId)
         lx := ln ? ln.X : x, ly := ln ? ln.Y : y
         rx := lx + this._LoopNodeWidth(loopId)
+        ey := this._LoopCyEnterY(), ry := this._LoopCyReturnY()
+        bey := this._LoopBodyEnterY(), bry := this._LoopBodyReturnY()
         enterEl := this._MakeLoopCyclePathEl("LoopEnterPath_" loopId, "#5C6BC0", false)
-        enterEl.SetProp("Data", this._LoopCycGeom(rx, ly + 91, x, y + 30))
+        enterEl.SetProp("Data", this._LoopCycGeom(rx, ly + ey, x, y + bey))
         retEl := this._MakeLoopCyclePathEl("LoopReturnPath_" loopId, "#9575CD", false)
-        retEl.SetProp("Data", this._LoopCycGeom(x, y + 85, rx, ly + 146))
+        retEl.SetProp("Data", this._LoopCycGeom(x, y + bry, rx, ly + ry))
         g.canvas._Children.Push(enterEl)
         g.canvas._Children.Push(retEl)
-        ; 添加连接线上的三角字符：进入路径 ▶（指向循环体），返回路径 ◀（指向循环）
-        enterMidX := (rx + x) / 2 + 10, enterMidY := (ly + 91 + y + 30) / 2
-        retMidX := (x + rx) / 2 - 20, retMidY := (y + 85 + ly + 146) / 2
-        enterTriEl := this._MakeLoopTriangleEl("LoopEnterTri_" loopId, "▶", "#5C6BC0", enterMidX, enterMidY - 9, false)
-        retTriEl := this._MakeLoopTriangleEl("LoopReturnTri_" loopId, "◀", "#9575CD", retMidX, retMidY - 9, false)
+        enterTriEl := this._MakeLoopTriangleEl("LoopEnterTri_" loopId, "▶", "#5C6BC0", x - 12, y + bey - 9, false)
+        retTriEl := this._MakeLoopTriangleEl("LoopReturnTri_" loopId, "◀", "#9575CD", rx + 4, ly + ry - 9, false)
         g.canvas._Children.Push(enterTriEl)
         g.canvas._Children.Push(retTriEl)
     }
@@ -900,11 +900,10 @@ class MacroGraphNodeUIMixin {
         ln := g.GetNode(loopId)
         lx := ln ? ln.X : x, ly := ln ? ln.Y : y
         rx := lx + this._LoopNodeWidth(loopId)
-        ; 连线高度改为 61px（奇数居中）
-        enterMidX := (rx + x) / 2 + 10, enterMidY := (ly + 91 + y + 30) / 2
-        retMidX := (x + rx) / 2 - 20, retMidY := (y + 85 + ly + 146) / 2
-        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopTriangleEl("LoopEnterTri_" loopId, "▶", "#5C6BC0", enterMidX, enterMidY - 9, true).ToString()))
-        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopTriangleEl("LoopReturnTri_" loopId, "◀", "#9575CD", retMidX, retMidY - 9, true).ToString()))
+        ey := this._LoopCyEnterY(), ry := this._LoopCyReturnY()
+        bey := this._LoopBodyEnterY(), bry := this._LoopBodyReturnY()
+        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopTriangleEl("LoopEnterTri_" loopId, "▶", "#5C6BC0", x - 12, y + bey - 9, true).ToString()))
+        g.ui.Update(g.id, "AddXamlItem", this._FlattenXaml(this._MakeLoopTriangleEl("LoopReturnTri_" loopId, "◀", "#9575CD", rx + 4, ly + ry - 9, true).ToString()))
         g.ui.OnEvent("Node_" bid, "DragMove", ObjBindMethod(g, "OnNodeMoved", bid))
         g.ui.OnEvent("Node_" bid, "SelectNode", ObjBindMethod(g, "OnSelectNode", bid))
         g.ui.OnEvent("Node_" bid, "CtrlSelectNode", ObjBindMethod(g, "OnCtrlSelectNode", bid))

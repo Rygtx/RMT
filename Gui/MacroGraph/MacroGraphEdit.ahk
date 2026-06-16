@@ -45,6 +45,8 @@ class MacroGraphEditMixin {
         g.ui.Update("Port_Out_" bid, "Visibility", "Collapsed")
         g.ui.Update("LoopEnterPath_" loopId, "Visibility", "Collapsed")
         g.ui.Update("LoopReturnPath_" loopId, "Visibility", "Collapsed")
+        g.ui.Update("LoopEnterTri_" loopId, "Visibility", "Collapsed")
+        g.ui.Update("LoopReturnTri_" loopId, "Visibility", "Collapsed")
         nkeep := []
         for n in g.nodes {
             if (n.Id != bid)

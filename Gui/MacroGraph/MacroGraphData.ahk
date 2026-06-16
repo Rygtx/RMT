@@ -612,6 +612,15 @@ class MacroGraphDataMixin {
 
     ; ----------------------------------------------------------------- 指令解析/重建
 
+    ; 判断 RMT CMD 分段是否为「类别」名（用于区分新格式 RMT指令_类别_指令 与旧格式 RMT指令_指令_序号）
+    _IsRmtCategoryName(name) {
+        for cat in GetLangArr(["全部", "图文", "输入控制", "宏控制", "调试", "软件自身"]) {
+            if (name == cat)
+                return true
+        }
+        return false
+    }
+
     ; 创建节点：MacroGraphNode（来自 DataClass），持有 CurCMD，SerialStr 由 GetCMDSerialStr("图形节点") 生成
     _MakeNode(cmd) {
         node := MacroGraphNode()
@@ -738,15 +747,25 @@ class MacroGraphDataMixin {
             d.type := GetLang("RMT指令")
             ; CMD格式: RMT指令_类别_指令_序号（新）或 RMT指令_指令_序号（旧兼容）
             if (paramArr.Length >= 4) {
-                ; 新格式
                 d.rmtCategory := paramArr[2]
                 d.rmtOp := paramArr[3]
                 d.rmtMenuIdx := paramArr[4]
             } else if (paramArr.Length >= 3) {
-                ; 旧格式
+                if (this._IsRmtCategoryName(paramArr[2])) {
+                    ; 新格式（无菜单序号）：RMT指令_类别_指令
+                    d.rmtCategory := paramArr[2]
+                    d.rmtOp := paramArr[3]
+                    d.rmtMenuIdx := "1"
+                } else {
+                    ; 旧格式：RMT指令_指令_序号
+                    d.rmtCategory := GetLang("全部")
+                    d.rmtOp := paramArr[2]
+                    d.rmtMenuIdx := IsNumber(paramArr[3]) ? paramArr[3] : "1"
+                }
+            } else if (paramArr.Length >= 2) {
                 d.rmtCategory := GetLang("全部")
                 d.rmtOp := paramArr[2]
-                d.rmtMenuIdx := paramArr[3]
+                d.rmtMenuIdx := "1"
             } else {
                 d.rmtCategory := GetLang("全部")
                 d.rmtOp := GetLang("截图")

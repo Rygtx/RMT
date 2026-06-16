@@ -353,7 +353,7 @@ class MacroGraphGui {
             return this._MakeNode(serial)
         }
         if (cmdName == GetLang("RMT指令"))
-            return this._MakeNode(GetLang("RMT指令") "_" GetLang("截图"))
+            return this._MakeNode(GetLang("RMT指令") "_" GetLang("全部") "_" GetLang("截图"))
         for key in this._FormalIniCmdKeys() {
             if (cmdName == GetLang(key)) {
                 serial := GetCMDSerialStr(key)
@@ -473,7 +473,11 @@ class MacroGraphGui {
 
         editor.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
         editor.SureBtnAction := (cmd) => this.OnEditorSure(id, cmd)
-        editor.ShowGui(this.cmdNodes[id].CurCMD)
+        ; RMT 指令参数存于 CurCMD 本身，打开编辑器时用规范化后的 CMD，与节点内联显示一致
+        if (d.type == GetLang("RMT指令"))
+            editor.ShowGui(this._BuildCmd(d))
+        else
+            editor.ShowGui(this.cmdNodes[id].CurCMD)
     }
 
     ; 完整编辑器确定后：回写数据并刷新节点显示

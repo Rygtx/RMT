@@ -758,7 +758,7 @@ class MacroGraphFormalMixin {
         }
         ; 安全获取菜单索引（确保是有效数字）
         menuIdx := 1
-        if (d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "") {
+        if (d.HasOwnProp("rmtMenuIdx") && d.rmtMenuIdx != "" && IsNumber(d.rmtMenuIdx)) {
             parsed := Integer(d.rmtMenuIdx)
             if (parsed > 0)
                 menuIdx := parsed
