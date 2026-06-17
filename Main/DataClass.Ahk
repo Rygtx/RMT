@@ -452,8 +452,8 @@ class ScreenShotData {
         this.StartPosY := 0
         this.EndPosX := A_ScreenWidth
         this.EndPosY := A_ScreenHeight
-        this.NameType := 1              ;1默认（指令名+序号）  2固定名称
-        this.FixedName := ""            ;固定名称（NameType=2时使用）
+        this.NameType := 1              ;0默认（指令名+序号）  1固定名称
+        this.FixedName := "Shot"            ;固定名称（NameType=1时使用）
         this.SavePath := ""             ;保存路径（默认为Temp_ScreenShot）
         this.ResultToggle := 0          ;是否保存结果到变量
         this.ResultSaveName := GetLang("图片路径")  ;结果变量名

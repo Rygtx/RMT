@@ -474,6 +474,10 @@ class MacroGraphDataMixin {
             d.clickCount := data.ClickCount
             d.clickInterval := data.ClickInterval
             d.bgKeyCount := data.KeyArr.Length
+            keyStr := ""
+            for k in data.KeyArr
+                keyStr .= k "⎖"
+            d.bgKeyStr := RTrim(keyStr, "⎖")
         } else if (cmdKey == "窗口管理") {
             d.wmActionType := data.ActionType
             d.wmSearchValue := data.SearchValue
@@ -488,6 +492,10 @@ class MacroGraphDataMixin {
             d.kcStateType := data.StateType
             d.kcVarName := data.VarName
             d.kcKeyCount := data.KeyArr.Length
+            keyStr := ""
+            for k in data.KeyArr
+                keyStr .= k "⎖"
+            d.kcKeyStr := RTrim(keyStr, "⎖")
         } else if (cmdKey == "抓图") {
             d.ssType := data.ScreenShotType
             d.ssWinInfo := data.WinInfo

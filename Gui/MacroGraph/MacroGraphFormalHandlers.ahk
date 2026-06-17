@@ -494,6 +494,22 @@ class MacroGraphFormalHandlersMixin {
         this._RefreshFormalFileIOVisibility(id, ot, om)
     }
 
+    ; 切换参数类型下拉显隐（各类型预置独立 ComboBox，不重建列表）
+    _RefreshFormalTextOpsArgsTypeSlot(id, tt, at := "") {
+        if (this.ui == "")
+            return
+        ti := this._FormalTextOpsTypeIdx(tt)
+        loop this._FormalTextOpsTypeNames().Length
+            this.ui.Update("TxtArgsTypeCmb_" A_Index "_" id, "Visibility", A_Index == ti ? "Visible" : "Collapsed")
+        if (ti >= 1) {
+            items := this._FormalTextOpsArgsTypes(tt)
+            sel := (at != "" && items.Length) ? this._IndexInLangArr(items, at) : 0
+            if (sel < 0)
+                sel := 0
+            this.ui.Update("TxtArgsTypeCmb_" ti "_" id, "SelectedIndex", sel)
+        }
+    }
+
     ; 文本处理节点下方选项刷新：完全由类型决定，不读数据表。
     ; 参数：tt=类型, at=参数类型(可选), saveName=保存名(可选)
     _RefreshTextOpsOptions(id, tt, at := "", saveName := "") {
@@ -501,87 +517,79 @@ class MacroGraphFormalHandlersMixin {
             return
         IsSplit := tt == "文本分割"
         IsGetEx := tt == "文本提取"
-        ; 保存类型：文本分割/文本提取 → 数组；其他 → 变量（使用文本框，参考文件读写）
         autoSaveType := (IsSplit || IsGetEx) ? "数组" : "变量"
         this.ui.Update("TxtSaveTypeTxt_" id, "Text", autoSaveType)
-        ; 保存名列表
         saveNameList := GetGuiVarArr()
         this.ui.Update("TxtSave_" id, "ClearItems", "")
         for name in saveNameList
             this.ui.Update("TxtSave_" id, "AddItem", name)
         if (saveName != "")
             this.ui.Update("TxtSave_" id, "Text", saveName)
-        ; 刷新显隐
-        this._RefreshFormalTextOpsVisibility(id, tt)
+        this._RefreshFormalTextOpsVisibility(id, tt, at)
+        if (at == "" && this._FormalTextOpsArgsTypes(tt).Length > 0)
+            at := this._FormalTextOpsArgsTypes(tt)[1]
+        this._RefreshFormalTextOpsArgsTypeSlot(id, tt, at)
     }
 
     _OnFormalTextOps(id, state, ctrl, event) {
-        FileAppend("[DEBUG _OnFormalTextOps] START`n", "*")
-        FileAppend("[DEBUG _OnFormalTextOps] ctrl:`t" ctrl "`n", "*")
-        FileAppend("[DEBUG _OnFormalTextOps] state keys:`t" (IsObject(state) ? state.Count : "null") "`n", "*")
-        FileAppend("[DEBUG _OnFormalTextOps] TxtTypeCmb_:`t" (state.Has("TxtTypeCmb_" id) ? state["TxtTypeCmb_" id] : "N/A") "`n", "*")
-        FileAppend("[DEBUG _OnFormalTextOps] TxtArgsTypeCmb_:`t" (state.Has("TxtArgsTypeCmb_" id) ? state["TxtArgsTypeCmb_" id] : "N/A") "`n", "*")
-
         data := this._FormalIniData(id)
         if (data == "")
             return
 
-        ; 类型切换时：重建参数类型下拉选项
-        if (state.Has("TxtTypeCmb_" id) && state["TxtTypeCmb_" id] != "") {
-            FileAppend("[DEBUG _OnFormalTextOps] Processing type change`n", "*")
-            tt := GetLangKey(state["TxtTypeCmb_" id])
+        ; 必须用 ctrl 区分触发源：state 快照含全部已追踪控件，不能靠 Has 判断
+        if (ctrl == "TxtTypeCmb_" id) {
+            tt := GetLangKey(state[ctrl])
+            if (data.Type == tt)
+                return
             data.Type := tt
-            ; 重建参数类型下拉选项并选中第一个
             argsItems := this._FormalTextOpsArgsTypes(tt)
-            if (this.ui != "" && argsItems.Length > 0) {
-                this.ui.Update("TxtArgsTypeCmb_" id, "ClearItems", "")
-                for item in argsItems
-                    this.ui.Update("TxtArgsTypeCmb_" id, "AddItem", item)
-                this.ui.Update("TxtArgsTypeCmb_" id, "SelectedIndex", 0)
+            if (argsItems.Length > 0)
                 data.ArgsType := GetLangKey(argsItems[1])
-            }
-            ; 切换类型后，保存类型也需要更新
-            IsSplitOrGetEx := (tt == "文本分割" || tt == "文本提取")
-            data.SaveType := IsSplitOrGetEx ? "数组" : "变量"
-            ; 调用刷新方法统一处理保存类型和显隐
-            this._RefreshTextOpsOptions(id, tt, data.ArgsType, data.SaveName)
+            data.SaveType := (tt == "文本分割" || tt == "文本提取") ? "数组" : "变量"
+            this._RefreshTextOpsOptions(id, tt, data.ArgsType, data.HasOwnProp("SaveName") ? data.SaveName : "")
             SaveMacroCMDData(data)
             this._Apply()
-            FileAppend("[DEBUG _OnFormalTextOps] END (type change)`n", "*")
             return
         }
 
-        FileAppend("[DEBUG _OnFormalTextOps] Processing other fields`n", "*")
+        if (RegExMatch(ctrl, "^TxtArgsTypeCmb_\d+_" id "$")) {
+            if (!state.Has(ctrl) || state[ctrl] == "")
+                return
+            data.ArgsType := GetLangKey(state[ctrl])
+            this._RefreshFormalTextOpsVisibility(id, data.Type, data.ArgsType)
+            SaveMacroCMDData(data)
+            this._Apply()
+            return
+        }
 
-        ; 以下是其他控件的变更处理（不包括参数类型下拉，因为它会被类型切换重建触发）
         hasChange := false
-        if (state.Has("TxtName_" id) && state["TxtName_" id] != "") {
-            newName := GetVarName(state["TxtName_" id])
+        if (ctrl == "TxtName_" id && state.Has(ctrl) && state[ctrl] != "") {
+            newName := GetVarName(state[ctrl])
             if (data.Name != newName) {
                 data.Name := newName
                 hasChange := true
             }
         }
-        if (state.Has("TxtArgsName_" id) && state["TxtArgsName_" id] != "") {
-            if (data.ArgsName != state["TxtArgsName_" id]) {
-                data.ArgsName := state["TxtArgsName_" id]
+        if (ctrl == "TxtArgsName_" id && state.Has(ctrl) && state[ctrl] != "") {
+            if (data.ArgsName != state[ctrl]) {
+                data.ArgsName := state[ctrl]
                 hasChange := true
             }
         }
-        if (state.Has("TxtSearch_" id)) {
-            if (data.Search != state["TxtSearch_" id]) {
-                data.Search := state["TxtSearch_" id]
+        if (ctrl == "TxtSearch_" id && state.Has(ctrl)) {
+            if (data.Search != state[ctrl]) {
+                data.Search := state[ctrl]
                 hasChange := true
             }
         }
-        if (state.Has("TxtReplace_" id)) {
-            if (data.Replace != state["TxtReplace_" id]) {
-                data.Replace := state["TxtReplace_" id]
+        if (ctrl == "TxtReplace_" id && state.Has(ctrl)) {
+            if (data.Replace != state[ctrl]) {
+                data.Replace := state[ctrl]
                 hasChange := true
             }
         }
-        if (state.Has("TxtSave_" id) && state["TxtSave_" id] != "") {
-            newSaveName := GetVarName(state["TxtSave_" id])
+        if (ctrl == "TxtSave_" id && state.Has(ctrl) && state[ctrl] != "") {
+            newSaveName := GetVarName(state[ctrl])
             if (data.SaveName != newSaveName) {
                 data.SaveName := newSaveName
                 hasChange := true
@@ -589,11 +597,9 @@ class MacroGraphFormalHandlersMixin {
         }
 
         if (hasChange) {
-            FileAppend("[DEBUG _OnFormalTextOps] Saving changes`n", "*")
             SaveMacroCMDData(data)
             this._Apply()
         }
-        FileAppend("[DEBUG _OnFormalTextOps] END`n", "*")
     }
 
     ; 数组：根据操作类型计算各类显隐/逻辑标志，节点与刷新共用，保证表现一致。
@@ -750,10 +756,31 @@ class MacroGraphFormalHandlersMixin {
             data.ScrollV := state["BgmSV_" id]
         if (state.Has("BgmSH_" id))
             data.ScrollH := state["BgmSH_" id]
-        if (state.Has("BgmTime_" id))
-            data.ClickTime := state["BgmTime_" id]
         SaveMacroCMDData(data)
         this._RefreshFormalBGMouseVisibility(id)
+        this._Apply()
+    }
+
+    ; 后台鼠标「编辑」按钮：打开窗口信息编辑器，确定后回写目标窗口标题。
+    _OnFormalBGMouseTitleEdit(id, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        adapter := { Value: data.TargetTitle }
+        MyFrontInfoGui.OwnerHwnd := ""
+        MyFrontInfoGui.HideAction := ""
+        MyFrontInfoGui.SureAction := this._OnFormalBGMouseTitleEditSure.Bind(this, id, adapter)
+        MyFrontInfoGui.ShowGui(adapter)
+    }
+
+    _OnFormalBGMouseTitleEditSure(id, adapter, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        data.TargetTitle := adapter.Value
+        SaveMacroCMDData(data)
+        if (this.ui != "")
+            this.ui.Update("BgmTitle_" id, "Text", adapter.Value)
         this._Apply()
     }
 
@@ -777,12 +804,48 @@ class MacroGraphFormalHandlersMixin {
         this._Apply()
     }
 
-    _OnFormalWindowManage(id, state, ctrl, event) {
+    ; 后台按键「编辑」按钮：打开窗口信息编辑器，确定后回写前台信息。
+    _OnFormalBGKeyFrontEdit(id, *) {
         data := this._FormalIniData(id)
         if (data == "")
             return
-        if (state.Has("WmActCmb_" id) && state["WmActCmb_" id] != "")
-            data.ActionType := GetLangKey(state["WmActCmb_" id])
+        adapter := { Value: data.FrontStr }
+        MyFrontInfoGui.OwnerHwnd := ""
+        MyFrontInfoGui.HideAction := ""
+        MyFrontInfoGui.SureAction := this._OnFormalBGKeyFrontEditSure.Bind(this, id, adapter)
+        MyFrontInfoGui.ShowGui(adapter)
+    }
+
+    _OnFormalBGKeyFrontEditSure(id, adapter, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        data.FrontStr := adapter.Value
+        SaveMacroCMDData(data)
+        if (this.ui != "")
+            this.ui.Update("BgkFront_" id, "Text", adapter.Value)
+        this._Apply()
+    }
+
+    _OnFormalWindowManage(id, state, ctrl, event) {
+        actions := GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
+            "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度"])
+        if (ctrl == "WmActCmb_" id) {
+            if (!state.Has(ctrl) || state[ctrl] == "")
+                return
+            at := this._FormalLangKeyFromCombo(actions, state[ctrl])
+            data := this._FormalIniData(id)
+            if (data == "")
+                return
+            data.ActionType := at
+            SaveMacroCMDData(data)
+            this._RefreshFormalWindowManageVisibility(id, at)
+            this._Apply()
+            return
+        }
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
         if (state.Has("WmWin_" id))
             data.SearchValue := state["WmWin_" id]
         if (state.Has("WmX_" id) && state["WmX_" id] != "")
@@ -798,8 +861,43 @@ class MacroGraphFormalHandlersMixin {
         if (state.Has("WmTrans_" id) && state["WmTrans_" id] != "")
             data.Transparency := state["WmTrans_" id]
         SaveMacroCMDData(data)
-        this._RefreshFormalWindowManageVisibility(id)
         this._Apply()
+    }
+
+    _OnFormalWmWinEdit(id, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        adapter := { Value: data.SearchValue }
+        MyFrontInfoGui.OwnerHwnd := ""
+        MyFrontInfoGui.HideAction := ""
+        MyFrontInfoGui.SureAction := this._OnFormalWmWinEditSure.Bind(this, id, adapter)
+        MyFrontInfoGui.ShowGui(adapter)
+    }
+
+    _OnFormalWmWinEditSure(id, adapter, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        data.SearchValue := adapter.Value
+        SaveMacroCMDData(data)
+        if (this.ui != "")
+            this.ui.Update("WmWin_" id, "Text", adapter.Value)
+        this._Apply()
+    }
+
+    _WmReadLiveAction(id) {
+        actions := GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
+            "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度"])
+        if (this.ui != "") {
+            try {
+                idx := this.ui.Get("WmActCmb_" id, "SelectedIndex")
+                if (idx >= 0 && idx < actions.Length)
+                    return GetLangKey(actions[idx + 1])
+            }
+        }
+        d := this._FormalDFromId(id)
+        return d.HasOwnProp("wmActionType") ? GetLangKey(d.wmActionType) : "激活窗口"
     }
 
     _OnFormalKeyCheck(id, state, ctrl, event) {
@@ -979,20 +1077,20 @@ class MacroGraphFormalHandlersMixin {
         this._FormalSetVis(id, "FIOSaveRow_" id, IsRead)
     }
 
-    _RefreshFormalTextOpsVisibility(id, tt := "") {
+    _RefreshFormalTextOpsVisibility(id, tt := "", at := "") {
         if (this.ui == "")
             return
-        ; 如果没有传入类型，从数据中读取
-        if (tt == "") {
-            d := this._FormalDFromId(id)
+        d := this._FormalDFromId(id)
+        if (tt == "")
             tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
-        }
+        if (at == "")
+            at := d.HasOwnProp("argsType") ? d.argsType : ","
         IsReplace := tt == "文本替换"
         IsSplit := tt == "文本分割"
         IsGetEx := tt == "文本提取"
         IsConcat := tt == "文本拼接"
         ShowArgsType := IsSplit || IsGetEx || tt == "大小写转换" || tt == "去除空格" || tt == "文本统计" || IsConcat || IsReplace
-        ShowArgsName := IsSplit || IsConcat || IsGetEx
+        ShowArgsName := this._FormalTextOpsShowArgsName(tt, at)
         argsItems := this._FormalTextOpsArgsTypes(tt)
         this._FormalSetVis(id, "TxtArgsTypeRow_" id, ShowArgsType && argsItems.Length > 0)
         this._FormalSetVis(id, "TxtArgsNameRow_" id, ShowArgsName)
@@ -1002,8 +1100,7 @@ class MacroGraphFormalHandlersMixin {
 
     ; 文本处理节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
     _RefreshTextOpsInline(id, d) {
-        ; 类型顺序需与 TextOpsGui.ahk 保持一致
-        typeNames := GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"])
+        typeNames := this._FormalTextOpsTypeNames()
         tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
         tn := d.HasOwnProp("textName") ? d.textName : "TextVar"
         at := d.HasOwnProp("argsType") ? d.argsType : ","
@@ -1013,42 +1110,28 @@ class MacroGraphFormalHandlersMixin {
         sn := d.HasOwnProp("saveName") ? d.saveName : "Data"
         IsSplit := tt == "文本分割"
         IsGetEx := tt == "文本提取"
-        ; 保存类型固定：文本分割/文本提取 → 数组；其他 → 变量
         fixedSt := (IsSplit || IsGetEx) ? "数组" : "变量"
 
-        ; 更新控件值
         this.ui.Update("TxtTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(typeNames, tt))
         this.ui.Update("TxtName_" id, "Text", tn)
         this.ui.Update("TxtSearch_" id, "Text", sr)
         this.ui.Update("TxtReplace_" id, "Text", rp)
         this.ui.Update("TxtSave_" id, "Text", sn)
+        this._RefreshFormalTextOpsArgsTypeSlot(id, tt, at)
 
-        ; 更新参数类型
-        argsItems := this._FormalTextOpsArgsTypes(tt)
-        argsIdx := argsItems.Length ? this._IndexInLangArr(argsItems, at) : 0
-        this.ui.Update("TxtArgsTypeCmb_" id, "ClearItems", "")
-        for item in argsItems
-            this.ui.Update("TxtArgsTypeCmb_" id, "AddItem", item)
-        this.ui.Update("TxtArgsTypeCmb_" id, "SelectedIndex", argsIdx)
-
-        ; 更新参数值选项
         varList := GetGuiVarArr(2)
         this.ui.Update("TxtArgsName_" id, "ClearItems", "")
         for item in varList
             this.ui.Update("TxtArgsName_" id, "AddItem", item)
         this.ui.Update("TxtArgsName_" id, "Text", an)
 
-        ; 保存类型固定：文本分割/文本提取 → 数组；其他 → 变量（使用文本框，参考文件读写）
         this.ui.Update("TxtSaveTypeTxt_" id, "Text", fixedSt)
-
-        ; 更新保存名选项
         saveNameList := GetGuiVarArr()
         this.ui.Update("TxtSave_" id, "ClearItems", "")
         for item in saveNameList
             this.ui.Update("TxtSave_" id, "AddItem", item)
 
-        ; 刷新显隐
-        this._RefreshFormalTextOpsVisibility(id)
+        this._RefreshFormalTextOpsVisibility(id, tt, at)
     }
 
     _RefreshFormalArrayVisibility(id) {
@@ -1326,11 +1409,37 @@ class MacroGraphFormalHandlersMixin {
         mt := d.HasOwnProp("bgMouseType") ? d.bgMouseType : 1
         isScroll := mt == 4
         this._FormalSetVis(id, "BgmOpRow_" id, !isScroll)
-        this._FormalSetVis(id, "BgmXRow_" id, !isScroll)
-        this._FormalSetVis(id, "BgmYRow_" id, !isScroll)
-        this._FormalSetVis(id, "BgmTimeRow_" id, !isScroll)
         this._FormalSetVis(id, "BgmSVRow_" id, isScroll)
         this._FormalSetVis(id, "BgmSHRow_" id, isScroll)
+    }
+
+    ; 后台鼠标节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshBGMouseInline(id, d) {
+        opTypes := GetLangArr(["点击", "双击", "按下", "松开"])
+        mouseTypes := GetLangArr(["左键", "中键", "右键", "滚轮"])
+        tt := d.HasOwnProp("targetTitle") ? d.targetTitle : ""
+        ot := d.HasOwnProp("bgOperateType") ? d.bgOperateType : 1
+        mt := d.HasOwnProp("bgMouseType") ? d.bgMouseType : 1
+        px := d.HasOwnProp("bgPosVarX") ? d.bgPosVarX : 100
+        py := d.HasOwnProp("bgPosVarY") ? d.bgPosVarY : 100
+        sv := d.HasOwnProp("scrollV") ? d.scrollV : 1
+        sh := d.HasOwnProp("scrollH") ? d.scrollH : 0
+        varList := GetGuiVarArr()
+
+        this.ui.Update("BgmTitle_" id, "Text", tt)
+        this.ui.Update("BgmMouseCmb_" id, "SelectedIndex", Max(0, mt - 1))
+        this.ui.Update("BgmOpCmb_" id, "SelectedIndex", Max(0, ot - 1))
+        this.ui.Update("BgmX_" id, "ClearItems", "")
+        for item in varList
+            this.ui.Update("BgmX_" id, "AddItem", item)
+        this.ui.Update("BgmX_" id, "Text", GetLang(px))
+        this.ui.Update("BgmY_" id, "ClearItems", "")
+        for item in varList
+            this.ui.Update("BgmY_" id, "AddItem", item)
+        this.ui.Update("BgmY_" id, "Text", GetLang(py))
+        this.ui.Update("BgmSV_" id, "Text", sv)
+        this.ui.Update("BgmSH_" id, "Text", sh)
+        this._RefreshFormalBGMouseVisibility(id)
     }
 
     _RefreshFormalBGKeyVisibility(id) {
@@ -1342,21 +1451,77 @@ class MacroGraphFormalHandlersMixin {
         this._FormalSetVis(id, "BgkTimeRow_" id, isClick)
         this._FormalSetVis(id, "BgkCountRow_" id, isClick)
         this._FormalSetVis(id, "BgkInterRow_" id, isClick)
-        if (d.HasOwnProp("bgKeyCount"))
-            this.ui.Update("BgkHint_" id, "Text", d.bgKeyCount " " GetLang("键"))
     }
 
-    _RefreshFormalWindowManageVisibility(id) {
+    ; 后台按键节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshBGKeyInline(id, d) {
+        typeNames := GetLangArr(["按下", "松开", "点击"])
+        tt := d.HasOwnProp("bgKeyType") ? d.bgKeyType : 1
+        fs := d.HasOwnProp("frontStr") ? d.frontStr : ""
+        keyStr := d.HasOwnProp("bgKeyStr") ? d.bgKeyStr : ""
+        ctm := d.HasOwnProp("clickTime") ? d.clickTime : 100
+        cc := d.HasOwnProp("clickCount") ? d.clickCount : 1
+        ci := d.HasOwnProp("clickInterval") ? d.clickInterval : 100
+        this.ui.Update("BgkKeys_" id, "Text", keyStr)
+        this.ui.Update("BgkFront_" id, "Text", fs)
+        this.ui.Update("BgkTypeCmb_" id, "SelectedIndex", Max(0, tt - 1))
+        this.ui.Update("BgkTime_" id, "Text", ctm)
+        this.ui.Update("BgkCount_" id, "Text", cc)
+        this.ui.Update("BgkInter_" id, "Text", ci)
+        this._RefreshFormalBGKeyVisibility(id)
+    }
+
+    _RefreshFormalWindowManageVisibility(id, at := "") {
         if (this.ui == "")
             return
-        d := this._FormalDFromId(id)
-        at := d.HasOwnProp("wmActionType") ? d.wmActionType : "激活窗口"
+        if (at == "")
+            at := this._WmReadLiveAction(id)
+        at := GetLangKey(at)
         this._FormalSetVis(id, "WmXRow_" id, at == "移动窗口")
         this._FormalSetVis(id, "WmYRow_" id, at == "移动窗口")
         this._FormalSetVis(id, "WmWRow_" id, at == "调整大小")
         this._FormalSetVis(id, "WmHRow_" id, at == "调整大小")
         this._FormalSetVis(id, "WmTitleRow_" id, at == "修改标题")
         this._FormalSetVis(id, "WmTransRow_" id, at == "修改透明度")
+    }
+
+    ; 窗口管理节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshWindowManageInline(id, d) {
+        actions := GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
+            "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度"])
+        at := d.HasOwnProp("wmActionType") ? d.wmActionType : "激活窗口"
+        sv := d.HasOwnProp("wmSearchValue") ? d.wmSearchValue : ""
+        varList := GetGuiVarArr()
+        actIdx := this._IndexInLangArr(actions, GetLang(at))
+        if (actIdx < 0)
+            actIdx := this._IndexInLangArr(actions, at)
+        this.ui.Update("WmActCmb_" id, "SelectedIndex", Max(0, actIdx))
+        this.ui.Update("WmWin_" id, "Text", sv)
+        for nm, val in Map("WmX", d.HasOwnProp("wmPosX") ? d.wmPosX : 0, "WmY", d.HasOwnProp("wmPosY") ? d.wmPosY : 0,
+            "WmW", d.HasOwnProp("wmWidth") ? d.wmWidth : 0, "WmH", d.HasOwnProp("wmHeight") ? d.wmHeight : 0,
+            "WmTitle", d.HasOwnProp("wmNewTitle") ? d.wmNewTitle : "", "WmTrans", d.HasOwnProp("wmTransparency") ? d.wmTransparency : "80") {
+            this.ui.Update(nm "_" id, "ClearItems", "")
+            for item in varList
+                this.ui.Update(nm "_" id, "AddItem", item)
+            this.ui.Update(nm "_" id, "Text", GetLang(val))
+        }
+        this._RefreshFormalWindowManageVisibility(id, at)
+    }
+
+    ; 按键检测节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshKeyCheckInline(id, d) {
+        ct := d.HasOwnProp("kcCheckType") ? d.kcCheckType : 1
+        st := d.HasOwnProp("kcStateType") ? d.kcStateType : 1
+        vn := d.HasOwnProp("kcVarName") ? d.kcVarName : ""
+        keyStr := d.HasOwnProp("kcKeyStr") ? d.kcKeyStr : ""
+        varList := GetGuiVarArr()
+        this.ui.Update("KcKeys_" id, "Text", keyStr)
+        this.ui.Update("KcCheckCmb_" id, "SelectedIndex", Max(0, ct - 1))
+        this.ui.Update("KcStateCmb_" id, "SelectedIndex", Max(0, st - 1))
+        this.ui.Update("KcVar_" id, "ClearItems", "")
+        for item in varList
+            this.ui.Update("KcVar_" id, "AddItem", item)
+        this.ui.Update("KcVar_" id, "Text", GetLang(vn))
     }
 
     _RefreshFormalScreenShotVisibility(id) {
@@ -1453,6 +1618,22 @@ class MacroGraphFormalHandlersMixin {
         }
         if (d.type == GetLang("RMT指令")) {
             this._RefreshRmtInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("后台鼠标")) {
+            this._RefreshBGMouseInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("后台按键")) {
+            this._RefreshBGKeyInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("窗口管理")) {
+            this._RefreshWindowManageInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("按键检测")) {
+            this._RefreshKeyCheckInline(id, d)
             return true
         }
         return false
@@ -1720,16 +1901,27 @@ class MacroGraphFormalHandlersMixin {
         if (d.type == GetLang("RMT指令"))
             return d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
         if (d.type == GetLang("后台鼠标")) {
+            mt := d.HasOwnProp("bgMouseType") ? d.bgMouseType : 1
+            if (mt == 4)
+                return GetLang("滚轮")
             opKeys := ["点击", "双击", "按下", "松开"]
             idx := d.HasOwnProp("bgOperateType") ? d.bgOperateType : 1
             return GetLang(opKeys[idx])
         }
-        if (d.type == GetLang("后台按键"))
-            return (d.HasOwnProp("bgKeyCount") ? d.bgKeyCount : 0) " " GetLang("键")
+        if (d.type == GetLang("后台按键")) {
+            if (d.HasOwnProp("bgKeyStr") && d.bgKeyStr != "")
+                return d.bgKeyStr
+            typeKeys := ["按下", "松开", "点击"]
+            idx := d.HasOwnProp("bgKeyType") ? d.bgKeyType : 1
+            return GetLang(typeKeys[idx])
+        }
         if (d.type == GetLang("窗口管理"))
             return GetLang(d.HasOwnProp("wmActionType") ? d.wmActionType : "激活窗口")
-        if (d.type == GetLang("按键检测"))
+        if (d.type == GetLang("按键检测")) {
+            if (d.HasOwnProp("kcKeyStr") && d.kcKeyStr != "")
+                return d.kcKeyStr
             return (d.HasOwnProp("kcVarName") && d.kcVarName != "") ? d.kcVarName : GetLang("按键检测")
+        }
         if (d.type == GetLang("抓图")) {
             ssKeys := ["屏幕抓图", "窗口抓图"]
             idx := d.HasOwnProp("ssType") ? d.ssType : 1

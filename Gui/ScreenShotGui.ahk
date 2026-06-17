@@ -72,29 +72,35 @@ class ScreenShotGui {
             "左键框选截图范围"))
         this.SelectToggleCon.OnEvent("Click", (*) => this.OnClickSelectToggle())
 
-        PosX := 10
-        PosY += 35
-        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 200, 20), GetLang("屏幕坐标：0,0"))
-        PosX += 200
-        this.MouseWinPosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 200, 20), GetLang("窗口坐标：0,0"))
+        PosX += 160
+        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY + 3, 200, 20), GetLang("屏幕坐标：0,0"))
+        PosX += 150
+        this.MouseWinPosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY + 3, 200, 20), GetLang("窗口坐标：0,0"
+        ))
 
         PosX := 10
         PosY += 35
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("抓图类型："))
         PosX += 80
-        this.ScreenShotTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R2", PosX, PosY - 3, 160), GetLangArr([
+        this.ScreenShotTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R2", PosX, PosY - 3, 100), GetLangArr([
             "屏幕抓图", "窗口抓图"]))
         this.ScreenShotTypeCon.OnEvent("Change", (*) => this.OnChangeType())
         this.ScreenShotTypeCon.Value := 1
+
+        PosX := 230
+        this.NameTypeCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 8, 90), GetLang("固定名称："))
+        this.NameTypeCon.OnEvent("Click", (*) => this.OnChangeNameType())
+        PosX += 90
+        this.FixedNameCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 3, 100), "")
 
         PosX := 10
         PosY += 35
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
         this.WinInfoArr.Push(con)
         PosX += 80
-        this.WinInfoCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 200), "")
+        this.WinInfoCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 275), "")
         this.WinInfoArr.Push(this.WinInfoCon)
-        PosX += 210
+        PosX += 280
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 27), GetLang("编辑"))
         btnCon.OnEvent("Click", this.OnClickWinEditBtn.Bind(this))
         this.WinInfoArr.Push(btnCon)
@@ -103,36 +109,20 @@ class ScreenShotGui {
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
         PosX += 80
-        this.StartPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        PosX := 180
+        this.StartPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 100))
+        PosX := 240
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
         PosX += 80
-        this.StartPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.StartPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 100))
         PosY += 35
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
         PosX += 80
-        this.EndPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        PosX := 180
+        this.EndPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 100))
+        PosX := 240
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
         PosX += 80
-        this.EndPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-
-        PosY += 35
-        PosX := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("命名方式："))
-        PosX += 80
-        this.NameTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R2", PosX, PosY - 3, 160), GetLangArr([
-            "默认", "固定名称"]))
-        this.NameTypeCon.OnEvent("Change", (*) => this.OnChangeNameType())
-        this.NameTypeCon.Value := 1
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("固定名称："))
-        PosX += 80
-        this.FixedNameCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 250), "")
-        this.FixedNameCon.Enabled := false
+        this.EndPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 100))
 
         PosY += 35
         PosX := 10
@@ -157,7 +147,7 @@ class ScreenShotGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        MyGui.Show(Format("w{} h{}", 500, 460))
+        MyGui.Show(Format("w{} h{}", 500, 350))
     }
 
     Init(cmd) {
@@ -221,8 +211,10 @@ class ScreenShotGui {
     CheckIfValid() {
         isWin := this.ScreenShotTypeCon.Value == 2
 
-        if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text) && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)) {
-            if (Number(this.StartPosXCon.Text) > Number(this.EndPosXCon.Text) || Number(this.StartPosYCon.Text) > Number(this.EndPosYCon.Text)) {
+        if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text) && IsNumber(this.EndPosXCon.Text) &&
+        IsNumber(this.EndPosYCon.Text)) {
+            if (Number(this.StartPosXCon.Text) > Number(this.EndPosXCon.Text) || Number(this.StartPosYCon.Text) >
+            Number(this.EndPosYCon.Text)) {
                 MsgBox(GetLang("起始坐标不能大于终止坐标"))
                 return false
             }
@@ -233,7 +225,7 @@ class ScreenShotGui {
             return false
         }
 
-        if (this.NameTypeCon.Value == 2 && this.FixedNameCon.Value == "") {
+        if (this.NameTypeCon.Value && this.FixedNameCon.Value == "") {
             MsgBox(GetLang("固定名称不能为空"))
             return false
         }
@@ -273,15 +265,12 @@ class ScreenShotGui {
     OnChangeType(*) {
         curType := this.ScreenShotTypeCon.Value
         isWin := curType == 2
-        this.SetConArrState(this.WinInfoArr, false, isWin)
+        this.SetConArrState(this.WinInfoArr, true, isWin)
         this.MousePosCon.Focus()
     }
 
     OnChangeNameType(*) {
-        nameType := this.NameTypeCon.Value
-        this.FixedNameCon.Enabled := (nameType == 2)
-        if (nameType == 1)
-            this.FixedNameCon.Value := ""
+        this.FixedNameCon.Enabled := this.NameTypeCon.Value
     }
 
     OnChangeResultToggle(*) {

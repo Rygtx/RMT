@@ -1304,7 +1304,7 @@ OnScreenShot(tableItem, cmd, index) {
     if (!DirExist(baseDir))
         DirCreate(baseDir)
 
-    if (Data.NameType == 2 && Data.FixedName != "") {
+    if (Data.NameType == 1 && Data.FixedName != "") {
         fileName := Data.FixedName ".png"
     } else {
         fileName := Data.SerialStr ".png"
