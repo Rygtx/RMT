@@ -1262,12 +1262,14 @@ class MacroGraphNodeUIMixin {
         if (!visible)
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200")
             .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
         if (!enabled)
             cmb.IsEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
+        ; SelectedIndex 必须在 items 添加之后设置才能生效
+        cmb.SelectedIndex(selIndex)
         return row
     }
 

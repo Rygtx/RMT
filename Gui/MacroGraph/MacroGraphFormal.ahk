@@ -150,16 +150,16 @@ class MacroGraphFormalMixin {
 
     _FormalTextOpsArgsTypes(typeName) {
         m := Map(
-            GetLang("去除空格"), GetLangArr(["去除前空白字符", "去除后空白字符", "去除前后空白字符", "去除所有空白字符"]),
-            GetLang("大小写转换"), GetLangArr(["全部大写", "全部小写", "首字母大写"]),
-            GetLang("文本统计"), GetLangArr(["字符数", "单词数", "行数"]),
-            GetLang("文本提取"), GetLangArr(["数字提取", "字母提取", "中文提取", "正则匹配"]),
-            GetLang("文本分割"), GetLangArr(["内容分割", "定长分割", "正则匹配"]),
-            GetLang("文本替换"), GetLangArr(["普通文本", "正则匹配"]),
-            GetLang("文本拼接"), GetLangArr(["拼接文本"])
+            "文本分割", GetLangArr(["内容分割", "定长分割", "正则匹配"]),
+            "文本提取", GetLangArr(["数字提取", "字母提取", "中文提取", "正则匹配"]),
+            "文本替换", GetLangArr(["普通文本", "正则匹配"]),
+            "去除空格", GetLangArr(["去除前空白字符", "去除后空白字符", "去除前后空白字符", "去除所有空白字符"]),
+            "大小写转换", GetLangArr(["全部大写", "全部小写", "首字母大写"]),
+            "文本统计", GetLangArr(["字符数", "单词数", "行数"]),
+            "文本拼接", GetLangArr(["拼接文本"])
         )
-        tn := GetLang(typeName)
-        return m.Has(tn) ? m[tn] : []
+        ; typeName 已经是中文，直接用 Map 的 key 匹配
+        return m.Has(typeName) ? m[typeName] : []
     }
 
     ; 注意：控件命名统一为 "<prefix>_<id>"，故此处必须用 name "_" id（缺下划线会绑定到不存在的控件，导致内联事件永不触发）。
@@ -686,7 +686,8 @@ class MacroGraphFormalMixin {
 
     _FillTextOpsBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
-        typeNames := GetLangArr(["文本分割", "文本替换", "文本提取", "去除空格", "大小写转换", "文本统计", "文本拼接"])
+        ; 类型顺序需与 TextOpsGui.ahk 保持一致
+        typeNames := GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"])
         saveTypes := GetLangArr(["变量", "数组"])
         tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
         tn := d.HasOwnProp("textName") ? d.textName : "TextVar"
@@ -703,14 +704,17 @@ class MacroGraphFormalMixin {
         ShowArgsType := IsSplit || IsGetEx || tt == "大小写转换" || tt == "去除空格" || tt == "文本统计" || IsConcat || IsReplace
         ShowArgsName := IsSplit || IsConcat || IsGetEx
         argsItems := this._FormalTextOpsArgsTypes(tt)
-        argsIdx := argsItems.Length ? this._IndexInLangArr(argsItems, GetLang(at)) : 0
-        this._AddComboRow(body, "TxtTypeRow_" id, GetLang("类型："), "TxtTypeCmb_" id, typeNames, this._IndexInLangArr(typeNames, GetLang(tt)), true, true, lw, cw)
+        argsIdx := argsItems.Length ? this._IndexInLangArr(argsItems, at) : 0
+        ; 保存类型固定：文本分割/文本提取 → 数组；其他 → 变量
+        fixedSt := (IsSplit || IsGetEx) ? "数组" : "变量"
+        this._AddComboRow(body, "TxtTypeRow_" id, GetLang("类型："), "TxtTypeCmb_" id, typeNames, this._IndexInLangArr(typeNames, tt), true, true, lw, cw)
         this._AddEditableComboRow(body, "TxtNameRow_" id, GetLang("文本变量："), "TxtName_" id, GetGuiVarArr(), tn, true, lw, cw)
         this._AddComboRow(body, "TxtArgsTypeRow_" id, GetLang("参数类型："), "TxtArgsTypeCmb_" id, argsItems, argsIdx, ShowArgsType && argsItems.Length > 0, true, lw, cw)
         this._AddEditableComboRow(body, "TxtArgsNameRow_" id, GetLang("参数值："), "TxtArgsName_" id, GetGuiVarArr(2), an, ShowArgsName, lw, cw)
         this._AddFieldRow(body, "TxtSearchRow_" id, GetLang("查找："), "TxtSearch_" id, sr, IsReplace, true, "", "", "", lw, cw)
         this._AddFieldRow(body, "TxtReplaceRow_" id, GetLang("替换："), "TxtReplace_" id, rp, IsReplace, true, "", "", "", lw, cw)
-        this._AddComboRow(body, "TxtSaveTypeRow_" id, GetLang("保存类型："), "TxtSaveTypeCmb_" id, saveTypes, this._IndexInLangArr(saveTypes, GetLang(st)), true, true, lw, cw)
+        ; 保存类型固定为文本框（参考文件读写节点），避免切换类型时闪烁
+        this._AddFieldRow(body, "TxtSaveTypeRow_" id, GetLang("保存类型："), "TxtSaveTypeTxt_" id, fixedSt, true, false, "", "", "", lw, cw)
         this._AddEditableComboRow(body, "TxtSaveRow_" id, GetLang("保存名："), "TxtSave_" id, GetGuiVarArr(), sn, true, lw, cw)
         this._AddFormalHint(body)
     }
@@ -1258,7 +1262,7 @@ class MacroGraphFormalMixin {
             this._FormalTrackEditCombo(id, "TxtArgsName", h, runtime)
             this._FormalTrackField(id, "TxtSearch", h, runtime)
             this._FormalTrackField(id, "TxtReplace", h, runtime)
-            this._FormalTrackCombo(id, "TxtSaveTypeCmb", h, runtime)
+            ; 保存类型是固定的文本框，不需要追踪
             this._FormalTrackEditCombo(id, "TxtSave", h, runtime)
         } else if (t == GetLang("数组")) {
             hType := this._OnFormalArray.Bind(this, id)

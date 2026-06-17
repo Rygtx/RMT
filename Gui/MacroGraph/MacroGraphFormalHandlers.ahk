@@ -494,30 +494,106 @@ class MacroGraphFormalHandlersMixin {
         this._RefreshFormalFileIOVisibility(id, ot, om)
     }
 
+    ; 文本处理节点下方选项刷新：完全由类型决定，不读数据表。
+    ; 参数：tt=类型, at=参数类型(可选), saveName=保存名(可选)
+    _RefreshTextOpsOptions(id, tt, at := "", saveName := "") {
+        if (this.ui == "")
+            return
+        IsSplit := tt == "文本分割"
+        IsGetEx := tt == "文本提取"
+        ; 保存类型：文本分割/文本提取 → 数组；其他 → 变量（使用文本框，参考文件读写）
+        autoSaveType := (IsSplit || IsGetEx) ? "数组" : "变量"
+        this.ui.Update("TxtSaveTypeTxt_" id, "Text", autoSaveType)
+        ; 保存名列表
+        saveNameList := GetGuiVarArr()
+        this.ui.Update("TxtSave_" id, "ClearItems", "")
+        for name in saveNameList
+            this.ui.Update("TxtSave_" id, "AddItem", name)
+        if (saveName != "")
+            this.ui.Update("TxtSave_" id, "Text", saveName)
+        ; 刷新显隐
+        this._RefreshFormalTextOpsVisibility(id, tt)
+    }
+
     _OnFormalTextOps(id, state, ctrl, event) {
+        FileAppend("[DEBUG _OnFormalTextOps] START`n", "*")
+        FileAppend("[DEBUG _OnFormalTextOps] ctrl:`t" ctrl "`n", "*")
+        FileAppend("[DEBUG _OnFormalTextOps] state keys:`t" (IsObject(state) ? state.Count : "null") "`n", "*")
+        FileAppend("[DEBUG _OnFormalTextOps] TxtTypeCmb_:`t" (state.Has("TxtTypeCmb_" id) ? state["TxtTypeCmb_" id] : "N/A") "`n", "*")
+        FileAppend("[DEBUG _OnFormalTextOps] TxtArgsTypeCmb_:`t" (state.Has("TxtArgsTypeCmb_" id) ? state["TxtArgsTypeCmb_" id] : "N/A") "`n", "*")
+
         data := this._FormalIniData(id)
         if (data == "")
             return
-        saveTypes := GetLangArr(["变量", "数组"])
-        if (state.Has("TxtTypeCmb_" id) && state["TxtTypeCmb_" id] != "")
-            data.Type := GetLangKey(state["TxtTypeCmb_" id])
-        if (state.Has("TxtName_" id) && state["TxtName_" id] != "")
-            data.Name := GetVarName(state["TxtName_" id])
-        if (state.Has("TxtArgsTypeCmb_" id) && state["TxtArgsTypeCmb_" id] != "")
-            data.ArgsType := GetLangKey(state["TxtArgsTypeCmb_" id])
-        if (state.Has("TxtArgsName_" id) && state["TxtArgsName_" id] != "")
-            data.ArgsName := state["TxtArgsName_" id]
-        if (state.Has("TxtSearch_" id))
-            data.Search := state["TxtSearch_" id]
-        if (state.Has("TxtReplace_" id))
-            data.Replace := state["TxtReplace_" id]
-        if (state.Has("TxtSaveTypeCmb_" id) && state["TxtSaveTypeCmb_" id] != "")
-            data.SaveType := GetLangKey(state["TxtSaveTypeCmb_" id])
-        if (state.Has("TxtSave_" id) && state["TxtSave_" id] != "")
-            data.SaveName := GetVarName(state["TxtSave_" id])
-        SaveMacroCMDData(data)
-        this._RefreshFormalTextOpsVisibility(id)
-        this._Apply()
+
+        ; 类型切换时：重建参数类型下拉选项
+        if (state.Has("TxtTypeCmb_" id) && state["TxtTypeCmb_" id] != "") {
+            FileAppend("[DEBUG _OnFormalTextOps] Processing type change`n", "*")
+            tt := GetLangKey(state["TxtTypeCmb_" id])
+            data.Type := tt
+            ; 重建参数类型下拉选项并选中第一个
+            argsItems := this._FormalTextOpsArgsTypes(tt)
+            if (this.ui != "" && argsItems.Length > 0) {
+                this.ui.Update("TxtArgsTypeCmb_" id, "ClearItems", "")
+                for item in argsItems
+                    this.ui.Update("TxtArgsTypeCmb_" id, "AddItem", item)
+                this.ui.Update("TxtArgsTypeCmb_" id, "SelectedIndex", 0)
+                data.ArgsType := GetLangKey(argsItems[1])
+            }
+            ; 切换类型后，保存类型也需要更新
+            IsSplitOrGetEx := (tt == "文本分割" || tt == "文本提取")
+            data.SaveType := IsSplitOrGetEx ? "数组" : "变量"
+            ; 调用刷新方法统一处理保存类型和显隐
+            this._RefreshTextOpsOptions(id, tt, data.ArgsType, data.SaveName)
+            SaveMacroCMDData(data)
+            this._Apply()
+            FileAppend("[DEBUG _OnFormalTextOps] END (type change)`n", "*")
+            return
+        }
+
+        FileAppend("[DEBUG _OnFormalTextOps] Processing other fields`n", "*")
+
+        ; 以下是其他控件的变更处理（不包括参数类型下拉，因为它会被类型切换重建触发）
+        hasChange := false
+        if (state.Has("TxtName_" id) && state["TxtName_" id] != "") {
+            newName := GetVarName(state["TxtName_" id])
+            if (data.Name != newName) {
+                data.Name := newName
+                hasChange := true
+            }
+        }
+        if (state.Has("TxtArgsName_" id) && state["TxtArgsName_" id] != "") {
+            if (data.ArgsName != state["TxtArgsName_" id]) {
+                data.ArgsName := state["TxtArgsName_" id]
+                hasChange := true
+            }
+        }
+        if (state.Has("TxtSearch_" id)) {
+            if (data.Search != state["TxtSearch_" id]) {
+                data.Search := state["TxtSearch_" id]
+                hasChange := true
+            }
+        }
+        if (state.Has("TxtReplace_" id)) {
+            if (data.Replace != state["TxtReplace_" id]) {
+                data.Replace := state["TxtReplace_" id]
+                hasChange := true
+            }
+        }
+        if (state.Has("TxtSave_" id) && state["TxtSave_" id] != "") {
+            newSaveName := GetVarName(state["TxtSave_" id])
+            if (data.SaveName != newSaveName) {
+                data.SaveName := newSaveName
+                hasChange := true
+            }
+        }
+
+        if (hasChange) {
+            FileAppend("[DEBUG _OnFormalTextOps] Saving changes`n", "*")
+            SaveMacroCMDData(data)
+            this._Apply()
+        }
+        FileAppend("[DEBUG _OnFormalTextOps] END`n", "*")
     }
 
     ; 数组：根据操作类型计算各类显隐/逻辑标志，节点与刷新共用，保证表现一致。
@@ -903,11 +979,14 @@ class MacroGraphFormalHandlersMixin {
         this._FormalSetVis(id, "FIOSaveRow_" id, IsRead)
     }
 
-    _RefreshFormalTextOpsVisibility(id) {
+    _RefreshFormalTextOpsVisibility(id, tt := "") {
         if (this.ui == "")
             return
-        d := this._FormalDFromId(id)
-        tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
+        ; 如果没有传入类型，从数据中读取
+        if (tt == "") {
+            d := this._FormalDFromId(id)
+            tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
+        }
         IsReplace := tt == "文本替换"
         IsSplit := tt == "文本分割"
         IsGetEx := tt == "文本提取"
@@ -919,6 +998,57 @@ class MacroGraphFormalHandlersMixin {
         this._FormalSetVis(id, "TxtArgsNameRow_" id, ShowArgsName)
         this._FormalSetVis(id, "TxtSearchRow_" id, IsReplace)
         this._FormalSetVis(id, "TxtReplaceRow_" id, IsReplace)
+    }
+
+    ; 文本处理节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshTextOpsInline(id, d) {
+        ; 类型顺序需与 TextOpsGui.ahk 保持一致
+        typeNames := GetLangArr(["文本分割", "文本提取", "文本替换", "去除空格", "大小写转换", "文本统计", "文本拼接"])
+        tt := d.HasOwnProp("textOpsType") ? d.textOpsType : "文本分割"
+        tn := d.HasOwnProp("textName") ? d.textName : "TextVar"
+        at := d.HasOwnProp("argsType") ? d.argsType : ","
+        an := d.HasOwnProp("argsName") ? d.argsName : ","
+        sr := d.HasOwnProp("search") ? d.search : ""
+        rp := d.HasOwnProp("replace") ? d.replace : ""
+        sn := d.HasOwnProp("saveName") ? d.saveName : "Data"
+        IsSplit := tt == "文本分割"
+        IsGetEx := tt == "文本提取"
+        ; 保存类型固定：文本分割/文本提取 → 数组；其他 → 变量
+        fixedSt := (IsSplit || IsGetEx) ? "数组" : "变量"
+
+        ; 更新控件值
+        this.ui.Update("TxtTypeCmb_" id, "SelectedIndex", this._IndexInLangArr(typeNames, tt))
+        this.ui.Update("TxtName_" id, "Text", tn)
+        this.ui.Update("TxtSearch_" id, "Text", sr)
+        this.ui.Update("TxtReplace_" id, "Text", rp)
+        this.ui.Update("TxtSave_" id, "Text", sn)
+
+        ; 更新参数类型
+        argsItems := this._FormalTextOpsArgsTypes(tt)
+        argsIdx := argsItems.Length ? this._IndexInLangArr(argsItems, at) : 0
+        this.ui.Update("TxtArgsTypeCmb_" id, "ClearItems", "")
+        for item in argsItems
+            this.ui.Update("TxtArgsTypeCmb_" id, "AddItem", item)
+        this.ui.Update("TxtArgsTypeCmb_" id, "SelectedIndex", argsIdx)
+
+        ; 更新参数值选项
+        varList := GetGuiVarArr(2)
+        this.ui.Update("TxtArgsName_" id, "ClearItems", "")
+        for item in varList
+            this.ui.Update("TxtArgsName_" id, "AddItem", item)
+        this.ui.Update("TxtArgsName_" id, "Text", an)
+
+        ; 保存类型固定：文本分割/文本提取 → 数组；其他 → 变量（使用文本框，参考文件读写）
+        this.ui.Update("TxtSaveTypeTxt_" id, "Text", fixedSt)
+
+        ; 更新保存名选项
+        saveNameList := GetGuiVarArr()
+        this.ui.Update("TxtSave_" id, "ClearItems", "")
+        for item in saveNameList
+            this.ui.Update("TxtSave_" id, "AddItem", item)
+
+        ; 刷新显隐
+        this._RefreshFormalTextOpsVisibility(id)
     }
 
     _RefreshFormalArrayVisibility(id) {
@@ -1303,6 +1433,10 @@ class MacroGraphFormalHandlersMixin {
         }
         if (d.type == GetLang("数组")) {
             this._RefreshArrayInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("文本处理")) {
+            this._RefreshTextOpsInline(id, d)
             return true
         }
         if (d.type == GetLang("循环")) {

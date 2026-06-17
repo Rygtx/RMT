@@ -219,6 +219,7 @@ class TextOpsGui {
         IsUpLow := this.TypeCon.Text == GetLang("大小写转换")
         IsStatistics := this.TypeCon.Text == GetLang("文本统计")
         IsConcat := this.TypeCon.Text == GetLang("文本拼接")
+        IsGetExReg := IsGetEx && this.ArgsTypeCon.Text == GetLang("正则表达式")
 
         ArgsDLArr := []
         this.ArgsTypeCon.Delete()
@@ -236,7 +237,7 @@ class TextOpsGui {
         }
 
         ShowArgsType := IsSplit || IsGetEx || IsUpLow || IsSpace || IsStatistics || IsConcat || IsReplace
-        ShowArgsName := IsSplit || IsConcat || IsGetEx
+        ShowArgsName := IsSplit || IsConcat || IsGetExReg
         this.ArgsTypeConTip.Enabled := ShowArgsType
         this.ArgsTypeCon.Enabled := ShowArgsType
         this.ArgsNameConTip.Enabled := ShowArgsName
@@ -261,6 +262,13 @@ class TextOpsGui {
             tipText := this.ArgsTipMap[this.ArgsTypeCon.Text]
         this.ArgsNameConTip.Text := tipText
         this.lastArgsNameConText := this.ArgsNameCon.Text
+
+        IsGetEx := this.TypeCon.Text == GetLang("文本提取")
+        IsGetExReg := IsGetEx && this.ArgsTypeCon.Text == GetLang("正则匹配")
+        if (IsGetEx) {
+            this.ArgsNameConTip.Enabled := IsGetExReg
+            this.ArgsNameCon.Enabled := IsGetExReg
+        }
     }
 
     OnRefreshDataType(*) {
@@ -276,13 +284,13 @@ class TextOpsGui {
             this.lastArgsNameConText := this.ArgsNameCon.Text
             return
         }
-        
+
         newText := this.ArgsNameCon.Text
         if (newText == "") {
             this.lastArgsNameConText := ""
             return
         }
-        
+
         isFromDropdown := false
         if (this.ArgsNameOptions != "") {
             loop this.ArgsNameOptions.Length {
@@ -292,7 +300,7 @@ class TextOpsGui {
                 }
             }
         }
-        
+
         if (isFromDropdown && this.lastArgsNameConText != "" && newText != this.lastArgsNameConText) {
             this.ArgsNameCon.Text := this.lastArgsNameConText "{" newText "}"
         }
