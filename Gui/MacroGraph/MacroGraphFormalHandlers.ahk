@@ -917,13 +917,37 @@ class MacroGraphFormalHandlersMixin {
     }
 
     _OnFormalScreenShot(id, state, ctrl, event) {
+        typeNames := GetLangArr(["屏幕抓图", "窗口抓图"])
+        if (ctrl == "SsTypeCmb_" id) {
+            if (!state.Has(ctrl) || state[ctrl] == "")
+                return
+            data := this._FormalIniData(id)
+            if (data == "")
+                return
+            data.ScreenShotType := this._IndexInLangArr(typeNames, state[ctrl]) + 1
+            SaveMacroCMDData(data)
+            this._RefreshFormalScreenShotVisibility(id, data.ScreenShotType)
+            this._Apply()
+            return
+        }
+        if (ctrl == "SsNameTog_" id || ctrl == "SsResTog_" id) {
+            data := this._FormalIniData(id)
+            if (data == "")
+                return
+            if (ctrl == "SsNameTog_" id)
+                data.NameType := this._FormalChecked(state, "SsNameTog_" id) ? 1 : 0
+            else
+                data.ResultToggle := this._FormalChecked(state, "SsResTog_" id) ? 1 : 0
+            SaveMacroCMDData(data)
+            nt := data.NameType
+            resOn := data.ResultToggle == 1 || data.ResultToggle == "1"
+            this._RefreshFormalScreenShotVisibility(id, unset, nt, resOn)
+            this._Apply()
+            return
+        }
         data := this._FormalIniData(id)
         if (data == "")
             return
-        typeNames := GetLangArr(["屏幕抓图", "窗口抓图"])
-        nameTypes := GetLangArr(["默认名称", "固定名称"])
-        if (state.Has("SsTypeCmb_" id) && state["SsTypeCmb_" id] != "")
-            data.ScreenShotType := this._IndexInLangArr(typeNames, state["SsTypeCmb_" id]) + 1
         if (state.Has("SsWin_" id))
             data.WinInfo := state["SsWin_" id]
         if (state.Has("SsSX_" id) && state["SsSX_" id] != "")
@@ -934,18 +958,33 @@ class MacroGraphFormalHandlersMixin {
             data.EndPosX := state["SsEX_" id]
         if (state.Has("SsEY_" id) && state["SsEY_" id] != "")
             data.EndPosY := state["SsEY_" id]
-        if (state.Has("SsNameTypeCmb_" id) && state["SsNameTypeCmb_" id] != "")
-            data.NameType := this._IndexInLangArr(nameTypes, state["SsNameTypeCmb_" id]) + 1
         if (state.Has("SsFixed_" id))
             data.FixedName := state["SsFixed_" id]
-        if (state.Has("SsPath_" id))
-            data.SavePath := state["SsPath_" id]
-        if (state.Has("SsResTog_" id))
-            data.ResultToggle := this._FormalChecked(state, "SsResTog_" id) ? 1 : 0
         if (state.Has("SsResName_" id) && state["SsResName_" id] != "")
             data.ResultSaveName := GetVarName(state["SsResName_" id])
         SaveMacroCMDData(data)
-        this._RefreshFormalScreenShotVisibility(id)
+        this._Apply()
+    }
+
+    _OnFormalSsWinEdit(id, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        adapter := { Value: data.WinInfo }
+        MyFrontInfoGui.OwnerHwnd := ""
+        MyFrontInfoGui.HideAction := ""
+        MyFrontInfoGui.SureAction := this._OnFormalSsWinEditSure.Bind(this, id, adapter)
+        MyFrontInfoGui.ShowGui(adapter)
+    }
+
+    _OnFormalSsWinEditSure(id, adapter, *) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        data.WinInfo := adapter.Value
+        SaveMacroCMDData(data)
+        if (this.ui != "")
+            this.ui.Update("SsWin_" id, "Text", adapter.Value)
         this._Apply()
     }
 
@@ -1524,16 +1563,50 @@ class MacroGraphFormalHandlersMixin {
         this.ui.Update("KcVar_" id, "Text", GetLang(vn))
     }
 
-    _RefreshFormalScreenShotVisibility(id) {
+    _RefreshFormalScreenShotVisibility(id, st := unset, nt := unset, resOn := unset) {
         if (this.ui == "" || !this.cmdNodes.Has(id))
             return
         d := this._FormalDFromId(id)
+        if (!IsSet(st))
+            st := d.HasOwnProp("ssType") ? d.ssType : 1
+        if (!IsSet(nt))
+            nt := d.HasOwnProp("ssNameType") ? d.ssNameType : 1
+        if (!IsSet(resOn)) {
+            rt := d.HasOwnProp("ssResultToggle") ? d.ssResultToggle : 0
+            resOn := rt == 1 || rt == "1"
+        }
+        this._FormalSetVis(id, "SsWinRow_" id, st == 2)
+        this._FormalSetVis(id, "SsFixedRow_" id, nt == 1 || nt == "1")
+        this._FormalSetVis(id, "SsResNameRow_" id, resOn)
+    }
+
+    ; 抓图节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
+    _RefreshScreenShotInline(id, d) {
+        varList := GetGuiVarArr()
         st := d.HasOwnProp("ssType") ? d.ssType : 1
         nt := d.HasOwnProp("ssNameType") ? d.ssNameType : 1
+        showFixed := nt == 1 || nt == "1"
+        wi := d.HasOwnProp("ssWinInfo") ? d.ssWinInfo : ""
+        fixed := d.HasOwnProp("ssFixedName") ? d.ssFixedName : "Shot"
         on := d.HasOwnProp("ssResultToggle") && (d.ssResultToggle == 1 || d.ssResultToggle == "1")
-        this._FormalSetVis(id, "SsWinRow_" id, st == 2)
-        this._FormalSetVis(id, "SsFixedRow_" id, nt == 2)
-        this._FormalSetVis(id, "SsResNameRow_" id, on)
+        rn := d.HasOwnProp("ssResultSaveName") ? d.ssResultSaveName : GetLang("图片路径")
+        this.ui.Update("SsTypeCmb_" id, "SelectedIndex", Max(0, st - 1))
+        this.ui.Update("SsWin_" id, "Text", wi)
+        this.ui.Update("SsNameTog_" id, "IsChecked", showFixed ? "True" : "False")
+        this.ui.Update("SsFixed_" id, "Text", fixed)
+        for nm, val in Map("SsSX", d.HasOwnProp("ssStartX") ? d.ssStartX : 0, "SsSY", d.HasOwnProp("ssStartY") ? d.ssStartY : 0,
+            "SsEX", d.HasOwnProp("ssEndX") ? d.ssEndX : A_ScreenWidth, "SsEY", d.HasOwnProp("ssEndY") ? d.ssEndY : A_ScreenHeight) {
+            this.ui.Update(nm "_" id, "ClearItems", "")
+            for item in varList
+                this.ui.Update(nm "_" id, "AddItem", item)
+            this.ui.Update(nm "_" id, "Text", GetLang(val))
+        }
+        this.ui.Update("SsResTog_" id, "IsChecked", on ? "True" : "False")
+        this.ui.Update("SsResName_" id, "ClearItems", "")
+        for item in varList
+            this.ui.Update("SsResName_" id, "AddItem", item)
+        this.ui.Update("SsResName_" id, "Text", GetLang(rn))
+        this._RefreshFormalScreenShotVisibility(id, st, nt, on)
     }
 
     ; 仅用于初始注册/显隐刷新：更新标题与各类型显隐。
@@ -1634,6 +1707,10 @@ class MacroGraphFormalHandlersMixin {
         }
         if (d.type == GetLang("按键检测")) {
             this._RefreshKeyCheckInline(id, d)
+            return true
+        }
+        if (d.type == GetLang("抓图")) {
+            this._RefreshScreenShotInline(id, d)
             return true
         }
         return false

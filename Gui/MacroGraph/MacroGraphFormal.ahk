@@ -906,23 +906,29 @@ class MacroGraphFormalMixin {
         lw := this._FormalLW(), cw := this._FormalCW()
         varList := GetGuiVarArr()
         typeNames := GetLangArr(["屏幕抓图", "窗口抓图"])
-        nameTypes := GetLangArr(["默认", "固定名称"])
         st := d.HasOwnProp("ssType") ? d.ssType : 1
         isWin := st == 2
         nt := d.HasOwnProp("ssNameType") ? d.ssNameType : 1
+        showFixed := nt == 1 || nt == "1"
+        fixed := d.HasOwnProp("ssFixedName") ? d.ssFixedName : "Shot"
+        wi := d.HasOwnProp("ssWinInfo") ? d.ssWinInfo : ""
         toggle := d.HasOwnProp("ssResultToggle") ? d.ssResultToggle : 0
+        on := toggle == 1 || toggle == "1"
         rn := d.HasOwnProp("ssResultSaveName") ? d.ssResultSaveName : GetLang("图片路径")
         this._AddComboRow(body, "SsTypeRow_" id, GetLang("类型："), "SsTypeCmb_" id, typeNames, st - 1, true, true, lw, cw)
-        this._AddFieldRow(body, "SsWinRow_" id, GetLang("窗口信息："), "SsWin_" id, d.HasOwnProp("ssWinInfo") ? d.ssWinInfo : "", isWin, true, "", "", "", lw, cw)
+        winRow := body.Add("StackPanel").Name("SsWinRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!isWin)
+            winRow.Visibility("Collapsed")
+        this._MakeTextBox(winRow, "SsWin_" id, wi, "130")
+        winRow.Add("Button").Name("SsWinEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0").Cursor("Hand")
         this._AddEditableComboRow(body, "SsSXRow_" id, GetLang("起始X："), "SsSX_" id, varList, d.HasOwnProp("ssStartX") ? d.ssStartX : 0, true, lw, cw)
         this._AddEditableComboRow(body, "SsSYRow_" id, GetLang("起始Y："), "SsSY_" id, varList, d.HasOwnProp("ssStartY") ? d.ssStartY : 0, true, lw, cw)
         this._AddEditableComboRow(body, "SsEXRow_" id, GetLang("终止X："), "SsEX_" id, varList, d.HasOwnProp("ssEndX") ? d.ssEndX : A_ScreenWidth, true, lw, cw)
         this._AddEditableComboRow(body, "SsEYRow_" id, GetLang("终止Y："), "SsEY_" id, varList, d.HasOwnProp("ssEndY") ? d.ssEndY : A_ScreenHeight, true, lw, cw)
-        this._AddComboRow(body, "SsNameTypeRow_" id, GetLang("命名方式："), "SsNameTypeCmb_" id, nameTypes, nt - 1, true, true, lw, cw)
-        this._AddFieldRow(body, "SsFixedRow_" id, GetLang("固定名称："), "SsFixed_" id, d.HasOwnProp("ssFixedName") ? d.ssFixedName : "", nt == 2, true, "", "", "", lw, cw)
-        this._AddFieldRow(body, "SsPathRow_" id, GetLang("保存路径："), "SsPath_" id, d.HasOwnProp("ssSavePath") ? d.ssSavePath : "", true, true, "", "", "", lw, cw)
-        this._AddCheckRow(body, "SsResTogRow_" id, "SsResTog_" id, GetLang("保存到变量"), toggle == 1 || toggle == "1", true)
-        this._AddEditableComboRow(body, "SsResNameRow_" id, GetLang("变量名："), "SsResName_" id, varList, rn, toggle == 1 || toggle == "1", lw, cw)
+        this._AddCheckRow(body, "SsNameTogRow_" id, "SsNameTog_" id, GetLang("固定名称："), showFixed, true)
+        this._AddFieldRow(body, "SsFixedRow_" id, GetLang("名称："), "SsFixed_" id, fixed, showFixed, true, "", "", "", lw, cw)
+        this._AddCheckRow(body, "SsResTogRow_" id, "SsResTog_" id, GetLang("保存到变量"), on, true)
+        this._AddEditableComboRow(body, "SsResNameRow_" id, GetLang("变量名："), "SsResName_" id, varList, rn, on, lw, cw)
         this._AddFormalHint(body)
     }
 
@@ -1356,11 +1362,11 @@ class MacroGraphFormalMixin {
             h := this._OnFormalScreenShot.Bind(this, id)
             this._FormalTrackCombo(id, "SsTypeCmb", h, runtime)
             this._FormalTrackField(id, "SsWin", h, runtime)
+            this._BindCtrl("SsWinEdit_" id, "Click", this._OnFormalSsWinEdit.Bind(this, id), runtime)
             for nm in ["SsSX", "SsSY", "SsEX", "SsEY"]
                 this._FormalTrackEditCombo(id, nm, h, runtime)
-            this._FormalTrackCombo(id, "SsNameTypeCmb", h, runtime)
+            this._FormalTrackCheck(id, "SsNameTog", h, runtime)
             this._FormalTrackField(id, "SsFixed", h, runtime)
-            this._FormalTrackField(id, "SsPath", h, runtime)
             this._FormalTrackCheck(id, "SsResTog", h, runtime)
             this._FormalTrackEditCombo(id, "SsResName", h, runtime)
         } else if (t == GetLang("循环")) {
