@@ -672,7 +672,9 @@ OnToggleTriggerMacro(tableIndex, itemIndex) {
     macro := tableItem.MacroArr[itemIndex]
 
     if (MyWorkPool.isDynamic || MyWorkPool.maxSize >= 1) {
-        SetTableItemState(tableItem.index, itemIndex, 1)
+        SetTableItemState(tableItem.Index, itemIndex, 1)
+        MyWorkPool.PrepareItemRun(tableIndex, itemIndex)
+        GraphPoolLog("宏触发", Format("tab={1} item={2} 图形开始={3} 来源=开关", tableIndex, itemIndex, IsGraphStartSerial(macro)))
         cmd := JSON.stringify(["TR_MACRO", tableIndex, itemIndex])
         MyWorkPool.Submit(cmd, tableIndex, itemIndex)
         tableItem.IsWorkIndexArr[itemIndex] := true
@@ -702,11 +704,15 @@ TriggerMacroHandler(tableIndex, itemIndex, *) {
     tableItem := MySoftData.TableInfo[tableIndex]
     macro := tableItem.MacroArr[itemIndex]
     isWork := tableItem.IsWorkIndexArr[itemIndex]
-    if (isWork)
+    if (isWork && MyWorkPool != "" && IsObject(MyWorkPool) && MyWorkPool.HasActiveMacroWork(tableIndex, itemIndex))
         return
 
-    SetTableItemState(tableItem.index, itemIndex, 1)
+    SetTableItemState(tableItem.Index, itemIndex, 1)
     if (MyWorkPool.isDynamic || MyWorkPool.maxSize >= 1) {
+        if (isWork)
+            GraphPoolLog("宏触发恢复", Format("tab={1} item={2} 清理上次残留", tableIndex, itemIndex))
+        MyWorkPool.PrepareItemRun(tableIndex, itemIndex)
+        GraphPoolLog("宏触发", Format("tab={1} item={2} 图形开始={3}", tableIndex, itemIndex, IsGraphStartSerial(macro)))
         cmd := JSON.stringify(["TR_MACRO", tableIndex, itemIndex])
         MyWorkPool.Submit(cmd, tableIndex, itemIndex)
         tableItem.IsWorkIndexArr[itemIndex] := true

@@ -294,6 +294,8 @@ InitFilePath() {
 StopMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
     isWork := tableItem.IsWorkIndexArr[itemIndex]
+    if (tableItem.GraphBranchCountArr.Length >= itemIndex)
+        tableItem.GraphBranchCountArr[itemIndex] := 0
     if (isWork) {
         ; 把 StopMacro 事件写入目标 Worker 的发送通道，再唤醒它在自身进程内停止宏。
         ; 此前只 PostMessage 而未投递 payload，Worker 取不到指令，宏不会真正停止。

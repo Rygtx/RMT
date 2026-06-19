@@ -30,6 +30,7 @@ class TableItem {
         this.AllConArr := []        ;   table中所有的con
         this.AllGroup := []         ; table中所有的group
         this.IsWorkIndexArr := []        ;work正在执行中
+        this.GraphBranchCountArr := []   ;图形宏并行分支 Worker 引用计数
         this.IcoPathArr := []             ;菜单宏ICO路径
 
         this.FoldInfo := ""          ; 折叠筐保存信息

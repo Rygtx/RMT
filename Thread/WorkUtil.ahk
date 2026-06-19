@@ -62,14 +62,28 @@
 
     InitWork() {
         global MySoftData
+        global graphBranchesWaiting := false
+        global graphBranchesAckReceived := false
+        global graphBranchesAckKey := ""
+        global workerTaskBusy := false
+        global workerPendingTasks := []
         MySoftData.isWorker := true
 
+        OnError(WorkOnError)
         SetTimer(CheckParentProcess, 10000)
         SetTimer(CheckTxBuffer, 1000)  ; 兜底轮询：1000ms 检查一次环形缓冲区，防止 PostMessage 丢失
     }
 
+    WorkOnError(e, mode) {
+        GraphPoolLog("Worker运行时错误", Format("err={1} line={2} file={3} mode={4}"
+            , e.Message, e.Line, e.File, mode))
+        ; 返回非零值阻止 AHK 默认错误对话框，避免 headless Worker 进程被对话框阻塞
+        return 1
+    }
+
     CheckParentProcess() {
         if !ProcessExist(parentPID) {
+            GraphPoolLog("Worker父进程检测", Format("parentPID={1} 不存在, 即将退出", parentPID))
             ExitApp()
         }
     }
@@ -96,12 +110,18 @@
         PostMessage(type, wParam, lParam, , "ahk_id " parentHwnd)
     }
 
+    WorkNotifyReady() {
+        global workIndex
+        MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)
+    }
+
     MsgSendHandler(action, args*) {
         global rx, workIndex
         payload := JSON.stringify([action, args*])
         rx.Push(MsgType.EVENT, 0, payload)
         MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
     }
+
 }
 
 ;接受主程序指令后回调
@@ -114,14 +134,24 @@
         CheckTxBuffer()
     }
 
+    ScheduleWorkerTask(id, cmd) {
+        SetTimer(OnExecTask.Bind(id, cmd), -1)
+    }
+
     CheckTxBuffer() {
-        global tx
+        global tx, workIndex, graphBranchesWaiting, workerTaskBusy, workerPendingTasks
+        if (graphBranchesWaiting)
+            return
         loop {
             while (tx.Pop(&type, &id, &cmd)) {
                 switch type {
                     case MsgType.TASK:
-                        Action := OnExecTask.Bind(id, cmd)
-                        SetTimer(Action, -1)
+                        if (workerTaskBusy) {
+                            workerPendingTasks.Push({ id: id, cmd: cmd })
+                            GraphPoolLog("Worker任务延后", Format("id={1} 原因=上一任务未完成 pending={2}", id, workerPendingTasks.Length))
+                        } else {
+                            ScheduleWorkerTask(id, cmd)
+                        }
                     case MsgType.EVENT:
                         OnEventMessage(cmd)
                 }
@@ -132,10 +162,44 @@
     }
 
     OnExecTask(id, cmd) {
-        paramArr := JSON.parse(cmd)
-        TriggerMacro(paramArr[2], paramArr[3])
-        rx.Push(MsgType.FINISH, id)
-        MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
+        global rx, workIndex, workerTaskBusy, workerPendingTasks
+        workerTaskBusy := true
+        try {
+            try {
+                paramArr := JSON.parse(cmd)
+            } catch as e {
+                GraphPoolLog("Worker任务解析失败", Format("id={1} err={2} cmd={3}", id, e.Message, SubStr(cmd, 1, 120)))
+                return
+            }
+            if (paramArr[1] == "TR_GRAPH") {
+                GraphPoolLog("Worker开始执行", Format("tab={1} item={2} node={3}", paramArr[2], paramArr[3], paramArr[4]))
+                tableItem := MySoftData.TableInfo[paramArr[2]]
+                WalkGraphNode(tableItem, paramArr[4], paramArr[3])
+            } else {
+                tableItem := MySoftData.TableInfo[paramArr[2]]
+                itemIndex := paramArr[3]
+                macro := tableItem.MacroArr[itemIndex]
+                if (IsGraphStartSerial(macro) && ShouldUseGraphWorkers()) {
+                    tableItem.KilledArr[itemIndex] := false
+                    tableItem.PauseArr[itemIndex] := false
+                    OnTriggerGraphMacro(tableItem, macro, itemIndex)
+                } else {
+                    TriggerMacro(paramArr[2], paramArr[3])
+                }
+            }
+        } catch as e {
+            GraphPoolLog("Worker任务异常", Format("id={1} err={2} line={3} cmd={4}"
+                , id, e.Message, e.Line, SubStr(cmd, 1, 120)))
+        } finally {
+            rx.Push(MsgType.FINISH, id)
+            MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
+            if (workerPendingTasks.Length > 0) {
+                t := workerPendingTasks.RemoveAt(1)
+                ScheduleWorkerTask(t.id, t.cmd)
+            } else {
+                workerTaskBusy := false
+            }
+        }
     }
 
     OnEventMessage(cmd) {
@@ -211,6 +275,11 @@
                 case "StopMacro":
                     tableItem := MySoftData.TableInfo[args[1]]
                     KillTableItemMacro(tableItem, args[2])
+                case "GraphBranchesAck":
+                    global graphBranchesAckKey, graphBranchesAckReceived
+                    key := args[1] "_" args[2]
+                    if (IsSet(graphBranchesAckKey) && graphBranchesAckKey == key)
+                        graphBranchesAckReceived := true
             }
         } catch {
         }
@@ -307,6 +376,59 @@
 
     WorkTriggerSubMacro(tableIndex, itemIndex) {
         MsgSendHandler("TR_MACRO", tableIndex, itemIndex)
+    }
+
+    WorkRequestGraphBranch(tableIndex, itemIndex, nodeSerial, skipInc := false) {
+        MsgSendHandler("TR_GRAPH", tableIndex, itemIndex, nodeSerial, skipInc)
+    }
+
+    WorkSubmitGraphBranches(tableIndex, itemIndex, branchCount, nodeSerialArr) {
+        global tx, workIndex, graphBranchesWaiting, graphBranchesAckKey, graphBranchesAckReceived, workerPendingTasks
+        nodes := ""
+        for s in nodeSerialArr
+            nodes .= (nodes != "" ? "," : "") s
+        GraphPoolLog("Worker批量请求分支", Format("tab={1} item={2} 总数={3} 子分支=[{4}]"
+            , tableIndex, itemIndex, branchCount, nodes))
+        graphBranchesAckKey := tableIndex "_" itemIndex
+        graphBranchesAckReceived := false
+        graphBranchesWaiting := true
+        try {
+            MsgSendHandler("GraphMacroBranches", tableIndex, itemIndex, branchCount, nodeSerialArr)
+            start := A_TickCount
+            loop {
+                while (tx.Pop(&type, &id, &payload)) {
+                    if (type == MsgType.TASK) {
+                        workerPendingTasks.Push({ id: id, cmd: payload })
+                        GraphPoolLog("Worker等待分支时缓存任务", Format("id={1} pending={2}", id, workerPendingTasks.Length))
+                        continue
+                    }
+                    if (type == MsgType.EVENT) {
+                        try {
+                            paramArr := JSON.parse(payload)
+                            if (paramArr[1] == "GraphBranchesAck" && paramArr[2] == tableIndex && paramArr[3] == itemIndex) {
+                                GraphPoolLog("Worker分支分配就绪", Format("tab={1} item={2}", tableIndex, itemIndex))
+                                return
+                            }
+                        } catch {
+                        }
+                        OnEventMessage(payload)
+                    }
+                }
+                if (graphBranchesAckReceived) {
+                    GraphPoolLog("Worker分支分配就绪", Format("tab={1} item={2}", tableIndex, itemIndex))
+                    return
+                }
+                if (A_TickCount - start >= 3000) {
+                    GraphPoolLog("Worker等待分支分配超时", Format("tab={1} item={2}", tableIndex, itemIndex))
+                    return
+                }
+                Sleep(10)
+            }
+        } finally {
+            graphBranchesWaiting := false
+            graphBranchesAckKey := ""
+            graphBranchesAckReceived := false
+        }
     }
 
     WorkSetTableItemState(tableIndex, itemIndex, state) {

@@ -34,14 +34,19 @@ class WorkerData {
 
         ; === 状态追踪 ===
         this.idleTick := 0            ; Worker 进入空闲状态的时间戳（A_TickCount），用于弹性缩容判断
+        this.createTick := 0          ; Worker 进程创建时间戳，用于检测启动超时
         this.tableIndex := 0          ; Worker 当前正在处理的宏所属的表索引（0=空闲）
         this.itemIndex := 0           ; Worker 当前正在处理的宏在表中的项索引（0=空闲）
+        this.isGraphBranch := false   ; 是否为图形宏并行分支任务
+        this.graphNodeSerial := ""    ; 图形分支 TR_GRAPH 起始节点（异常退出时重派）
     }
 }
 
 class WorkPool {
     __New() {
         this.workerExe := A_ScriptDir "\Thread\Work.exe"
+        SplitPath(this.workerExe, &workerExeName)
+        this.workerExeName := workerExeName
         this.maxSize := MySoftData.MutiThreadNum
         this.isDynamic := (this.maxSize == -1)
         this.dynamicMaxLimit := 16
@@ -51,11 +56,17 @@ class WorkPool {
         this.freePool := Map()        ; idx -> WorkerData，空闲可用的 Worker
         this.usePool := Map()         ; idx -> WorkerData，正在执行任务的 Worker
         this.pending := Map()         ; idx -> WorkerData，正在启动尚未就绪的 Worker
+        this.workerMap := Map()       ; idx -> WorkerData，所有存活 Worker（用于 rx 读取）
 
         this.taskQueue := TaskQueue()     ; 等待分发的任务队列，每项 {cmd, tableIndex, itemIndex}
         this.mainPID := DllCall("GetCurrentProcessId")
         this.idxCounter := 0          ; Worker 索引计数器（递增，用于分配唯一 idx）
         this.isDispatching := false    ; Dispatch 防重入标志
+        this.dispatchPending := false
+        this.targetWorkerCount := 0
+        this.lostWorkerCheckRound := 0
+        this.lostWorkerCheckFunc := ""
+        this.rxPollFunc := ""
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -66,9 +77,17 @@ class WorkPool {
         }
 
         initWorkerNum := this.isDynamic ? this.corePoolSize : this.maxSize
-        loop initWorkerNum {
-            this.CreateWorker()
+        this.targetWorkerCount := initWorkerNum
+        loop initWorkerNum
+            this.CreateWorker(A_Index)
+        this.idxCounter := initWorkerNum
+
+        if (this.targetWorkerCount > 0) {
+            this.lostWorkerCheckFunc := ObjBindMethod(this, "CheckLostWorkers")
+            SetTimer(this.lostWorkerCheckFunc, -10000)
         }
+        this.rxPollFunc := ObjBindMethod(this, "PollWorkerRx")
+        SetTimer(this.rxPollFunc, 300)
     }
 
     __Delete() {
@@ -76,6 +95,14 @@ class WorkPool {
     }
 
     Clear() {
+        if (this.rxPollFunc != "") {
+            SetTimer(this.rxPollFunc, 0)
+            this.rxPollFunc := ""
+        }
+        if (this.lostWorkerCheckFunc != "") {
+            SetTimer(this.lostWorkerCheckFunc, 0)
+            this.lostWorkerCheckFunc := ""
+        }
         if (this.isDynamic && this.shrinkTimerFunc != "") {
             SetTimer(this.shrinkTimerFunc, 0)
             this.shrinkTimerFunc := ""
@@ -96,18 +123,22 @@ class WorkPool {
             if (wd.hProc)
                 CloseHandle(wd.hProc)
         }
+        for idx, wd in this.pending {
+            if (wd.hProc)
+                CloseHandle(wd.hProc)
+        }
 
         this.freePool := Map()
         this.usePool := Map()
         this.pending := Map()
+        this.workerMap := Map()
 
         this.taskQueue := TaskQueue()
         this.idxCounter := 0
     }
 
-    CreateWorker() {
-        this.idxCounter++
-        idx := this.idxCounter
+    CreateWorker(reuseIdx := 0) {
+        idx := reuseIdx > 0 ? reuseIdx : ++this.idxCounter
         wd := WorkerData(idx)
 
         txName := "RMT_TX_" idx
@@ -121,6 +152,7 @@ class WorkPool {
         wd.rx := RingBuffer(wd.shmRx.ptr, 1048576)
 
         wd.hEvt := CreateEvent(evtName)
+        wd.createTick := A_TickCount
         this.pending[idx] := wd
 
         Run(Format('"{}" {} {} {} "{}" "{}" "{}"'
@@ -134,12 +166,63 @@ class WorkPool {
 
         wd.pid := pid
         wd.hProc := DllCall("OpenProcess", "uint", 0x0040 | 0x0001, "int", false, "uint", pid, "ptr")
+        this.workerMap[idx] := wd
+        GraphPoolLog("CreateWorker", Format("Worker#{1} 已启动 pending={2} maxSize={3}"
+            , idx, this.pending.Count, this.maxSize))
+    }
+
+    GetActiveWorkerCount() {
+        return this.freePool.Count + this.usePool.Count + this.pending.Count
+    }
+
+    GetPoolStatsStr() {
+        return Format("闲置={1} 忙碌={2} 启动中={3} 队列={4}"
+            , this.freePool.Count, this.usePool.Count, this.pending.Count, this.taskQueue.Size())
+    }
+
+    GetPendingWorkerIds() {
+        ids := ""
+        for idx in this.pending
+            ids .= (ids != "" ? "," : "") idx
+        return ids != "" ? ids : "无"
+    }
+
+    GetFreeWorkerIds() {
+        ids := ""
+        for idx in this.freePool
+            ids .= (ids != "" ? "," : "") idx
+        return ids != "" ? ids : "无"
     }
 
     Submit(cmd, tableIndex := 0, itemIndex := 0) {
-        this.taskQueue.Push({ cmd: cmd, tableIndex: tableIndex, itemIndex: itemIndex })
+        this.taskQueue.Push({ cmd: cmd, tableIndex: tableIndex, itemIndex: itemIndex, isGraphBranch: false })
         this.Dispatch()
         return 0
+    }
+
+    SubmitGraphBranch(cmd, tableIndex := 0, itemIndex := 0) {
+        this.taskQueue.Push({ cmd: cmd, tableIndex: tableIndex, itemIndex: itemIndex, isGraphBranch: true })
+        this.Dispatch()
+        return 0
+    }
+
+    ; 批量入队图形分支任务（不立即 Dispatch，避免 Worker 同步回调内重入只分出一条）
+    EnqueueGraphBranchTasks(cmdArr, tableIndex := 0, itemIndex := 0) {
+        for cmd in cmdArr
+            this.taskQueue.Push({ cmd: cmd, tableIndex: tableIndex, itemIndex: itemIndex, isGraphBranch: true })
+    }
+
+    RequestDispatch() {
+        if (this.isDispatching) {
+            this.dispatchPending := true
+            return
+        }
+        this.Dispatch()
+    }
+
+    SubmitGraphBranchesBatch(cmdArr, tableIndex := 0, itemIndex := 0) {
+        this.EnqueueGraphBranchTasks(cmdArr, tableIndex, itemIndex)
+        this.RequestDispatch()
     }
 
     ; 向所有 Worker 广播事件（master 本地发起，无需排除）
@@ -168,30 +251,179 @@ class WorkPool {
         }
     }
 
+    ; 图形宏全部分支 Worker 结束后，释放宏项占用状态
+    FinishGraphMacroItem(tableIndex, itemIndex) {
+        this.DrainItemTaskQueue(tableIndex, itemIndex)
+        tableItem := MySoftData.TableInfo[tableIndex]
+        itemState := 0
+        if (tableItem.KilledArr.Length >= itemIndex && tableItem.KilledArr[itemIndex])
+            itemState := 3
+        if (tableItem.KilledArr.Length >= itemIndex)
+            tableItem.KilledArr[itemIndex] := false
+        if (tableItem.IsWorkIndexArr.Length >= itemIndex)
+            tableItem.IsWorkIndexArr[itemIndex] := 0
+        if (tableItem.GraphBranchCountArr.Length >= itemIndex)
+            tableItem.GraphBranchCountArr[itemIndex] := 0
+        SetTableItemState(tableIndex, itemIndex, itemState)
+        GraphPoolLog("图形宏结束", Format("tab={1} item={2} state={3}", tableIndex, itemIndex, itemState))
+    }
+
+    DrainWorkerRx(wd) {
+        if (!wd || !wd.rx)
+            return
+        rb := wd.rx
+        drained := 0
+        loop {
+            while (rb.Pop(&type, &id, &result))
+                drained++
+            if (rb.IsEmpty())
+                break
+        }
+        if (drained > 0)
+            GraphPoolLog("清空WorkerRx", Format("Worker#{1} 丢弃消息={2}", wd.idx, drained))
+    }
+
+    DrainWorkerTx(wd) {
+        if (!wd || !wd.tx)
+            return
+        rb := wd.tx
+        drained := 0
+        loop {
+            while (rb.Pop(&type, &id, &payload))
+                drained++
+            if (rb.IsEmpty())
+                break
+        }
+        if (drained > 0)
+            GraphPoolLog("清空WorkerTx", Format("Worker#{1} 丢弃消息={2}", wd.idx, drained))
+    }
+
+    DrainItemTaskQueue(tableIndex, itemIndex) {
+        kept := []
+        drained := 0
+        while (this.taskQueue.Size() > 0) {
+            task := this.taskQueue.Pop()
+            if (task.tableIndex == tableIndex && task.itemIndex == itemIndex)
+                drained++
+            else
+                kept.Push(task)
+        }
+        for t in kept
+            this.taskQueue.Push(t)
+        if (drained > 0)
+            GraphPoolLog("清空任务队列", Format("tab={1} item={2} 丢弃={3}", tableIndex, itemIndex, drained))
+    }
+
+    StopItemWorkers(tableIndex, itemIndex) {
+        payload := JSON.stringify(["StopMacro", tableIndex, itemIndex])
+        stopped := 0
+        for idx, wd in this.usePool {
+            if (wd.tableIndex != tableIndex || wd.itemIndex != itemIndex)
+                continue
+            wd.tx.Push(MsgType.EVENT, 0, payload)
+            this.PostMessage(WM_MASTER_TO_WORKER, wd)
+            stopped++
+        }
+        if (stopped > 0) {
+            KillTableItemMacro(MySoftData.TableInfo[tableIndex], itemIndex)
+            GraphPoolLog("停止残留Worker", Format("tab={1} item={2} 通知={3}", tableIndex, itemIndex, stopped))
+        }
+    }
+
+    ; 新一次宏触发前：清队列、停残留 Worker、重置图形分支计数
+    PrepareItemRun(tableIndex, itemIndex) {
+        this.DrainItemTaskQueue(tableIndex, itemIndex)
+        if (this.HasActiveMacroWork(tableIndex, itemIndex))
+            this.StopItemWorkers(tableIndex, itemIndex)
+        tableItem := MySoftData.TableInfo[tableIndex]
+        if (tableItem.GraphBranchCountArr.Length >= itemIndex)
+            tableItem.GraphBranchCountArr[itemIndex] := 0
+        if (tableItem.KilledArr.Length >= itemIndex)
+            tableItem.KilledArr[itemIndex] := false
+        if (tableItem.IsWorkIndexArr.Length >= itemIndex)
+            tableItem.IsWorkIndexArr[itemIndex] := 0
+    }
+
+    RecycleWorker(wd) {
+        if (this.usePool.Has(wd.idx))
+            this.usePool.Delete(wd.idx)
+        this.freePool[wd.idx] := wd
+        wd.tableIndex := 0
+        wd.itemIndex := 0
+        wd.isGraphBranch := false
+        wd.graphNodeSerial := ""
+        wd.idleTick := A_TickCount
+        this.DrainWorkerRx(wd)
+        this.DrainWorkerTx(wd)
+    }
+
     ;分配任务
     Dispatch() {
-        if (this.isDispatching)
+        if (this.isDispatching) {
+            this.dispatchPending := true
+            GraphPoolLog("Dispatch延后", Format("重入 blocked 队列={1}", this.taskQueue.Size()))
             return
+        }
         this.isDispatching := true
 
         try {
             while (this.taskQueue.Size() > 0 && this.freePool.Count > 0) {
                 freeArr := []
-                for idx in this.freePool
-                    freeArr.Push(idx)
+                for idx in this.freePool {
+                    wdCheck := this.freePool[idx]
+                    if (this.IsWorkerDispatchable(wdCheck))
+                        freeArr.Push(idx)
+                    else {
+                        reason := this.GetWorkerDispatchBlockReason(wdCheck)
+                        GraphPoolLog("Worker不可用", Format("Worker#{1} pid={2} hwnd={3} 原因={4} 移出并补建"
+                            , wdCheck.idx, wdCheck.pid, wdCheck.hwnd, reason))
+                        this.CleanUpWorker(wdCheck)
+                        this.ScheduleRecreateWorker(idx, 0)
+                    }
+                }
+                if (freeArr.Length == 0)
+                    break
                 idx := freeArr[1]
                 wd := this.freePool[idx]
+                this.DrainWorkerRx(wd)
+                this.DrainWorkerTx(wd)
 
                 task := this.taskQueue.Pop()
-                wd.tx.Push(MsgType.TASK, wd.idx, task.cmd, 0)
+                if (!wd.tx.Push(MsgType.TASK, wd.idx, task.cmd, 0)) {
+                    this.taskQueue.queue.InsertAt(1, task)
+                    GraphPoolLog("Dispatch入队失败", Format("Worker#{1} RingBuffer满 tx空={2}", wd.idx, wd.tx.IsEmpty()))
+                    break
+                }
 
                 ; Worker 从空闲转入忙碌，任务元数据直接记录在 WorkerData 上
                 this.freePool.Delete(idx)
                 this.usePool[idx] := wd
                 wd.tableIndex := task.tableIndex
                 wd.itemIndex := task.itemIndex
+                wd.isGraphBranch := task.HasOwnProp("isGraphBranch") ? task.isGraphBranch : false
+                wd.graphNodeSerial := ""
+                if (wd.isGraphBranch) {
+                    try {
+                        paramArr := JSON.parse(task.cmd)
+                        wd.graphNodeSerial := paramArr[4]
+                    }
+                }
 
-                this.PostMessage(WM_MASTER_TO_WORKER, wd)
+                GraphPoolLog("Dispatch分配", Format("Worker#{1} tab={2} item={3} graph={4} 闲置={5} 队列={6}"
+                    , wd.idx, task.tableIndex, task.itemIndex, task.isGraphBranch ? 1 : 0
+                    , this.freePool.Count, this.taskQueue.Size()))
+                posted := this.PostMessage(WM_MASTER_TO_WORKER, wd)
+                if (!posted) {
+                    GraphPoolLog("Dispatch通知失败", Format("Worker#{1} 任务回退入队 node={2}", wd.idx, wd.graphNodeSerial))
+                    this.usePool.Delete(idx)
+                    this.freePool[idx] := wd
+                    wd.tableIndex := 0
+                    wd.itemIndex := 0
+                    wd.isGraphBranch := false
+                    wd.graphNodeSerial := ""
+                    this.taskQueue.queue.InsertAt(1, task)
+                    break
+                }
                 wd.idleTick := 0
             }
 
@@ -201,7 +433,88 @@ class WorkPool {
             }
         } finally {
             this.isDispatching := false
+            if (this.dispatchPending) {
+                this.dispatchPending := false
+                SetTimer(() => this.Dispatch(), -1)
+            }
         }
+        if (this.taskQueue.Size() > 0 && this.freePool.Count > 0)
+            this.Dispatch()
+    }
+
+    HasQueuedGraphBranch(tableIndex, itemIndex) {
+        for task in this.taskQueue.queue {
+            if (task.isGraphBranch && task.tableIndex == tableIndex && task.itemIndex == itemIndex)
+                return true
+        }
+        return false
+    }
+
+    HasBusyGraphBranch(tableIndex, itemIndex) {
+        for idx, w in this.usePool {
+            if (w.tableIndex == tableIndex && w.itemIndex == itemIndex)
+                return true
+        }
+        return false
+    }
+
+    HasActiveMacroWork(tableIndex, itemIndex) {
+        for idx, w in this.usePool {
+            if (w.tableIndex == tableIndex && w.itemIndex == itemIndex)
+                return true
+        }
+        return this.HasQueuedGraphBranch(tableIndex, itemIndex)
+    }
+
+    CanFinishGraphMacroItem(tableIndex, itemIndex) {
+        return !this.HasQueuedGraphBranch(tableIndex, itemIndex)
+            && !this.HasBusyGraphBranch(tableIndex, itemIndex)
+    }
+
+    TryFinishGraphMacroItem(tableIndex, itemIndex) {
+        tableItem := MySoftData.TableInfo[tableIndex]
+        if (tableItem.GraphBranchCountArr.Length >= itemIndex && tableItem.GraphBranchCountArr[itemIndex] > 0)
+            return
+        if (!this.CanFinishGraphMacroItem(tableIndex, itemIndex))
+            return
+        this.FinishGraphMacroItem(tableIndex, itemIndex)
+    }
+
+    ; 进程存活时按 pid 重新解析 Worker 窗口（缓存 hwnd 可能已失效）
+    ResolveWorkerHwnd(wd) {
+        if (!wd.pid || !ProcessExist(wd.pid))
+            return 0
+        if (wd.hwnd) {
+            try {
+                if (WinExist("ahk_id " wd.hwnd) && WinGetPID("ahk_id " wd.hwnd) == wd.pid)
+                    return wd.hwnd
+            }
+        }
+        try {
+            hwnd := WinExist("ahk_pid " wd.pid " ahk_exe " this.workerExeName)
+            if (!hwnd)
+                hwnd := WinExist("ahk_pid " wd.pid)
+            if (hwnd && WinGetPID("ahk_id " hwnd) == wd.pid) {
+                if (wd.hwnd != hwnd)
+                    GraphPoolLog("Workerhwnd恢复", Format("Worker#{1} 旧={2} 新={3} pid={4}"
+                        , wd.idx, wd.hwnd, hwnd, wd.pid))
+                wd.hwnd := hwnd
+                return hwnd
+            }
+        }
+        return 0
+    }
+
+    GetWorkerDispatchBlockReason(wd) {
+        if (!wd.pid || !ProcessExist(wd.pid))
+            return "进程已退出"
+        if (!this.ResolveWorkerHwnd(wd))
+            return "窗口不可达"
+        return ""
+    }
+
+    IsWorkerDispatchable(wd) {
+        return this.GetWorkerDispatchBlockReason(wd) == ""
     }
 
     ; 重置 Worker 的任务状态（任务完成或中止时调用）
@@ -214,20 +527,26 @@ class WorkPool {
         }
 
         tableItem := MySoftData.TableInfo[wd.tableIndex]
-        if (tableItem.IsWorkIndexArr.Length >= wd.itemIndex)
-            tableItem.IsWorkIndexArr[wd.itemIndex] := 0
+        ; 图形宏并行分支：单项 Worker 结束时不改宏项全局占用/颜色，由 FinishGraphMacroItem 统一释放
+        skipMacroRelease := wd.isGraphBranch && tableItem.GraphBranchCountArr.Length >= wd.itemIndex
+            && tableItem.GraphBranchCountArr[wd.itemIndex] > 0
 
-        if (state == 0) {
-            itemState := tableItem.KilledArr.Length >= wd.itemIndex && tableItem.KilledArr[wd.itemIndex] ? 3 : 0
-        } else {
-            itemState := 3
+        if (!skipMacroRelease) {
+            if (tableItem.IsWorkIndexArr.Length >= wd.itemIndex)
+                tableItem.IsWorkIndexArr[wd.itemIndex] := 0
+            if (state == 0) {
+                itemState := tableItem.KilledArr.Length >= wd.itemIndex && tableItem.KilledArr[wd.itemIndex] ? 3 : 0
+            } else {
+                itemState := 3
+            }
+            if (tableItem.KilledArr.Length >= wd.itemIndex)
+                tableItem.KilledArr[wd.itemIndex] := false
+            SetTableItemState(wd.tableIndex, wd.itemIndex, itemState)
         }
-        if (tableItem.KilledArr.Length >= wd.itemIndex)
-            tableItem.KilledArr[wd.itemIndex] := false
-        SetTableItemState(wd.tableIndex, wd.itemIndex, itemState)
 
         wd.tableIndex := 0
         wd.itemIndex := 0
+        wd.isGraphBranch := false
     }
 
     OnWorkerReady(wParam, lParam, msg, hwnd) {
@@ -235,9 +554,20 @@ class WorkPool {
         if (!this.pending.Has(idx))
             return
         wd := this.pending[idx]
+        readyHwnd := lParam > 0 ? lParam : hwnd
+        if (readyHwnd && wd.pid) {
+            try {
+                if (WinGetPID("ahk_id " readyHwnd) != wd.pid) {
+                    GraphPoolLog("Worker就绪忽略", Format("Worker#{1} 迟到就绪 pid不匹配 expect={2}", idx, wd.pid))
+                    return
+                }
+            } catch {
+                return
+            }
+        }
         this.pending.Delete(idx)
 
-        wd.hwnd := lParam > 0 ? lParam : hwnd
+        wd.hwnd := readyHwnd
         wd.isPending := false
         wd.idleTick := A_TickCount
 
@@ -245,6 +575,8 @@ class WorkPool {
         this.SyncStateToWorker(wd)
 
         this.freePool[idx] := wd
+        GraphPoolLog("Worker就绪", Format("Worker#{1} 就绪后闲置={2} 队列={3} 仍启动中=[{4}]"
+            , idx, this.freePool.Count, this.taskQueue.Size(), this.GetPendingWorkerIds()))
         this.Dispatch()
     }
 
@@ -267,16 +599,143 @@ class WorkPool {
         }
     }
 
-    CleanUpWorker(wd) {
-        this.ResetWorkerTaskState(wd, 3)
+    RemoveWorkerFromPools(idx) {
+        for pool in [this.freePool, this.usePool, this.pending] {
+            if (pool.Has(idx))
+                pool.Delete(idx)
+        }
+    }
 
-        this.freePool.Delete(wd.idx)
-        this.usePool.Delete(wd.idx)
-
+    CleanUpWorker(wd, resetTask := true) {
+        if (resetTask)
+            this.ResetWorkerTaskState(wd, 3)
+        this.RemoveWorkerFromPools(wd.idx)
+        this.workerMap.Delete(wd.idx)
+        try {
+            if (wd.shmTx)
+                wd.shmTx.Close()
+            if (wd.shmRx)
+                wd.shmRx.Close()
+            if (wd.hEvt)
+                CloseHandle(wd.hEvt)
+        }
+        wd.shmTx := 0
+        wd.shmRx := 0
+        wd.hEvt := 0
         if (wd.hProc) {
             CloseHandle(wd.hProc)
             wd.hProc := 0
         }
+    }
+
+    ScheduleRecreateWorker(reuseIdx, deadPid := 0) {
+        SetTimer(() => this.TryRecreateWorker(reuseIdx, deadPid), -500)
+    }
+
+    TryRecreateWorker(reuseIdx, deadPid := 0) {
+        if (deadPid && ProcessExist(deadPid)) {
+            this.ScheduleRecreateWorker(reuseIdx, deadPid)
+            return
+        }
+        if (this.freePool.Has(reuseIdx) || this.usePool.Has(reuseIdx) || this.pending.Has(reuseIdx))
+            return
+        this.CreateWorker(reuseIdx)
+        this.RequestDispatch()
+    }
+
+    ; 仅进程已退出视为丢失（pending 慢启动不杀）；短暂抖动时二次确认
+    IsWorkerProcessDead(wd) {
+        if (!wd.pid)
+            return true
+        if (ProcessExist(wd.pid))
+            return false
+        Sleep(50)
+        return !ProcessExist(wd.pid)
+    }
+
+    IsLostWorker(wd) {
+        return this.IsWorkerProcessDead(wd)
+    }
+
+    ReclaimDeadUsePoolWorkers() {
+        toAbort := []
+        for idx, wd in this.usePool {
+            if (this.IsWorkerProcessDead(wd))
+                toAbort.Push(wd)
+        }
+        for wd in toAbort
+            this.AbortDeadWorkerTask(wd)
+    }
+
+    AbortDeadWorkerTask(wd) {
+        tIdx := wd.tableIndex
+        iIdx := wd.itemIndex
+        startNode := wd.graphNodeSerial
+        GraphPoolLog("Worker进程退出", Format("Worker#{1} Master检测到进程已退出(非StopMacro) tab={2} item={3} graph={4} node={5} pid={6}"
+            , wd.idx, tIdx, iIdx, wd.isGraphBranch ? 1 : 0, startNode, wd.pid))
+        isGraphTask := false
+        if (tIdx && iIdx) {
+            tableItem := MySoftData.TableInfo[tIdx]
+            branchCount := tableItem.GraphBranchCountArr.Length >= iIdx ? tableItem.GraphBranchCountArr[iIdx] : 0
+            isGraphTask := (wd.isGraphBranch || branchCount > 0)
+            if (isGraphTask) {
+                remainCount := branchCount
+                if (branchCount > 0) {
+                    tableItem.GraphBranchCountArr[iIdx]--
+                    remainCount := tableItem.GraphBranchCountArr[iIdx]
+                }
+                GraphPoolLog("图形分支Worker异常退出", Format("Worker#{1} tab={2} item={3} 剩余计数={4} 忙碌=[{5}] 队列={6}"
+                    , wd.idx, tIdx, iIdx, remainCount, this.GetBusyWorkerIds(), this.taskQueue.Size()))
+                if (tableItem.KilledArr.Length >= iIdx)
+                    tableItem.KilledArr[iIdx] := true
+                if (!this.HasBusyGraphBranch(tIdx, iIdx) && !this.HasQueuedGraphBranch(tIdx, iIdx))
+                    this.DrainItemTaskQueue(tIdx, iIdx)
+            }
+        }
+        reuseIdx := wd.idx
+        skipReset := isGraphTask
+        this.CleanUpWorker(wd, !skipReset)
+        this.ScheduleRecreateWorker(reuseIdx, 0)
+        if (isGraphTask)
+            this.TryFinishGraphMacroItem(tIdx, iIdx)
+        this.RequestDispatch()
+    }
+
+    ; 启动 10s 后检测；数量已满则跳过
+    CheckLostWorkers() {
+        active := this.GetActiveWorkerCount()
+        if (active >= this.targetWorkerCount && this.pending.Count == 0) {
+            SetTimer(this.lostWorkerCheckFunc, 0)
+            GraphPoolLog("检测丢失Worker", Format("Worker数量已满足 目标={1} 当前={2} 跳过检测", this.targetWorkerCount, active))
+            return
+        }
+        this.lostWorkerCheckRound++
+        removed := 0
+        toDrop := []
+        for idx, wd in this.pending {
+            if (this.IsLostWorker(wd))
+                toDrop.Push(wd)
+        }
+        for wd in toDrop {
+            reuseIdx := wd.idx
+            if (wd.hwnd)
+                try this.PostMessage(WM_CLEAR_WORK, wd)
+            GraphPoolLog("移除丢失Worker", Format("Worker#{1} pid={2} age={3}ms 进程已退出 将按原编号补建"
+                , wd.idx, wd.pid, A_TickCount - wd.createTick))
+            this.CleanUpWorker(wd)
+            this.ScheduleRecreateWorker(reuseIdx, 0)
+            removed++
+        }
+        active := this.GetActiveWorkerCount()
+        GraphPoolLog("检测丢失Worker", Format("第{1}/5 目标={2} 当前={3} 移除补建={4} 闲置=[{5}] 启动中=[{6}]"
+            , this.lostWorkerCheckRound, this.targetWorkerCount, active, removed
+            , this.GetFreeWorkerIds(), this.GetPendingWorkerIds()))
+        if (active >= this.targetWorkerCount || this.lostWorkerCheckRound >= 5) {
+            SetTimer(this.lostWorkerCheckFunc, 0)
+            this.Dispatch()
+            return
+        }
+        SetTimer(this.lostWorkerCheckFunc, -2000)
     }
 
     FreeShrinkCheck() {
@@ -297,23 +756,70 @@ class WorkPool {
         }
     }
 
-    ; Worker→主线程消息处理：读取 RingBuffer 中的结果和事件，直接解析处理
+    PollWorkerRx() {
+        this.ReclaimDeadUsePoolWorkers()
+        for idx, wd in this.workerMap {
+            if (wd.rx && !wd.rx.IsEmpty())
+                this.ProcessWorkerRx(wd)
+        }
+    }
+
+    ; Worker→主线程消息处理：读取 RingBuffer 中的结果和事件
     OnWorkerToMaster(wParam := 0, lParam := 0, msg := 0, hwnd := 0) {
         idx := wParam
-        wd := this.usePool.Has(idx) ? this.usePool[idx] : (this.freePool.Has(idx) ? this.freePool[idx] : 0)
-        if (!wd)
+        if (!this.workerMap.Has(idx)) {
+            GraphPoolLog("Worker消息无目标", Format("idx={1} 不在workerMap 闲置=[{2}] 忙碌=[{3}]"
+                , idx, this.GetFreeWorkerIds(), this.GetBusyWorkerIds()))
             return
+        }
+        this.ProcessWorkerRx(this.workerMap[idx])
+    }
 
+    GetBusyWorkerIds() {
+        ids := ""
+        for idx in this.usePool
+            ids .= (ids != "" ? "," : "") idx
+        return ids != "" ? ids : "无"
+    }
+
+    ProcessWorkerRx(wd) {
+        if (!wd || !wd.rx)
+            return
         rb := wd.rx
         loop {
             while (rb.Pop(&type, &id, &result)) {
                 switch type {
                     case MsgType.FINISH:
-                        this.ResetWorkerTaskState(wd, 0)
-                        this.usePool.Delete(wd.idx)
-                        this.freePool[wd.idx] := wd
-                        wd.idleTick := A_TickCount
-                        this.Dispatch()
+                        tIdx := wd.tableIndex
+                        iIdx := wd.itemIndex
+                        branchCount := 0
+                        if (tIdx && iIdx && MySoftData.TableInfo[tIdx].GraphBranchCountArr.Length >= iIdx)
+                            branchCount := MySoftData.TableInfo[tIdx].GraphBranchCountArr[iIdx]
+                        isGraphTask := (wd.isGraphBranch || branchCount > 0) && tIdx && iIdx
+                        if (isGraphTask) {
+                            remainCount := branchCount
+                            if (branchCount > 0) {
+                                MySoftData.TableInfo[tIdx].GraphBranchCountArr[iIdx]--
+                                remainCount := MySoftData.TableInfo[tIdx].GraphBranchCountArr[iIdx]
+                            }
+                            GraphPoolLog("Worker完成", Format("Worker#{1} tab={2} item={3} 图形分支 graph={4} 剩余计数={5} 队列={6} 忙碌=[{7}]"
+                                , wd.idx, tIdx, iIdx, wd.isGraphBranch ? 1 : 0, remainCount, this.taskQueue.Size(), this.GetBusyWorkerIds()))
+                            this.RecycleWorker(wd)
+                            if (remainCount <= 0) {
+                                if (this.CanFinishGraphMacroItem(tIdx, iIdx))
+                                    this.FinishGraphMacroItem(tIdx, iIdx)
+                                else
+                                    SetTimer(() => this.TryFinishGraphMacroItem(tIdx, iIdx), -200)
+                            }
+                            this.Dispatch()
+                        } else {
+                            this.ResetWorkerTaskState(wd, 0)
+                            this.usePool.Delete(wd.idx)
+                            this.freePool[wd.idx] := wd
+                            wd.isGraphBranch := false
+                            wd.idleTick := A_TickCount
+                            this.Dispatch()
+                        }
                     case MsgType.EVENT:
                         this.OnWorkerEvent(wd, result)
                 }
@@ -371,18 +877,65 @@ class WorkPool {
                     MyErrorMsgBoxGui.ShowGui(args[1])
                 case "StopMacro":
                     StopMacro(args[1], args[2])
+                case "GraphMacroBranches":
+                    tIdx := args[1]
+                    iIdx := args[2]
+                    branchCount := args[3]
+                    nodeArr := args[4]
+                    tableItem := MySoftData.TableInfo[tIdx]
+                    if (branchCount > 0) {
+                        this.DrainItemTaskQueue(tIdx, iIdx)
+                        if (tableItem.GraphBranchCountArr.Length >= iIdx)
+                            tableItem.GraphBranchCountArr[iIdx] := branchCount
+                        if (tableItem.KilledArr.Length >= iIdx)
+                            tableItem.KilledArr[iIdx] := false
+                        if (this.usePool.Has(wd.idx)) {
+                            w := this.usePool[wd.idx]
+                            w.isGraphBranch := true
+                            w.tableIndex := tIdx
+                            w.itemIndex := iIdx
+                        }
+                    } else {
+                        loop nodeArr.Length
+                            if (tableItem.GraphBranchCountArr.Length >= iIdx)
+                                tableItem.GraphBranchCountArr[iIdx]++
+                    }
+                    cmdArr := []
+                    for nodeSerial in nodeArr
+                        cmdArr.Push(JSON.stringify(["TR_GRAPH", tIdx, iIdx, nodeSerial]))
+                    this.EnqueueGraphBranchTasks(cmdArr, tIdx, iIdx)
+                    this.RequestDispatch()
+                    ack := JSON.stringify(["GraphBranchesAck", tIdx, iIdx])
+                    wd.tx.Push(MsgType.EVENT, 0, ack)
+                    this.PostMessage(WM_MASTER_TO_WORKER, wd)
                 case "TR_MACRO":
                     TriggerMacroHandler(args[1], args[2])
+                case "TR_GRAPH":
+                    tIdx := args[1]
+                    iIdx := args[2]
+                    nodeSerial := args[3]
+                    skipInc := args.Length >= 4 ? args[4] : false
+                    tableItem := MySoftData.TableInfo[tIdx]
+                    if (!skipInc && tableItem.GraphBranchCountArr.Length >= iIdx)
+                        tableItem.GraphBranchCountArr[iIdx]++
+                    this.SubmitGraphBranch(JSON.stringify(["TR_GRAPH", tIdx, iIdx, nodeSerial]), tIdx, iIdx)
             }
         } catch as e {
         }
     }
 
     PostMessage(type, wd, wParam := 0, lParam := 0) {
-        if (wd.hwnd) {
-            try {
-                PostMessage(type, wParam, lParam, , "ahk_id " wd.hwnd)
-            }
+        if (!this.ResolveWorkerHwnd(wd)) {
+            GraphPoolLog("PostMessage跳过", Format("Worker#{1} hwnd不可达 pid={2} msg=0x{3:X}", wd.idx, wd.pid, type))
+            return false
+        }
+        try {
+            PostMessage(type, wParam, lParam, , "ahk_id " wd.hwnd)
+            return true
+        } catch as e {
+            GraphPoolLog("PostMessage失败", Format("Worker#{1} hwnd={2} msg=0x{3:X} err={4}"
+                , wd.idx, wd.hwnd, type, e.Message))
+            return false
         }
     }
 }

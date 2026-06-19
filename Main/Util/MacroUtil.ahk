@@ -45,7 +45,8 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
         tableItem.ActionCount[index]++
         tableItem.VariableMapArr[index]["宏循环次数"] += 1
     }
-    OnFinishMacro(tableItem, macro, index)
+    if (!ShouldSkipWorkerFinishMacro(tableItem, macro, index))
+        OnFinishMacro(tableItem, macro, index)
 }
 
 OnFinishMacro(tableItem, macro, index) {
@@ -63,7 +64,8 @@ OnFinishMacro(tableItem, macro, index) {
     MySetTableItemState(tableItem.index, index, itemState)
 }
 
-OnTriggerMacroOnce(tableItem, macro, index) {
+; 执行单条宏指令（线性宏循环与图形节点 Walk 共用）
+ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     global MySoftData
     static Actions := Map(
         "间隔", OnInterval,
@@ -94,52 +96,53 @@ OnTriggerMacroOnce(tableItem, macro, index) {
         "抓图", OnScreenShot
     )
 
-    cmdArr := SplitMacro(macro)
+    if (tableItem.KilledArr[index])
+        return
+    WaitIfPaused(tableItem, index)
+    if (SubStr(cmdStr, 1, 2) == "🚫")
+        return
+
     frontInfo := GetItemFrontInfo(tableItem, index)
+    if (MySoftData.CheckForeground && frontInfo != "" && !CheckFrontWindowActive(frontInfo)) {
+        KillTableItemMacro(tableItem, index)
+        return
+    }
+
+    paramArr := StrSplit(GetCmdStr(cmdStr), "_")
+    if (MySoftData.CMDTip)
+        MyCMDReportAciton(cmdStr)
+
+    cmdKey := RTrim(paramArr[1], "0123456789")
+    try {
+        result := Actions[cmdKey](tableItem, cmdStr, index)
+    } catch {
+        result := ""
+    }
+    if (result != "") {
+        for r in result
+            ExecuteMacroCmdOnce(tableItem, r, index, graphNode)
+    }
+}
+
+OnTriggerMacroOnce(tableItem, macro, index) {
+    if (IsGraphStartSerial(macro)) {
+        OnTriggerGraphMacro(tableItem, macro, index)
+        return
+    }
+    cmdArr := SplitMacro(macro)
 
     for value in cmdArr {
         if (tableItem.KilledArr[index])
             break
-
-        WaitIfPaused(tableItem, index)
-        if (SubStr(cmdArr[A_Index], 1, 2) == "🚫")
-            continue
-
-        ; 前台窗口检测：如果配置了前台信息且"仅前台运行宏"已勾选，检查窗口是否存在和激活
-        if (MySoftData.CheckForeground && frontInfo != "" && !CheckFrontWindowActive(frontInfo)) {
-            KillTableItemMacro(tableItem, index)
-            break
-        }
-
-        cmdStr := GetCmdStr(cmdArr[A_Index])
-        paramArr := StrSplit(cmdStr, "_")
-        if (MySoftData.CMDTip) {
-            MyCMDReportAciton(cmdStr)
-        }
-
-        ; 移除末尾数字以匹配Map键 (例如 "搜索1" -> "搜索"), 但保留Pro等后缀
-        cmdKey := RTrim(paramArr[1], "0123456789")
-        try {
-            result := Actions[cmdKey](tableItem, cmdStr, index)
-        } catch {
-            result := ""
-        }
-        if (result != "") {
-            cmdArr.InsertAt(A_Index + 1, result*)
-        }
-
+        ExecuteMacroCmdOnce(tableItem, cmdArr[A_Index], index)
         if (tableItem.VariableMapArr[index]["分支-跳出"]) {
             tableItem.VariableMapArr[index]["分支-跳出"] := false
             break
         }
-
-        if (tableItem.VariableMapArr[index]["循环-跳过本轮"]) {
+        if (tableItem.VariableMapArr[index]["循环-跳过本轮"])
             break
-        }
-
-        if (tableItem.VariableMapArr[index]["循环-跳出"]) {
+        if (tableItem.VariableMapArr[index]["循环-跳出"])
             break
-        }
     }
 }
 

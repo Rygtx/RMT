@@ -755,6 +755,7 @@ class MergeUtil {
                     tableItem.ToggleStateArr.Push(false)
                     tableItem.ToggleActionArr.Push("")
                     tableItem.IsWorkIndexArr.Push(false)
+                    tableItem.GraphBranchCountArr.Push(0)
                     tableItem.PauseArr.Push(false)
                     tableItem.ColorStateArr.Push(0)
 

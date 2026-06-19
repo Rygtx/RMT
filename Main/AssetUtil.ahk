@@ -16,6 +16,7 @@
 #Include Util\FileIOUtil.ahk
 #Include Util\HumanMouse.ahk
 #Include Util\MacroUtil.ahk
+#Include Util\GraphMacroUtil.ahk
 #Include Util\PluginUtil.ahk
 
 #Include ..\Plugins\CLR.ahk
@@ -1007,6 +1008,7 @@ InitSingleTableState(tableItem) {
     tableItem.ToggleActionArr := []
     tableItem.VariableMapArr := []
     tableItem.IsWorkIndexArr := []
+    tableItem.GraphBranchCountArr := []
     tableItem.PauseArr := []
     tableItem.ColorStateArr := []
     for index, value in tableItem.ModeArr {
@@ -1017,6 +1019,7 @@ InitSingleTableState(tableItem) {
         tableItem.ToggleStateArr.Push(false)
         tableItem.ToggleActionArr.Push("")
         tableItem.IsWorkIndexArr.Push(false)
+        tableItem.GraphBranchCountArr.Push(0)
         tableItem.ColorStateArr.Push(0)
 
         VariableMap := Map()
