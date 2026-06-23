@@ -55,7 +55,7 @@ class EditHotkeyGui {
         this.Gui.Hide()
     }
 
-    OnHotKeySureBtn(sureTriggerStr, holdTime) {
+    OnHotKeySureBtn(sureTriggerStr, holdTime, *) {
         if (sureTriggerStr != "" && SubStr(sureTriggerStr, 1, 1) == "~") {
             sureTriggerStr := SubStr(sureTriggerStr, 2)
         }
