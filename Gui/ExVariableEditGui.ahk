@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ExVariableEditGui {
     __new() {
@@ -21,7 +21,7 @@ class ExVariableEditGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -63,7 +63,7 @@ class ExVariableEditGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 15
         PosY := 10
@@ -121,7 +121,7 @@ class ExVariableEditGui {
     }
 
     OnClose(*) {
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -184,7 +184,7 @@ class ExVariableEditGui {
         ExtractStr := this.GetExtractStr()
         VariableNum := this.GetVariNum()
         Action(ExtractStr, VariableNum)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

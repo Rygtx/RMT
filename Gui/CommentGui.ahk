@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class CommentGui {
     __new() {
@@ -19,7 +19,7 @@ class CommentGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -34,7 +34,7 @@ class CommentGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosY := 10
         PosX := 10
@@ -68,7 +68,7 @@ class CommentGui {
         action := this.SureBtnAction
         action(CommandStr)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -77,7 +77,7 @@ class CommentGui {
     }
 
     OnGuiClose() {
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

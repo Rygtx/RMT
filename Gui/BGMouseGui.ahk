@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class BGMouseGui {
     __new() {
@@ -36,7 +36,7 @@ class BGMouseGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -53,7 +53,7 @@ class BGMouseGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -151,7 +151,7 @@ class BGMouseGui {
 
     OnGuiClose() {
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -244,7 +244,7 @@ class BGMouseGui {
     }
 
     OnClickEditBtn(*) {
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -263,7 +263,7 @@ class BGMouseGui {
         action := this.SureBtnAction
         action(CommandStr)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

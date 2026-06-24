@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class RMTCMDGui {
     __new() {
@@ -50,7 +50,7 @@ class RMTCMDGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -102,7 +102,7 @@ class RMTCMDGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 15
         PosY := 15
@@ -147,7 +147,7 @@ class RMTCMDGui {
     }
 
     OnGuiClose() {
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -180,7 +180,7 @@ class RMTCMDGui {
         CommandStr := this.GetCommandStr()
         this.SureBtnAction.Call(CommandStr)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

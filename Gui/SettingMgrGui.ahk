@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class SettingMgrGui {
     __new() {
@@ -21,7 +21,7 @@ class SettingMgrGui {
 
     Refresh() {
         this.CurSettingCon.Value := MySoftData.CurSettingName
-        this.SettingList := StrSplit(MySoftData.SettingArrStr, "π")
+        this.SettingList := StrSplit(MainSoftData.SettingArrStr, "π")
         this.OperSettingCon.Delete()
         this.OperSettingCon.Add(this.SettingList)
         this.OperSettingCon.Text := MySoftData.CurSettingName
@@ -30,7 +30,7 @@ class SettingMgrGui {
     AddGui() {
         MyGui := Gui(, GetLang("配置管理编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 20
         PosY := 10
@@ -43,7 +43,7 @@ class SettingMgrGui {
 
         PosX := 20
         PosY += 40
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("当前配置："))
 
         PosX += 70
@@ -291,8 +291,8 @@ class SettingMgrGui {
             FolderPackager.UnpackFile(selectedFile, outputFolder)
             this.OnRepairSetting(outputFolder)
             if (LoadType != 2) {
-                MySoftData.SettingArrStr .= "π" fileNameNoExt
-                IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+                MainSoftData.SettingArrStr .= "π" fileNameNoExt
+                IniWrite(MainSoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
             }
 
             MySoftData.CurSettingName := fileNameNoExt
@@ -338,8 +338,8 @@ class SettingMgrGui {
             SettingArrStr .= settingName "π"
         }
         SettingArrStr := RTrim(SettingArrStr, "π")
-        MySoftData.SettingArrStr := SettingArrStr
-        IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+        MainSoftData.SettingArrStr := SettingArrStr
+        IniWrite(MainSoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
         MsgBox(GetLang("删除配置: ") this.OperSettingCon.Text)
         this.Refresh()
     }
@@ -358,8 +358,8 @@ class SettingMgrGui {
         MySoftData.CurSettingName := newFileName.Value
         IniWrite(MySoftData.CurSettingName, IniFile, IniSection, "CurSettingName")
 
-        MySoftData.SettingArrStr .= "π" newFileName.Value
-        IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+        MainSoftData.SettingArrStr .= "π" newFileName.Value
+        IniWrite(MainSoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
         MsgBox(GetLang("成功新增配置：") newFileName.Value)
         SafeReload()
     }
@@ -375,8 +375,8 @@ class SettingMgrGui {
             return false
         }
 
-        MySoftData.SettingArrStr .= "π" newFileName.Value
-        IniWrite(MySoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
+        MainSoftData.SettingArrStr .= "π" newFileName.Value
+        IniWrite(MainSoftData.SettingArrStr, IniFile, IniSection, "SettingArrStr")
         SourcePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName
         DestPath := A_WorkingDir "\Setting\" newFileName.Value
         DirCopy(SourcePath, DestPath, 1)

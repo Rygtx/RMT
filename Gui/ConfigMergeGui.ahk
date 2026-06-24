@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include ..\Main\Util\MergeUtil.ahk
 
 class ConfigMergeGui {
@@ -26,14 +26,14 @@ class ConfigMergeGui {
     AddGui() {
         MyGui := Gui("+MinimizeBox", GetLang("配置合并导入"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
         MyGui.OnEvent("Close", (*) => this.OnClose())
         MyGui.OnEvent("Escape", (*) => this.OnClose())
 
         PosX := 15
         PosY := 12
 
-        MyGui.SetFont("S11 W600 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W600 Q2", MainSoftData.FontType)
         MyGui.Add("GroupBox", Format("x{} y{} w690 h80", PosX, PosY), GetLang("源配置选择"))
 
         PosX += 15
@@ -91,7 +91,7 @@ class ConfigMergeGui {
     }
 
     RefreshLocalConfigList() {
-        settingList := StrSplit(MySoftData.SettingArrStr, "π")
+        settingList := StrSplit(MainSoftData.SettingArrStr, "π")
         validSettings := []
         for name in settingList {
             if (name != MySoftData.CurSettingName)

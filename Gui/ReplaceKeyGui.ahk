@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ReplaceKeyGui {
     __new() {
@@ -128,7 +128,7 @@ class ReplaceKeyGui {
 
         MyGui := Gui()
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", 10, 10, 1240, 445), GetLang("请从下面选框中勾选替换后的按键："))
         PosX := 20

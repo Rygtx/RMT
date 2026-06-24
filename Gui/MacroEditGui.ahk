@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include IntervalGui.ahk
 #Include KeyGui.ahk
 #Include MouseMoveGui.ahk
@@ -244,14 +244,14 @@ class MacroEditGui {
         ; 注册快捷键热键（窗口打开期间全局有效，关闭时注销）
         this._hkIds := WinHotkey.Register(["F5", "F6", "Delete"], ObjBindMethod(this, "_OnHotkey"))
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
-        MySoftData.RecordToggleCon := this.RecordMacroCon
-        MySoftData.MacroEditGui := this
+        UIControls.RecordToggle := this.RecordMacroCon
+        MainSoftData.MacroEditGui := this
         this.InitGuiMenu()
         this.Init(CommandStr, ShowSaveBtn)
     }
@@ -262,7 +262,7 @@ class MacroEditGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosY := 10
         PosX := 5
@@ -385,9 +385,9 @@ class MacroEditGui {
         this.RecordMacroCon.Value := false
         this.RecordMacroCon.OnEvent("Click", this.OnClickRecordTog.Bind(this))
         PosX += 85
-        isHotKey := CheckIsNormalHotKey(ToolCheckInfo.ToolRecordMacroHotKey)
+        isHotKey := CheckIsNormalHotKey(MainSoftData.ToolRecordMacroHotKey)
         CtrlType := isHotKey ? "Hotkey" : "Text"
-        con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 130), ToolCheckInfo.ToolRecordMacroHotKey
+        con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 130), MainSoftData.ToolRecordMacroHotKey
         )
         con.Enabled := false
 
@@ -542,8 +542,8 @@ class MacroEditGui {
     }
 
     OnClickRecordTog(*) {
-        MySoftData.RecordToggleCon := this.RecordMacroCon
-        MySoftData.MacroEditGui := this
+        UIControls.RecordToggle := this.RecordMacroCon
+        MainSoftData.MacroEditGui := this
         OnHotToolRecordMacro(true)
     }
 
@@ -555,7 +555,7 @@ class MacroEditGui {
 
         this.SureBtnAction := ""
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -576,7 +576,7 @@ class MacroEditGui {
 
         this.SureBtnAction := ""
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -589,7 +589,7 @@ class MacroEditGui {
     OnGuiClose() {
         if (this._hkIds.Length > 0)
             WinHotkey.UnregisterAll(this._hkIds)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -746,7 +746,7 @@ class MacroEditGui {
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.SubMacroEditGui.ParentTile := ParentTile "-"
 
-            if (MySoftData.IsModalSubGui && this.Gui != "") {
+            if (MainSoftData.IsModalSubGui && this.Gui != "") {
                 this.SubMacroEditGui.OwnerHwnd := this.Gui.Hwnd
             }
             else {
@@ -762,7 +762,7 @@ class MacroEditGui {
             this.CompareProEditItemGui.IsSubMacroEdit := true
             this.CompareProEditItemGui.SureBtnAction := this.OnSubNodeEdit.Bind(this, this.CurItemID)
 
-            if (MySoftData.IsModalSubGui && this.Gui != "") {
+            if (MainSoftData.IsModalSubGui && this.Gui != "") {
                 this.CompareProEditItemGui.OwnerHwnd := this.Gui.Hwnd
             }
             else {
@@ -1242,7 +1242,7 @@ class MacroEditGui {
             subGui.ParentTile := ParentTile "-"
         }
 
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             subGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -1282,8 +1282,8 @@ class MacroEditGui {
         else if (this.CmdEditType == 5) {
             this.OnSubNodeAddCmd(CommandStr)
         }
-        MySoftData.RecordToggleCon := this.RecordMacroCon
-        MySoftData.MacroEditGui := this
+        UIControls.RecordToggle := this.RecordMacroCon
+        MainSoftData.MacroEditGui := this
     }
 
     ;添加指令

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class UIMacroSettingGui {
     __new() {
@@ -23,7 +23,7 @@ class UIMacroSettingGui {
         }
 
         MyGui := Gui("", GetLang("界面宏配置 - 图标") macroIndex)
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         this.Gui := MyGui
 
         posY := 15

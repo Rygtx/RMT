@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 
 class LoopGui {
@@ -29,7 +29,7 @@ class LoopGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -46,7 +46,7 @@ class LoopGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -250,7 +250,7 @@ class LoopGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             this.MacroGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -276,7 +276,7 @@ class LoopGui {
         action := this.SureBtnAction
         action(CommandStr)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -286,7 +286,7 @@ class LoopGui {
 
     OnGuiClose() {
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

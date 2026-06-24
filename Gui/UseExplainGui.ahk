@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class UseExplainGui {
     __new() {
@@ -31,7 +31,7 @@ class UseExplainGui {
     AddGui() {
         MyGui := Gui(, GetLang("使用说明"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -160,12 +160,12 @@ class UseExplainGui {
 
     OnScreenShot() {
         this.OnValueChange()
-        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+        if (MainSoftData.ScreenShotType == 1) {
             SetClipboard("")  ; 清空剪贴板
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
         }
-        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this.CheckClipboardAction)
         }
         else {

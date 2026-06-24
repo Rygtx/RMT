@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class EditHotkeyGui {
     __new() {
@@ -25,7 +25,7 @@ class EditHotkeyGui {
     AddGui() {
         MyGui := Gui(, GetLang("快捷方式编辑"))
         this.Gui := MyGui
-        MyGui.SetFont("S12 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S12 W550 Q2", MainSoftData.FontType)
 
         PosX := 75
         PosY := 30

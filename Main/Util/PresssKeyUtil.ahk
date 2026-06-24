@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
     static LogicNoKeyMap := Map("Volume_Up", 0, "Volume_Down", 0, "Volume_Mute", 0)
@@ -261,11 +261,11 @@ HandleKeyDownDown(key, tableItem, index, Action) {
     try {   ;按下前已经按下的话先松开
         state := GetKeyState(key)
         if (state == 1) {
-            if (MySoftData.KeyDownDownType == 1)    ; 1自动松开
+            if (MainSoftData.KeyDownDownType == 1)    ; 1自动松开
                 Action(key, 0, tableItem, index)
-            else if (MySoftData.KeyDownDownType == 2)   ;2忽略后续按下
+            else if (MainSoftData.KeyDownDownType == 2)   ;2忽略后续按下
                 isSkip := true
-            else if (MySoftData.KeyDownDownType == 3) { ;3允许该行为，不做任何干预
+            else if (MainSoftData.KeyDownDownType == 3) { ;3允许该行为，不做任何干预
             }
         }
     }

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 #Include WinRuleGui.ahk
 
@@ -28,7 +28,7 @@ class ScreenShotGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -44,7 +44,7 @@ class ScreenShotGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -195,7 +195,7 @@ class ScreenShotGui {
 
     OnClickWinEditBtn(*) {
         MyFrontInfoGui.HideAction := () => this.ToggleFunc(true)
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -330,7 +330,7 @@ class ScreenShotGui {
         action(this.GetCommandStr())
         this.ToggleFunc(false)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -340,7 +340,7 @@ class ScreenShotGui {
 
     OnGuiClose() {
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

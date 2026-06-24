@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TargetGui {
     __new() {
@@ -46,7 +46,7 @@ class TargetGui {
     AddGui() {
         this.Gui := Gui("+AlwaysOnTop +ToolWindow -Caption -Resize -DPIScale")
         this.Gui.Title := "RMT-Target"
-        this.Gui.SetFont("S13 W550 Q2", MySoftData.FontType)
+        this.Gui.SetFont("S13 W550 Q2", MainSoftData.FontType)
         this.Gui.MarginX := 0
         this.Gui.MarginY := 0
         this.Gui.BackColor := "EEAA99" ; 这个颜色必须设置，但具体是什么颜色不重要

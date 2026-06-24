@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include WinRuleGui.ahk
 
 class WindowManageGui {
@@ -27,7 +27,7 @@ class WindowManageGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -62,7 +62,7 @@ class WindowManageGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -190,7 +190,7 @@ class WindowManageGui {
 
     OnClose(*) {
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -205,7 +205,7 @@ class WindowManageGui {
         this.ToggleFunc(false)
         CommandStr := this.GetCommandStr()
         this.SureBtnAction.Call(CommandStr)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -267,7 +267,7 @@ class WindowManageGui {
     }
 
     OnClickWinEditBtn(*) {
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {

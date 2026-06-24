@@ -1,14 +1,14 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 BindKey() {
     BindSuspendHotkey()
-    BindShortcut(MySoftData.PauseHotkey, OnPauseHotKey)
-    BindShortcut(MySoftData.KillMacroHotkey, OnKillAllMacro)
-    BindShortcut(ToolCheckInfo.ToolCheckHotKey, OnToolCheckHotkey)
-    BindShortcut(ToolCheckInfo.ToolTextFilterHotKey, OnToolTextFilterScreenShot)
-    BindShortcut(ToolCheckInfo.ScreenShotHotKey, OnToolScreenShot)
-    BindShortcut(ToolCheckInfo.FreePasteHotKey, OnToolFreePaste)
-    BindShortcut(ToolCheckInfo.ToolRecordMacroHotKey, OnHotToolRecordMacro)
+    BindShortcut(MainSoftData.PauseHotkey, OnPauseHotKey)
+    BindShortcut(MainSoftData.KillMacroHotkey, OnKillAllMacro)
+    BindShortcut(MainSoftData.ToolCheckHotKey, OnToolCheckHotkey)
+    BindShortcut(MainSoftData.ToolTextFilterHotKey, OnToolTextFilterScreenShot)
+    BindShortcut(MainSoftData.ScreenShotHotKey, OnToolScreenShot)
+    BindShortcut(MainSoftData.FreePasteHotKey, OnToolFreePaste)
+    BindShortcut(MainSoftData.ToolRecordMacroHotKey, OnHotToolRecordMacro)
     InitTriggerKeyMap()
     BindMenuHotKey()
     BindUIPanelHotKey()
@@ -44,13 +44,13 @@ BindShortcut(triggerInfo, action) {
 
 BindSuspendHotkey() {
     global MySoftData
-    if (MySoftData.SuspendHotkey != "") {
-        isCombo := IsComboKey(MySoftData.SuspendHotkey)
+    if (MainSoftData.SuspendHotkey != "") {
+        isCombo := IsComboKey(MainSoftData.SuspendHotkey)
         if (isCombo) {
-            key := MySoftData.SuspendHotkey
+            key := MainSoftData.SuspendHotkey
         }
         else {
-            key := "$*~" MySoftData.SuspendHotkey
+            key := "$*~" MainSoftData.SuspendHotkey
         }
         try {
             Hotkey(key, OnSuspendHotkey, "S")
@@ -62,9 +62,9 @@ BindSuspendHotkey() {
 
 OnSuspendHotkey(*) {
     global MySoftData
-    MySoftData.IsSuspend := !MySoftData.IsSuspend
-    MySoftData.SuspendToggleCtrl.Value := MySoftData.IsSuspend
-    if (MySoftData.IsSuspend) {
+    MainSoftData.IsSuspend := !MainSoftData.IsSuspend
+    UIControls.SuspendToggle.Value := MainSoftData.IsSuspend
+    if (MainSoftData.IsSuspend) {
         OnKillAllMacro()
         global MyTimingScheduler
         if (IsObject(MyTimingScheduler))
@@ -78,34 +78,34 @@ OnSuspendHotkey(*) {
         TraySetIcon("Images\Soft\rabit.ico")
     }
 
-    tipStr := MySoftData.IsSuspend ? GetLang("软件休眠") : GetLang("取消软件休眠")
+    tipStr := MainSoftData.IsSuspend ? GetLang("软件休眠") : GetLang("取消软件休眠")
     if (MySoftData.CMDTip)
         MyCMDReportAciton(tipStr)
 
-    Suspend(MySoftData.IsSuspend)
+    Suspend(MainSoftData.IsSuspend)
 }
 
 OnPauseHotKey(*) {
-    MySoftData.IsPause := !MySoftData.IsPause
-    MySoftData.PauseToggleCtrl.Value := MySoftData.IsPause
+    MainSoftData.IsPause := !MainSoftData.IsPause
+    UIControls.PauseToggle.Value := MainSoftData.IsPause
 
     loop MySoftData.TableInfo.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         for index, value in tableItem.ModeArr {
-            SetItemPauseState(tableItem.index, index, MySoftData.IsPause)
+            SetItemPauseState(tableItem.index, index, MainSoftData.IsPause)
         }
     }
 
-    tipStr := MySoftData.IsPause ? GetLang("暂停所有宏") : GetLang("取消所有暂停")
+    tipStr := MainSoftData.IsPause ? GetLang("暂停所有宏") : GetLang("取消所有暂停")
     if (MySoftData.CMDTip)
         MyCMDReportAciton(tipStr)
 
-    MySoftData.SpecialTableItem.PauseArr[1] := MySoftData.IsPause
+    MySoftData.SpecialTableItem.PauseArr[1] := MainSoftData.IsPause
 }
 
 SetPauseState(state) {
-    MySoftData.PauseToggleCtrl.Value := state
-    MySoftData.IsPause := state
+    UIControls.PauseToggle.Value := state
+    MainSoftData.IsPause := state
 
     loop MySoftData.TableInfo.Length {
         tableItem := MySoftData.TableInfo[A_Index]
@@ -142,39 +142,38 @@ OnKillAllMacro(*) {
 }
 
 OnToolCheckHotkey(*) {
-    global ToolCheckInfo
-    ToolCheckInfo.IsToolCheck := !ToolCheckInfo.IsToolCheck
-    ToolCheckInfo.ToolCheckCtrl.Value := ToolCheckInfo.IsToolCheck
+    global MainSoftData
+    MainSoftData.IsToolCheck := !MainSoftData.IsToolCheck
+    UIControls.ToolCheck.Value := MainSoftData.IsToolCheck
 
-    if (ToolCheckInfo.IsToolCheck) {
-        ToolCheckInfo.MouseInfoTimer := Timer(SetToolCheckInfo, 100)
-        ToolCheckInfo.MouseInfoTimer.On()
+    if (MainSoftData.IsToolCheck) {
+        SetTimer SetToolCheckInfo, 100
     }
     else
-        ToolCheckInfo.MouseInfoTimer := ""
+        SetTimer SetToolCheckInfo, 0
 }
 
 SetToolCheckInfo() {
-    global ToolCheckInfo
+    global MainSoftData
     CoordMode("Mouse", "Screen")
     MouseGetPos &mouseX, &mouseY, &winId
     try {
-        ToolCheckInfo.PosStr := mouseX . "," . mouseY
+        MainSoftData.PosStr := mouseX . "," . mouseY
         try {
             WinPID := WinGetPID("ahk_id " winId)
-            ToolCheckInfo.ProcessName := ProcessGetName(WinPID)
+            MainSoftData.ProcessName := ProcessGetName(WinPID)
         }
         catch {
-            ToolCheckInfo.ProcessName := ""
+            MainSoftData.ProcessName := ""
         }
-        ToolCheckInfo.ProcessTile := WinGetTitle(winId)
-        ToolCheckInfo.ProcessPid := WinGetPID(winId)
-        ToolCheckInfo.ProcessClass := WinGetClass(winId)
-        ToolCheckInfo.ProcessId := winId
-        ToolCheckInfo.Color := StrReplace(PixelGetColor(mouseX, mouseY, "Slow"), "0x", "")
+        MainSoftData.ProcessTile := WinGetTitle(winId)
+        MainSoftData.ProcessPid := WinGetPID(winId)
+        MainSoftData.ProcessClass := WinGetClass(winId)
+        MainSoftData.ProcessId := winId
+        MainSoftData.Color := StrReplace(PixelGetColor(mouseX, mouseY, "Slow"), "0x", "")
 
         WinPosArr := GetCurWinPos()
-        ToolCheckInfo.WinPosStr := WinPosArr[1] . "," . WinPosArr[2]
+        MainSoftData.WinPosStr := WinPosArr[1] . "," . WinPosArr[2]
         RefreshToolUI()
     }
 }
@@ -184,12 +183,12 @@ OnClickToolRecordSettingBtn(*) {
 }
 
 OnToolTextFilterScreenShot(*) {
-    if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+    if (MainSoftData.ScreenShotType == 1) {
         SetClipboard("")
         Run("ms-screenclip:")
         SetTimer(OnToolTextCheckScreenShot, 500)
     }
-    else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+    else if (MainSoftData.ScreenShotType == 3) {
         RunScreenCapture(OnToolTextCheckScreenShot)
     }
     else {
@@ -198,10 +197,10 @@ OnToolTextFilterScreenShot(*) {
 }
 
 OnToolScreenShot(*) {
-    if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+    if (MainSoftData.ScreenShotType == 1) {
         Run("ms-screenclip:")
     }
-    else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+    else if (MainSoftData.ScreenShotType == 3) {
         scPath := A_WorkingDir "\Plugins\ScreenCapture\ScreenCapture.exe"
         if !FileExist(scPath)
             return
@@ -366,7 +365,7 @@ BindTabHotKey() {
     ; 预计算缓存Map（避免重复的字符串处理和正则匹配）
     keyCache := Map()
 
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         tableIndex := A_Index
         canBind := tableIndex == 1 || tableIndex == 2 || tableIndex == 7

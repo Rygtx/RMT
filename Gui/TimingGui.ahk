@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TimingGui {
     __new() {
@@ -38,7 +38,7 @@ class TimingGui {
     AddGui() {
         MyGui := Gui(, GetLang("定时编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 15

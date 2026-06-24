@@ -1,4 +1,4 @@
-;按键宏命令
+﻿;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     MyMacroCount("Add")
     tableItem.KilledArr[index] := false
@@ -127,7 +127,7 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         return
 
     frontInfo := GetItemFrontInfo(tableItem, index)
-    if (MySoftData.CheckForeground && frontInfo != "" && !CheckFrontWindowActive(frontInfo)) {
+    if (MainSoftData.CheckForeground && frontInfo != "" && !CheckFrontWindowActive(frontInfo)) {
         KillTableItemMacro(tableItem, index)
         return
     }
@@ -332,7 +332,7 @@ OnMMPro(tableItem, cmd, index) {
         if (tableItem.KilledArr[index])
             return
 
-        FloatInterval := GetFloatTime(Data.Interval, MySoftData.PreIntervalFloat)
+        FloatInterval := GetFloatTime(Data.Interval, MainSoftData.PreIntervalFloat)
         OnMMProOnce(tableItem, index, Data)
         if (A_Index != Data.Count)
             Sleep(FloatInterval)
@@ -354,8 +354,8 @@ OnMMProOnce(tableItem, index, Data) {
         return
     }
 
-    PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
-    PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
+    PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
+    PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
     ClickCount := Data.ActionType == 2 ? 1 : 2
     if (MoveMode == 2) {
         ; 游戏视角（相对移动+点击）
@@ -694,7 +694,7 @@ OnExVariable(tableItem, cmd, index) {
                 return
 
             if (Data.SearchCount > A_Index) {
-                FloatInterval := GetFloatTime(Data.SearchInterval, MySoftData.PreIntervalFloat)
+                FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
                 Sleep(FloatInterval)
             }
         }
@@ -802,8 +802,8 @@ OnBGMouse(tableItem, cmd, index) {
     if (!hasPosVarX || !hasPosVarY) {
         return
     }
-    PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
-    PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
+    PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
+    PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
     hwndList := GetHwndList(Data.TargetTitle)
     loop hwndList.Length {
         hwnd := hwndList[A_Index]
@@ -850,8 +850,8 @@ OnBGKey(tableItem, cmd, index) {
         if (tableItem.KilledArr[index])
             break
 
-        FloatHold := GetFloatTime(Data.ClickTime, MySoftData.HoldFloat)
-        FloatInterval := GetFloatTime(Data.ClickInterval, MySoftData.PreIntervalFloat)
+        FloatHold := GetFloatTime(Data.ClickTime, MainSoftData.HoldFloat)
+        FloatInterval := GetFloatTime(Data.ClickInterval, MainSoftData.PreIntervalFloat)
         SendBGKey(Data, tableItem, index)
         if (Data.Type == 3 && A_Index != Data.ClickCount)
             Sleep(FloatInterval)
@@ -930,8 +930,8 @@ OnMouseMove(tableItem, cmd, index) {
     Speed := paramArr.Length >= 4 ? 100 - Integer(paramArr[4]) : 0
     MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
 
-    PosX := GetFloatValue(PosX, MySoftData.CoordXFloat)
-    PosY := GetFloatValue(PosY, MySoftData.CoordYFloat)
+    PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
+    PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
     SendMode("Event")
     CoordMode("Mouse", "Screen")
     isLogiMode := Integer(tableItem.ModeArr[index]) == 3
@@ -1003,7 +1003,7 @@ OnInterval(tableItem, cmd, index) {
         interval := Random(interval1, interval2)
     }
 
-    FloatInterval := GetFloatTime(interval, MySoftData.IntervalFloat)
+    FloatInterval := GetFloatTime(interval, MainSoftData.IntervalFloat)
     curTime := 0
     clip := Min(100, FloatInterval)
     while (curTime < FloatInterval) {
@@ -1040,8 +1040,8 @@ OnPressKey(tableItem, cmd, index) {
         if (tableItem.KilledArr[index])
             break
 
-        FloatHold := GetFloatTime(holdTime, MySoftData.HoldFloat)
-        FloatInterval := GetFloatTime(IntervalTime, MySoftData.PreIntervalFloat)
+        FloatHold := GetFloatTime(holdTime, MainSoftData.HoldFloat)
+        FloatInterval := GetFloatTime(IntervalTime, MainSoftData.PreIntervalFloat)
         SendKeyWrapper(paramArr[2], FloatHold, tableItem, index, keyType, action)
         if (keyType == 3 && A_Index != count && FloatInterval > 0)
             Sleep(FloatInterval)
@@ -1075,51 +1075,51 @@ OnReplaceUpKey(tableItem, info, index, *) {
 
 ;按钮回调
 MenuReload(*) {
-    IniWrite(MySoftData.TabCtrl.Value, IniFile, IniSection, "TableIndex")
+    IniWrite(MainSoftData.TabCtrl.Value, IniFile, IniSection, "TableIndex")
     IniWrite(true, IniFile, IniSection, "IsReload")
     SafeReload()
 }
 
 OnToolTextFilterSelectImage(*) {
-    global ToolCheckInfo
+    global MainSoftData
     path := FileSelect(, , GetLang("选择图片"))
     if (path == "")
         return
-    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
+    ocr := MainSoftData.OCRTypeValue == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_file(path)
-    ToolCheckInfo.ToolTextCtrl.Value := result
+    SetToolTextDisplay(result)
     SetClipboard(result)
 }
 
 OnClearToolText(*) {
-    ToolCheckInfo.ToolTextCtrl.Value := ""
+    SetToolTextDisplay("")
 }
 
-OnBootStartChanged(*) {
+OnBootStartChanged(ctrl, *) {
     global MySoftData
-    MySoftData.IsBootStart := MySoftData.BootStartCtrl.Value
+    MainSoftData.IsBootStart := ctrl.Value
     regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
     softPath := A_ScriptFullPath
-    if (!MySoftData.IsBootStart) {
+    if (!MainSoftData.IsBootStart) {
         RegDelete(regPath, "RMT")
     }
-    else if (MySoftData.IsAdminStart) {
+    else if (MainSoftData.IsAdminStart) {
         RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
     }
     else {
         RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")
     }
-    IniWrite(MySoftData.IsBootStart, IniFile, IniSection, "IsBootStart")
+    IniWrite(MainSoftData.IsBootStart, IniFile, IniSection, "IsBootStart")
 }
 
-OnAdminStartChanged(*) {
+OnAdminStartChanged(ctrl, *) {
     global MySoftData
-    MySoftData.IsAdminStart := MySoftData.AdminStartCtrl.Value
-    IniWrite(MySoftData.IsAdminStart, IniFile, IniSection, "IsAdminStart")
-    if (MySoftData.IsBootStart) {
+    MainSoftData.IsAdminStart := ctrl.Value
+    IniWrite(MainSoftData.IsAdminStart, IniFile, IniSection, "IsAdminStart")
+    if (MainSoftData.IsBootStart) {
         regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
         softPath := A_ScriptFullPath
-        if (MySoftData.IsAdminStart)
+        if (MainSoftData.IsAdminStart)
             RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
         else
             RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")

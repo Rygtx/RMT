@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class CMDTipSettingGui {
     __new() {
@@ -15,15 +15,15 @@ class CMDTipSettingGui {
         else {
             this.AddGui()
         }
-        this.PosXCon.Value := MySoftData.CMDPosX
-        this.PosYCon.Value := MySoftData.CMDPosY
-        this.WidthCon.Value := MySoftData.CMDWidth
-        this.HeightCon.Value := MySoftData.CMDHeight
-        this.BGColorCon.Value := MySoftData.CMDBGColor
-        this.RunBGColorCon.Value := MySoftData.CMDRunBGColor
-        this.TransparencyCon.Value := MySoftData.CMDTransparency
-        this.FontSizeCon.Value := MySoftData.CMDFontSize
-        this.FontColorCon.Value := MySoftData.CMDFontColor
+        this.PosXCon.Value := MainSoftData.CMDPosX
+        this.PosYCon.Value := MainSoftData.CMDPosY
+        this.WidthCon.Value := MainSoftData.CMDWidth
+        this.HeightCon.Value := MainSoftData.CMDHeight
+        this.BGColorCon.Value := MainSoftData.CMDBGColor
+        this.RunBGColorCon.Value := MainSoftData.CMDRunBGColor
+        this.TransparencyCon.Value := MainSoftData.CMDTransparency
+        this.FontSizeCon.Value := MainSoftData.CMDFontSize
+        this.FontColorCon.Value := MainSoftData.CMDFontColor
 
         this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
         this.FontColorTipCon.Redraw()
@@ -38,7 +38,7 @@ class CMDTipSettingGui {
     AddGui() {
         MyGui := Gui(, GetLang("指令显示编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 15
@@ -193,26 +193,26 @@ class CMDTipSettingGui {
         if (!isValid)
             return
 
-        MySoftData.CMDPosX := this.PosXCon.Value
-        MySoftData.CMDPosY := this.PosYCon.Value
-        MySoftData.CMDWidth := this.WidthCon.Value
-        MySoftData.CMDHeight := this.HeightCon.Value
-        MySoftData.CMDBGColor := this.BGColorCon.Value
-        MySoftData.CMDRunBGColor := this.RunBGColorCon.Value
-        MySoftData.CMDTransparency := this.TransparencyCon.Value
-        MySoftData.CMDFontSize := this.FontSizeCon.Value
-        MySoftData.CMDFontColor := this.FontColorCon.Value
+        MainSoftData.CMDPosX := this.PosXCon.Value
+        MainSoftData.CMDPosY := this.PosYCon.Value
+        MainSoftData.CMDWidth := this.WidthCon.Value
+        MainSoftData.CMDHeight := this.HeightCon.Value
+        MainSoftData.CMDBGColor := this.BGColorCon.Value
+        MainSoftData.CMDRunBGColor := this.RunBGColorCon.Value
+        MainSoftData.CMDTransparency := this.TransparencyCon.Value
+        MainSoftData.CMDFontSize := this.FontSizeCon.Value
+        MainSoftData.CMDFontColor := this.FontColorCon.Value
 
         global IniFile, IniSection
-        IniWrite(MySoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
-        IniWrite(MySoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
-        IniWrite(MySoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
-        IniWrite(MySoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
-        IniWrite(MySoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
-        IniWrite(MySoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
-        IniWrite(MySoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
-        IniWrite(MySoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
-        IniWrite(MySoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
+        IniWrite(MainSoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
+        IniWrite(MainSoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
+        IniWrite(MainSoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
+        IniWrite(MainSoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
+        IniWrite(MainSoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
+        IniWrite(MainSoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
+        IniWrite(MainSoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
+        IniWrite(MainSoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
+        IniWrite(MainSoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
 
         this.ToggleFunc(false)
         this.Gui.Hide()

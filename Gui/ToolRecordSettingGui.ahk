@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ToolRecordSettingGui {
     __new() {
@@ -30,15 +30,15 @@ class ToolRecordSettingGui {
     }
 
     Init() {
-        this.AutoLoosenCon.Value := ToolCheckInfo.RecordAutoLoosen
-        this.HoldMutiCon.Value := ToolCheckInfo.RecordHoldMuti
-        this.KeyboardTogCon.Value := ToolCheckInfo.RecordKeyboard
-        this.MouseTogCon.Value := ToolCheckInfo.RecordMouse
-        this.MouseTrailModeCon.Value := ToolCheckInfo.RecordMouseTrail + 1
-        this.MouseTrailSpeedCon.Value := ToolCheckInfo.RecordMouseTrailSpeed
-        this.JoyTogCon.Value := ToolCheckInfo.RecordJoy
-        this.JoyIntervalCon.Value := ToolCheckInfo.RecordJoyInterval
-        this.ShowBorderCon.Value := ToolCheckInfo.RecordShowBorder
+        this.AutoLoosenCon.Value := MainSoftData.RecordAutoLoosen
+        this.HoldMutiCon.Value := MainSoftData.RecordHoldMuti
+        this.KeyboardTogCon.Value := MainSoftData.RecordKeyboard
+        this.MouseTogCon.Value := MainSoftData.RecordMouse
+        this.MouseTrailModeCon.Value := MainSoftData.RecordMouseTrail + 1
+        this.MouseTrailSpeedCon.Value := MainSoftData.RecordMouseTrailSpeed
+        this.JoyTogCon.Value := MainSoftData.RecordJoy
+        this.JoyIntervalCon.Value := MainSoftData.RecordJoyInterval
+        this.ShowBorderCon.Value := MainSoftData.RecordShowBorder
         this.OnTogClick()
         this.OnTrailModeChange()
     }
@@ -46,7 +46,7 @@ class ToolRecordSettingGui {
     AddGui() {
         MyGui := Gui(, GetLang("录制选项编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 5
         PosY := 10
@@ -163,25 +163,25 @@ class ToolRecordSettingGui {
     }
 
     SaveData() {
-        ToolCheckInfo.RecordAutoLoosen := this.AutoLoosenCon.Value
-        ToolCheckInfo.RecordHoldMuti := this.HoldMutiCon.Value
-        ToolCheckInfo.RecordKeyboard := this.KeyboardTogCon.Value
-        ToolCheckInfo.RecordMouse := this.MouseTogCon.Value
-        ToolCheckInfo.RecordMouseTrail := this.MouseTrailModeCon.Value - 1
-        ToolCheckInfo.RecordMouseTrailSpeed := this.MouseTrailSpeedCon.Value
-        ToolCheckInfo.RecordJoy := this.JoyTogCon.Value
-        ToolCheckInfo.RecordJoyInterval := this.JoyIntervalCon.Value
-        ToolCheckInfo.RecordShowBorder := this.ShowBorderCon.Value
+        MainSoftData.RecordAutoLoosen := this.AutoLoosenCon.Value
+        MainSoftData.RecordHoldMuti := this.HoldMutiCon.Value
+        MainSoftData.RecordKeyboard := this.KeyboardTogCon.Value
+        MainSoftData.RecordMouse := this.MouseTogCon.Value
+        MainSoftData.RecordMouseTrail := this.MouseTrailModeCon.Value - 1
+        MainSoftData.RecordMouseTrailSpeed := this.MouseTrailSpeedCon.Value
+        MainSoftData.RecordJoy := this.JoyTogCon.Value
+        MainSoftData.RecordJoyInterval := this.JoyIntervalCon.Value
+        MainSoftData.RecordShowBorder := this.ShowBorderCon.Value
 
         global IniFile, IniSection
-        IniWrite(ToolCheckInfo.RecordAutoLoosen, IniFile, IniSection, "RecordAutoLoosen")
-        IniWrite(ToolCheckInfo.RecordHoldMuti, IniFile, IniSection, "RecordHoldMuti")
-        IniWrite(ToolCheckInfo.RecordKeyboard, IniFile, IniSection, "RecordKeyboard")
-        IniWrite(ToolCheckInfo.RecordMouse, IniFile, IniSection, "RecordMouse")
-        IniWrite(ToolCheckInfo.RecordMouseTrail, IniFile, IniSection, "RecordMouseTrail")
-        IniWrite(ToolCheckInfo.RecordMouseTrailSpeed, IniFile, IniSection, "RecordMouseTrailSpeed")
-        IniWrite(ToolCheckInfo.RecordJoy, IniFile, IniSection, "RecordJoy")
-        IniWrite(ToolCheckInfo.RecordJoyInterval, IniFile, IniSection, "RecordJoyInterval")
-        IniWrite(ToolCheckInfo.RecordShowBorder, IniFile, IniSection, "RecordShowBorder")
+        IniWrite(MainSoftData.RecordAutoLoosen, IniFile, IniSection, "RecordAutoLoosen")
+        IniWrite(MainSoftData.RecordHoldMuti, IniFile, IniSection, "RecordHoldMuti")
+        IniWrite(MainSoftData.RecordKeyboard, IniFile, IniSection, "RecordKeyboard")
+        IniWrite(MainSoftData.RecordMouse, IniFile, IniSection, "RecordMouse")
+        IniWrite(MainSoftData.RecordMouseTrail, IniFile, IniSection, "RecordMouseTrail")
+        IniWrite(MainSoftData.RecordMouseTrailSpeed, IniFile, IniSection, "RecordMouseTrailSpeed")
+        IniWrite(MainSoftData.RecordJoy, IniFile, IniSection, "RecordJoy")
+        IniWrite(MainSoftData.RecordJoyInterval, IniFile, IniSection, "RecordJoyInterval")
+        IniWrite(MainSoftData.RecordShowBorder, IniFile, IniSection, "RecordShowBorder")
     }
 }

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include "DataClass.ahk"
 #Include Util\ExcelUtil.ahk
 #Include Util\SerialUtil.ahk
@@ -422,92 +422,92 @@ InitMouseControl() {
 
 ;资源读取
 LoadMainSetting() {
-    global ToolCheckInfo, MySoftData
+    global MainSoftData, MySoftData
     global IniSection := "UserSettings"
     MySoftData.CurSettingName := IniRead(IniFile, IniSection, "CurSettingName", "RMT默认配置")
-    MySoftData.SettingArrStr := IniRead(IniFile, IniSection, "SettingArrStr", "RMT默认配置")
-    MySoftData.HasSaved := IniRead(IniFile, IniSection, "HasSaved", false)
-    MySoftData.IsReload := IniRead(IniFile, IniSection, "IsReload", false)
+    MainSoftData.SettingArrStr := IniRead(IniFile, IniSection, "SettingArrStr", "RMT默认配置")
+    MainSoftData.HasSaved := IniRead(IniFile, IniSection, "HasSaved", false)
+    MainSoftData.IsReload := IniRead(IniFile, IniSection, "IsReload", false)
     MySoftData.NormalPeriod := IniRead(IniFile, IniSection, "NormalPeriod", 50)
-    MySoftData.HoldFloat := IniRead(IniFile, IniSection, "HoldFloat", 0)
-    MySoftData.PreIntervalFloat := IniRead(IniFile, IniSection, "PreIntervalFloat", 0)
-    MySoftData.IntervalFloat := IniRead(IniFile, IniSection, "IntervalFloat", 0)
-    MySoftData.CoordXFloat := IniRead(IniFile, IniSection, "CoordXFloat", 0)
-    MySoftData.CoordYFloat := IniRead(IniFile, IniSection, "CoordYFloat", 0)
-    MySoftData.SuspendHotkey := IniRead(IniFile, IniSection, "SuspendHotkey", "!p")
-    MySoftData.PauseHotkey := IniRead(IniFile, IniSection, "PauseHotkey", "!i")
-    MySoftData.KillMacroHotkey := IniRead(IniFile, IniSection, "KillMacroHotkey", "!k")
-    ToolCheckInfo.IsToolCheck := IniRead(IniFile, IniSection, "IsToolCheck", false)
-    ToolCheckInfo.ToolCheckHotKey := IniRead(IniFile, IniSection, "ToolCheckHotKey", "!o")
-    ToolCheckInfo.ToolRecordMacroHotKey := IniRead(IniFile, IniSection, "RecordMacroHotKey", "!r")
-    ToolCheckInfo.ToolTextFilterHotKey := IniRead(IniFile, IniSection, "ToolTextFilterHotKey", "!u")
-    ToolCheckInfo.ScreenShotHotKey := IniRead(IniFile, IniSection, "ScreenShotHotKey", "!y")
-    ToolCheckInfo.FreePasteHotKey := IniRead(IniFile, IniSection, "FreePasteHotKey", "!t")
-    ToolCheckInfo.RecordKeyboard := IniRead(IniFile, IniSection, "RecordKeyboard", true)
-    ToolCheckInfo.RecordMouse := IniRead(IniFile, IniSection, "RecordMouse", true)
-    ToolCheckInfo.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
-    ToolCheckInfo.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", 1)
-    ToolCheckInfo.RecordMouseTrailSpeed := IniRead(IniFile, IniSection, "RecordMouseTrailSpeed", 95)
-    ToolCheckInfo.RecordHoldMuti := IniRead(IniFile, IniSection, "RecordHoldMuti", false)
-    ToolCheckInfo.RecordAutoLoosen := IniRead(IniFile, IniSection, "RecordAutoLoosen", true)
-    ToolCheckInfo.RecordJoyInterval := IniRead(IniFile, IniSection, "RecordJoyInterval", 50)
-    ToolCheckInfo.RecordShowBorder := IniRead(IniFile, IniSection, "RecordShowBorder", true)
-    ToolCheckInfo.OCRTypeValue := IniRead(IniFile, IniSection, "OCRType", 1)
-    MySoftData.IsBootStart := IniRead(IniFile, IniSection, "IsBootStart", false)
-    if (MySoftData.IsBootStart == 1 || MySoftData.IsBootStart == 2)
-        MySoftData.IsBootStart := true
-    else if (MySoftData.IsBootStart == "false" || MySoftData.IsBootStart == 0)
-        MySoftData.IsBootStart := false
+    MainSoftData.HoldFloat := IniRead(IniFile, IniSection, "HoldFloat", 0)
+    MainSoftData.PreIntervalFloat := IniRead(IniFile, IniSection, "PreIntervalFloat", 0)
+    MainSoftData.IntervalFloat := IniRead(IniFile, IniSection, "IntervalFloat", 0)
+    MainSoftData.CoordXFloat := IniRead(IniFile, IniSection, "CoordXFloat", 0)
+    MainSoftData.CoordYFloat := IniRead(IniFile, IniSection, "CoordYFloat", 0)
+    MainSoftData.SuspendHotkey := IniRead(IniFile, IniSection, "SuspendHotkey", "!p")
+    MainSoftData.PauseHotkey := IniRead(IniFile, IniSection, "PauseHotkey", "!i")
+    MainSoftData.KillMacroHotkey := IniRead(IniFile, IniSection, "KillMacroHotkey", "!k")
+    MainSoftData.IsToolCheck := IniRead(IniFile, IniSection, "IsToolCheck", false)
+    MainSoftData.ToolCheckHotKey := IniRead(IniFile, IniSection, "ToolCheckHotKey", "!o")
+    MainSoftData.ToolRecordMacroHotKey := IniRead(IniFile, IniSection, "RecordMacroHotKey", "!r")
+    MainSoftData.ToolTextFilterHotKey := IniRead(IniFile, IniSection, "ToolTextFilterHotKey", "!u")
+    MainSoftData.ScreenShotHotKey := IniRead(IniFile, IniSection, "ScreenShotHotKey", "!y")
+    MainSoftData.FreePasteHotKey := IniRead(IniFile, IniSection, "FreePasteHotKey", "!t")
+    MainSoftData.RecordKeyboard := IniRead(IniFile, IniSection, "RecordKeyboard", true)
+    MainSoftData.RecordMouse := IniRead(IniFile, IniSection, "RecordMouse", true)
+    MainSoftData.RecordJoy := IniRead(IniFile, IniSection, "RecordJoy", false)
+    MainSoftData.RecordMouseTrail := IniRead(IniFile, IniSection, "RecordMouseTrail", 1)
+    MainSoftData.RecordMouseTrailSpeed := IniRead(IniFile, IniSection, "RecordMouseTrailSpeed", 95)
+    MainSoftData.RecordHoldMuti := IniRead(IniFile, IniSection, "RecordHoldMuti", false)
+    MainSoftData.RecordAutoLoosen := IniRead(IniFile, IniSection, "RecordAutoLoosen", true)
+    MainSoftData.RecordJoyInterval := IniRead(IniFile, IniSection, "RecordJoyInterval", 50)
+    MainSoftData.RecordShowBorder := IniRead(IniFile, IniSection, "RecordShowBorder", true)
+    MainSoftData.OCRTypeValue := IniRead(IniFile, IniSection, "OCRType", 1)
+    MainSoftData.IsBootStart := IniRead(IniFile, IniSection, "IsBootStart", false)
+    if (MainSoftData.IsBootStart == 1 || MainSoftData.IsBootStart == 2)
+        MainSoftData.IsBootStart := true
+    else if (MainSoftData.IsBootStart == "false" || MainSoftData.IsBootStart == 0)
+        MainSoftData.IsBootStart := false
     else
-        MySoftData.IsBootStart := !!MySoftData.IsBootStart
-    MySoftData.IsAdminStart := IniRead(IniFile, IniSection, "IsAdminStart", false)
-    MySoftData.ShowSplitLine := IniRead(IniFile, IniSection, "ShowSplitLine", false)
-    MySoftData.FixedMenuWheel := IniRead(IniFile, IniSection, "FixedMenuWheel", false)
-    MySoftData.MenuWheelSelectMode := IniRead(IniFile, IniSection, "MenuWheelSelectMode", 2)
-    MySoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", false)
-    MySoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
-    MySoftData.MenuWheelTheme := IniRead(IniFile, IniSection, "MenuWheelTheme", "Default")
-    MySoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
+        MainSoftData.IsBootStart := !!MainSoftData.IsBootStart
+    MainSoftData.IsAdminStart := IniRead(IniFile, IniSection, "IsAdminStart", false)
+    MainSoftData.ShowSplitLine := IniRead(IniFile, IniSection, "ShowSplitLine", false)
+    MainSoftData.FixedMenuWheel := IniRead(IniFile, IniSection, "FixedMenuWheel", false)
+    MainSoftData.MenuWheelSelectMode := IniRead(IniFile, IniSection, "MenuWheelSelectMode", 2)
+    MainSoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", false)
+    MainSoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
+    MainSoftData.MenuWheelTheme := IniRead(IniFile, IniSection, "MenuWheelTheme", "Default")
+    MainSoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
     ; 界面浮窗配置
-    MySoftData.UIPanelShowOnActive := IniRead(IniFile, IniSection, "UIPanelShowOnActive", true)
-    MySoftData.UIPanelDefaultPos := IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1)
-    MySoftData.UIPanelBtnColor := IniRead(IniFile, IniSection, "UIPanelBtnColor", "#FF333333")
-    MySoftData.UIPanelBgColor := IniRead(IniFile, IniSection, "UIPanelBgColor", "#40FFB6C1")
-    MySoftData.UIPanelFontColor := IniRead(IniFile, IniSection, "UIPanelFontColor", "#FFDDDDDD")
-    MySoftData.UIPanelBtnHeight := IniRead(IniFile, IniSection, "UIPanelBtnHeight", 34)
-    MySoftData.UIPanelBtnWidth := IniRead(IniFile, IniSection, "UIPanelBtnWidth", 80)
-    MySoftData.UIPanelCols := IniRead(IniFile, IniSection, "UIPanelCols", 3)
+    MainSoftData.UIPanelShowOnActive := IniRead(IniFile, IniSection, "UIPanelShowOnActive", true)
+    MainSoftData.UIPanelDefaultPos := IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1)
+    MainSoftData.UIPanelBtnColor := IniRead(IniFile, IniSection, "UIPanelBtnColor", "#FF333333")
+    MainSoftData.UIPanelBgColor := IniRead(IniFile, IniSection, "UIPanelBgColor", "#40FFB6C1")
+    MainSoftData.UIPanelFontColor := IniRead(IniFile, IniSection, "UIPanelFontColor", "#FFDDDDDD")
+    MainSoftData.UIPanelBtnHeight := IniRead(IniFile, IniSection, "UIPanelBtnHeight", 34)
+    MainSoftData.UIPanelBtnWidth := IniRead(IniFile, IniSection, "UIPanelBtnWidth", 80)
+    MainSoftData.UIPanelCols := IniRead(IniFile, IniSection, "UIPanelCols", 3)
     EnsureXAMLThemesIni()
-    MySoftData.IsModalSubGui := IniRead(IniFile, IniSection, "IsModalSubGui", true)
-    MySoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", -1)
-    MySoftData.DynamicCorePoolSize := IniRead(IniFile, IniSection, "DynamicCorePoolSize", 2)
-    MySoftData.ElasticTimeout := IniRead(IniFile, IniSection, "ElasticTimeout", 30)
-    MySoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
-    MySoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
+    MainSoftData.IsModalSubGui := IniRead(IniFile, IniSection, "IsModalSubGui", true)
+    MainSoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", -1)
+    MainSoftData.DynamicCorePoolSize := IniRead(IniFile, IniSection, "DynamicCorePoolSize", 2)
+    MainSoftData.ElasticTimeout := IniRead(IniFile, IniSection, "ElasticTimeout", 30)
+    MainSoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
+    MainSoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
-    MySoftData.CheckForeground := IniRead(IniFile, IniSection, "CheckForeground", false)
-    MySoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 3)
-    MySoftData.KeyDownDownType := IniRead(IniFile, IniSection, "KeyDownDown", 1)
-    MySoftData.AgreeAgreement := IniRead(IniFile, IniSection, "AgreeAgreement", false)
+    MainSoftData.CheckForeground := IniRead(IniFile, IniSection, "CheckForeground", false)
+    MainSoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 3)
+    MainSoftData.KeyDownDownType := IniRead(IniFile, IniSection, "KeyDownDown", 1)
+    MainSoftData.AgreeAgreement := IniRead(IniFile, IniSection, "AgreeAgreement", false)
     MySoftData.WinPosX := IniRead(IniFile, IniSection, "WinPosX", 0)
     MySoftData.WinPosY := IniRead(IniFile, IniSection, "WinPosY", 0)
-    MySoftData.TableIndex := IniRead(IniFile, IniSection, "TableIndex", 1)
-    MySoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
-    MySoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
-    MySoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225 - 55)
-    MySoftData.CMDPosY := IniRead(IniFile, IniSection, "CMDPosY", 0)
-    MySoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
-    MySoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
-    MySoftData.CMDBGColor := IniRead(IniFile, IniSection, "CMDBGColor", "FFFFFF")
-    MySoftData.CMDRunBGColor := IniRead(IniFile, IniSection, "CMDRunBGColor", "12fc0a")
-    MySoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
-    MySoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
-    MySoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
-    MySoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
-    MySoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)
-    MySoftData.VarListenHeight := IniRead(IniFile, IniSection, "VarListenHeight", 420)
+    MainSoftData.TableIndex := IniRead(IniFile, IniSection, "TableIndex", 1)
+    MainSoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
+    MainSoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
+    MainSoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225 - 55)
+    MainSoftData.CMDPosY := IniRead(IniFile, IniSection, "CMDPosY", 0)
+    MainSoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
+    MainSoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
+    MainSoftData.CMDBGColor := IniRead(IniFile, IniSection, "CMDBGColor", "FFFFFF")
+    MainSoftData.CMDRunBGColor := IniRead(IniFile, IniSection, "CMDRunBGColor", "12fc0a")
+    MainSoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
+    MainSoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
+    MainSoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
+    MainSoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
+    MainSoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)
+    MainSoftData.VarListenHeight := IniRead(IniFile, IniSection, "VarListenHeight", 420)
     MySoftData.MacroTotalCount := IniRead(IniFile, IniSection, "MacroTotalCount", 0)
-    MySoftData.LastShowMonth := IniRead(IniFile, IniSection, "LastShowMonth", A_Mon)
+    MainSoftData.LastShowMonth := IniRead(IniFile, IniSection, "LastShowMonth", A_Mon)
 
     MySoftData.TableInfo := CreateTableItemArr()
     SetFontList()
@@ -579,7 +579,7 @@ ApplyXamlTheme(ui, themeName, iniPath := "") {
 }
 
 SetFontList() {
-    MySoftData.FontList := []
+    MainSoftData.FontList := []
     callback := CallbackCreate(EnumFontFamilies)
     DllCall("gdi32\EnumFontFamilies", "uint", DllCall("GetDC", "uint", 0), "uint", 0, "uint", callback, "ptr", 0)
     CallbackFree(callback)
@@ -587,37 +587,37 @@ SetFontList() {
     ; Font enumeration callback
     EnumFontFamilies(lpelf, lpntm, FontType, lP) {
         if (SubStr(StrGet(lpelf + 28), 1, 1) != "@")
-            MySoftData.FontList.push(StrGet(lpelf + 28))
+            MainSoftData.FontList.push(StrGet(lpelf + 28))
         return 1
     }
 
-    if (MySoftData.FontList.Length == 0)
+    if (MainSoftData.FontList.Length == 0)
         return
 
     DefaultFontMap := Map("微软雅黑", 0, "Arial", 0, "Consolas", 0, "SimHei", 0, "Dotum", 0, "Meiryo", 0)
-    if (DefaultFontMap.Has(MySoftData.FontType)) {
-        for index, value in MySoftData.FontList {
+    if (DefaultFontMap.Has(MainSoftData.FontType)) {
+        for index, value in MainSoftData.FontList {
             if (DefaultFontMap.Has(value))
                 DefaultFontMap[value] := index
         }
     }
-    if (DefaultFontMap.Has(MySoftData.FontType)) {
-        if (DefaultFontMap[MySoftData.FontType] != 0)
+    if (DefaultFontMap.Has(MainSoftData.FontType)) {
+        if (DefaultFontMap[MainSoftData.FontType] != 0)
             return
 
         for key, value in DefaultFontMap {
             if (value != 0) {
-                MySoftData.FontType := key
+                MainSoftData.FontType := key
                 return
             }
         }
 
-        MySoftData.FontType := MySoftData.FontList[1]
+        MainSoftData.FontType := MainSoftData.FontList[1]
     }
 }
 
 LoadCurMacroSetting() {
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         ReadTableItemInfo(A_Index)
     }
 }
@@ -702,7 +702,7 @@ ReadTableItemInfo(index) {
 
     loop tableItem.ModeArr.length {
         str := IniRead(MacroFile, IniSection, symbol "MacroArr" A_Index, "")
-        if (str == "" && !MySoftData.HasSaved && A_Index == 1)
+        if (str == "" && !MainSoftData.HasSaved && A_Index == 1)
             str := GetGetTableItemDefaultMacro(index)
         else {
             str := StrReplace(str, "⫶", "`n")
@@ -917,7 +917,7 @@ SaveTableItemMacro(index) {
 }
 
 GetSavedTableItemInfo(index) {
-    Saved := MySoftData.MyGui.Submit()
+    Saved := MainSoftData.MyGui.Submit()
 
     TKArrStr := ""
     HoldTimeArrStr := ""
@@ -976,7 +976,7 @@ GetSavedTableItemInfo(index) {
 ;Table信息相关
 CreateTableItemArr() {
     Arr := []
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         newTableItem := TableItem()
         newTableItem.Index := A_Index
         if (Arr.Length < A_Index) {
@@ -990,7 +990,7 @@ CreateTableItemArr() {
 }
 
 InitTableItemState() {
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         InitSingleTableState(tableItem)
     }
@@ -1075,13 +1075,13 @@ KillTableItemMacro(tableItem, index) {
 
 GetTabHeight() {
     maxY := 0
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         posY := MySoftData.TableInfo[A_Index].UnderPosY
         if (posY > maxY)
             maxY := posY
     }
 
-    height := maxY - MySoftData.TabPosY
+    height := maxY - MainSoftData.TabPosY
     return height
     ; return Max(height, 500)
 }
@@ -1092,11 +1092,11 @@ UpdateUnderPosY(tableIndex, value) {
 }
 
 GetTableSymbol(index) {
-    return MySoftData.TabSymbolArr[index]
+    return MainSoftData.TabSymbolArr[index]
 }
 
 GetTimingTableIndex() {
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         symbol := GetTableSymbol(A_Index)
         if (symbol == "Timing")
             return A_Index
@@ -1105,11 +1105,11 @@ GetTimingTableIndex() {
 }
 
 GetTableIndex(SymbolOrName) {
-    loop MySoftData.TabNameArr.Length {
-        if (SymbolOrName == MySoftData.TabNameArr[A_Index])
+    loop MainSoftData.TabNameArr.Length {
+        if (SymbolOrName == MainSoftData.TabNameArr[A_Index])
             return A_Index
 
-        if (SymbolOrName == MySoftData.TabSymbolArr[A_Index])
+        if (SymbolOrName == MainSoftData.TabSymbolArr[A_Index])
             return A_Index
     }
     return 0
@@ -1426,7 +1426,7 @@ AreKeysPressed(keyCombo) {
 }
 
 GetRecordTriggerKeyMap() {
-    triggerKey := ToolCheckInfo.ToolRecordMacroHotKey
+    triggerKey := MainSoftData.ToolRecordMacroHotKey
     ; 初始化存储修饰键的数组
     modifiers := []
     modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]
@@ -1695,7 +1695,7 @@ TryGetTabVarValue(&Value, tableItem, index, varName, variTip := true) {
 }
 
 ShowNoVariableTip(VarName) {
-    if (MySoftData.NoVariableTip) {
+    if (MainSoftData.NoVariableTip) {
         str1 := GetLang("当前环境不存在变量") VarName
         str2 := Format(GetLang("tip1:请确保有创建变量-{}的相关指令"), VarName)
         str3 := Format(GetLang("tip2:请确保上述指令运行过"))
@@ -1795,7 +1795,7 @@ CustomMsgBox(Text := "", Title := "", Buttons := "") {
 
     ; 创建 GUI
     MyGui := Gui()
-    MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+    MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
     MyGui.Title := Title
     MyGui.OnEvent("Close", GuiClose)
     MyGui.OnEvent("Escape", GuiClose)

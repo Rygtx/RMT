@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 #Include JoyMacro.ahk
 #Include RecordJoyUtil.ahk
@@ -66,7 +66,7 @@ A_MaxHotkeysPerInterval := 400
 OnError(ErrHandler)             ;注册全局错误处理器
 UnblockZoneIdentifier()         ;异步移除文件的Zone.Identifier标记 防止文件被锁定
 global MySoftData := SoftData()
-global ToolCheckInfo := ToolCheck()
+global MainSoftData := MainConfig()
 global IniFile := A_WorkingDir "\Setting\MainSettings.ini"
 global LangDir := A_WorkingDir "\Lang"
 LoadMainSetting()               ;加载通用设置

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class MergeTreeNode {
     __New() {
@@ -790,7 +790,7 @@ class MergeUtil {
 
         result.ModuleCount := totalModuleCount
 
-        loop MySoftData.TabNameArr.Length {
+        loop MainSoftData.TabNameArr.Length {
             tableItem := MySoftData.TableInfo[A_Index]
             SaveTableItemInfo(A_Index)
         }

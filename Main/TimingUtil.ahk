@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 global MyTimingScheduler := ""
 
@@ -280,7 +280,7 @@ TimingCheckItemIfValid(tableItem, index) {
 }
 
 HandleOnSoftStart(tableItem) {
-    if (MySoftData.IsReload)
+    if (MainSoftData.IsReload)
         return
 
     for index, _ in tableItem.ModeArr {

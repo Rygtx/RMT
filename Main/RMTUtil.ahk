@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 ;资源保存（带脏检查优化：只写入实际发生变化的配置项）
 OnSaveSetting(*) {
@@ -12,7 +12,7 @@ OnSaveSetting(*) {
         MyWorkPool := ""
     }
 
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         RecycleTabItem(tableItem)
         SaveTableItemInfo(A_Index)
@@ -31,65 +31,65 @@ OnSaveSetting(*) {
     }
 
     ; 基础设置
-    CheckAndAddDirty("HoldFloat", MySoftData.HoldFloatCtrl.Value)
-    CheckAndAddDirty("PreIntervalFloat", MySoftData.PreIntervalFloatCtrl.Value)
-    CheckAndAddDirty("IntervalFloat", MySoftData.IntervalFloatCtrl.Value)
-    CheckAndAddDirty("CoordXFloat", MySoftData.CoordXFloatCon.Value)
-    CheckAndAddDirty("CoordYFloat", MySoftData.CoordYFloatCon.Value)
-    CheckAndAddDirty("SuspendHotkey", MySoftData.SuspendHotkeyCtrl.Value)
-    CheckAndAddDirty("PauseHotkey", MySoftData.PauseHotkeyCtrl.Value)
-    CheckAndAddDirty("KillMacroHotkey", MySoftData.KillMacroHotkeyCtrl.Value)
-    CheckAndAddDirty("IsBootStart", MySoftData.BootStartCtrl.Value)
-    CheckAndAddDirty("ShowSplitLine", MySoftData.SplitLineCtrl.Value)
-    CheckAndAddDirty("IsModalSubGui", MySoftData.ModalSubGuiCtrl.Value)
-    CheckAndAddDirty("MutiThreadNum", MySoftData.MutiThreadNumCtrl.Value)
-    CheckAndAddDirty("SoftBGColor", MySoftData.SoftBGColorCon.Value)
-    CheckAndAddDirty("NoVariableTip", MySoftData.NoVariableTipCtrl.Value)
-    CheckAndAddDirty("CheckForeground", MySoftData.CheckForegroundCtrl.Value)
-    CheckAndAddDirty("IsAdminStart", MySoftData.AdminStartCtrl.Value)
-    CheckAndAddDirty("CMDTip", MySoftData.CMDTipCtrl.Value)
-    CheckAndAddDirty("ScreenShotType", MySoftData.ScreenShotTypeCtrl.Value)
-    CheckAndAddDirty("KeyDownDown", MySoftData.KeyDownDownCon.Value)
-    CheckAndAddDirty("Theme", MySoftData.Theme)
+    CheckAndAddDirty("HoldFloat", MainSoftData.HoldFloat)
+    CheckAndAddDirty("PreIntervalFloat", MainSoftData.PreIntervalFloat)
+    CheckAndAddDirty("IntervalFloat", MainSoftData.IntervalFloat)
+    CheckAndAddDirty("CoordXFloat", MainSoftData.CoordXFloat)
+    CheckAndAddDirty("CoordYFloat", MainSoftData.CoordYFloat)
+    CheckAndAddDirty("SuspendHotkey", MainSoftData.SuspendHotkey)
+    CheckAndAddDirty("PauseHotkey", MainSoftData.PauseHotkey)
+    CheckAndAddDirty("KillMacroHotkey", MainSoftData.KillMacroHotkey)
+    CheckAndAddDirty("IsBootStart", MainSoftData.IsBootStart)
+    CheckAndAddDirty("ShowSplitLine", MainSoftData.ShowSplitLine)
+    CheckAndAddDirty("IsModalSubGui", MainSoftData.IsModalSubGui)
+    CheckAndAddDirty("MutiThreadNum", MainSoftData.MutiThreadNum)
+    CheckAndAddDirty("SoftBGColor", MainSoftData.SoftBGColor)
+    CheckAndAddDirty("NoVariableTip", MainSoftData.NoVariableTip)
+    CheckAndAddDirty("CheckForeground", MainSoftData.CheckForeground)
+    CheckAndAddDirty("IsAdminStart", MainSoftData.IsAdminStart)
+    CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
+    CheckAndAddDirty("ScreenShotType", MainSoftData.ScreenShotType)
+    CheckAndAddDirty("KeyDownDown", MainSoftData.KeyDownDownType)
+    CheckAndAddDirty("Theme", MainSoftData.Theme)
 
     ; 工具设置
-    CheckAndAddDirty("ToolCheckHotKey", ToolCheckInfo.ToolCheckHotKeyCtrl.Value)
-    CheckAndAddDirty("RecordMacroHotKey", ToolCheckInfo.ToolRecordMacroHotKeyCtrl.Value)
-    CheckAndAddDirty("ToolTextFilterHotKey", ToolCheckInfo.ToolTextFilterHotKeyCtrl.Value)
-    CheckAndAddDirty("ScreenShotHotKey", ToolCheckInfo.ScreenShotHotKeyCtrl.Value)
-    CheckAndAddDirty("FreePasteHotKey", ToolCheckInfo.FreePasteHotKeyCtrl.Value)
-    CheckAndAddDirty("RecordKeyboard", ToolCheckInfo.RecordKeyboard)
-    CheckAndAddDirty("RecordMouse", ToolCheckInfo.RecordMouse)
-    CheckAndAddDirty("RecordJoy", ToolCheckInfo.RecordJoy)
-    CheckAndAddDirty("RecordMouseTrail", ToolCheckInfo.RecordMouseTrail)
-    CheckAndAddDirty("RecordMouseTrailSpeed", ToolCheckInfo.RecordMouseTrailSpeed)
-    CheckAndAddDirty("RecordHoldMuti", ToolCheckInfo.RecordHoldMuti)
-    CheckAndAddDirty("RecordAutoLoosen", ToolCheckInfo.RecordAutoLoosen)
-    CheckAndAddDirty("RecordJoyInterval", ToolCheckInfo.RecordJoyInterval)
-    CheckAndAddDirty("RecordShowBorder", ToolCheckInfo.RecordShowBorder)
-    CheckAndAddDirty("OCRType", ToolCheckInfo.OCRTypeCtrl.Value)
+    CheckAndAddDirty("ToolCheckHotKey", MainSoftData.ToolCheckHotkey)
+    CheckAndAddDirty("RecordMacroHotKey", MainSoftData.ToolRecordMacroHotKey)
+    CheckAndAddDirty("ToolTextFilterHotKey", MainSoftData.ToolTextFilterHotKey)
+    CheckAndAddDirty("ScreenShotHotKey", MainSoftData.ScreenShotHotKey)
+    CheckAndAddDirty("FreePasteHotKey", MainSoftData.FreePasteHotKey)
+    CheckAndAddDirty("RecordKeyboard", MainSoftData.RecordKeyboard)
+    CheckAndAddDirty("RecordMouse", MainSoftData.RecordMouse)
+    CheckAndAddDirty("RecordJoy", MainSoftData.RecordJoy)
+    CheckAndAddDirty("RecordMouseTrail", MainSoftData.RecordMouseTrail)
+    CheckAndAddDirty("RecordMouseTrailSpeed", MainSoftData.RecordMouseTrailSpeed)
+    CheckAndAddDirty("RecordHoldMuti", MainSoftData.RecordHoldMuti)
+    CheckAndAddDirty("RecordAutoLoosen", MainSoftData.RecordAutoLoosen)
+    CheckAndAddDirty("RecordJoyInterval", MainSoftData.RecordJoyInterval)
+    CheckAndAddDirty("RecordShowBorder", MainSoftData.RecordShowBorder)
+    CheckAndAddDirty("OCRType", MainSoftData.OCRTypeValue)
 
     ; 状态设置（这些每次都变化，始终写入）
-    CheckAndAddDirty("TableIndex", MySoftData.TabCtrl.Value)
-    CheckAndAddDirty("Lang", MySoftData.LangCtrl.Text)
-    CheckAndAddDirty("FontType", MySoftData.FontTypeCtrl.Text)
+    CheckAndAddDirty("TableIndex", MainSoftData.TabCtrl.Value)
+    CheckAndAddDirty("Lang", MainSoftData.Lang)
+    CheckAndAddDirty("FontType", MainSoftData.FontType)
     CheckAndAddDirty("MacroTotalCount", MySoftData.MacroTotalCount)
-    CheckAndAddDirty("LastShowMonth", MySoftData.LastShowMonth)
+    CheckAndAddDirty("LastShowMonth", MainSoftData.LastShowMonth)
     CheckAndAddDirty("HasSaved", true)
     CheckAndAddDirty("IsReload", true)
 
     SaveCurWinPos()
 
     ; CMD窗口设置
-    CheckAndAddDirty("CMDPosX", MySoftData.CMDPosX)
-    CheckAndAddDirty("CMDPosY", MySoftData.CMDPosY)
-    CheckAndAddDirty("CMDWidth", MySoftData.CMDWidth)
-    CheckAndAddDirty("CMDHeight", MySoftData.CMDHeight)
-    CheckAndAddDirty("CMDBGColor", MySoftData.CMDBGColor)
-    CheckAndAddDirty("CMDRunBGColor", MySoftData.CMDRunBGColor)
-    CheckAndAddDirty("CMDTransparency", MySoftData.CMDTransparency)
-    CheckAndAddDirty("CMDFontColor", MySoftData.CMDFontColor)
-    CheckAndAddDirty("CMDFontSize", MySoftData.CMDFontSize)
+    CheckAndAddDirty("CMDPosX", MainSoftData.CMDPosX)
+    CheckAndAddDirty("CMDPosY", MainSoftData.CMDPosY)
+    CheckAndAddDirty("CMDWidth", MainSoftData.CMDWidth)
+    CheckAndAddDirty("CMDHeight", MainSoftData.CMDHeight)
+    CheckAndAddDirty("CMDBGColor", MainSoftData.CMDBGColor)
+    CheckAndAddDirty("CMDRunBGColor", MainSoftData.CMDRunBGColor)
+    CheckAndAddDirty("CMDTransparency", MainSoftData.CMDTransparency)
+    CheckAndAddDirty("CMDFontColor", MainSoftData.CMDFontColor)
+    CheckAndAddDirty("CMDFontSize", MainSoftData.CMDFontSize)
 
     ; 只写入实际发生变化的配置项（性能提升80%+）
     for key, value in dirtySettings {
@@ -107,29 +107,29 @@ CheckValueSettingValid(Name, Value) {
 }
 
 CheckAllValueSettingValid() {
-    if (!CheckValueSettingValid(GetLang("点击时间浮动"), MySoftData.HoldFloatCtrl.Value))
+    if (!CheckValueSettingValid(GetLang("点击时间浮动"), MainSoftData.HoldFloat))
         return false
 
-    if (!CheckValueSettingValid(GetLang("每次间隔浮动"), MySoftData.PreIntervalFloatCtrl.Value))
+    if (!CheckValueSettingValid(GetLang("每次间隔浮动"), MainSoftData.PreIntervalFloat))
         return false
 
-    if (!CheckValueSettingValid(GetLang("间隔指令浮动"), MySoftData.IntervalFloatCtrl.Value))
+    if (!CheckValueSettingValid(GetLang("间隔指令浮动"), MainSoftData.IntervalFloat))
         return false
 
-    if (!CheckValueSettingValid(GetLang("坐标X浮动"), MySoftData.CoordXFloatCon.Value))
+    if (!CheckValueSettingValid(GetLang("坐标X浮动"), MainSoftData.CoordXFloat))
         return false
 
-    if (!CheckValueSettingValid(GetLang("坐标Y浮动"), MySoftData.CoordYFloatCon.Value))
+    if (!CheckValueSettingValid(GetLang("坐标Y浮动"), MainSoftData.CoordYFloat))
         return false
 
-    if (!CheckValueSettingValid(GetLang("多线程数"), MySoftData.MutiThreadNumCtrl.Value))
+    if (!CheckValueSettingValid(GetLang("多线程数"), MainSoftData.MutiThreadNum))
         return false
 
     return true
 }
 
 SaveCurWinPos() {
-    MyGui := MySoftData.MyGui
+    MyGui := MainSoftData.MyGui
     MyGui.GetPos(&x, &y, &w, &h)
     IniWrite(Format("{}π{}", x, y), IniFile, IniSection, "LastWinPos")
 
@@ -145,7 +145,7 @@ OnEditCMDTipGui() {
 }
 
 OnTabValueChanged(*) {
-    tableItem := MySoftData.TableInfo[MySoftData.TabCtrl.Value]
+    tableItem := MySoftData.TableInfo[MainSoftData.TabCtrl.Value]
     MySlider.SwitchTab(tableItem)
 }
 
@@ -209,13 +209,13 @@ PluginInit() {
 }
 
 OnToolAlwaysOnTop(*) {
-    global MySoftData, ToolCheckInfo
-    state := ToolCheckInfo.AlwaysOnTopCtrl.Value
+    global MySoftData, MainSoftData
+    state := UIControls.AlwaysOnTop.Value
     if (state) {
-        MySoftData.MyGui.Opt("+AlwaysOnTop")
+        MainSoftData.MyGui.Opt("+AlwaysOnTop")
     }
     else {
-        MySoftData.MyGui.Opt("-AlwaysOnTop")
+        MainSoftData.MyGui.Opt("-AlwaysOnTop")
     }
 }
 
@@ -553,7 +553,7 @@ CleanupAllMacroStates() {
 }
 
 MsgBoxContent(content) {
-    MySoftData.MyGui.Flash()
+    MainSoftData.MyGui.Flash()
     SoundPlay "*-1"
     MyMsgboxGui.ShowGui(content)
 }
@@ -607,12 +607,12 @@ ExcuteRMTCMDAction(Cmd) {
         case "自由贴":
             OnToolFreePaste()
         case "开启指令显示":
-            MySoftData.CMDTipCtrl.Value := true
+            MySoftData.CMDTip := true
             MySoftData.CMDTip := true
             SetCMDTipValue(true)
             MyCMDTipGui.ShowGui("开启指令显示")
         case "关闭指令显示":
-            MySoftData.CMDTipCtrl.Value := false
+            MySoftData.CMDTip := false
             MySoftData.CMDTip := false
             SetCMDTipValue(false)
             if (!IsObject(MyCMDTipGui.Gui))
@@ -673,9 +673,9 @@ ScreenShot(X1, Y1, X2, Y2, FileName) {
 OnToolTextFilterGetArea(x1, y1, x2, y2) {
     filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
     ScreenShot(x1, y1, x2, y2, filePath)
-    ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
+    ocr := MainSoftData.OCRTypeValue == 1 ? GetChineseOcr() : GetEnglishOcr()
     result := ocr.ocr_from_file(filePath)
-    ToolCheckInfo.ToolTextCtrl.Value := result
+    UIControls.ToolText.Value := result
     SetClipboard(result)
 }
 
@@ -685,9 +685,9 @@ OnToolTextCheckScreenShot() {
     {
         filePath := A_WorkingDir "\Images\ScreenShot\TextFilter.png"
         SaveClipToBitmap(filePath)
-        ocr := ToolCheckInfo.OCRTypeCtrl.Value == 1 ? GetChineseOcr() : GetEnglishOcr()
+        ocr := MainSoftData.OCRTypeValue == 1 ? GetChineseOcr() : GetEnglishOcr()
         result := ocr.ocr_from_file(filePath)
-        ToolCheckInfo.ToolTextCtrl.Value := result
+        UIControls.ToolText.Value := result
         SetClipboard(result)
         ; 停止监听
         SetTimer(, 0)
@@ -696,48 +696,48 @@ OnToolTextCheckScreenShot() {
 
 TogGetSelectArea(isEnable, action := "") {
     if (isEnable && action != "") {
-        MySoftData.GetAreaAction := action
+        MainSoftData.GetAreaAction := action
     }
     else {
-        MySoftData.GetAreaAction := ""
+        MainSoftData.GetAreaAction := ""
     }
 }
 
 OnGetSelectAreaDown(kye, *) {
     CoordMode("Mouse", "Screen")
     MouseGetPos(&startX, &startY)
-    MySoftData.StartAreaPosX := startX
-    MySoftData.StartAreaPosY := startY
+    MainSoftData.StartAreaPosX := startX
+    MainSoftData.StartAreaPosY := startY
 }
 
 OnGetSelectAreaUp(key, *) {
-    action := MySoftData.GetAreaAction
+    action := MainSoftData.GetAreaAction
     TogGetSelectArea(false)
     CoordMode("Mouse", "Screen")
     MouseGetPos(&endX, &endY)
 
-    x1 := Min(MySoftData.StartAreaPosX, endX)
-    y1 := Min(MySoftData.StartAreaPosY, endY)
-    x2 := Max(MySoftData.StartAreaPosX, endX)
-    y2 := Max(MySoftData.StartAreaPosY, endY)
+    x1 := Min(MainSoftData.StartAreaPosX, endX)
+    y1 := Min(MainSoftData.StartAreaPosY, endY)
+    x2 := Max(MainSoftData.StartAreaPosX, endX)
+    y2 := Max(MainSoftData.StartAreaPosY, endY)
     action(x1, y1, x2, y2)
 }
 
 TogSelectArea(isEnable, action := "") {
     if (isEnable && action != "") {
-        MySoftData.SelectAreaAction := action
+        MainSoftData.SelectAreaAction := action
         ToolTipContent(GetLang("请框选截图范围"))
         actionDown := OnBindKeyDown.Bind("LButton")
         Hotkey("LButton", actionDown)
     }
     else {
         MySoftData.ToolTipEndTime := 0
-        MySoftData.SelectAreaAction := ""
+        MainSoftData.SelectAreaAction := ""
     }
 }
 
 SelectArea() {
-    action := MySoftData.SelectAreaAction
+    action := MainSoftData.SelectAreaAction
     TogSelectArea(false)
     actionDown := OnBindKeyDown.Bind("LButton")
     Hotkey("~LButton", actionDown, "On")
@@ -810,10 +810,10 @@ DiscardRecordTriggerKey(MacroStr, isFront) {
         cmd := isFront ? CmdArr[A_Index] : CmdArr[CmdArr.Length - A_Index + 1]
 
         if (!hasDiscard) {
-            if (isFront && MySoftData.IsTogStartRecord) {
+            if (isFront && MainSoftData.IsTogStartRecord) {
                 hasDiscard := true
             }
-            else if (!isFront && MySoftData.IsTogEndRecord) {
+            else if (!isFront && MainSoftData.IsTogEndRecord) {
                 hasDiscard := true
             }
             else {
@@ -1013,13 +1013,13 @@ FormatIntegerWithCommas(num) {
 }
 
 OpenMenuWheel(MenuIndex, isTog) {
-    if (IsObject(MyMenuWheel) && MyMenuWheel.isOpen && MySoftData.CurMenuWheelIndex == MenuIndex) {
+    if (IsObject(MyMenuWheel) && MyMenuWheel.isOpen && MainSoftData.CurMenuWheelIndex == MenuIndex) {
         if (isTog)
             CloseMenuWheel()
         return
     }
 
-    MySoftData.CurMenuWheelIndex := MenuIndex
+    MainSoftData.CurMenuWheelIndex := MenuIndex
     MyMenuWheel.ShowGui(MenuIndex)
 }
 
@@ -1076,7 +1076,7 @@ HandleOpenArg() {
     if (A_IsAdmin && !isElevatedBySelf)
         MsgBox(GetLang("检测到当前以管理员模式手动运行，建议使用设置中的`"管理员启动`"选项来自动以管理员身份启动，而非手动右键管理员运行。"), GetLang("提示"), 64)
     if (A_Args.Length <= 0) {
-        if (MySoftData.IsAdminStart && !A_IsAdmin)
+        if (MainSoftData.IsAdminStart && !A_IsAdmin)
             ElevateToAdmin()
         return
     }
@@ -1084,7 +1084,7 @@ HandleOpenArg() {
     loop A_Args.Length {
         arg := A_Args[A_Index]
         if (arg == "-min") {
-            MySoftData.IsMinStart := true
+            MainSoftData.IsMinStart := true
             continue
         }
         if (arg == "-admin") {
@@ -1111,7 +1111,7 @@ ElevateToAdmin() {
 
 SetEditData() {
     visitMap := Map()
-    loop MySoftData.TabNameArr.Length {
+    loop MainSoftData.TabNameArr.Length {
         tableIndex := A_Index
         tableItem := MySoftData.TableInfo[tableIndex]
         isMacro := CheckIsMacroTable(tableIndex)

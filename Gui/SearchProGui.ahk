@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 #Include WinRuleGui.ahk
 
@@ -45,7 +45,7 @@ class SearchProGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -61,7 +61,7 @@ class SearchProGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -454,7 +454,7 @@ class SearchProGui {
 
     OnClickWinEditBtn(*) {
         MyFrontInfoGui.HideAction := () => this.ToggleFunc(true)
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -514,7 +514,7 @@ class SearchProGui {
                 MsgBox(GetLang("修改成功"))
             }
             this.WinRuleGui.SureAction := SureAction
-            if (MySoftData.IsModalSubGui && this.Gui != "") {
+            if (MainSoftData.IsModalSubGui && this.Gui != "") {
                 this.WinRuleGui.OwnerHwnd := this.Gui.Hwnd
             }
             else {
@@ -570,7 +570,7 @@ class SearchProGui {
             MsgBox(Format("{} 配置添加成功", ConfigName))
         }
         this.WinRuleGui.SureAction := SureAction
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             this.WinRuleGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -843,7 +843,7 @@ class SearchProGui {
         action(this.GetCommandStr())
         this.ToggleFunc(false)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -875,13 +875,13 @@ class SearchProGui {
     }
 
     OnScreenShotBtnClick() {
-        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+        if (MainSoftData.ScreenShotType == 1) {
             SetClipboard("")  ; 清空剪贴板
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
             TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
-        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this.CheckClipboardAction)
             TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
@@ -956,7 +956,7 @@ class SearchProGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             this.MacroGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -977,7 +977,7 @@ class SearchProGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
-        if (MySoftData.IsModalSubGui && this.Gui != "") {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
             this.MacroGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
@@ -1303,7 +1303,7 @@ class SearchProGui {
         this.StopPreviewFollow()
         this.HidePreviewRect()
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

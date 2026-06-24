@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TriggerKeyData {
     __New(Key) {
@@ -239,7 +239,7 @@ class TriggerKeyInfo {
             return tableItem.IsWorkIndexArr[this.itemIndex]
         }
         else {
-            return MySoftData.CurMenuWheelIndex == this.foldIndex
+            return MainSoftData.CurMenuWheelIndex == this.foldIndex
         }
     }
 

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 #SingleInstance Off
 #NoTrayIcon
@@ -6,8 +6,12 @@ DetectHiddenWindows true
 Persistent
 
 global MySoftData := SoftData()
-global ToolCheckInfo := ToolCheck()
+global MainSoftData := MainConfig()     ; Worker 也需要实例化（AssetUtil/LangUtil 会引用）
 global MyMouseInfo := MouseWinData()
+
+; Worker 无 UI，该函数为空操作
+SetToolTextDisplay(text) {
+}
 global IniFile := A_WorkingDir "\..\Setting\MainSettings.ini"
 global ThemesIniPath := A_WorkingDir "\..\Setting\themes.ini"
 global LangDir := A_WorkingDir "\..\Lang"

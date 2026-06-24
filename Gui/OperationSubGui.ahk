@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class OperationSubGui {
     __new() {
@@ -32,7 +32,7 @@ class OperationSubGui {
         ; 设置表达式（每次打开都要设置）
         this.ExpressionCon.Value := ExpressStr
 
-        if (this.Gui != "" && this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.Gui != "" && this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -47,7 +47,7 @@ class OperationSubGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -110,7 +110,7 @@ class OperationSubGui {
     }
 
     OnClose(*) {
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -261,7 +261,7 @@ class OperationSubGui {
 
         action := this.SureBtnAction
         action(this.Index, expression)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }

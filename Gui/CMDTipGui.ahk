@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class CMDTipGui {
     __new() {
@@ -39,22 +39,22 @@ class CMDTipGui {
     }
 
     LoadParams() {
-        this.PosX := MySoftData.CMDPosX
-        this.PosY := MySoftData.CMDPosY
-        this.Width := MySoftData.CMDWidth
-        this.Height := MySoftData.CMDHeight
-        this.BGColor := MySoftData.CMDBGColor
-        this.RunBGColor := MySoftData.CMDRunBGColor
-        this.Transparency := (Integer)(MySoftData.CMDTransparency * 2.55)
-        this.FontSize := MySoftData.CMDFontSize
-        this.FontColor := MySoftData.CMDFontColor
+        this.PosX := MainSoftData.CMDPosX
+        this.PosY := MainSoftData.CMDPosY
+        this.Width := MainSoftData.CMDWidth
+        this.Height := MainSoftData.CMDHeight
+        this.BGColor := MainSoftData.CMDBGColor
+        this.RunBGColor := MainSoftData.CMDRunBGColor
+        this.Transparency := (Integer)(MainSoftData.CMDTransparency * 2.55)
+        this.FontSize := MainSoftData.CMDFontSize
+        this.FontColor := MainSoftData.CMDFontColor
     }
 
     AddGui() {
         MyGui := Gui("+AlwaysOnTop -Caption +ToolWindow")
         this.Gui := MyGui
         MyGui.BackColor := this.BGColor
-        MyGui.SetFont(Format("S{} W550 Q2 C{}", this.FontSize, this.FontColor), MySoftData.FontType)
+        MyGui.SetFont(Format("S{} W550 Q2 C{}", this.FontSize, this.FontColor), MainSoftData.FontType)
         MyGui.Opt("+E0x20")  ; 点击穿透
         WinSetTransparent(this.Transparency, MyGui)  ; 设置透明度
 

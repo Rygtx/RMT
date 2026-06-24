@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include VarModifyGui.ahk
 
 class VarListenGui {
@@ -17,7 +17,7 @@ class VarListenGui {
             this.AddGui()
         }
         
-        this.TopCon.Value := MySoftData.VarListenTop
+        this.TopCon.Value := MainSoftData.VarListenTop
         this.OnTogTop()
         IniWrite(true, IniFile, IniSection, "IsOpenListenVar")
         this.Refresh()
@@ -69,7 +69,7 @@ class VarListenGui {
     AddGui() {
         MyGui := Gui(, GetLang("变量监视器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         MyGui.Opt("+Resize")
 
         PosX := 10
@@ -89,17 +89,17 @@ class VarListenGui {
 
         MyGui.OnEvent("Close", this.OnClose.Bind(this))
         MyGui.OnEvent("Size", this.OnResize.Bind(this))
-        pos := GetCenterPosOnActiveMonitor(MySoftData.VarListenWidth, MySoftData.VarListenHeight)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, MySoftData.VarListenWidth, MySoftData.VarListenHeight))
+        pos := GetCenterPosOnActiveMonitor(MainSoftData.VarListenWidth, MainSoftData.VarListenHeight)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, MainSoftData.VarListenWidth, MainSoftData.VarListenHeight))
         MyGui.Opt("+MinSize400x420")
     }
 
     OnClose(*) {
-        if (MySoftData.MacroEditGui != "" && MySoftData.MacroEditGui.Gui != "") {
-            style := WinGetStyle(MySoftData.MacroEditGui.Gui)
+        if (MainSoftData.MacroEditGui != "" && MainSoftData.MacroEditGui.Gui != "") {
+            style := WinGetStyle(MainSoftData.MacroEditGui.Gui)
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (isVisible) {
-                MySoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
+                MainSoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
             }
         }
         IniWrite(false, IniFile, IniSection, "IsOpenListenVar")

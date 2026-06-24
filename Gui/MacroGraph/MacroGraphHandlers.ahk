@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 ; ============================================================================
 ; MacroGraphGui 职能拆分 —— 节点内联编辑回调
@@ -629,13 +629,13 @@ class MacroGraphHandlersMixin {
     ; 截图（图片搜索）：按软件截图方式设置图片与搜索范围，与搜索编辑器行为一致
     _OnSearchShot(id, *) {
         this._shotNodeId := id
-        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+        if (MainSoftData.ScreenShotType == 1) {
             SetClipboard("")
             Run("ms-screenclip:")
             SetTimer(this._searchClipAction, 500)
             TogGetSelectArea(true, this._OnSearchShotArea.Bind(this, id))
         }
-        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this._searchClipAction)
             TogGetSelectArea(true, this._OnSearchShotArea.Bind(this, id))
         }

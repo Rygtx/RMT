@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include Util\SharedMemory.ahk
 #Include Util\RingBuffer.ahk
 #Include Util\JsonUtil.ahk
@@ -47,11 +47,11 @@ class WorkPool {
         this.workerExe := A_ScriptDir "\Thread\Work.exe"
         SplitPath(this.workerExe, &workerExeName)
         this.workerExeName := workerExeName
-        this.maxSize := MySoftData.MutiThreadNum
+        this.maxSize := MainSoftData.MutiThreadNum
         this.isDynamic := (this.maxSize == -1)
         this.dynamicMaxLimit := 16
-        this.corePoolSize := MySoftData.DynamicCorePoolSize
-        this.elasticTimeout := MySoftData.ElasticTimeout * 1000
+        this.corePoolSize := MainSoftData.DynamicCorePoolSize
+        this.elasticTimeout := MainSoftData.ElasticTimeout * 1000
 
         this.freePool := Map()        ; idx -> WorkerData，空闲可用的 Worker
         this.usePool := Map()         ; idx -> WorkerData，正在执行任务的 Worker
@@ -157,7 +157,7 @@ class WorkPool {
 
         Run(Format('"{}" {} {} {} "{}" "{}" "{}"'
             , this.workerExe
-            , MySoftData.MyGui.Hwnd
+            , MainSoftData.MyGui.Hwnd
             , idx
             , this.mainPID
             , txName

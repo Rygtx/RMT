@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class VarModifyGui {
     __new() {
@@ -23,7 +23,7 @@ class VarModifyGui {
     AddGui() {
         MyGui := Gui(, GetLang("修改"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 5

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 CompatGetData(LineStr, FilePath) {
     FoundPos := InStr(LineStr, "=")
@@ -201,7 +201,7 @@ CompatCMD(filePath) {
         "SerialArr", "0",
         "TimingSerialArr", "0"
     )
-    loop MySoftData.TabSymbolArr.Length {
+    loop MainSoftData.TabSymbolArr.Length {
         symbol := GetTableSymbol(A_Index)
         modeArrStr := IniRead(filePath, IniSection, symbol "ModeArr", "")
         if (modeArrStr == "")
@@ -235,7 +235,7 @@ CompatCMD(filePath) {
             }
         }
     }
-    loop MySoftData.TabSymbolArr.Length {
+    loop MainSoftData.TabSymbolArr.Length {
         symbol := GetTableSymbol(A_Index)
         loop {
             MacroLabel := symbol "MacroArr" A_Index

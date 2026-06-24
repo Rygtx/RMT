@@ -111,157 +111,185 @@ class ItemConInfo {
     }
 }
 
-class Timer {
-    __New(callback, period) {
-        this.binding := callback
-        this.period := period
-        this.priority := 0
-    }
-
-    __Delete() {
-        this.Off()
-    }
-
-    On() {
-        funcObj := this.binding
-        SetTimer funcObj, this.period, this.priority
-    }
-
-    Off() {
-        funcObj := this.binding
-        SetTimer funcObj, 0
-    }
-}
-
-class ToolCheck {
+; ============================================================
+; MainSoftData — Master 进程专用数据
+; 包含 GUI 配置、UI 面板、热键绑定、工具检测、录制、OCR 等
+; Worker 线程不需要这些数据
+; ============================================================
+class MainConfig {
     __New() {
-        this.AlwaysOnTopCtrl := ""
-        this.ToolCheckCtrl := ""
-        this.ToolCheckHotKeyCtrl := ""
-        this.ToolMousePosCtrl := ""
-        this.ToolMouseWinPosCtrl := ""
-        this.ToolProcessNameCtrl := ""
-        this.ToolProcessTileCtrl := ""
-        this.ToolProcessPidCtrl := ""
-        this.ToolProcessClassCtrl := ""
-        this.ToolProcessIdCtrl := ""
-        this.ToolColorCtrl := ""
-        this.ToolTextFilterHotKeyCtrl := ""
-        this.ToolTextCtrl := ""
-        this.ToolRecordMacroHotKeyCtrl := ""
-        this.ToolCheckRecordMacroCtrl := ""
-        this.ScreenShotHotKeyCtrl := ""
-        this.FreePasteHotKeyCtrl := ""
+        ; ========== 全局对象引用（GUI 控件 / 函数绑定） ==========
+        this.MyGui := {}                ; 软件主界面 GUI 句柄
+        this.TabCtrl := {}              ; Tab3 页签控件
+        this.BtnSave := ""              ; "应用并保存"按钮（供其他 GUI 获取焦点）
+        this.MacroEditGui := ""         ; 当前活动的宏编辑器 GUI
 
-        this.ScreenShotHotKey := ""
-        this.FreePasteHotKey := ""
-        this.ToolRecordMacroHotKey := ""
-        this.IsToolRecord := false
-        this.ToolTextFilterHotKey := ""
-        this.IsToolCheck := false
-        this.ToolCheckHotKey := ""
-        this.PosStr := ""
-        this.WinPosStr := ""
-        this.ProcessName := ""
-        this.ProcessTile := ""
-        this.ProcessPid := ""
-        this.ProcessClass := ""
-        this.ProcessId := ""
-        this.Color := ""
-        this.MouseInfoTimer := ""
+        ; ========== 配置管理 ==========
+        this.CurSettingName := ""       ; 当前配置方案名称
+        this.SettingArrStr := ""        ; 所有配置方案名称列表（"π" 分隔字符串）
+        this.HasSaved := false          ; 是否已执行保存
+        this.IsReload := false          ; 是否正在重载软件
+        this.AgreeAgreement := false    ; 是否已同意免责协议
 
-        this.MacroGui := ""
+        ; ========== 启动与窗口设置 ==========
+        this.IsBootStart := false       ; 是否开机自启
+        this.IsAdminStart := false      ; 是否以管理员权限启动
+        this.IsMinStart := false        ; 是否最小化启动（常驻托盘）
+        this.SoftBGColor := "f0f0f0"    ; 软件背景颜色 (6位HEX)
+        this.Theme := "RMT_Light"       ; XAML 界面主题名称
+        this.ShowSplitLine := false     ; 表格是否显示分割线
+        this.IsModalSubGui := true      ; 子窗口是否模态（阻止主窗口操作）
 
-        this.RecordLastTime := ""
-        this.RecordMacroStr := ""
-        this.RecordHoldKeyMap := Map()
-        this.RecordHoldMuti := ""
-        this.RecordAutoLoosen := ""
-        this.RecordKeyboard := ""
-        this.RecordMouse := ""
-        this.RecordMouseTrail := ""      ;鼠标轨迹 0=不录制 1=关键点位 2=关键点相对位移 3=全量
-        this.RecordMouseTrailSpeed := ""
-        this.RecordJoy := ""
-        this.RecordJoyInterval := ""
-        this.RecordShowBorder := ""      ;录制边框 0=关闭 1=开启
-        this.OCRTypeCtrl := ""
-        this.OCRTypeValue := 1
+        ; ========== Tab 页签 ==========
+        this.TableIndex := 1            ; 当前显示的 Tab 页索引
+        this.TabPosX := 0               ; Tab 组件左上角 X 坐标
+        this.TabPosY := 0               ; Tab 组件左上角 Y 坐标
+        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
+        this.TabSymbolArr := ["Normal", "String", "Menu", "UI", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
+            "Reward", "Thank"]
+
+        ; ========== 热键绑定 ==========
+        this.IsSuspend := false         ; 软件休眠状态
+        this.SuspendHotkey := ""        ; 休眠快捷键（空则未绑定）
+        this.IsPause := false           ; 暂停所有宏状态
+        this.PauseHotkey := ""          ; 暂停快捷键（空则未绑定）
+        this.KillMacroHotkey := ""      ; 终止所有宏快捷键（空则未绑定）
+
+        ; ========== 数值浮动选项 ==========
+        this.HoldFloat := 0             ; 点击持续时间浮动 (%)
+        this.PreIntervalFloat := 0      ; 每次执行前间隔浮动 (%)
+        this.IntervalFloat := 0         ; 指令间隔浮动 (%)
+        this.CoordXFloat := 0           ; 坐标 X 浮动 (px)
+        this.CoordYFloat := 0           ; 坐标 Y 浮动 (px)
+
+        ; ========== 多线程设置 ==========
+        this.MutiThreadNum := -1        ; 多线程数 (-1 = 动态调整)
+        this.DynamicCorePoolSize := 3   ; 动态模式核心池大小
+        this.ElasticTimeout := 30       ; 弹性 Worker 超时 (秒)
+
+        ; ========== 按键选项 ==========
+        this.KeyDownDownType := 1       ; 按下时按下处理 (1=自动松开, 2=忽略重复按下, 3=允许重复按下)
+
+        ; ========== 屏幕截图 ==========
+        this.ScreenShotType := 3        ; 截图方式 (1=微软截图, 2=RMT截图, 3=SC截图)
+        this.CheckForeground := false   ; 是否仅前台窗口运行宏
+
+        ; ========== 字体/语言 ==========
+        this.FontType := "微软雅黑"     ; 软件字体名称
+        this.FontList := []             ; 系统可用字体列表
+        this.Lang := "中文"             ; 当前语言
+        this.LangArr := []              ; 可用语言列表
+
+        ; ========== 提示选项 ==========
+        this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒
+
+        ; ========== 菜单轮盘 ==========
+        this.FixedMenuWheel := false    ; 是否固定菜单轮盘位置
+        this.MenuWheelSelectMode := 2   ; 轮盘选择模式 (1=点击选择, 2=划线选择)
+        this.MenuWheelShowTooltip := false  ; 是否显示扇区名称提示
+        this.MenuWheelScale := 100      ; 轮盘大小 (百分比, 50~200)
+        this.MenuWheelTheme := "Default"  ; 轮盘主题名称
+        this.CurMenuWheelIndex := -1    ; 当前显示的菜单轮盘索引
+
+        ; ========== 界面浮窗 ==========
+        this.UIPanelShowOnActive := true    ; 界面激活时默认显示浮窗
+        this.UIPanelDefaultPos := 1         ; 浮窗默认出现位置 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 8=鼠标位置)
+        this.UIPanelBtnColor := "#FF333333"  ; 按钮颜色 (ARGB)
+        this.UIPanelBgColor := "#40FFB6C1"   ; 背景颜色 (半透明粉色)
+        this.UIPanelFontColor := "#FFDDDDDD" ; 字体颜色
+        this.UIPanelBtnHeight := 34          ; 按钮高度
+        this.UIPanelBtnWidth := 80           ; 按钮宽度
+        this.UIPanelCols := 3                ; 每行按钮个数
+
+        ; ========== CMD 指令提示窗口 ==========
+        this.CMDTip := false            ; 是否显示指令提示
+        this.CMDPosX := 0               ; CMD 窗口 X 坐标
+        this.CMDPosY := 0               ; CMD 窗口 Y 坐标
+        this.CMDWidth := 225            ; CMD 窗口宽度
+        this.CMDHeight := 120           ; CMD 窗口高度
+        this.CMDBGColor := "FFFFFF"     ; CMD 窗口背景色
+        this.CMDRunBGColor := "00FF00"  ; CMD 运行中背景色
+        this.CMDTransparency := 50      ; CMD 窗口透明度 (0~100)
+        this.CMDFontSize := "12"        ; CMD 字体大小
+        this.CMDFontColor := "000000"   ; CMD 字体颜色
+
+        ; ========== 变量监视器 ==========
+        this.VarListenTop := false      ; 变量监视器窗口是否置顶
+        this.VarListenWidth := 400      ; 监视器窗口宽度
+        this.VarListenHeight := 420     ; 监视器窗口高度
+
+        ; ========== 框选相关 ==========
+        this.SelectAreaAction := ""     ; 框选完成回调（显示框选范围）
+        this.GetAreaAction := ""        ; 获取区域回调（不显示框选范围，用于系统截图）
+        this.StartAreaPosX := ""        ; 框选起点 X 坐标
+        this.StartAreaPosY := ""        ; 框选起点 Y 坐标
+
+        ; ========== 其他 ==========
+        this.LastShowMonth := 0         ; 上次显示"打赏"Tab 的月份
+
+        ; ============================================================
+        ; 以下为原 ToolCheckInfo 字段 — 工具检测 / 录制 / OCR
+        ; ============================================================
+
+        ; ---------- 工具检测：热键 ----------
+        this.ToolCheckHotKey := ""          ; 鼠标信息检测快捷键
+        this.ToolRecordMacroHotKey := ""    ; 指令录制快捷键
+        this.ToolTextFilterHotKey := ""     ; 文本提取快捷键
+        this.ScreenShotHotKey := ""         ; 屏幕截图快捷键 (工具页)
+        this.FreePasteHotKey := ""          ; 自由贴快捷键
+
+        ; ---------- 工具检测：实时信息 ----------
+        this.IsToolCheck := false       ; 鼠标信息检测开关
+        this.PosStr := ""               ; 当前鼠标坐标字符串
+        this.WinPosStr := ""            ; 当前窗口坐标字符串
+        this.ProcessName := ""          ; 鼠标所在窗口进程名
+        this.ProcessTile := ""          ; 鼠标所在窗口标题
+        this.ProcessPid := ""           ; 鼠标所在窗口 PID
+        this.ProcessClass := ""         ; 鼠标所在窗口类名
+        this.ProcessId := ""            ; 鼠标所在窗口 ID (HWND)
+        this.Color := ""                ; 鼠标所在像素颜色 (HEX)
+
+        ; ---------- 录制 ----------
+        this.IsToolRecord := false      ; 指令录制开关
+        this.IsTogStartRecord := false  ; 是否正在触发开始录制 (区分快捷键触发)
+        this.IsTogEndRecord := false    ; 是否正在触发结束录制
+        this.RecordLastTime := ""       ; 上一条录制指令的时间戳
+        this.RecordMacroStr := ""       ; 录制结果的宏指令字符串
+        this.RecordHoldKeyMap := Map()  ; 录制中按住的按键映射
+        this.RecordHoldMuti := true     ; 录制时是否合并按住的多键
+        this.RecordAutoLoosen := true   ; 录制时是否自动松开按键
+        this.RecordKeyboard := true     ; 是否录制键盘
+        this.RecordMouse := true        ; 是否录制鼠标
+        this.RecordMouseTrail := true   ; 鼠标轨迹录制 (0=不录制, 1=关键点位, 2=关键点相对位移, 3=全量)
+        this.RecordMouseTrailSpeed := 1 ; 鼠标轨迹录制速度
+        this.RecordJoy := false         ; 是否录制手柄
+        this.RecordJoyInterval := 100   ; 手柄录制间隔 (ms)
+        this.RecordShowBorder := true   ; 录制时是否显示边框 (0=关闭, 1=开启)
+
+        ; ---------- OCR ----------
+        this.OCRTypeValue := 1          ; OCR 引擎类型 (1=RapidOCR, ...)
     }
 }
 
 class SoftData {
     __New() {
+        ; ========== Worker 标识与运行状态 ==========
         this.isWorker := false          ;子线程标识
         this.MacroRunningCount := 0     ;运行中的宏数量
         this.IsMacroWorking := false    ;宏正在运行
+
+        ; ========== 外部库初始化状态 ==========
         this.IsLogitechInit := false    ;罗技按键初始化
         this.IsMouseControlInit := false ;MouseControl.dll 初始化
+
+        ; ========== 临时提示 ==========
         this.ToolTipText := ""          ;临时提示文本
         this.ToolTipEndTime := ""       ;临时提示结束时间
-        this.AgreeAgreement := false    ;同意协议
-        this.IsBootStart := false        ;开机自启
-        this.IsAdminStart := false        ;管理员启动
-        this.ShowSplitLine := false     ;显示分割线
-        this.FixedMenuWheel := false    ;固定菜单轮
-        this.MenuWheelSelectMode := 2   ;选择模式(1=点击选择,2=划线选择)
-        this.MenuWheelShowTooltip := false  ;显示扇区名称提示
-        this.MenuWheelScale := 100      ;轮盘大小(百分比)
-        this.MenuWheelTheme := "Default"  ;轮盘主题名称
-        this.Theme := "RMT_Light"   ;XAML界面主题
 
-        ; 界面浮窗配置
-        this.UIPanelShowOnActive := true        ;界面激活时默认显示浮窗
-        this.UIPanelDefaultPos := 1             ;浮窗默认出现位置(1=左上,2=中上,3=右上,4=中左,5=中心,6=中右,7=左下,8=鼠标位置)
-        this.UIPanelBtnColor := "#FF333333"     ;按钮颜色
-        this.UIPanelBgColor := "#40FFB6C1"    ;背景颜色(半透明粉色)
-        this.UIPanelFontColor := "#FFDDDDDD"  ;字体颜色
-        this.UIPanelBtnHeight := 34            ;按钮高度
-        this.UIPanelBtnWidth := 80             ;按钮宽度
-        this.UIPanelCols := 3                   ;每行按钮个数
-        this.NoVariableTip := false     ;无变量提醒
-        this.ScreenShotType := 3        ;截图类型
-        this.MutiThreadNum := -1         ;多线程数(-1动态)
-        this.DynamicCorePoolSize := 3   ;动态模式核心池大小
-        this.ElasticTimeout := 30       ;弹性Worker超时(秒)
-        this.IsSuspend := false         ;休眠
-        this.SuspendHotkey := ""        ;休眠快捷键
-        this.IsPause := false           ;暂停
-        this.PauseHotkey := ""          ;暂停快捷键
-        this.KillMacroHotkey := ""      ;终止所有宏快捷键
-        this.HoldFloat := 0             ;点击时间浮动数值
-        this.PreIntervalFloat := 0      ;每次间隔浮动数值
-        this.IntervalFloat := 0         ;间隔指令浮动数值
-        this.CoordXFloat := 0           ;坐标X浮动数值
-        this.CoordYFloat := 0           ;坐标Y浮动数值
-        this.SoftBGColor := ""          ;软件背景颜色
-        this.IsReload := false          ;软件是否重载
-        this.TableIndex := 1            ;当前显示的table索引
-        this.HasSaved := false          ;是否保存
-        this.MacroEditGui := ""         ;当前宏编辑器
-        this.FontType := "微软雅黑"     ;当前字体
-        this.FontList := []             ;所有字体类型
-        this.Lang := "中文"             ;当前语言
-        this.LangArr := []              ;所有语言
-        this.KeyDownDownType := 1       ;按下时按下 1自动松开, 2忽略后续按下, 3允许该操作
-
-        this.MyGui := {}                ;软件主界面GUI
-        this.CurSettingName := ""       ;当前配置名称
-        this.SettingArrStr := ""        ;所有配置字串
-        this.CurMenuWheelIndex := -1    ;当先显示的菜单轮盘
-
-        this.TabCtrl := {}              ;Tab组件
-        this.TabPosX := 0               ;Tab位置X
-        this.TabPosY := 0               ;Tab位置Y
+        ; ========== 宏表格数据 ==========
         this.TableInfo := []            ;TableItem所有信息，每个宏的所有信息
 
-        this.IsMinStart := false        ;最小化启动
-
-        ;Tab所有页签
-        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
-        ;Tab页签对应的英文
-        this.TabSymbolArr := ["Normal", "String", "Menu", "UI", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
-            "Reward", "Thank"]
-
+        ; ========== 按键映射 ==========
         ;特殊的按键，因为含有下划线，所有要特殊处理
         this.SpecialKeyMap := Map("Browser_Back", 0, "Browser_Forward", 0, "Browser_Refresh", 0, "Browser_Stop", 0,
             "Browser_Search", 0, "Browser_Favorites", 0, "Browser_Home", 0, "Volume_Mute", 0, "Volume_Down", 0,
@@ -270,16 +298,18 @@ class SoftData {
         this.OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0, "Bright_Down", 0, "Bright_Up", 0, "None", 0)
         this.SpecialTableItem := TableItem()    ;特别的TableItem，用于编辑器模式测试指令
 
+        ; ========== 连续触发按键 ==========
         ;这些按键不会重复触发按下的按键宏，特别标记特殊处理
         this.ContinueKeyMap := Map("LButton", "LButton", "~LButton", "LButton", "RButton", "RButton", "~RButton",
             "RButton", "MButton", "MButton", "~MButton", "MButton", "XButton1", "XButton1", "~XButton1", "XButton1",
             "XButton2", "XButton2", "~XButton2", "XButton2")
         this.ContinueIntervale := 50    ;连续触发间隔
 
+        ; ========== 文件编码 ==========
         this.FileEncodingArr := ["ANSI", "GB2312", "GB18030", "BIG5", "UTF-8", "UTF-16"]
 
+        ; ========== 数据缓存与变量 ==========
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
-
         this.GlobalArrMap := Map()      ;UI下拉显示数组
         this.ArrayMap := Map()          ;真正的全局数组
         this.GlobalVariMap := Map()     ;UI下拉显示变量
@@ -287,38 +317,20 @@ class SoftData {
         this.DataFileMap := Map()       ;配置命令对应的文件路径
         this.DataClassMap := Map()      ;配置对应的数据类型
 
-        ;显示指令提示配置
+        ; ========== 指令提示（主进程与 Worker 共享） ==========
         this.CMDTip := false
-        this.CMDTipCtrl := ""
-        this.CMDPosX := A_ScreenWidth - 225 - 55    ;不知道为什么有55的偏移
-        this.CMDPosY := 0
-        this.CMDWidth := 225
-        this.CMDHeight := 120
-        this.CMDBGColor := "FFFFFF"
-        this.CMDRunBGColor := "00FF00"
-        this.CMDTransparency := 50
-        this.CMDFontSize := "12"
-        this.CMDFontColor := "000000"
 
-        ;变量监视器窗口大小
-        this.VarListenTop := false
-        this.VarListenWidth := 400
-        this.VarListenHeight := 420
+        ; ========== 配置名称（Worker 用于文件路径解析） ==========
+        this.CurSettingName := ""       ;当前配置名称
 
+        ; ========== 热键绑定 ==========
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
 
-        this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
-        this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围
-        this.StartAreaPosX := ""    ;开始框选范围X坐标  记录点位，这样结束时就能直接获取点位信息
-        this.StartAreaPosY := ""    ;开始框选范围Y坐标
-
-        this.IsTogStartRecord := false  ;通过开关触发录制   区分触发形式，删除宏里面的快捷键触发的按键
-        this.IsTogEndRecord := false    ;通过开关结束录制
+        ; ========== 手柄宏 ==========
         this.HasJoyMacro := false       ;含有手柄宏，手柄宏启动时需要初始化手柄（操作系统会提示，有点嘈）
-        this.MacroTotalCount := 0   ;宏运行次数
-        this.LastShowMonth := 0     ;上次显示月数
+        this.MacroTotalCount := 0       ;宏运行次数
 
-        ;手柄映射
+        ; ========== 手柄映射 ==========
         this.JoyXboxToAhkMap := Map(
             "JoyA", "Joy1",
             "JoyB", "Joy2",
@@ -903,3 +915,7 @@ class MacroGraphStartNode{
         this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
     }
 }
+
+; 预声明全局变量，实际赋值在 Main/GlobalUtil.ahk 中
+; (DataClass.ahk 在 include 链中最先加载，需在此声明以消除 #Warn)
+global MainSoftData

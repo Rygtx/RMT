@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 RecordControllerNum := 10
 RecordJoyFloat := 10
 RecordAxisMaxValue := 100
@@ -32,7 +32,7 @@ XInputStateCache := ""
 RecordJoyTimer() {
     global XInputStateCache
 
-    if (!ToolCheckInfo.ToolCheckRecordMacroCtrl.Value)
+    if (!UIControls.ToolCheckRecord.Value)
         return
 
     XInputStateCache := XInputState(0)
@@ -57,10 +57,10 @@ RecordJoyTimer() {
         if (isHold)
             OnRecordAddMacroStr(xboxKey, true)
 
-        if (ToolCheckInfo.RecordHoldKeyMap.Has(xboxKey) && !isHold)
+        if (MainSoftData.RecordHoldKeyMap.Has(xboxKey) && !isHold)
             OnRecordAddMacroStr(xboxKey, false)
     }
-    SetTimer(RecordJoyTimer, -ToolCheckInfo.RecordJoyInterval)
+    SetTimer(RecordJoyTimer, -MainSoftData.RecordJoyInterval)
 }
 
 RecordJoy() {

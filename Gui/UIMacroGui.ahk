@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class UIMacroGui {
     static STATE_DEFAULT := 0    ; 默认/空闲（隐藏色块）
@@ -20,13 +20,13 @@ class UIMacroGui {
     StartMonitor() {
         if (this.MonitorTimer != "")
             return
-        this.MonitorTimer := Timer(this.CheckAllPanels.Bind(this), 200)
-        this.MonitorTimer.On()
+        this.MonitorTimer := this.CheckAllPanels.Bind(this)
+        SetTimer this.MonitorTimer, 200
     }
 
     StopMonitor() {
         if (this.MonitorTimer != "") {
-            this.MonitorTimer.Off()
+            SetTimer this.MonitorTimer, 0
             this.MonitorTimer := ""
         }
         for foldIndex in this.PanelTimers.Clone() {
@@ -202,12 +202,12 @@ class UIMacroGui {
             return
 
         ; 配置变化检测：按钮尺寸/列数/颜色变化 → 销毁重建
-        if (panelInfo._cfg_BtnHeight != MySoftData.UIPanelBtnHeight
-            || panelInfo._cfg_BtnWidth != MySoftData.UIPanelBtnWidth
-            || panelInfo._cfg_Cols != MySoftData.UIPanelCols
-            || panelInfo._cfg_BtnColor != MySoftData.UIPanelBtnColor
-            || panelInfo._cfg_BgColor != MySoftData.UIPanelBgColor
-            || panelInfo._cfg_FontColor != MySoftData.UIPanelFontColor) {
+        if (panelInfo._cfg_BtnHeight != MainSoftData.UIPanelBtnHeight
+            || panelInfo._cfg_BtnWidth != MainSoftData.UIPanelBtnWidth
+            || panelInfo._cfg_Cols != MainSoftData.UIPanelCols
+            || panelInfo._cfg_BtnColor != MainSoftData.UIPanelBtnColor
+            || panelInfo._cfg_BgColor != MainSoftData.UIPanelBgColor
+            || panelInfo._cfg_FontColor != MainSoftData.UIPanelFontColor) {
             parts := StrSplit(panelKey, "|")
             foldIndex := Integer(parts[1])
             targetHwnd := (parts.Length >= 2) ? Integer(parts[2]) : 0
@@ -230,18 +230,18 @@ class UIMacroGui {
     ; 构建XAML面板（对齐 CreateFloatingPanel L182-264）
     BuildXAMLPanel(btnItems, foldIndex, targetHwnd, isScreenMode, skipActivate := false) {
         titleBarH := 26
-        btnItemH := MySoftData.UIPanelBtnHeight
-        btnItemW := MySoftData.UIPanelBtnWidth
+        btnItemH := MainSoftData.UIPanelBtnHeight
+        btnItemW := MainSoftData.UIPanelBtnWidth
         btnGap := 2
         bodyMarginV := 6
-        cols := MySoftData.UIPanelCols
+        cols := MainSoftData.UIPanelCols
         wpfBorderPad := 2
         ; 面板宽度 = 列数 * 按钮宽度 + 按钮左右边距(各2px) + 主体左右边距(各4px)
         pw := cols * (btnItemW + 4) + 8
 
-        btnColor := MySoftData.UIPanelBtnColor
-        bgColor := MySoftData.UIPanelBgColor
-        fontColor := MySoftData.UIPanelFontColor
+        btnColor := MainSoftData.UIPanelBtnColor
+        bgColor := MainSoftData.UIPanelBgColor
+        fontColor := MainSoftData.UIPanelFontColor
 
         tableItem := MySoftData.TableInfo[4]
         foldRemark := tableItem.FoldInfo.RemarkArr[foldIndex]
@@ -256,15 +256,15 @@ class UIMacroGui {
         ; 根据配置计算初始位置
         ; 注意：XAML 的 Window.Left/Top 使用 DIP（设备无关像素），而 A_ScreenWidth/MouseGetPos
         ; 返回的是物理像素。屏幕模式下必须换算为 DIP，否则高分屏缩放时会整体偏移（偏右/偏下甚至出屏）。
-        if (MySoftData.UIPanelDefaultPos != 8) {
+        if (MainSoftData.UIPanelDefaultPos != 8) {
             if (isScreenMode) {
                 swDIP := A_ScreenWidth * 96 // A_ScreenDPI
                 shDIP := A_ScreenHeight * 96 // A_ScreenDPI
-                this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, swDIP, shDIP)
+                this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, swDIP, shDIP)
                 offsetX := initX
                 offsetY := initY
             } else {
-                this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
+                this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
                 offsetX := initX   ; 相对于目标窗口的偏移量（预设位置值）
                 offsetY := initY
                 if (targetHwnd) {
@@ -579,12 +579,12 @@ class UIMacroGui {
 
         ; 配置变化检测：按钮尺寸/列数/颜色变化时销毁重建
         if (panelInfo.visible == false  ; 只在从隐藏→显示时检查
-            && (panelInfo._cfg_BtnHeight != MySoftData.UIPanelBtnHeight
-                || panelInfo._cfg_BtnWidth != MySoftData.UIPanelBtnWidth
-                || panelInfo._cfg_Cols != MySoftData.UIPanelCols
-                || panelInfo._cfg_BtnColor != MySoftData.UIPanelBtnColor
-                || panelInfo._cfg_BgColor != MySoftData.UIPanelBgColor
-                || panelInfo._cfg_FontColor != MySoftData.UIPanelFontColor)) {
+            && (panelInfo._cfg_BtnHeight != MainSoftData.UIPanelBtnHeight
+                || panelInfo._cfg_BtnWidth != MainSoftData.UIPanelBtnWidth
+                || panelInfo._cfg_Cols != MainSoftData.UIPanelCols
+                || panelInfo._cfg_BtnColor != MainSoftData.UIPanelBtnColor
+                || panelInfo._cfg_BgColor != MainSoftData.UIPanelBgColor
+                || panelInfo._cfg_FontColor != MainSoftData.UIPanelFontColor)) {
             this.DestroyPanel(panelKey)
             if (targetHwnd)
                 this.CreateAutoPanel(foldIndex, panelKey, targetHwnd)
@@ -672,7 +672,7 @@ class UIMacroGui {
         ; ====== 界面激活时默认显示（同时支持有前台和无前台模块） ======
         try {
             ; 正在创建面板时跳过：避免创建过程中（BuildXAMLPanel 的 Sleep 泵消息）重入建出重复面板
-            if (!this.IsCreating && MySoftData.UIPanelShowOnActive) {
+            if (!this.IsCreating && MainSoftData.UIPanelShowOnActive) {
                 activeHwnd := WinGetID("A")
                 if (activeHwnd != this._lastActiveHwnd) {
                     this._lastActiveHwnd := activeHwnd
@@ -688,7 +688,7 @@ class UIMacroGui {
                             if (frontInfo == "") {
                                 ; 无前台模块（屏幕模式）：仅当 RMT 主界面被激活时才创建/显示，
                                 ; 避免点击任务栏或切到其它任意窗口也把已关闭的浮窗重新弹出。
-                                mainHwnd := (IsObject(MySoftData.MyGui) && MySoftData.MyGui.HasProp("Hwnd")) ? MySoftData.MyGui.Hwnd : 0
+                                mainHwnd := (IsObject(MainSoftData.MyGui) && MainSoftData.MyGui.HasProp("Hwnd")) ? MainSoftData.MyGui.Hwnd : 0
                                 if (!mainHwnd || activeHwnd != mainHwnd)
                                     continue
                                 panelKey := foldIndex
@@ -973,8 +973,8 @@ class UIMacroGui {
 
         initX := 0, initY := 0
 
-        if (MySoftData.UIPanelDefaultPos != 8) {
-            this.CalcDefaultPosition(MySoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
+        if (MainSoftData.UIPanelDefaultPos != 8) {
+            this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
             ; 窗口跟随模式：预设位置改为相对于目标窗口
             if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
                 try {

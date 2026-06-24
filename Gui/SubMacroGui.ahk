@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class SubMacroGui {
     __new() {
@@ -20,7 +20,7 @@ class SubMacroGui {
             this.AddGui()
         }
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
@@ -37,7 +37,7 @@ class SubMacroGui {
         if (this.OwnerHwnd != "") {
             MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -108,7 +108,7 @@ class SubMacroGui {
 
     OnGuiClose() {
         this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -206,7 +206,7 @@ class SubMacroGui {
         action := this.SureBtnAction
         action(CommandStr)
 
-        if (this.OwnerHwnd != "" && MySoftData.IsModalSubGui) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
@@ -240,7 +240,7 @@ class SubMacroGui {
         Remark := this.RemarkCon.Value
         if (Remark == "") {
             OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
-            IntervarlStr := MySoftData.Lang == "中文" ? "" : " "
+            IntervarlStr := MainSoftData.Lang == "中文" ? "" : " "
             MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
             OperStr := OperTipArr[this.CallTypeCon.Value]
             TypeStr := MacroTypeArr[this.TypeCon.Value]

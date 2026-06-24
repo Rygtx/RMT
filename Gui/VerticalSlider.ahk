@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class VerticalSlider {
     __new() {
@@ -93,7 +93,7 @@ class VerticalSlider {
             return
 
         ; 主窗口不可见时不处理（避免对隐藏窗口操作导致窗口重新显示）
-        if (MySoftData.MyGui != "" && !WinExist("ahk_id " MySoftData.MyGui.Hwnd))
+        if (MainSoftData.MyGui != "" && !WinExist("ahk_id " MainSoftData.MyGui.Hwnd))
             return
 
         isDown := InStr(key, "Down", "Off") ? true : false

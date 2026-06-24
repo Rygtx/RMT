@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class MenuMacroSettingGui {
     __new() {
@@ -24,7 +24,7 @@ class MenuMacroSettingGui {
         }
 
         MyGui := Gui("", GetLang("菜单宏配置 - 扇区") index)
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         this.Gui := MyGui
 
         posY := 15

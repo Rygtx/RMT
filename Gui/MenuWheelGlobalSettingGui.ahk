@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class MenuWheelGlobalSettingGui {
     static instances := Map()
@@ -153,7 +153,7 @@ class MenuWheelGlobalSettingGui {
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="400"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MySoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
 
         resourceInject := '<CornerRadius x:Key="PanelRadius">8</CornerRadius>'
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', resourceInject)
@@ -261,17 +261,17 @@ class MenuWheelGlobalSettingGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        themeName := (IsSet(MySoftData) && MySoftData.HasProp("Theme")) ? MySoftData.Theme : "RMT_Light"
+        themeName := (IsSet(MySoftData) && MySoftData.HasProp("Theme")) ? MainSoftData.Theme : "RMT_Light"
         ApplyXamlTheme(this.ui, themeName)
     }
 
     LoadInitValues() {
-        this._fixedPos := !!MySoftData.FixedMenuWheel
-        this._selectMode := MySoftData.MenuWheelSelectMode
-        this._showTooltip := !!MySoftData.MenuWheelShowTooltip
-        this._wheelScale := MySoftData.MenuWheelScale
+        this._fixedPos := !!MainSoftData.FixedMenuWheel
+        this._selectMode := MainSoftData.MenuWheelSelectMode
+        this._showTooltip := !!MainSoftData.MenuWheelShowTooltip
+        this._wheelScale := MainSoftData.MenuWheelScale
 
-        savedTheme := MySoftData.HasProp("MenuWheelTheme") ? MySoftData.MenuWheelTheme : "Default"
+        savedTheme := MySoftData.HasProp("MenuWheelTheme") ? MainSoftData.MenuWheelTheme : "Default"
         if (this._FindTheme(savedTheme) != "")
             this._currentTheme := savedTheme
 
@@ -390,17 +390,17 @@ class MenuWheelGlobalSettingGui {
     }
 
     SaveData() {
-        MySoftData.FixedMenuWheel := this._fixedPos
-        MySoftData.MenuWheelSelectMode := this._selectMode
-        MySoftData.MenuWheelShowTooltip := this._showTooltip
-        MySoftData.MenuWheelScale := this._wheelScale
-        MySoftData.MenuWheelTheme := this._currentTheme
+        MainSoftData.FixedMenuWheel := this._fixedPos
+        MainSoftData.MenuWheelSelectMode := this._selectMode
+        MainSoftData.MenuWheelShowTooltip := this._showTooltip
+        MainSoftData.MenuWheelScale := this._wheelScale
+        MainSoftData.MenuWheelTheme := this._currentTheme
 
         global IniFile, IniSection
-        IniWrite(MySoftData.FixedMenuWheel, IniFile, IniSection, "FixedMenuWheel")
-        IniWrite(MySoftData.MenuWheelSelectMode, IniFile, IniSection, "MenuWheelSelectMode")
-        IniWrite(MySoftData.MenuWheelShowTooltip, IniFile, IniSection, "MenuWheelShowTooltip")
-        IniWrite(MySoftData.MenuWheelScale, IniFile, IniSection, "MenuWheelScale")
+        IniWrite(MainSoftData.FixedMenuWheel, IniFile, IniSection, "FixedMenuWheel")
+        IniWrite(MainSoftData.MenuWheelSelectMode, IniFile, IniSection, "MenuWheelSelectMode")
+        IniWrite(MainSoftData.MenuWheelShowTooltip, IniFile, IniSection, "MenuWheelShowTooltip")
+        IniWrite(MainSoftData.MenuWheelScale, IniFile, IniSection, "MenuWheelScale")
         IniWrite(this._currentTheme, IniFile, IniSection, "MenuWheelTheme")
     }
 }

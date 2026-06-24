@@ -1,4 +1,5 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
+global MainSoftData                ; 在 GlobalUtil.ahk 中由 MainConfig() 赋值
 LangKeyMap := Map()
 
 ;指令相关的key
@@ -25,24 +26,24 @@ LangInitSetting() {
     }
 
     for Key, Value in LangMap {
-        MySoftData.LangArr.Push(Key)
+        MainSoftData.LangArr.Push(Key)
     }
 
-    if (MySoftData.Lang == "无语言") {
+    if (MainSoftData.Lang == "无语言") {
         ChineseMap := Map("7804", 1, "0004", 1, "0804", 1, "1004", 1, "7C04", 1, "0C04", 1, "1404", 1, "0404", 1)
         if (ChineseMap.Has(A_Language))
-            MySoftData.Lang := "中文"
+            MainSoftData.Lang := "中文"
         else {
-            MySoftData.Lang := "English"
+            MainSoftData.Lang := "English"
         }
     }
 }
 
 LangKeysInit() {
-    if (MySoftData.Lang == "中文")  ;中文就不用做处理了
+    if (MainSoftData.Lang == "中文")  ;中文就不用做处理了
         return
 
-    LangFilePath := Format("{}\{}.txt", LangDir, MySoftData.Lang)
+    LangFilePath := Format("{}\{}.txt", LangDir, MainSoftData.Lang)
     if (!FileExist(LangFilePath))
         return
 
@@ -100,7 +101,7 @@ LangRemoveRepeat() {
 
 GetLang(Key) {
     ;中文或者LangKeyMap不存在时 直接返回key就行
-    if (MySoftData.Lang == "中文" || LangKeyMap.Count == 0)
+    if (MainSoftData.Lang == "中文" || LangKeyMap.Count == 0)
         return key
 
     if (LangKeyMap.Has(Key))
@@ -119,7 +120,7 @@ GetLangArr(KeyArr) {
 
 GetLangKey(value) {
     ;中文或者LangKeyMap不存在时 直接返回key就行
-    if (MySoftData.Lang == "中文" || LangValueMap.Count == 0)
+    if (MainSoftData.Lang == "中文" || LangValueMap.Count == 0)
         return value
 
     if (LangValueMap.Has(value))

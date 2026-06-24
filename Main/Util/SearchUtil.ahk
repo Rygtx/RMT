@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 SearchOnTrigger(tableItem, cmdStr, index) {
     paramArr := StrSplit(cmdStr, "_")
@@ -12,7 +12,7 @@ SearchExecute(tableItem, Data, index) {
     if (Data.SearchCount == -1) {
         isLoopFound := SearchOnce(tableItem, Data, index)
         if (!isLoopFound) {
-            FloatInterval := GetFloatTime(Data.SearchInterval, MySoftData.PreIntervalFloat)
+            FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
             Sleep(FloatInterval)
         }
         return isLoopFound
@@ -29,7 +29,7 @@ SearchExecute(tableItem, Data, index) {
                 return
 
             if (Data.SearchCount > A_Index) {
-                FloatInterval := GetFloatTime(Data.SearchInterval, MySoftData.PreIntervalFloat)
+                FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
                 Sleep(FloatInterval)
             }
         }
@@ -213,8 +213,8 @@ HandleSearchResult(tableItem, Data, index, ImagePath, ResXList, ResYList, ResHwn
         }
 
         ; 坐标浮点处理
-        Pos[1] := GetFloatValue(Pos[1], MySoftData.CoordXFloat)
-        Pos[2] := GetFloatValue(Pos[2], MySoftData.CoordYFloat)
+        Pos[1] := GetFloatValue(Pos[1], MainSoftData.CoordXFloat)
+        Pos[2] := GetFloatValue(Pos[2], MainSoftData.CoordYFloat)
 
         ; 执行鼠标动作
         DoMouseAction(tableItem, Data, index, Pos, hwnd, Speed, isWin)

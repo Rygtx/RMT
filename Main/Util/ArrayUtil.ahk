@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 GetArrayStr(DataArray) {
     ResText := ""
@@ -138,7 +138,7 @@ GetGuiArrNameArr() {
 
 TryGetArrValue(&ResArr, ArrName, variTip := true) {
     if (!MySoftData.ArrayMap.Has(ArrName)) {
-        if (variTip && MySoftData.NoVariableTip)
+        if (variTip && MainSoftData.NoVariableTip)
             MsgBox(GetLang("当前环境不存在数组") ArrName)
         return false
     }
@@ -149,7 +149,7 @@ TryGetArrValue(&ResArr, ArrName, variTip := true) {
 
 GetCmdArray(Data, tableItem, index, variTip := true) {
     if (!MySoftData.ArrayMap.Has(Data.Name)) {
-        if (variTip && MySoftData.NoVariableTip)
+        if (variTip && MainSoftData.NoVariableTip)
             MsgBox(GetLang("当前环境不存在数组") Data.Name)
         return ""
     }
@@ -161,7 +161,7 @@ GetCmdArray(Data, tableItem, index, variTip := true) {
             return ""
 
         if (ResArr.Length < Value) {
-            if (variTip && MySoftData.NoVariableTip) {
+            if (variTip && MainSoftData.NoVariableTip) {
                 str1 := Format(GetLang("数组：{}  长度：{}"), Data.Name, ResArr.Length)
                 str2 := Format("无法获取第{}的值", Value)
                 MsgBox(str1 "`n" str2)
@@ -172,7 +172,7 @@ GetCmdArray(Data, tableItem, index, variTip := true) {
     }
 
     if (Data.MainIndex != 0 && !IsObject(ResArr)) {
-        if (variTip && MySoftData.NoVariableTip) {
+        if (variTip && MainSoftData.NoVariableTip) {
             str1 := Format(GetLang("数组：{}  第{}个值不是数组"), Data.Name, Value)
             MsgBox(str1)
         }
@@ -230,7 +230,7 @@ ArrayCheckIfContain(Data, tableItem, index) {
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
-            if (MySoftData.NoVariableTip)
+            if (MainSoftData.NoVariableTip)
                 MsgBox(GetLang("当前环境不存在数组") Data.Name)
             return
         }
@@ -260,7 +260,7 @@ ArrayGetIndexValue(Data, tableItem, index) {
         return
 
     if (SourceArr.Length < GetIndex) {
-        if (MySoftData.NoVariableTip) {
+        if (MainSoftData.NoVariableTip) {
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
             str1 := MainIndex == 0 ? tip1 : tip2
@@ -288,7 +288,7 @@ ArrayModifyIndexValue(Data, tableItem, index) {
         return
 
     if (SourceArr.Length < SetIndex) {
-        if (MySoftData.NoVariableTip) {
+        if (MainSoftData.NoVariableTip) {
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
             str1 := MainIndex == 0 ? tip1 : tip2
@@ -306,7 +306,7 @@ ArrayModifyIndexValue(Data, tableItem, index) {
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
-            if (MySoftData.NoVariableTip)
+            if (MainSoftData.NoVariableTip)
                 MsgBox(GetLang("当前环境不存在数组") Data.Name)
             return
         }
@@ -326,7 +326,7 @@ ArrayInsertIndexValue(Data, tableItem, index) {
         return
 
     if (SourceArr.Length < InsertIndex) {
-        if (MySoftData.NoVariableTip) {
+        if (MainSoftData.NoVariableTip) {
             TryGetTabVarValue(&SubIndex, tableItem, index, Data.MainIndex, false)
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, SubIndex, SourceArr.Length)
@@ -345,7 +345,7 @@ ArrayInsertIndexValue(Data, tableItem, index) {
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
-            if (MySoftData.NoVariableTip)
+            if (MainSoftData.NoVariableTip)
                 MsgBox(GetLang("当前环境不存在数组") Data.Name)
             return
         }
@@ -369,7 +369,7 @@ ArrayPushValue(Data, tableItem, index) {
     }
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
-            if (MySoftData.NoVariableTip)
+            if (MainSoftData.NoVariableTip)
                 MsgBox(GetLang("当前环境不存在数组") Data.Name)
             return
         }
@@ -389,7 +389,7 @@ ArrayRemoveAtIndex(Data, tableItem, index) {
 
     TryGetTabVarValue(&MainIndex, tableItem, index, Data.MainIndex, false)
     if (SourceArr.Length < RemoveIndex) {
-        if (MySoftData.NoVariableTip) {
+        if (MainSoftData.NoVariableTip) {
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
             str1 := MainIndex == 0 ? tip1 : tip2
@@ -412,7 +412,7 @@ ArrayPopValue(Data, tableItem, index) {
     if (SourceArr == "")
         return
     if (SourceArr.Length == 0) {
-        if (MySoftData.NoVariableTip) {
+        if (MainSoftData.NoVariableTip) {
             tip1 := Format(GetLang("数组：{} 长度：{}"), Data.Name, SourceArr.Length)
             tip2 := Format(GetLang("数组：{}  子数组{}  长度：{}"), Data.Name, MainIndex, SourceArr.Length)
             str1 := MainIndex == 0 ? tip1 : tip2

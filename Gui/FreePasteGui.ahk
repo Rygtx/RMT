@@ -1,4 +1,4 @@
-class FreePasteGui {
+﻿class FreePasteGui {
     __new() {
         this.GuiMap := Map()
         this._wheelCb := ""
@@ -39,7 +39,7 @@ class FreePasteGui {
             this.curGui.MarginX := !isImage && isText ? 10 : 0
             this.curGui.MarginY := !isImage && isText ? 10 : 0
             this.curGui.BackColor := "FFFFFF"  ; 默认背景色
-            this.curGui.SetFont("S13 W550 Q2", MySoftData.FontType)
+            this.curGui.SetFont("S13 W550 Q2", MainSoftData.FontType)
 
             guiData := FreePasteData(this.curGui)
             this.GuiMap.Set(this.curGui.Hwnd, guiData)

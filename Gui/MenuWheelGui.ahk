@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class MenuWheelGui {
     static Hotkeys := ["1", "2", "3", "4", "5", "6", "7", "8"]
@@ -26,8 +26,8 @@ class MenuWheelGui {
 
     ShowRadialMenu(MenuIndex) {
         this.MenuIndex := MenuIndex
-        this.showTooltip := !!MySoftData.MenuWheelShowTooltip
-        this.selectMode := MySoftData.HasProp("MenuWheelSelectMode") ? MySoftData.MenuWheelSelectMode : 2
+        this.showTooltip := !!MainSoftData.MenuWheelShowTooltip
+        this.selectMode := MySoftData.HasProp("MenuWheelSelectMode") ? MainSoftData.MenuWheelSelectMode : 2
         if (this.isOpen) {          ; 已有轮盘？先自清
             this.closed := true
             this._Cleanup()         ; 关闭旧窗 + sectors:=[] + 重置状态
@@ -36,7 +36,7 @@ class MenuWheelGui {
         tableItem := MySoftData.TableInfo[3]
 
         ; 从 WheelThemes.ini 读取当前主题的颜色值
-        themeKey := MySoftData.HasProp("MenuWheelTheme") ? MySoftData.MenuWheelTheme : "Default"
+        themeKey := MySoftData.HasProp("MenuWheelTheme") ? MainSoftData.MenuWheelTheme : "Default"
         themesIniPath := A_WorkingDir "\Setting\WheelThemes.ini"
         themeSection := "Theme_" themeKey
         modNormalFill := IniRead(themesIniPath, themeSection, "NormalFill", "#FFFCFCFC")
@@ -70,7 +70,7 @@ class MenuWheelGui {
 
         CoordMode("Mouse", "Screen")
         MouseGetPos(&mx, &my)
-        if (MySoftData.FixedMenuWheel) {
+        if (MainSoftData.FixedMenuWheel) {
             pt := Buffer(8, 0)
             NumPut("Int", mx, pt, 0)
             NumPut("Int", my, pt, 4)
@@ -86,7 +86,7 @@ class MenuWheelGui {
             my := Round((monTop + monBottom) * 0.70)
         }
 
-        wheelScale := Max(Min(MySoftData.MenuWheelScale, 200), 30) / 100.0
+        wheelScale := Max(Min(MainSoftData.MenuWheelScale, 200), 30) / 100.0
         this._BuildAndShow(items, mx, my, {
             Radius: Round(150 * wheelScale),
             InnerRadius: Round(60 * wheelScale),
@@ -109,7 +109,7 @@ class MenuWheelGui {
             LabelPosRatio: 0.35,
             CenterPosRatio: 0.58
         })
-        MySoftData.CurMenuWheelIndex := this.MenuIndex
+        MainSoftData.CurMenuWheelIndex := this.MenuIndex
     }
 
     static _MakeCallback(guiObj, arcNr, menuIdx) {
@@ -504,7 +504,7 @@ class MenuWheelGui {
         this.isOpen := false
         if (IsObject(this.swipe))
             this.swipe.Stop()
-        MySoftData.CurMenuWheelIndex := -1
+        MainSoftData.CurMenuWheelIndex := -1
         ToolTip()
         if (this.HasProp("ui") && IsObject(this.ui)) {
             try {

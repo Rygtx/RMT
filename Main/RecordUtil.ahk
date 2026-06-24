@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 global RI_hwnd := 0
 global RI_isActive := false
@@ -367,16 +367,16 @@ DoStartRecord(isHotkey) {
 }
 
 OnStartRecordInner(*) {
-    global ToolCheckInfo, MySoftData
+    global MainSoftData, MySoftData
 
     CoordMode("Mouse", "Screen")
     MouseGetPos &mouseX, &mouseY
-    ToolCheckInfo.RecordMacroStr := ""
-    ToolCheckInfo.RecordLastTime := A_TickCount
+    MainSoftData.RecordMacroStr := ""
+    MainSoftData.RecordLastTime := A_TickCount
 
-    MySoftData.IsTogStartRecord := true
+    MainSoftData.IsTogStartRecord := true
     RI_StartRecord(mouseX, mouseY)
-    if (ToolCheckInfo.RecordJoy)
+    if (MainSoftData.RecordJoy)
         RecordJoy()
     ShowRecordBorder()
 }
@@ -410,7 +410,7 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
         if (x != 0 || y != 0) {
             RI_accumX += x
             RI_accumY += y
-            if (ToolCheckInfo.RecordMouse && ToolCheckInfo.RecordMouseTrail == 3) {
+            if (MainSoftData.RecordMouse && MainSoftData.RecordMouseTrail == 3) {
                 RI_eventQueue.Push(Map("type", "move", "ax", x, "ay", y, "t", A_TickCount))
             }
         }
@@ -427,7 +427,7 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
             0x0100, ["XButton2", GetLang("按下")],
             0x0200, ["XButton2", GetLang("松开")]
         )
-        if (btnFlags != 0 && ToolCheckInfo.RecordMouse) {
+        if (btnFlags != 0 && MainSoftData.RecordMouse) {
             CoordMode("Mouse", "Screen")
             MouseGetPos &snapX, &snapY
             if (snapX != RI_lastSnapX || snapY != RI_lastSnapY) {
@@ -452,7 +452,7 @@ OnWMInput_Raw(wParam, lParam, msg, hwnd) {
             }
         }
     }
-    else if (dwType == 1 && ToolCheckInfo.RecordKeyboard) {
+    else if (dwType == 1 && MainSoftData.RecordKeyboard) {
         CoordMode("Mouse", "Screen")
         MouseGetPos &snapX, &snapY
         if (snapX != RI_lastSnapX || snapY != RI_lastSnapY) {
@@ -500,11 +500,11 @@ RecordConsumeRI() {
     while (RI_eventQueue.Length > 0) {
         item := RI_eventQueue.RemoveAt(1)
         if (item["type"] == "move" || item["type"] == "snap") {
-            span := item["t"] - ToolCheckInfo.RecordLastTime
-            ToolCheckInfo.RecordLastTime := item["t"]
+            span := item["t"] - MainSoftData.RecordLastTime
+            MainSoftData.RecordLastTime := item["t"]
             suffix := (item["type"] == "move") ? "_2" : ""
-            ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
-            ToolCheckInfo.RecordMacroStr .= GetLang("移动") "_" item["ax"] "_" item["ay"] suffix ","
+            MainSoftData.RecordMacroStr .= GetLang("间隔") "_" span ","
+            MainSoftData.RecordMacroStr .= GetLang("移动") "_" item["ax"] "_" item["ay"] suffix ","
         }
         else {
             isDown := item["state"] == GetLang("按下")
@@ -515,65 +515,65 @@ RecordConsumeRI() {
 
 OnRecordAddMacroStr(keyName, isDown, eventTime?) {
     if (keyName == "WheelUp" || keyName == "WheelDown" || keyName == "WheelLeft" || keyName == "WheelRight") {
-        if (ToolCheckInfo.RecordMouse && isDown) {
+        if (MainSoftData.RecordMouse && isDown) {
             curTime := IsSet(eventTime) ? eventTime : A_TickCount
-        span := curTime - ToolCheckInfo.RecordLastTime
-        ToolCheckInfo.RecordLastTime := curTime
-        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
-        ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
+        span := curTime - MainSoftData.RecordLastTime
+        MainSoftData.RecordLastTime := curTime
+        MainSoftData.RecordMacroStr .= GetLang("间隔") "_" span ","
+        MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
         }
         return
     }
     else if (isDown) {
-        if (!ToolCheckInfo.RecordHoldMuti && ToolCheckInfo.RecordHoldKeyMap.Has(keyName))
+        if (!MainSoftData.RecordHoldMuti && MainSoftData.RecordHoldKeyMap.Has(keyName))
             return
-        ToolCheckInfo.RecordHoldKeyMap[keyName] := true
+        MainSoftData.RecordHoldKeyMap[keyName] := true
     }
-    else if (ToolCheckInfo.RecordHoldKeyMap.Has(keyName)) {
-        ToolCheckInfo.RecordHoldKeyMap.Delete(keyName)
+    else if (MainSoftData.RecordHoldKeyMap.Has(keyName)) {
+        MainSoftData.RecordHoldKeyMap.Delete(keyName)
     }
 
     curTime := IsSet(eventTime) ? eventTime : A_TickCount
-    span := curTime - ToolCheckInfo.RecordLastTime
+    span := curTime - MainSoftData.RecordLastTime
     keySymbol := isDown ? GetLang("按下") : GetLang("松开")
-    ToolCheckInfo.RecordLastTime := curTime
+    MainSoftData.RecordLastTime := curTime
     IsJoy := InStr(keyName, "Joy")
     IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton" || keyName == "XButton1" || keyName == "XButton2"
     IsKeyboard := !IsMouse && !IsJoy
 
-    if (IsJoy || (IsKeyboard && ToolCheckInfo.RecordKeyboard)) {
+    if (IsJoy || (IsKeyboard && MainSoftData.RecordKeyboard)) {
         keyName := keyName == "," ? GetLang("逗号") : keyName
-        ToolCheckInfo.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
-        ToolCheckInfo.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
+        MainSoftData.RecordMacroStr .= Format("{}_{},", GetLang("间隔"), span)
+        MainSoftData.RecordMacroStr .= Format("{}_{}_{},", GetLang("按键"), keyName, keySymbol)
     }
 
-    if (IsMouse && ToolCheckInfo.RecordMouse) {
-        ToolCheckInfo.RecordMacroStr .= GetLang("间隔") "_" span ","
-        ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" keySymbol ","
+    if (IsMouse && MainSoftData.RecordMouse) {
+        MainSoftData.RecordMacroStr .= GetLang("间隔") "_" span ","
+        MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" keySymbol ","
     }
 }
 
 OnFinishRecordMacro() {
     global RI_isActive
     RI_isActive := false
-    if (ToolCheckInfo.RecordAutoLoosen) {
-        for Key, Value in ToolCheckInfo.RecordHoldKeyMap {
+    if (MainSoftData.RecordAutoLoosen) {
+        for Key, Value in MainSoftData.RecordHoldKeyMap {
             keyName := Key == "," ? GetLang("逗号") : Key
-            ToolCheckInfo.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
+            MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("松开") ","
         }
     }
-    macroStr := Trim(ToolCheckInfo.RecordMacroStr, ",")
+    macroStr := Trim(MainSoftData.RecordMacroStr, ",")
     macroStr := SimpleRecordMacroStr(macroStr)
     macroStr := DiscardRecordTriggerKey(macroStr, true)
     macroStr := DiscardRecordTriggerKey(macroStr, false)
     macroStr := FilterMoveCmd(macroStr)
 
-    if (MySoftData.MacroEditGui != "") {
-        MySoftData.MacroEditGui.InitTreeView(macroStr)
-        MySoftData.MacroEditGui.InitMacroText(MacroStr)
+    if (MainSoftData.MacroEditGui != "") {
+        MainSoftData.MacroEditGui.InitTreeView(macroStr)
+        MainSoftData.MacroEditGui.InitMacroText(MacroStr)
     }
     macroLineStr := StrReplace(macroStr, ",", "`n")
-    ToolCheckInfo.ToolTextCtrl.Value := macroLineStr
+    UIControls.ToolText.Value := macroLineStr
     SetClipboard(macroLineStr)
     MsgBox(GetLang("录制指令已复制到剪切板！`n`n请在【按键宏】页签下粘贴宏，`n配置触发键后，即可通过按键回放指令。"), GetLang("录制完成提示"))
 }
@@ -582,7 +582,7 @@ FilterMoveCmd(macroStr) {
     if (macroStr == "")
         return ""
 
-    trailMode := ToolCheckInfo.RecordMouseTrail
+    trailMode := MainSoftData.RecordMouseTrail
     moveKey := GetLang("移动")
     spanKey := GetLang("间隔")
     CmdArr := SplitMacro(macroStr)
@@ -613,13 +613,13 @@ FilterMoveCmd(macroStr) {
         return CleanOrphanSpan(filteredArr)
 
     if (trailMode == 1)
-        return FillMoveSpeed(filteredArr, ToolCheckInfo.RecordMouseTrailSpeed)
+        return FillMoveSpeed(filteredArr, MainSoftData.RecordMouseTrailSpeed)
 
     if (trailMode == 3)
         return CompressFullMoves(filteredArr)
 
     if (trailMode == 2)
-        return CleanOrphanSpan(ConvertToRelative(filteredArr, ToolCheckInfo.RecordMouseTrailSpeed))
+        return CleanOrphanSpan(ConvertToRelative(filteredArr, MainSoftData.RecordMouseTrailSpeed))
 
     return macroStr
 }
@@ -742,41 +742,41 @@ OnHotToolRecordMacro(isHotkey, *) {
 }
 
 OnToolRecordMacro(isHotkey, *) {
-    global ToolCheckInfo, MySoftData
+    global MainSoftData, MySoftData
 
     if (isHotkey) {
-        LastState := ToolCheckInfo.ToolCheckRecordMacroCtrl.Value
-        ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := !LastState
+        LastState := UIControls.ToolCheckRecord.Value
+        UIControls.ToolCheckRecord.Value := !LastState
     }
-    state := ToolCheckInfo.ToolCheckRecordMacroCtrl.Value
+    state := UIControls.ToolCheckRecord.Value
 
-    if (MySoftData.MacroEditGui != "") {
-        MySoftData.RecordToggleCon.Value := state
+    if (MainSoftData.MacroEditGui != "") {
+        UIControls.RecordToggle.Value := state
     }
 
     if (state) {
         ShowRecordCountdown(DoStartRecord.Bind(isHotkey))
     }
     else {
-        MySoftData.IsTogEndRecord := isHotkey == ""
+        MainSoftData.IsTogEndRecord := isHotkey == ""
         global RI_isActive, RI_eventQueue, CD_canceled
         wasCountingDown := IsSet(CD_canceled) && !CD_canceled && (IsSet(RecordCountdownGui) && RecordCountdownGui != "")
         RI_isActive := false
         RecordConsumeRI()
         RI_eventQueue := []
-        ToolCheckInfo.ToolCheckRecordMacroCtrl.Value := false
+        UIControls.ToolCheckRecord.Value := false
         HideRecordCountdown()
         HideRecordBorder()
         if (!wasCountingDown) {
             OnFinishRecordMacro()
         } else {
-            ToolCheckInfo.RecordMacroStr := ""
-            ToolCheckInfo.RecordHoldKeyMap := Map()
-            if (MySoftData.MacroEditGui != "") {
-                MySoftData.MacroEditGui.InitTreeView("")
-                MySoftData.MacroEditGui.InitMacroText("")
+            MainSoftData.RecordMacroStr := ""
+            MainSoftData.RecordHoldKeyMap := Map()
+            if (MainSoftData.MacroEditGui != "") {
+                MainSoftData.MacroEditGui.InitTreeView("")
+                MainSoftData.MacroEditGui.InitMacroText("")
             }
-            ToolCheckInfo.ToolTextCtrl.Value := ""
+            UIControls.ToolText.Value := ""
         }
     }
 }
@@ -788,15 +788,15 @@ OnForceEndRecord() {
 
     if (wasCountingDown) {
         HideRecordCountdown()
-        ToolCheckInfo.RecordMacroStr := ""
-        ToolCheckInfo.RecordHoldKeyMap := Map()
-        if (MySoftData.MacroEditGui != "") {
-            MySoftData.MacroEditGui.InitTreeView("")
-            MySoftData.MacroEditGui.InitMacroText("")
+        MainSoftData.RecordMacroStr := ""
+        MainSoftData.RecordHoldKeyMap := Map()
+        if (MainSoftData.MacroEditGui != "") {
+            MainSoftData.MacroEditGui.InitTreeView("")
+            MainSoftData.MacroEditGui.InitMacroText("")
         }
-        ToolCheckInfo.ToolTextCtrl.Value := ""
-        if (MySoftData.MacroEditGui != "")
-            MySoftData.RecordToggleCon.Value := false
+        UIControls.ToolText.Value := ""
+        if (MainSoftData.MacroEditGui != "")
+            UIControls.RecordToggle.Value := false
         return
     }
 
@@ -814,7 +814,7 @@ OnForceEndRecord() {
 ShowRecordBorder() {
     global RecordBorder, RecordBorder_frame
 
-    if (!ToolCheckInfo.RecordShowBorder)
+    if (!MainSoftData.RecordShowBorder)
         return
     if (IsSet(RecordBorder) && RecordBorder != "")
         return

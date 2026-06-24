@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 ; ============================================================================
 ; MacroClipboardUtil.ahk - 宏复制/粘贴功能工具库
@@ -680,9 +680,9 @@ OnItemPasteMacroBtnClick(tableItem, btn, *) {
 
     PosY += titleHeight
     if (isFirst) {
-        MySoftData.TabCtrl.UseTab(tableItem.Index)
+        MainSoftData.TabCtrl.UseTab(tableItem.Index)
         LoadItemFoldTip(tableItem, foldIndex, PosY)
-        MySoftData.TabCtrl.UseTab()
+        MainSoftData.TabCtrl.UseTab()
     }
 
     afterHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)

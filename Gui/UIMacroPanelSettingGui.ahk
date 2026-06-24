@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class UIMacroPanelSettingGui {
     static instances := Map()
@@ -238,7 +238,7 @@ class UIMacroPanelSettingGui {
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
         this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="560"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MySoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
 
         resourceInject := '<CornerRadius x:Key="PanelRadius">8</CornerRadius>'
@@ -302,20 +302,20 @@ class UIMacroPanelSettingGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        themeName := (IsSet(MySoftData) && MySoftData.HasProp("Theme")) ? MySoftData.Theme : "RMT_Light"
+        themeName := (IsSet(MySoftData) && MySoftData.HasProp("Theme")) ? MainSoftData.Theme : "RMT_Light"
         ApplyXamlTheme(this.ui, themeName)
     }
 
     LoadInitValues() {
-        this._showOnActive := !!MySoftData.UIPanelShowOnActive
-        this._defaultPos := MySoftData.UIPanelDefaultPos
-        this._btnColor := MySoftData.UIPanelBtnColor
-        this._bgColor := MySoftData.UIPanelBgColor
-        this._fontColor := MySoftData.UIPanelFontColor
-        this._btnHeight := MySoftData.UIPanelBtnHeight
-        w := MySoftData.UIPanelBtnWidth
+        this._showOnActive := !!MainSoftData.UIPanelShowOnActive
+        this._defaultPos := MainSoftData.UIPanelDefaultPos
+        this._btnColor := MainSoftData.UIPanelBtnColor
+        this._bgColor := MainSoftData.UIPanelBgColor
+        this._fontColor := MainSoftData.UIPanelFontColor
+        this._btnHeight := MainSoftData.UIPanelBtnHeight
+        w := MainSoftData.UIPanelBtnWidth
         this._btnWidth := (w < 40) ? 80 : w
-        this._cols := MySoftData.UIPanelCols
+        this._cols := MainSoftData.UIPanelCols
     }
 
     ApplyValuesToUI() {
@@ -478,23 +478,23 @@ class UIMacroPanelSettingGui {
     SaveData() {
         global IniFile, IniSection
 
-        MySoftData.UIPanelShowOnActive := this._showOnActive
-        MySoftData.UIPanelDefaultPos := this._defaultPos
-        MySoftData.UIPanelBtnColor := this._btnColor
-        MySoftData.UIPanelBgColor := this._bgColor
-        MySoftData.UIPanelFontColor := this._fontColor
-        MySoftData.UIPanelBtnHeight := this._btnHeight
-        MySoftData.UIPanelBtnWidth := this._btnWidth
-        MySoftData.UIPanelCols := this._cols
+        MainSoftData.UIPanelShowOnActive := this._showOnActive
+        MainSoftData.UIPanelDefaultPos := this._defaultPos
+        MainSoftData.UIPanelBtnColor := this._btnColor
+        MainSoftData.UIPanelBgColor := this._bgColor
+        MainSoftData.UIPanelFontColor := this._fontColor
+        MainSoftData.UIPanelBtnHeight := this._btnHeight
+        MainSoftData.UIPanelBtnWidth := this._btnWidth
+        MainSoftData.UIPanelCols := this._cols
 
         iniPath := A_WorkingDir "\Setting\MainSettings.ini"
-        IniWrite(MySoftData.UIPanelShowOnActive, IniFile, IniSection, "UIPanelShowOnActive")
-        IniWrite(MySoftData.UIPanelDefaultPos, IniFile, IniSection, "UIPanelDefaultPos")
-        IniWrite(MySoftData.UIPanelBtnColor, IniFile, IniSection, "UIPanelBtnColor")
-        IniWrite(MySoftData.UIPanelBgColor, IniFile, IniSection, "UIPanelBgColor")
-        IniWrite(MySoftData.UIPanelFontColor, IniFile, IniSection, "UIPanelFontColor")
-        IniWrite(MySoftData.UIPanelBtnHeight, IniFile, IniSection, "UIPanelBtnHeight")
-        IniWrite(MySoftData.UIPanelBtnWidth, IniFile, IniSection, "UIPanelBtnWidth")
-        IniWrite(MySoftData.UIPanelCols, IniFile, IniSection, "UIPanelCols")
+        IniWrite(MainSoftData.UIPanelShowOnActive, IniFile, IniSection, "UIPanelShowOnActive")
+        IniWrite(MainSoftData.UIPanelDefaultPos, IniFile, IniSection, "UIPanelDefaultPos")
+        IniWrite(MainSoftData.UIPanelBtnColor, IniFile, IniSection, "UIPanelBtnColor")
+        IniWrite(MainSoftData.UIPanelBgColor, IniFile, IniSection, "UIPanelBgColor")
+        IniWrite(MainSoftData.UIPanelFontColor, IniFile, IniSection, "UIPanelFontColor")
+        IniWrite(MainSoftData.UIPanelBtnHeight, IniFile, IniSection, "UIPanelBtnHeight")
+        IniWrite(MainSoftData.UIPanelBtnWidth, IniFile, IniSection, "UIPanelBtnWidth")
+        IniWrite(MainSoftData.UIPanelCols, IniFile, IniSection, "UIPanelCols")
     }
 }

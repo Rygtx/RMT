@@ -1,11 +1,11 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 ;打赏
 AddThankUI(index) {
-    MyGui := MySoftData.MyGui
+    MyGui := MainSoftData.MyGui
     tableItem := MySoftData.TableInfo[index]
-    posY := MySoftData.TabPosY + 40
-    OriPosX := MySoftData.TabPosX + 15
+    posY := MainSoftData.TabPosY + 40
+    OriPosX := MainSoftData.TabPosX + 15
 
     posX := OriPosX
     con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", posX, posY, 850, 60), GetLang("感谢以下开发者为项目付出的智慧与汗水（排名不分先后）："))
@@ -174,5 +174,5 @@ AddThankUI(index) {
     tableItem.AllConArr.Push(conInfo)
 
     posY += 50
-    MySoftData.TableInfo[index].underPosY := posY
+    MySoftData.TableInfo[index].UnderPosY := posY
 }

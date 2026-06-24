@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TriggerStrGui {
     __new() {
@@ -93,7 +93,7 @@ class TriggerStrGui {
         {
             MyGui := Gui(, GetLang("字串触发编辑器"))
             this.Gui := MyGui
-            MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+            MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
             MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", 10, 10, 1120, 230), GetLang("请从下面字符中组合你想要触发宏的字串："))
 
             PosX := 20
