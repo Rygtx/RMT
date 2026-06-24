@@ -847,7 +847,7 @@ class WindowManageData {
         this.Width := 0                     ;窗口宽度（调整大小时使用）
         this.Height := 0                    ;窗口高度（调整大小时使用）
         this.NewTitle := ""                 ;新标题（修改标题时使用）
-        this.Transparency := "80"           ;透明度值 0-100（修改透明度时使用，80表示80%不透明度）
+        this.Transparency := "80%"           ;透明度值 0-100（修改透明度时使用，80表示80%不透明度）
     }
 }
 
