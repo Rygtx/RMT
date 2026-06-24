@@ -317,6 +317,39 @@ StopMacro(tableIndex, itemIndex) {
     }
 }
 
+; Worker 多分支图形宏：接收 Worker 提交的分支节点列表，入队并分派，回复确认
+HandleWorkerGraphBranches(wd, tIdx, iIdx, branchCount, nodeArr) {
+    tableItem := MySoftData.TableInfo[tIdx]
+    if (branchCount > 0) {
+        ; fromStart：设置总分支数，清空旧队列，重置终止标记
+        MyWorkPool.DrainItemTaskQueue(tIdx, iIdx)
+        if (tableItem.GraphBranchCountArr.Length >= iIdx)
+            tableItem.GraphBranchCountArr[iIdx] := branchCount
+        if (tableItem.KilledArr.Length >= iIdx)
+            tableItem.KilledArr[iIdx] := false
+        if (MyWorkPool.usePool.Has(wd.idx)) {
+            w := MyWorkPool.usePool[wd.idx]
+            w.isGraphBranch := true
+            w.tableIndex := tIdx
+            w.itemIndex := iIdx
+        }
+    } else {
+        loop nodeArr.Length
+            if (tableItem.GraphBranchCountArr.Length >= iIdx)
+                tableItem.GraphBranchCountArr[iIdx]++
+    }
+    ; 入队各分支任务
+    for nodeSerial in nodeArr
+        MyWorkPool.taskQueue.Push({ cmd: JSON.stringify(["TR_MACRO", tIdx, iIdx, nodeSerial]), tableIndex: tIdx, itemIndex: iIdx, isGraphBranch: true })
+    if (MyWorkPool.isDispatching)
+        MyWorkPool.dispatchPending := true
+    else
+        MyWorkPool.Dispatch()
+    ; 回复 Worker 确认，唤醒继续执行分支1
+    wd.tx.Push(MsgType.EVENT, 0, JSON.stringify(["GraphBranchesAck", tIdx, iIdx]))
+    MyWorkPool.PostMessage(WM_MASTER_TO_WORKER, wd)
+}
+
 SetGlobalArray(Name, Value, excludeIdx := 0) {
     MySoftData.ArrayMap[Name] := Value
     MyVarListenGui.Refresh()

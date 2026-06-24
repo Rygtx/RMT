@@ -19,7 +19,6 @@ global MyInputGui := CustomInputGui()
 global MyInputBtnGui := InputBtnGui()
 global MyStopMacro := WorkStopMacro
 global MyTriggerSubMacro := WorkTriggerSubMacro
-global MyRequestGraphBranch := WorkRequestGraphBranch
 global MySubmitGraphBranches := WorkSubmitGraphBranches
 global MySetGlobalVariable := WorkSetGlobalVariable
 global MyDelGlobalVariable := WorkDelGlobalVariable

@@ -3,20 +3,6 @@
 global MyWorkPool := ""
 global workIndex := 0    ; 主进程占位；Worker 中由 HandleWorkOpenArg 赋实际 idx
 
-GraphMacroExecLog(tag, tableItem, index, cmdStr := "", nodeSerial := "", extra := "") {
-    global workIndex
-    who := MySoftData.isWorker ? Format("W{1}", workIndex) : "Master"
-    cmdShort := cmdStr != "" ? GetCmdStr(cmdStr) : ""
-    detail := Format("执行者={1} tab={2} item={3}", who, tableItem.Index, index)
-    if (nodeSerial != "")
-        detail .= Format(" node={1}", nodeSerial)
-    if (cmdShort != "")
-        detail .= Format(" cmd={1}", cmdShort)
-    if (extra != "")
-        detail .= " " extra
-    GraphPoolLog(tag, detail)
-}
-
 GraphPoolLogPath() {
     return MySoftData.isWorker ? A_ScriptDir "\..\Log\GraphPool.log" : A_ScriptDir "\Log\GraphPool.log"
 }
@@ -39,13 +25,6 @@ GraphPoolLog(tag, detail := "") {
     }
 }
 
-IsGraphStartSerial(serialStr) {
-    if (serialStr == "")
-        return false
-    SplitSerialTextAndNumbers(serialStr, &t, &n)
-    return t == GetLangKey("图形开始节点") && n != ""
-}
-
 IsGraphNodeSerial(serialStr) {
     if (serialStr == "")
         return false
@@ -58,23 +37,6 @@ ShouldUseGraphWorkers() {
     if (MySoftData.isWorker)
         return true
     return MyWorkPool != "" && (MyWorkPool.isDynamic || MyWorkPool.maxSize >= 1)
-}
-
-; Worker 多分支图形宏：分支1在本 Worker 执行，其余分支由 Master 分配；结束状态由 FinishGraphMacroItem 统一处理
-ShouldSkipWorkerFinishMacro(tableItem, macro, index) {
-    if (!MySoftData.isWorker || !ShouldUseGraphWorkers() || !IsGraphStartSerial(macro))
-        return false
-    startData := GetMacroCMDData(macro)
-    if (!IsObject(startData))
-        return false
-    nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
-    return CollectGraphBranchSerials(nodeArr).Length > 1
-}
-
-IncGraphBranchCount(tableItem, index) {
-    if (tableItem.GraphBranchCountArr.Length < index)
-        return
-    tableItem.GraphBranchCountArr[index]++
 }
 
 ShouldSkipGraphNextDispatch(cmdStr) {
@@ -101,27 +63,8 @@ CollectGraphBranchSerials(serialArr) {
     return out
 }
 
-; Worker 内同步通知 Master 分配分支（避免 PostMessage 竞态导致 FINISH 先于 Submit）
-RequestGraphBranchWorker(tableItem, index, nodeSerial, skipInc := false) {
-    if (MySoftData.isWorker) {
-        global MyRequestGraphBranch
-        MyRequestGraphBranch(tableItem.Index, index, nodeSerial, skipInc)
-        return
-    }
-    global MyWorkPool
-    if (!ShouldUseGraphWorkers()) {
-        WalkGraphNode(tableItem, nodeSerial, index)
-        return
-    }
-    if (!skipInc)
-        IncGraphBranchCount(tableItem, index)
-    cmd := JSON.stringify(["TR_GRAPH", tableItem.Index, index, nodeSerial])
-    GraphPoolLog("分支分配", Format("tab={1} item={2} node={3} 来源=Master/DispatchGraphBranches", tableItem.Index, index, nodeSerial))
-    MyWorkPool.SubmitGraphBranch(cmd, tableItem.Index, index)
-}
-
-; 多后继：Worker 批量提交第 2..N 条 TR_GRAPH，本 Worker 执行第 1 条
-; fromStart=true：设置 GraphBranchCount 并标记发起 Worker；否则只递增子分支数
+; 多后继分支调度：单分支本进程执行，多分支通知 Master 分配其余分支后本进程执行第一个
+; fromStart=true：从图形开始节点发起，设置 GraphBranchCount 并标记发起 Worker
 DispatchGraphBranches(tableItem, index, serialArr, fromStart := false) {
     branches := CollectGraphBranchSerials(serialArr)
     if (branches.Length == 0)
@@ -146,39 +89,59 @@ DispatchGraphBranches(tableItem, index, serialArr, fromStart := false) {
         WalkGraphNode(tableItem, branches[1], index)
         return
     }
-    loop branches.Length - 1
-        RequestGraphBranchWorker(tableItem, index, branches[A_Index + 1])
+    ; Master：直接通过 WorkPool 分配其余分支
+    global MyWorkPool
+    loop branches.Length - 1 {
+        cmd := JSON.stringify(["TR_MACRO", tableItem.Index, index, branches[A_Index + 1]])
+        tableItem.GraphBranchCountArr[index]++
+        GraphPoolLog("分支分配", Format("tab={1} item={2} node={3} 来源=Master/DispatchGraphBranches", tableItem.Index, index, branches[A_Index + 1]))
+        MyWorkPool.taskQueue.Push({ cmd: cmd, tableIndex: tableItem.Index, itemIndex: index, isGraphBranch: true })
+        MyWorkPool.Dispatch()
+    }
     WalkGraphNode(tableItem, branches[1], index)
 }
 
 WalkGraphNode(tableItem, nodeSerial, index) {
-    GraphMacroExecLog("进入节点", tableItem, index, "", nodeSerial)
+    who := MySoftData.isWorker ? Format("W{1}", workIndex) : "Master"
+    GraphPoolLog("进入节点", Format("执行者={1} tab={2} item={3} node={4}", who, tableItem.Index, index, nodeSerial))
     if (tableItem.KilledArr[index]) {
-        GraphMacroExecLog("跳过节点", tableItem, index, "", nodeSerial, "原因=已终止")
+        GraphPoolLog("跳过节点", Format("执行者={1} tab={2} item={3} node={4} 原因=已终止", who, tableItem.Index, index, nodeSerial))
         return
     }
     if (!IsGraphNodeSerial(nodeSerial)) {
-        GraphMacroExecLog("跳过节点", tableItem, index, "", nodeSerial, "原因=非图形节点")
+        GraphPoolLog("跳过节点", Format("执行者={1} tab={2} item={3} node={4} 原因=非图形节点", who, tableItem.Index, index, nodeSerial))
         return
     }
     nodeData := GetMacroCMDData(nodeSerial)
     if (!IsObject(nodeData)) {
-        GraphMacroExecLog("跳过节点", tableItem, index, "", nodeSerial, "原因=无节点数据")
+        GraphPoolLog("跳过节点", Format("执行者={1} tab={2} item={3} node={4} 原因=无节点数据", who, tableItem.Index, index, nodeSerial))
         return
     }
 
     curCmd := nodeData.HasOwnProp("CurCMD") ? nodeData.CurCMD : ""
     if (curCmd != "") {
-        GraphMacroExecLog("节点指令", tableItem, index, curCmd, nodeSerial)
-        ExecuteMacroCmdOnce(tableItem, curCmd, index, nodeSerial)
-        if (tableItem.KilledArr[index])
-            return
-        if (tableItem.VariableMapArr[index]["分支-跳出"]) {
-            tableItem.VariableMapArr[index]["分支-跳出"] := false
-            return
+        ; 使用本地队列处理命令返回的子命令，避免递归栈溢出
+        queue := [curCmd]
+        while (queue.Length > 0) {
+            cmd := queue.RemoveAt(1)
+            GraphPoolLog("节点指令", Format("执行者={1} tab={2} item={3} node={4} cmd={5}", who, tableItem.Index, index, nodeSerial, GetCmdStr(cmd)))
+            result := ExecuteMacroCmdOnce(tableItem, cmd, index, nodeSerial)
+            if (result != "") {
+                pos := 1
+                for r in result {
+                    queue.InsertAt(pos, r)
+                    pos++
+                }
+            }
+            if (tableItem.KilledArr[index])
+                return
+            if (tableItem.VariableMapArr[index]["分支-跳出"]) {
+                tableItem.VariableMapArr[index]["分支-跳出"] := false
+                return
+            }
+            if (tableItem.VariableMapArr[index]["循环-跳出"])
+                return
         }
-        if (tableItem.VariableMapArr[index]["循环-跳出"])
-            return
     }
 
     if (ShouldSkipGraphNextDispatch(curCmd))
@@ -192,13 +155,13 @@ OnTriggerGraphMacro(tableItem, startSerial, index) {
     if (!IsObject(startData))
         return
     nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
+    branches := CollectGraphBranchSerials(nodeArr)
+    ; Worker 多分支启动时设置本地计数，用于跳过 OnFinishMacro（由 Master 统一释放）
+    if (branches.Length > 1 && MySoftData.isWorker && tableItem.GraphBranchCountArr.Length >= index)
+        tableItem.GraphBranchCountArr[index] := branches.Length
     DispatchGraphBranches(tableItem, index, nodeArr, true)
 }
 
 ; 主进程占位；Worker 中由 WrokGlobalUtil 覆盖为 WorkSubmitGraphBranches
 SubmitGraphBranchesHandler(tableIndex, itemIndex, branchCount, nodeSerialArr, *) {
-}
-
-; 主进程占位（实际由 WorkPool.SubmitGraphBranch 处理）；Worker 中由 WrokGlobalUtil 覆盖为 WorkRequestGraphBranch
-RequestGraphBranchHandler(tableIndex, itemIndex, nodeSerial, *) {
 }

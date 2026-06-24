@@ -178,21 +178,13 @@
                 GraphPoolLog("Worker任务解析失败", Format("id={1} err={2} cmd={3}", id, e.Message, SubStr(cmd, 1, 120)))
                 return
             }
-            if (paramArr[1] == "TR_GRAPH") {
+            if (paramArr.Length >= 5) {
+                ; TR_MACRO 带 nodeSerial → 跳转到指定图形节点
                 GraphPoolLog("Worker开始执行", Format("tab={1} item={2} node={3}", paramArr[2], paramArr[3], paramArr[4]))
                 tableItem := MySoftData.TableInfo[paramArr[2]]
                 WalkGraphNode(tableItem, paramArr[4], paramArr[3])
             } else {
-                tableItem := MySoftData.TableInfo[paramArr[2]]
-                itemIndex := paramArr[3]
-                macro := tableItem.MacroArr[itemIndex]
-                if (IsGraphStartSerial(macro) && ShouldUseGraphWorkers()) {
-                    tableItem.KilledArr[itemIndex] := false
-                    tableItem.PauseArr[itemIndex] := false
-                    OnTriggerGraphMacro(tableItem, macro, itemIndex)
-                } else {
-                    TriggerMacro(paramArr[2], paramArr[3])
-                }
+                TriggerMacro(paramArr[2], paramArr[3])
             }
         } catch as e {
             GraphPoolLog("Worker任务异常", Format("id={1} err={2} line={3} cmd={4}"
@@ -383,10 +375,6 @@
 
     WorkTriggerSubMacro(tableIndex, itemIndex) {
         MsgSendHandler("TR_MACRO", tableIndex, itemIndex)
-    }
-
-    WorkRequestGraphBranch(tableIndex, itemIndex, nodeSerial, skipInc := false) {
-        MsgSendHandler("TR_GRAPH", tableIndex, itemIndex, nodeSerial, skipInc)
     }
 
     WorkSubmitGraphBranches(tableIndex, itemIndex, branchCount, nodeSerialArr) {

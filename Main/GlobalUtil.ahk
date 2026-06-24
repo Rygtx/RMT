@@ -103,7 +103,6 @@ global MyUseExplainGui := UseExplainGui()
 global MyConfigMergeGui := ConfigMergeGui()
 global MyStopMacro := StopMacro
 global MyTriggerSubMacro := TriggerMacroHandler
-global MyRequestGraphBranch := RequestGraphBranchHandler
 global MySubmitGraphBranches := SubmitGraphBranchesHandler
 global MySetGlobalVariable := SetGlobalVariable
 global MyDelGlobalVariable := DelGlobalVariable

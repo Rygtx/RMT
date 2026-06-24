@@ -45,7 +45,9 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
         tableItem.ActionCount[index]++
         tableItem.VariableMapArr[index]["宏循环次数"] += 1
     }
-    if (!ShouldSkipWorkerFinishMacro(tableItem, macro, index))
+    ; 图形宏多分支时跳过 OnFinishMacro，由 Master 的 FinishGraphMacroItem 统一释放
+    skipFinish := tableItem.GraphBranchCountArr.Length >= index && tableItem.GraphBranchCountArr[index] > 0
+    if (!skipFinish)
         OnFinishMacro(tableItem, macro, index)
 }
 
@@ -62,6 +64,27 @@ OnFinishMacro(tableItem, macro, index) {
 
     itemState := tableItem.KilledArr[index] ? 3 : 0
     MySetTableItemState(tableItem.index, index, itemState)
+}
+
+OnTriggerMacroOnce(tableItem, macro, index) {
+    cmdArr := SplitMacro(macro)
+
+    for value in cmdArr {
+        if (tableItem.KilledArr[index])
+            break
+        result := ExecuteMacroCmdOnce(tableItem, cmdArr[A_Index], index)
+        if (result != "") {
+            cmdArr.InsertAt(A_Index + 1, result*)
+        }
+        if (tableItem.VariableMapArr[index]["分支-跳出"]) {
+            tableItem.VariableMapArr[index]["分支-跳出"] := false
+            break
+        }
+        if (tableItem.VariableMapArr[index]["循环-跳过本轮"])
+            break
+        if (tableItem.VariableMapArr[index]["循环-跳出"])
+            break
+    }
 }
 
 ; 执行单条宏指令（线性宏循环与图形节点 Walk 共用）
@@ -93,7 +116,8 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         "窗口管理", OnWindowManage,
         "按键检测", OnKeyCheck,
         "注释", (*) => "",
-        "抓图", OnScreenShot
+        "抓图", OnScreenShot,
+        "图形开始节点", OnGraphStartNode
     )
 
     if (tableItem.KilledArr[index])
@@ -118,32 +142,11 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     } catch {
         result := ""
     }
-    if (result != "") {
-        for r in result
-            ExecuteMacroCmdOnce(tableItem, r, index, graphNode)
-    }
+    return result
 }
 
-OnTriggerMacroOnce(tableItem, macro, index) {
-    if (IsGraphStartSerial(macro)) {
-        OnTriggerGraphMacro(tableItem, macro, index)
-        return
-    }
-    cmdArr := SplitMacro(macro)
-
-    for value in cmdArr {
-        if (tableItem.KilledArr[index])
-            break
-        ExecuteMacroCmdOnce(tableItem, cmdArr[A_Index], index)
-        if (tableItem.VariableMapArr[index]["分支-跳出"]) {
-            tableItem.VariableMapArr[index]["分支-跳出"] := false
-            break
-        }
-        if (tableItem.VariableMapArr[index]["循环-跳过本轮"])
-            break
-        if (tableItem.VariableMapArr[index]["循环-跳出"])
-            break
-    }
+OnGraphStartNode(tableItem, cmdStr, index) {
+    OnTriggerGraphMacro(tableItem, cmdStr, index)
 }
 
 ; 检查前台窗口是否还存在并处于激活状态
