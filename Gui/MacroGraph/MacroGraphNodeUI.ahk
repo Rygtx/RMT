@@ -515,8 +515,17 @@ class MacroGraphNodeUIMixin {
         grid := border.Add("Grid")
         grid.Rows("28", "Auto")
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
-        hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
+        hgrid := header.Add("Grid")
+        hp := hgrid.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        ; 如果分支：标题栏右侧「内联展开/折叠」按钮（把分支子图指令以真实可编辑节点内联到分支之后）
+        if (this._IsIfNodeId(searchId)) {
+            ilOn := this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(brId) && this._ilExpanded[brId]
+            hgrid.Add("Button").Name("ILExpand_" brId).Content(ilOn ? "▾" : "▸").ToolTip(ilOn ? GetLang("收起") : GetLang("展开"))
+                .Foreground("White").Background("#22FFFFFF").BorderThickness("0").FontSize(this._MGFontSize(11))
+                .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
+                .HorizontalAlignment("Right").VerticalAlignment("Center")
+        }
         body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
         this._FillBranchNodeBody(searchId, isTrue, body, brId)
         this._AddNodePorts(grid, brId)

@@ -13,10 +13,19 @@ class MacroGraphMenuMixin {
 
     _BuildContextMenu() {
         canvas := this.graph.canvas
-        cmEl := canvas.Add("FrameworkElement.ContextMenu")
-        cm := cmEl.Add("ContextMenu").Name("MG_CM").MinWidth("180").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        ; MG_CM 挂在 0 尺寸隐藏宿主上，Placement=MousePoint（按光标点定位，能可靠弹出）。
+        ; FlowDirection=LeftToRight：确保菜单/子菜单向「右」展开——若继承到 RightToLeft，
+        ; MousePoint 会让菜单向光标左侧弹、子菜单也往左（正是"出现在鼠标左下、二级菜单在左"的表现）。
+        cmHost := canvas.Add("Border").Name("MG_CMHost").Width("0").Height("0").Visibility("Collapsed")
+        cmEl := cmHost.Add("Border.ContextMenu")
+        cm := cmEl.Add("ContextMenu").Name("MG_CM").MinWidth("180").MaxHeight("600").Placement("MousePoint").FlowDirection("LeftToRight").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
 
-        ; 注入局部资源：仅 MenuItem 子菜单模板（一级菜单不需要 ScrollViewer）
+        ; 注入局部资源：
+        ;   ① 自定义 ContextMenu 模板（无阴影边框，与位置正确的 MG_DropCM 一致）——
+        ;      主题默认 ContextMenu 模板含阴影 Chrome 边距，会让菜单在光标附近偏移错位；
+        ;      改用此无边距模板后按光标点规整落在右下方；顺带一级菜单也能滚轮滚动。
+        ;   ② MenuItem 子菜单模板（▸ 箭头 + 右向弹出 + 滚轮滚动的二级菜单）。
+        cm.InjectResources(this._ContextMenuScrollStyle())
         cm.InjectResources(this._MenuItemSubmenuStyle())
 
         ; 1. 编辑（仅选中单个节点时可交互）
@@ -50,20 +59,6 @@ class MacroGraphMenuMixin {
             if (iconUri != "")
                 mi.Add("MenuItem.Icon").Add("Image").SetProp("Source", iconUri).Width("16").Height("16")
         }
-
-        ; 将 ContextMenu 属性元素移到画布子元素最前
-        ch := canvas._Children
-        idx := 0
-        for i, c in ch {
-            if (c == cmEl) {
-                idx := i
-                break
-            }
-        }
-        if (idx > 1) {
-            ch.RemoveAt(idx)
-            ch.InsertAt(1, cmEl)
-        }
     }
 
     ; 支持子菜单的 MenuItem 模板（含 ▸ 箭头列 + 右向弹出 Popup）。
@@ -87,8 +82,8 @@ class MacroGraphMenuMixin {
             .           '<TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextSub}" Margin="15,0,0,0" VerticalAlignment="Center"/>'
             .           '<Path Grid.Column="3" x:Name="ArrowPath" Data="M0,0 L4,4 L0,8 Z" Fill="{DynamicResource TextMain}" Margin="8,0,2,0" VerticalAlignment="Center" Visibility="Collapsed"/>'
             .           '<Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Right" HorizontalOffset="-3" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Focusable="False">'
-            .             '<Border Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="180">'
-            .               '<ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="400" Margin="4"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>'
+            .             '<Border FlowDirection="LeftToRight" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="180">'
+            .               '<ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False" MaxHeight="400" Margin="4"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>'
             .             '</Border>'
             .           '</Popup>'
             .         '</Grid>'
@@ -119,6 +114,17 @@ class MacroGraphMenuMixin {
             .     '</ControlTemplate>'
             .   '</Setter.Value></Setter>'
             . '</Style>'
+    }
+
+    ; 右键（未拖动画布）时触发：先刷新菜单项状态，再在鼠标位置弹出右键菜单。
+    ; （C# 引擎已改为“右键按下即准备拖动画布，松开且未移动才发 ContextMenuOpened”，
+    ;  原生自动弹出已被抑制，需在此手动打开 MG_CM。）
+    _OpenContextMenu() {
+        if (this.ui == "" || this.graph == "")
+            return
+        this._UpdateMenuState()
+        ; 用最稳的 IsOpen 打开（Placement=MousePoint，落在光标处，确保能弹出）。
+        this.ui.Update("MG_CM", "IsOpen", "True")
     }
 
     ; 右键菜单打开前：根据当前选中状态更新菜单项的可用性
@@ -221,7 +227,6 @@ class MacroGraphMenuMixin {
         id := this._NewId()
         node := this._DefaultObj(cmdName)
         this.cmdNodes[id] := node
-        this.order.Push(id)
         ox := this.graph.HasProp("lastRightClickX") ? this.graph.lastRightClickX - this.graph.offsetX : 200
         oy := this.graph.HasProp("lastRightClickY") ? this.graph.lastRightClickY - this.graph.offsetY : 200
         this.pos[id] := { x: ox, y: oy }
@@ -232,11 +237,27 @@ class MacroGraphMenuMixin {
         fromIsBranch := this._IsBranchId(pendingFrom)
         logicalFrom := this._LogicalNodeId(pendingFrom)
 
+        ; 若从「内联展开的分支」内的节点（子节点或其分支卡片）引出新增：新节点归入同一分支子图，
+        ; 登记为内联子（不进 this.order），随该分支折叠/保存一并处理，避免污染顶层图或折叠残留。
+        ownerBr := (pendingFrom != "" && this._ilOwner.Has(pendingFrom)) ? this._ilOwner[pendingFrom] : ""
+        if (ownerBr != "") {
+            this._ilOwner[id] := ownerBr
+            this._ilSerial[id] := ""
+            if (this._ilSubs.Has(ownerBr))
+                this._ilSubs[ownerBr].Push(id)
+        } else {
+            this.order.Push(id)
+        }
+
         ; ---- 统一走运行时注入（不重建窗口，避免闪烁；亦修复添加搜索后无法继续添加节点的问题）----
         this._InjectFullNode(id, node)
-        ; 搜索节点：强制绑定真/假分支节点（新建默认展开）
-        if (this._HasVisibleBranches(id))
-            this._InjectBranches(id)
+        ; 搜索/如果节点：强制绑定真/假分支节点（新建默认展开）；内联子则其分支卡片也登记为内联
+        if (this._HasVisibleBranches(id)) {
+            if (ownerBr != "")
+                this._InjectInlineSubBranches(ownerBr, id)
+            else
+                this._InjectBranches(id)
+        }
         ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）
         if (this._IsExpandedLoop(id))
             this._InjectLoopBodyNode(id)

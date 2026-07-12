@@ -97,6 +97,13 @@ class MacroGraphGui {
         this._branchExpanded := Map() ; 分支节点是否展开显示全部指令（key=分支合成ID）
         this._loopChipsExpanded := Map() ; 循环体指令卡片是否展开（key=内联用循环ID/外置用循环体合成ID）
         this._branchInjected := Map() ; 本窗口生命周期内已注入过分支节点的搜索ID（折叠/展开时只显隐不重建）
+        ; 如果分支「内联展开」状态（会话级）：见 MacroGraphInline.ahk
+        this._ilExpanded := Map()     ; brId -> true 是否内联展开
+        this._ilSubs := Map()         ; brId -> [内联子节点id...]
+        this._ilOwner := Map()        ; 内联子节点id -> 所属 brId
+        this._ilSerial := Map()       ; 内联子节点id -> 其分支子图序列码（就地复用，无则空）
+        this._ilStartSerial := Map()  ; brId -> 分支开始节点序列码（复用，无则空）
+        this._ilSeq := 0              ; 内联子节点id 自增序号
         this._loopBodyInjected := Map() ; 本窗口生命周期内已注入过外置循环体节点的循环ID（折叠/展开时只显隐不重建）
         this._ifProUiCaseCount := Map() ; 如果Pro 节点当前 UI 已渲染的情况数（用于编辑器增删后判断是否需要重建）
         this._ifProPortMargin := Map()  ; 如果Pro 各情况出点 Margin.Top（与连线路径对齐）
@@ -141,20 +148,29 @@ class MacroGraphGui {
         this.pos[this.startId] := { x: x, y: baseY }
         prevId := this.startId
         x += step
-        for cmd in SplitMacro(macroStr) {
-            id := this._NewId()
-            this.cmdNodes[id] := this._MakeNode(cmd)
-            this.order.Push(id)
-            this.pos[id] := { x: x, y: baseY }
-            this.links.Push({ from: prevId, to: id })
-            prevId := id
-            x += step
+        ; macroStr 若本身是「图形开始节点」序列码（_LoadGraph 因内容为空才返回 false），
+        ; 说明这是一张空图，绝不能当线性宏 SplitMacro——否则会把序列码本身当成一条指令，
+        ; 生成一个无法识别的「临时节点」（如双击编辑空的真/假分支时出现的多余节点）。
+        SplitSerialTextAndNumbers(macroStr, &mgT, &mgN)
+        isEmptyGraphSerial := (mgT == GetLangKey("图形开始节点") && mgN != "")
+        if (!isEmptyGraphSerial) {
+            for cmd in SplitMacro(macroStr) {
+                id := this._NewId()
+                this.cmdNodes[id] := this._MakeNode(cmd)
+                this.order.Push(id)
+                this.pos[id] := { x: x, y: baseY }
+                this.links.Push({ from: prevId, to: id })
+                prevId := id
+                x += step
+            }
         }
         this._Render()
     }
 
     ; 根据数据模型构建并显示窗口（始终最大化；节点用保存的坐标，连线用 links）
     _Render() {
+        ; 整窗重建前：把内联展开的分支回写并摘除其子节点，避免污染重建后的顶层图（重建后默认折叠）
+        this._DetachAllInlineForRebuild()
         ; 双缓冲：先创建并显示新窗口，待其就绪后再关闭旧窗口，避免新增节点时窗口闪缩
         oldUi := this.ui
         this.graph := ""
@@ -259,8 +275,8 @@ class MacroGraphGui {
         this.ui.OnEvent("MG_Paste", "Click", (*) => this._PasteNodes())
         this.ui.OnEvent("MG_Delete", "Click", (*) => this._DeleteSelected())
         this.ui.OnEvent("MG_Edit", "Click", (*) => this._EditSelected())
-        ; 右键菜单打开前更新菜单项状态
-        this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._UpdateMenuState())
+        ; 右键（未拖动画布）时：更新菜单项状态后手动弹出右键菜单
+        this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._OpenContextMenu())
         this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
         this.ui.OnEvent("Window", "PreviewKeyDown", this._OnKeyDown.Bind(this))
         sid := this._sessionId
@@ -637,6 +653,7 @@ class MacroGraphGui {
     _Apply() {
         if (this.SureBtnAction == "")
             return
+        this._SerializeAllInlineBranches()   ; 内联展开的分支：把当前编辑就地回写 TrueMacro/FalseMacro
         this._CaptureLinks()
         action := this.SureBtnAction
         action(this.startSerial)
@@ -688,3 +705,4 @@ _GraftMacroGraphMixin(mixinClass) {
 #Include MacroGraphEdit.ahk
 #Include MacroGraphMenu.ahk
 #Include MacroGraphConnections.ahk
+#Include MacroGraphInline.ahk

@@ -98,6 +98,9 @@ class MacroGraphBranchMixin {
         this.ui.Update("LoopReturnPath_" loopId, "Visibility", "Collapsed")
         this.ui.Update("LoopCyO_" loopId, "Visibility", "Collapsed")
         this.ui.Update("LoopCyI_" loopId, "Visibility", "Collapsed")
+        ; 回环路径两端的三角箭头也随收起隐藏（否则收起后仍残留在循环节点右侧）
+        this.ui.Update("LoopEnterTri_" loopId, "Visibility", "Collapsed")
+        this.ui.Update("LoopReturnTri_" loopId, "Visibility", "Collapsed")
         this._CaptureLinks()
         this._SpreadForCollapse(loopId)        ; 收起：后继子树左移，与循环节点保持目标间距
     }
@@ -117,6 +120,9 @@ class MacroGraphBranchMixin {
         }
         this.ui.Update("LoopCyO_" loopId, "Visibility", "Visible")
         this.ui.Update("LoopCyI_" loopId, "Visibility", "Visible")
+        ; 回环路径两端的三角箭头随展开恢复显示
+        this.ui.Update("LoopEnterTri_" loopId, "Visibility", "Visible")
+        this.ui.Update("LoopReturnTri_" loopId, "Visibility", "Visible")
         this._CaptureLinks()
         this._SpreadForExpand(loopId)          ; 展开：后继子树右移腾出外置循环体空间
     }

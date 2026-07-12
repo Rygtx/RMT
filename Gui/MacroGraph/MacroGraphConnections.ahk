@@ -147,6 +147,9 @@ class MacroGraphConnectionsMixin {
                 continue
             from := conn.From
             to := conn.To
+            ; 内联展开的分支子节点：仅是分支子图的编辑视图，不属于顶层图，相关连线一律丢弃
+            if (this._IsInlineSub(from) || this._IsInlineSub(to))
+                continue
             ; 循环回环连线（循环↔外置循环体）：纯显示用，不是逻辑后继，直接丢弃不入 links
             if (this._IsLoopBodyId(from) || this._IsLoopBodyId(to))
                 continue
@@ -197,6 +200,17 @@ class MacroGraphConnectionsMixin {
         for conn in g.connections {
             if (conn.HasOwnProp("Active") && !conn.Active)
                 continue
+            ; 内联展开的分支子节点相关连线（分支→子、子→子）一般不做分支归一，保持原样；
+            ; 但「内联如果/搜索子」的真/假分支卡片 → 后继时，需补上另一分支卡片 → 同一后继，
+            ; 使真假分支都连到后续指令（与顶层如果一致）。
+            if (this._IsInlineSub(conn.From) || this._IsInlineSub(conn.To)) {
+                if (this._IsInlineSub(conn.From)) {
+                    ibi := this._BranchInfo(conn.From)
+                    if (ibi != "" && ibi.proIdx < 0 && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To))
+                        toActivate.Push({ from: this._BranchId(ibi.searchId, !ibi.isTrue), to: conn.To })
+                }
+                continue
+            }
             ; ① 展开父节点直连后续：拆成各分支→后续
             if (this._HasVisibleBranches(conn.From) && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To)) {
                 toDeactivate.Push(conn)

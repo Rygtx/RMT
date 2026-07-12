@@ -274,6 +274,9 @@ public class AhkWpfEngine
     RichTextBox _pendingHighlightRtb = null;
     static readonly System.Windows.Media.SolidColorBrush _highlightBrush;
     static readonly System.Windows.Media.SolidColorBrush _activeMatchBrush;
+    // 右键点的屏幕设备坐标（右键松开时由 PointToScreen 换算），仅用于诊断日志：与菜单实际左上角对比偏移。
+    static double _ctxMenuClickDevX = 0;
+    static double _ctxMenuClickDevY = 0;
     string _loadedDictionaryPath = null;
     static void InitHighlightBrushes() { } // Brushes initialized in static field initializers
 
@@ -285,6 +288,82 @@ public class AhkWpfEngine
         _activeMatchBrush.Freeze();
         EventManager.RegisterClassHandler(typeof(ScrollViewer), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnScrollViewerLoaded), false);
         EventManager.RegisterClassHandler(typeof(ScrollViewer), UIElement.PreviewMouseWheelEvent, new System.Windows.Input.MouseWheelEventHandler(OnPreviewMouseWheel), false);
+        // 菜单/子菜单里的 ScrollViewer 收不到滚轮是 WPF 已知问题（只能拖滚动条）。
+        // 直接在 MenuItem 上挂 PreviewMouseWheel 类处理器：悬停任一菜单项滚动滚轮时，
+        // 向上找到其所属 ScrollViewer 并滚动，确保右键菜单/二级菜单可用滚轮滚动。
+        // handledEventsToo=true：即使 ScrollViewer 的类处理器 OnPreviewMouseWheel 已把事件标记为
+        // Handled（canScroll=false 分支会这么做），仍要在更深层的 MenuItem 上收到并滚动，
+        // 否则右键二级菜单永远收不到有效滚轮。
+        EventManager.RegisterClassHandler(typeof(System.Windows.Controls.MenuItem), UIElement.PreviewMouseWheelEvent, new System.Windows.Input.MouseWheelEventHandler(OnMenuItemPreviewMouseWheel), true);
+        // 子菜单定位：给我们右键菜单(MG_*)的子菜单 Popup 设 CustomPopupPlacementCallback，
+        // 顶部对齐、向右下展开，避免 WPF 在屏幕下方把子菜单整体上翻（下方还有空间却太靠上）。
+        EventManager.RegisterClassHandler(typeof(System.Windows.Controls.MenuItem), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnMenuItemLoadedFixSubmenu), false);
+        // 启动即修正菜单右对齐（左手模式），使所有上下文菜单/子菜单向右弹。
+        FixMenuDropAlignment();
+    }
+
+    // 给 MG_* 菜单项的子菜单 Popup 安装自定义定位：右侧、顶部对齐、优先向下展开。
+    private static void OnMenuItemLoadedFixSubmenu(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var mi = sender as System.Windows.Controls.MenuItem;
+            if (mi == null || mi.Name == null || !mi.Name.StartsWith("MG_") || mi.Template == null)
+                return;
+            var popup = mi.Template.FindName("PART_Popup", mi) as System.Windows.Controls.Primitives.Popup;
+            if (popup == null || (popup.Tag as string) == "CPP")
+                return;
+            popup.Tag = "CPP";
+            popup.Placement = System.Windows.Controls.Primitives.PlacementMode.Custom;
+            popup.CustomPopupPlacementCallback = (popupSize, targetSize, offset) =>
+            {
+                double x = targetSize.Width - 3; // 目标右侧（保留原 -3 水平微调）
+                double y = 0;                    // 顶部对齐，向下展开
+                return new[] { new System.Windows.Controls.Primitives.CustomPopupPlacement(
+                    new Point(x, y), System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal) };
+            };
+        }
+        catch { }
+    }
+
+    // 修复 SystemParameters.MenuDropAlignment=true（系统"菜单右对齐/左手模式"）导致 WPF
+    // 上下文菜单及子菜单向光标「左侧」弹出的问题：反射把私有静态字段置 false，强制左对齐(向右弹)。
+    // 该字段会在系统偏好变化时被 WPF 重置，故每次打开菜单前再调一次以确保生效。
+    private static void FixMenuDropAlignment()
+    {
+        try
+        {
+            var f = typeof(SystemParameters).GetField("_menuDropAlignment", BindingFlags.NonPublic | BindingFlags.Static);
+            if (f != null && (bool)f.GetValue(null))
+                f.SetValue(null, false);
+        }
+        catch { }
+    }
+
+    // 滚轮悬停菜单项时滚动其所属 ScrollViewer（修复 WPF 菜单/子菜单滚轮不生效）。
+    // 不看 args.Handled：上游 ScrollViewer 类处理器可能已把事件标记 Handled 但并未真正滚动
+    // （canScroll 误判为 false），这里按需真正滚动最近的可滚动 ScrollViewer。
+    private static void OnMenuItemPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs args)
+    {
+        DependencyObject d = sender as DependencyObject;
+        while (d != null)
+        {
+            d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            if (d is ScrollViewer)
+            {
+                var sv = (ScrollViewer)d;
+                string svTag = sv.Tag as string ?? "";
+                try { LogDebug("[WheelDbg] MenuItemWheel sender='" + ((sender as FrameworkElement) != null ? ((FrameworkElement)sender).Name : "?") + "' foundSV name='" + (sv.Name ?? "") + "' tag='" + svTag + "' scrollableH=" + sv.ScrollableHeight.ToString("F0") + " handled=" + args.Handled); } catch { }
+                // 已被 OnScrollViewerLoaded 挂上滚轮陷阱("Trapped")的 ScrollViewer 由陷阱负责滚动，
+                // 这里跳过以免重复滚动；只兜底处理未被陷阱接管的菜单 ScrollViewer（如本例二级菜单）。
+                if (!svTag.Contains("Trapped") && sv.ScrollableHeight > 0)
+                {
+                    sv.ScrollToVerticalOffset(sv.VerticalOffset - args.Delta / 3.0);
+                    args.Handled = true;
+                }
+                break;
+            }
+        }
     }
 
     private static HwndSource inProcessMsgWindow;
@@ -489,6 +568,7 @@ public class AhkWpfEngine
                 sv.PreviewMouseWheel += handler;
                 sv.MouseWheel += handler;
             }
+            try { LogDebug("[WheelDbg] ScrollViewerLoaded name='" + (sv.Name ?? "") + "' inPopup=" + inPopup + " tag='" + (sv.Tag as string ?? "") + "'"); } catch { }
         }
     }
 
@@ -6044,6 +6124,33 @@ public class AhkWpfEngine
                         Canvas.SetTop((UIElement)ctrl, double.Parse(coords[1], System.Globalization.CultureInfo.InvariantCulture));
                     }
                 }
+                else if (parts[1] == "IsOpen" && ctrl is System.Windows.Controls.ContextMenu)
+                {
+                    // 用最稳的 IsOpen 打开 ContextMenu（Placement=MousePoint）。仅对 MG_CM 打诊断日志：
+                    // 挂一次性 Opened 事件，记录菜单实际左上角屏幕坐标，与右键点对比出真实偏移。
+                    var cmm = (System.Windows.Controls.ContextMenu)ctrl;
+                    bool open = parts.Length >= 3 && (parts[2] == "True" || parts[2] == "true" || parts[2] == "1");
+                    if (open)
+                        FixMenuDropAlignment(); // 确保向右弹（系统偏好可能已把该字段重置回 true）
+                    if (open && parts[0] == "MG_CM")
+                    {
+                        System.Windows.RoutedEventHandler[] oh = new System.Windows.RoutedEventHandler[1];
+                        oh[0] = (os, oe) =>
+                        {
+                            try
+                            {
+                                cmm.Opened -= oh[0];
+                                var mp = cmm.PointToScreen(new Point(0, 0)); // 菜单左上角(设备像素)
+                                LogDebug("[CtxMenu] menuTopLeft(dev)=(" + mp.X.ToString("F1") + "," + mp.Y.ToString("F1")
+                                    + ")  rightClick(dev)=(" + _ctxMenuClickDevX.ToString("F1") + "," + _ctxMenuClickDevY.ToString("F1")
+                                    + ")  delta=(" + (mp.X - _ctxMenuClickDevX).ToString("F1") + "," + (mp.Y - _ctxMenuClickDevY).ToString("F1") + ")");
+                            }
+                            catch (Exception ex) { LogDebug("[CtxMenu] opened-log err: " + ex.Message); }
+                        };
+                        cmm.Opened += oh[0];
+                    }
+                    cmm.IsOpen = open;
+                }
                 else if (parts[1] == "SetCanvasMode" && ctrl is Canvas)
                 {
                     canvasModes[parts[0]] = parts[2];
@@ -7255,6 +7362,11 @@ public class AhkWpfEngine
         if (canvas.Tag != null && canvas.Tag.ToString() == "ZoomPanEnabled") return;
         canvas.Tag = "ZoomPanEnabled";
 
+        // Make the canvas keyboard-focusable so that after clicking / box-selecting on
+        // empty canvas the window still receives key events (Delete / Ctrl+C / Ctrl+V).
+        // Without focus inside the window, PreviewKeyDown on the window is never raised.
+        canvas.Focusable = true;
+
         var scaleTransform = new System.Windows.Media.ScaleTransform(1, 1);
         var translateTransform = new System.Windows.Media.TranslateTransform(0, 0);
         var tg = new System.Windows.Media.TransformGroup();
@@ -7285,6 +7397,7 @@ public class AhkWpfEngine
 
         bool isPanning = false;
         bool panMoved = false;
+        bool panIsRight = false;
         Point panStart = new Point();
         double panStartTX = 0, panStartTY = 0;
 
@@ -7293,6 +7406,8 @@ public class AhkWpfEngine
         Point knifeStart = new Point();
         Point lastKnifePos = new Point();
         string lastSelectionSet = "";
+        string lastConnSelectionSet = "";
+        bool pathClickPending = false;
 
         canvas.PreviewMouseDown += (s, e) =>
         {
@@ -7301,6 +7416,7 @@ public class AhkWpfEngine
                 //System.IO.File.AppendAllText("ahk_pan_debug.log", "Middle PreviewMouseDown fired! Starting pan.\n");
                 isPanning = true;
                 panMoved = false;
+                panIsRight = false;
                 panStart = e.GetPosition(parent != null ? parent : canvas);
                 panStartTX = translateTransform.X;
                 panStartTY = translateTransform.Y;
@@ -7310,11 +7426,63 @@ public class AhkWpfEngine
             }
         };
 
+        // Right button: start a potential pan. If released without moving, open the
+        // context menu; if the mouse moved, treat it as a canvas drag (no menu).
         canvas.PreviewMouseRightButtonDown += (s, e) =>
         {
-            var pos = e.GetPosition(canvas);
-            string coords = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");
+            isPanning = true;
+            panMoved = false;
+            panIsRight = true;
+            panStart = e.GetPosition(parent != null ? parent : canvas);
+            panStartTX = translateTransform.X;
+            panStartTY = translateTransform.Y;
+            canvas.CaptureMouse();
+            canvas.Focus();
+            canvas.Cursor = System.Windows.Input.Cursors.Hand;
+            // Suppress WPF's automatic context menu; we open it manually on button-up if not dragged.
+            e.Handled = true;
+        };
+
+        canvas.PreviewMouseRightButtonUp += (s, e) =>
+        {
+            if (isPanning && panIsRight)
+            {
+                isPanning = false;
+                panIsRight = false;
+                canvas.ReleaseMouseCapture();
+                canvas.Cursor = System.Windows.Input.Cursors.Arrow;
+                if (!panMoved)
+                {
+                    var pos = e.GetPosition(canvas);
+                    string coords = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    // 诊断：记录右键点的屏幕设备坐标，菜单打开后与其左上角对比，量出真实偏移。
+                    try
+                    {
+                        var devPt = canvas.PointToScreen(pos);
+                        _ctxMenuClickDevX = devPt.X;
+                        _ctxMenuClickDevY = devPt.Y;
+                        var src = PresentationSource.FromVisual(canvas);
+                        double dpi = (src != null && src.CompositionTarget != null) ? src.CompositionTarget.TransformToDevice.M11 : 1.0;
+                        LogDebug("[CtxMenu] rightClick canvasLocal=(" + pos.X.ToString("F1") + "," + pos.Y.ToString("F1")
+                            + ")  screenDevice=(" + devPt.X.ToString("F1") + "," + devPt.Y.ToString("F1") + ")  dpiScale=" + dpi.ToString("F3"));
+                    }
+                    catch (Exception ex) { LogDebug("[CtxMenu] rightclick-log err: " + ex.Message); }
+                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");
+                }
+                e.Handled = true;
+            }
+        };
+
+        // Safety: if mouse capture is lost unexpectedly during a pan (e.g. focus stolen,
+        // Alt+Tab), reset the pan state so the canvas doesn't get stuck panning.
+        canvas.LostMouseCapture += (s, e) =>
+        {
+            if (isPanning)
+            {
+                isPanning = false;
+                panIsRight = false;
+                canvas.Cursor = System.Windows.Input.Cursors.Arrow;
+            }
         };
 
         canvas.PreviewMouseLeftButtonDown += (s, e) =>
@@ -7338,6 +7506,18 @@ public class AhkWpfEngine
                 tempConnection.Visibility = Visibility.Visible;
                 canvas.CaptureMouse();
                 e.Handled = true;
+                return;
+            }
+
+            // Clicking directly on a connection path selects it. Handled centrally here
+            // (tunneling) so it works for both build-time and runtime-added connections,
+            // regardless of whether a per-path WPF handler was attached.
+            if (el is System.Windows.Shapes.Path && el.Name != null && el.Name.Contains("_Path_") && el.Visibility == Visibility.Visible)
+            {
+                canvas.Focus();
+                pathClickPending = true;
+                SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|PathClicked|" + LengthPrefix(el.Name) + "\n");
+                e.Handled = true;
             }
         };
 
@@ -7352,6 +7532,14 @@ public class AhkWpfEngine
 
             // If the user clicked on a node or anything else, let it handle its own drag
             if (e.OriginalSource != canvas) return;
+
+            // Give the canvas keyboard focus so Delete / Ctrl+C / Ctrl+V work after a
+            // click / box-select on empty space (the window's PreviewKeyDown needs focus
+            // to be inside the window). Focus() alone only sets logical focus within the
+            // focus scope in some trees; Keyboard.Focus() forces real keyboard focus so
+            // the window-level PreviewKeyDown fires for Delete after a box-select.
+            canvas.Focus();
+            System.Windows.Input.Keyboard.Focus(canvas);
 
             string mode = "Pan";
             if (canvasModes.ContainsKey(canvas.Name)) mode = canvasModes[canvas.Name];
@@ -7389,6 +7577,7 @@ public class AhkWpfEngine
                 selectionBox.Height = 0;
                 selectionBox.Visibility = Visibility.Visible;
                 lastSelectionSet = "FORCE_UPDATE";
+                lastConnSelectionSet = "";
                 canvas.CaptureMouse();
                 e.Handled = true;
             }
@@ -7464,6 +7653,33 @@ public class AhkWpfEngine
                     SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|" + evName + "|" +
                         LengthPrefix(newSet) + "\n");
                 }
+
+                // Connections whose (stroked) geometry intersects the selection rectangle
+                // are box-selected too (reported separately so nodes/connections stay independent).
+                var selRect = new Rect(x, y, w, h);
+                var selRectGeom = new System.Windows.Media.RectangleGeometry(selRect);
+                var currentConns = new System.Collections.Generic.List<string>();
+                foreach (UIElement child in canvas.Children)
+                {
+                    var pathFe = child as System.Windows.Shapes.Path;
+                    if (pathFe == null || pathFe.Name == null || !pathFe.Name.Contains("_Path_")) continue;
+                    if (pathFe.Visibility != Visibility.Visible || pathFe.Data == null) continue;
+                    try
+                    {
+                        double tol = pathFe.StrokeThickness > 0 ? pathFe.StrokeThickness : 6;
+                        var widened = pathFe.Data.GetWidenedPathGeometry(new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, Math.Max(tol, 6)));
+                        if (widened.FillContainsWithDetail(selRectGeom) != System.Windows.Media.IntersectionDetail.Empty)
+                            currentConns.Add(pathFe.Name);
+                    }
+                    catch { }
+                }
+                string newConnSet = string.Join(",", currentConns);
+                if (newConnSet != lastConnSelectionSet)
+                {
+                    lastConnSelectionSet = newConnSet;
+                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|SelectionBoxConn|" +
+                        LengthPrefix(newConnSet) + "\n");
+                }
                 e.Handled = true;
             }
             else if (connectionSourcePort != null && tempConnection != null && tempConnection.Visibility == Visibility.Visible)
@@ -7527,6 +7743,14 @@ public class AhkWpfEngine
         };
         canvas.MouseLeftButtonUp += (s, e) =>
         {
+            // A connection was just clicked (selected) on button-down: swallow this up
+            // so the "clicked empty space" branch below doesn't immediately clear it.
+            if (pathClickPending)
+            {
+                pathClickPending = false;
+                e.Handled = true;
+                return;
+            }
             if (isPanning)
             {
                 isPanning = false;
@@ -7547,6 +7771,11 @@ public class AhkWpfEngine
                     SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ClearSelection|\n");
                 }
                 lastSelectionSet = "";
+                // Re-assert keyboard focus after the box-select finishes: releasing mouse
+                // capture can shift focus, and the window-level PreviewKeyDown needs the
+                // canvas focused so a following Delete deletes the box-selected nodes.
+                canvas.Focus();
+                System.Windows.Input.Keyboard.Focus(canvas);
                 e.Handled = true;
             }
             else if (connectionSourcePort != null && tempConnection != null && tempConnection.Visibility == Visibility.Visible)

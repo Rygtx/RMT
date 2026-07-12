@@ -41,6 +41,8 @@ class MacroGraphEventsMixin {
         if (this._IsIfNodeId(searchId)) {
             this._TrackCtrl("BrFlowCmb_" brId, runtime)
             this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
+            ; 内联展开/折叠按钮：把分支子图指令内联为真实可编辑节点
+            this._BindCtrl("ILExpand_" brId, "Click", this._OnBranchInlineToggle.Bind(this, searchId, isTrue), runtime)
         }
     }
 
