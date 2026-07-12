@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
     static LogicNoKeyMap := Map("Volume_Up", 0, "Volume_Down", 0, "Volume_Mute", 0)
@@ -6,40 +6,45 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
 
-    if (keyType == 1 || keyType == 3) {     ;按下-点击
+    GetRealAction(key) {
+        return (Action == SendLogicKey && LogicNoKeyMap.Has(key)) ? SendNormalKey : Action
+    }
+
+    KeyDown() {
         for key in KeyArr {
-            RealAction := Action
             if (BrightKeyMap.Has(key)) {
                 SetBrightnessByKey(key)
                 continue
             }
-            
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))   ;罗技没有的按键替换为普通按键
-                RealAction := SendNormalKey
 
-            if (HandleKeyDownDown(key, tableItem, index, RealAction))   ;按下时按下特殊处理
+            RealAction := GetRealAction(key)
+
+            if (HandleKeyDownDown(key, tableItem, index, RealAction))
                 continue
 
-            RealAction(key, 1, tableItem, index)  ; 按下
+            RealAction(key, 1, tableItem, index)
         }
     }
 
-    if (keyType == 3) {     ;点击
-        Sleep(holdTime)
-    }
-
-    if (keyType == 2 || keyType == 3) {     ;松开-点击
-        loop KeyArr.Length {
+    KeyUp() {
+        Loop KeyArr.Length {
             key := KeyArr[KeyArr.Length - A_Index + 1]
-            RealAction := Action
+
             if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
                 continue
-    
-            if (Action == SendLogicKey && LogicNoKeyMap.Has(key))
-                RealAction := SendNormalKey
 
-            RealAction(key, 0, tableItem, index)  ; 松开
+            GetRealAction(key)(key, 0, tableItem, index)
         }
+    }
+
+    if (keyType == 1) {
+        KeyDown()
+    } else if (keyType == 2) {
+        KeyUp()
+    } else if (keyType == 3) {
+        KeyDown()
+        Sleep(holdTime)
+        KeyUp()
     }
 }
 
@@ -54,9 +59,7 @@ SendNormalKey(Key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][Key] := "Normal"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(Key)) {
-            tableItem.HoldKeyArr[index].Delete(Key)
-        }
+        tableItem.HoldKeyArr[index].Delete(Key)
     }
 }
 
@@ -87,60 +90,32 @@ SendGameModeKey(Key, state, tableItem, index) {
     }
     else {
         DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", (isExtendedKey ? 0x3 : 0x2), "UPtr", 0)
-        if (tableItem.HoldKeyArr[index].Has(key)) {
-            tableItem.HoldKeyArr[index].Delete(key)
-        }
+        tableItem.HoldKeyArr[index].Delete(key)
     }
 }
 
 SendGameMouseKey(key, state, tableItem, index) {
-    scrollStep := 0
-    mouseData := 0  ; 用于存储滚轮或侧键的数据（120/-120 或 0x0001/0x0002）
+    static MouseMap := Map(
+        "LButton",   {Down: 0x0002, Up: 0x0004, Data: 0},
+        "RButton",   {Down: 0x0008, Up: 0x0010, Data: 0},
+        "MButton",   {Down: 0x0020, Up: 0x0040, Data: 0},
+        "WheelUp",   {Down: 0x0800, Up: 0,      Data: 120},
+        "WheelDown", {Down: 0x0800, Up: 0,      Data: -120},
+        "XButton1",  {Down: 0x0080, Up: 0x0100, Data: 0x0001},
+        "XButton2",  {Down: 0x0080, Up: 0x0100, Data: 0x0002}
+    )
 
-    if (StrCompare(Key, "LButton", false) == 0) {
-        mouseDown := 0x0002  ; MOUSEEVENTF_LEFTDOWN
-        mouseUp := 0x0004    ; MOUSEEVENTF_LEFTUP
-    }
-    else if (StrCompare(Key, "RButton", false) == 0) {
-        mouseDown := 0x0008  ; MOUSEEVENTF_RIGHTDOWN
-        mouseUp := 0x0010    ; MOUSEEVENTF_RIGHTUP
-    }
-    else if (StrCompare(Key, "MButton", false) == 0) {
-        mouseDown := 0x0020  ; MOUSEEVENTF_MIDDLEDOWN
-        mouseUp := 0x0040    ; MOUSEEVENTF_MIDDLEUP
-    }
-    else if (StrCompare(Key, "WheelUp", false) == 0) {
-        mouseDown := 0x0800  ; MOUSEEVENTF_WHEEL
-        mouseUp := 0x0000    ; 滚轮没有 "UP" 事件
-        mouseData := 120     ; +120 表示向上滚动
-    }
-    else if (StrCompare(Key, "WheelDown", false) == 0) {
-        mouseDown := 0x0800  ; MOUSEEVENTF_WHEEL
-        mouseUp := 0x0000    ; 滚轮没有 "UP" 事件
-        mouseData := -120    ; -120 表示向下滚动
-    }
-    else if (StrCompare(Key, "XButton1", false) == 0) {
-        mouseDown := 0x0080  ; MOUSEEVENTF_XDOWN
-        mouseUp := 0x0100    ; MOUSEEVENTF_XUP
-        mouseData := 0x0001  ; 表示 XButton1
-    }
-    else if (StrCompare(Key, "XButton2", false) == 0) {
-        mouseDown := 0x0080  ; MOUSEEVENTF_XDOWN
-        mouseUp := 0x0100    ; MOUSEEVENTF_XUP
-        mouseData := 0x0002  ; 表示 XButton2
-    }
+    info := MouseMap[key]
 
-    if (state == 1) {
-        DllCall("mouse_event", "UInt", mouseDown, "UInt", 0, "UInt", 0, "UInt", mouseData, "UInt", 0)
+    if (state) {
+        DllCall("mouse_event", "UInt", info.Down, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
         tableItem.HoldKeyArr[index][key] := "GameMouse"
     }
     else {
-        if (mouseUp != 0) {  ; 只有非滚轮事件才发送 UP
-            DllCall("mouse_event", "UInt", mouseUp, "UInt", 0, "UInt", 0, "UInt", mouseData, "UInt", 0)
+        if (info.Up) {
+            DllCall("mouse_event", "UInt", info.Up, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
         }
-        if (tableItem.HoldKeyArr[index].Has(key)) {
-            tableItem.HoldKeyArr[index].Delete(key)
-        }
+        tableItem.HoldKeyArr[index].Delete(key)
     }
 }
 
@@ -158,9 +133,7 @@ SendLogicKey(Key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][Key] := "Logic"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(Key)) {
-            tableItem.HoldKeyArr[index].Delete(Key)
-        }
+        tableItem.HoldKeyArr[index].Delete(Key)
     }
 }
 
@@ -176,9 +149,7 @@ SendAHIKey(Key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][Key] := "AHI"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(Key)) {
-            tableItem.HoldKeyArr[index].Delete(Key)
-        }
+        tableItem.HoldKeyArr[index].Delete(Key)
     }
 }
 
@@ -196,9 +167,7 @@ SendJoyBtnKey(key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][key] := "Joy"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(key)) {
-            tableItem.HoldKeyArr[index].Delete(key)
-        }
+        tableItem.HoldKeyArr[index].Delete(key)
     }
 }
 
@@ -212,10 +181,7 @@ SendJoyAxisKey(key, state, tableItem, index) {
         tableItem.HoldKeyArr[index][key] := "JoyAxis"
     }
     else {
-        if (tableItem.HoldKeyArr[index].Has(key)) {
-            tableItem.HoldKeyArr[index].Delete(key)
-        }
-
+        tableItem.HoldKeyArr[index].Delete(key)
     }
 }
 
@@ -230,10 +196,7 @@ SendJoyDpadKey(key, state, tableItem, index) {
     else {
         DpadArr := ["Up", "Down", "Left", "Right"]
         loop DpadArr.Length {
-            curKey := DpadArr[A_Index]
-            if (tableItem.HoldKeyArr[index].Has(curKey)) {
-                tableItem.HoldKeyArr[index].Delete(curKey)
-            }
+            tableItem.HoldKeyArr[index].Delete(DpadArr[A_Index])
         }
     }
 }
