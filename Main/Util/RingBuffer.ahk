@@ -17,29 +17,12 @@ class RingBuffer {
         this.bufPtr := ptr + 192
         this.cap := cap
         this.mask := cap - 1
-
-        static mcodeHex := A_PtrSize == 8
-            ? "89D0F08701C3"
-            : "8B4424088B542404F08702C3"
-        this.pXchg := DllCall("GlobalAlloc", "uint", 0, "ptr", StrLen(mcodeHex) // 2, "ptr")
-        loop StrLen(mcodeHex) // 2
-            NumPut("uchar", "0x" . SubStr(mcodeHex, (A_Index - 1) * 2 + 1, 2), this.pXchg, A_Index - 1)
-        DllCall("VirtualProtect", "ptr", this.pXchg, "ptr", StrLen(mcodeHex) // 2, "uint", 0x40, "uint*", 0)
-    }
-
-    __Delete() {
-        if (this.pXchg)
-            DllCall("GlobalFree", "ptr", this.pXchg)
     }
 
     GetHead() => NumGet(this.headPtr, "UInt")
     SetHead(v) => NumPut("UInt", v, this.headPtr)
     GetTail() => NumGet(this.tailPtr, "UInt")
     SetTail(v) => NumPut("UInt", v, this.tailPtr)
-
-    ExchangeNotifyFlag(v) => DllCall(this.pXchg, "ptr", this.notifyFlagPtr, "int", v, "int")
-    SetNotifyFlag(v) => NumPut("Int", v, this.notifyFlagPtr)
-
     IsEmpty() => this.GetHead() == this.GetTail()
 
     ; Push: [Type][ID][hEvent][Len][Payload]
@@ -51,7 +34,6 @@ class RingBuffer {
         head := this.GetHead()
         tail := this.GetTail()
 
-        ; Unsigned 32-bit safe size
         size := (head - tail) & 0xFFFFFFFF
         if (size + total + 8 >= this.cap)
             return false
@@ -108,12 +90,12 @@ class RingBuffer {
 }
 
 ; Event Helpers
-CreateEvent(name := 0) {
-    return DllCall("CreateEvent", "ptr", 0, "int", true, "int", false, "ptr", name ? StrPtr(name) : 0, "ptr")
+CreateEvent(name := "") {
+    return DllCall("CreateEventW", "ptr", 0, "int", false, "int", false, "ptr", name ? StrPtr(name) : 0, "ptr")
 }
 
 OpenEvent(name) {
-    return DllCall("OpenEvent", "uint", 0x1F0003, "int", 0, "str", name, "ptr")
+    return DllCall("OpenEventW", "uint", 0x00100002, "int", false, "ptr", StrPtr(name), "ptr")
 }
 
 SetEvent(h) {
@@ -126,4 +108,55 @@ ResetEvent(h) {
 
 CloseHandle(h) {
     DllCall("CloseHandle", "ptr", h)
+}
+
+/*
+====================================================================
+R1 輕量化分隔符協定 (取代 JSON)
+- 採用自訂分隔符：`0x01` (欄位分隔)、`0x02` (指令分隔)、`0x03` (轉義字元)。
+- 實作防錯的 Escape/Unescape 迴圈解析器 (EscapeIPC / UnescapeIPC)，能正確處理尾端損壞的封包。
+- 指令重構：改用雙字元 Opcode (如 SV、SA、JY、TR 等) 進行封包路由與分派。
+====================================================================
+*/
+
+EscapeIPC(str) {
+    str := StrReplace(str, Chr(3), Chr(3) Chr(3))
+    str := StrReplace(str, Chr(1), Chr(3) Chr(1))
+    str := StrReplace(str, Chr(2), Chr(3) Chr(2))
+    return str
+}
+
+UnescapeIPC(str) {
+    out := ""
+    escape := false
+    Loop Parse, str {
+        c := A_LoopField
+        if (escape) {
+            out .= c
+            escape := false
+        } else if (c == Chr(3)) {
+            escape := true
+        } else {
+            out .= c
+        }
+    }
+    if (escape)
+        out .= Chr(3)
+    return out
+}
+
+EncodeCommand(opcode, args*) {
+    packet := opcode
+    for arg in args {
+        packet .= Chr(1) EscapeIPC(String(arg))
+    }
+    return packet
+}
+
+EncodeBatch(commands*) {
+    packet := "R1"
+    for cmd in commands {
+        packet .= Chr(2) cmd
+    }
+    return packet
 }
