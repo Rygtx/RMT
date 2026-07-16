@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 class MenuWheelGui {
     static Hotkeys := ["1", "2", "3", "4", "5", "6", "7", "8"]
@@ -14,14 +14,13 @@ class MenuWheelGui {
         this.selectMode := 1
         this.swipe := ""
         this.swipeTriggered := false
+        this._buildGen := 0          ; 世代計數：每次新建輪盤遞增，舊的異步等待自動失效
+        this._hkIds := []
     }
 
     ShowGui(MenuIndex) {
-        PreviousActiveWindow := WinExist("A")
+        this.PreviousActiveWindow := WinExist("A")
         this.ShowRadialMenu(MenuIndex)
-        try {
-            WinActivate(PreviousActiveWindow)
-        }
     }
 
     ShowRadialMenu(MenuIndex) {
@@ -404,10 +403,42 @@ class MenuWheelGui {
 
         this.ui.Show()
 
-        startTime := A_TickCount
-        while (!this.ui.wpfHwnd && A_TickCount - startTime < 5000)
-            Sleep(20)
+        ; ── 異步等待 wpfHwnd，避免阻塞主執行緒 ────────────────────────
+        ; 舊做法：while (!wpfHwnd) Sleep(20)  → 最多阻塞 5 秒，鍵鼠凍結
+        ; 新做法：世代計數 + SetTimer，快速重觸時舊等待自動失效，新觸發立即響應
+        this._buildGen += 1
+        this._buildStartTime := A_TickCount
+        this._buildItemCount := itemCount
+        SetTimer(ObjBindMethod(this, "_WaitForHwnd", this._buildGen), 20)
+    }
 
+    ; 異步輪詢：等待 WPF 視窗控制代碼就緒後完成初始化
+    ; gen：啟動本次等待時的世代號，若已被新一輪覆蓋則靜默退出
+    _WaitForHwnd(gen) {
+        ; 世代不符 → 已被新觸發取代，靜默退出（計時器為 one-shot，無需手動停止）
+        if (gen != this._buildGen)
+            return
+        ; 輪盤在等待途中被關閉
+        if (this.closed || !this.isOpen || !IsObject(this.ui))
+            return
+        ; 超時 5 秒保護
+        if (A_TickCount - this._buildStartTime > 5000)
+            return
+        ; wpfHwnd 尚未就緒 → 再排一次 20ms 後重試
+        if (!this.ui.wpfHwnd) {
+            SetTimer(ObjBindMethod(this, "_WaitForHwnd", gen), 20)
+            return
+        }
+
+        ; wpfHwnd 已就緒 → 執行後續初始化
+        if (this.ui.wpfHwnd) {
+            try {
+                ; 設置 WS_EX_NOACTIVATE (0x08000000) 防止 WPF 視窗搶走滑鼠和鍵盤焦點
+                WinSetExStyle("+0x08000000", "ahk_id " this.ui.wpfHwnd)
+            }
+        }
+
+        itemCount := this._buildItemCount
         for sec in this.sectors {
             if (sec.ImagePath != "" && FileExist(sec.ImagePath))
                 this.ui.Update("Icon_" sec.Index, "Source", sec.ImagePath)
@@ -420,7 +451,6 @@ class MenuWheelGui {
             this.swipe := ""
         }
 
-        ; 显示宏运行状态颜色
         tableItem := MySoftData.TableInfo[3]
         Loop itemCount {
             idx := A_Index
@@ -431,9 +461,11 @@ class MenuWheelGui {
                 this.sectors[idx].RenderState(this, MacroStateColors[state])
         }
 
-        this._aliveHwnd := this.ui.wpfHwnd
-        this.Gui := { Hwnd: this.ui.wpfHwnd }
-        ; 注册数字键热键（窗口打开期间全局有效，关闭时注销）
+        if (IsObject(this.ui)) {
+            this._aliveHwnd := this.ui.wpfHwnd
+            this.Gui := { Hwnd: this.ui.wpfHwnd }
+        }
+        ; 注冊數字鍵熱鍵（窗口打開期間全局有效，關閉時注銷）
         this._hkIds := WinHotkey.Register(MenuWheelGui.Hotkeys, ObjBindMethod(this, "_OnHotkey"))
     }
 
@@ -496,6 +528,8 @@ class MenuWheelGui {
     }
 
     _Cleanup() {
+        ; 遞增世代，使任何正在等待中的 _WaitForHwnd 計時器自動失效
+        this._buildGen += 1
         this.ToggleFunc(false)
         if (this._hkIds.Length > 0) {
             WinHotkey.UnregisterAll(this._hkIds)
