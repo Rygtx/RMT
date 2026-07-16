@@ -26,15 +26,15 @@ ResolveActionForKey(baseAction, key) {
     return (baseAction == SendLogicKey && LogicNoKeyMap.Has(key)) ? SendNormalKey : baseAction
 }
 
-SendKeysUp(keys, state, tableItem, index, Action) {
+SendKeysUp(keys, tableItem, index, Action) {
     Loop keys.Length {
         key := keys[keys.Length - A_Index + 1]
-        SendSingleKey(key, state, tableItem, index, Action)
+        SendSingleKey(key, 0, tableItem, index, Action)
     }
 }
-SendKeysDown(keys, state, tableItem, index, Action) {
+SendKeysDown(keys, tableItem, index, Action) {
     for key in keys
-        SendSingleKey(key, state, tableItem, index, Action)
+        SendSingleKey(key, 1, tableItem, index, Action)
 }
 
 ; ------------------------------------------------------------
@@ -48,30 +48,30 @@ SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
 
     switch keyType {
         case 1:
-            SendKeysDown(KeyArr, 1, tableItem, index, Action)
+            SendKeysDown(KeyArr, tableItem, index, Action)
         case 2:
-            SendKeysUp(KeyArr, 0, tableItem, index, Action)
+            SendKeysUp(KeyArr, tableItem, index, Action)
         case 3:
-            SendKeysDown(KeyArr, 1, tableItem, index, Action)
+            SendKeysDown(KeyArr, tableItem, index, Action)
             Sleep(holdTime)
-            SendKeysUp(KeyArr, 0, tableItem, index, Action)
+            SendKeysUp(KeyArr, tableItem, index, Action)
     }
 }
 
 SendSingleKey(key, state, tableItem, index, Action) {
     static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
     if BrightKeyMap.Has(key) {
-        if (state = 1)
+        if state
             SetBrightnessByKey(key)
         return
     }
 
-    if (state = 0) && MySoftData.OnlyDownKeyMap.Has(key)
+    if !state && MySoftData.OnlyDownKeyMap.Has(key)
         return
 
     RealAction := ResolveActionForKey(Action, key)
 
-    if (state = 1) && HandleRepeatedKeyDown(key, tableItem, index, RealAction)
+    if state && HandleRepeatedKeyDown(key, tableItem, index, RealAction)
         return
 
     RealAction(key, state, tableItem, index)
@@ -81,7 +81,7 @@ SendSingleKey(key, state, tableItem, index, Action) {
 ; Repeated key-down policy
 ; ------------------------------------------------------------
 HandleRepeatedKeyDown(key, tableItem, index, Action) {
-    if !(GetKeyState(key) = 1)
+    if !GetKeyState(key)
         return false
 
     switch MainSoftData.KeyDownDownType {
