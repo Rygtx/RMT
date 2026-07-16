@@ -27,10 +27,19 @@ class MenuWheelGui {
         this.MenuIndex := MenuIndex
         this.showTooltip := !!MainSoftData.MenuWheelShowTooltip
         this.selectMode := MainSoftData.HasProp("MenuWheelSelectMode") ? MainSoftData.MenuWheelSelectMode : 2
+
         if (this.isOpen) {          ; 已有轮盘？先自清
             this.closed := true
             this._Cleanup()         ; 关闭旧窗 + sectors:=[] + 重置状态
         }
+
+        ; 先进入打开状态，避免等待 hwnd 期间软键盘/热键无法工作
+        this.closed := false
+        this.swipeTriggered := false
+        this.isOpen := true
+
+        ; 先注册数字键：轮盘还没显示时也能收到输入
+        this._hkIds := WinHotkey.Register(MenuWheelGui.Hotkeys, ObjBindMethod(this, "_OnHotkey"))
 
         tableItem := MySoftData.TableInfo[3]
 
@@ -121,11 +130,21 @@ class MenuWheelGui {
     }
 
     OnSoftKey(key, isDown) {
-        if (!isDown || !this.isOpen)
+        if (!isDown)
             return
+
         idx := Integer(key)
-        if (idx >= 1 && idx <= MenuWheelGui.Hotkeys.Length && IsObject(this.ui))
+        if (idx < 1 || idx > MenuWheelGui.Hotkeys.Length)
+            return
+
+        ; 輪盤顯示中：走輪盤選取
+        if (this.isOpen && IsObject(this.ui)) {
             this.DoSelect(idx, "")
+            return
+        }
+
+        ; 輪盤未顯示：直接輸出數字
+        try SendText(key)
     }
 
     Close() {
@@ -465,8 +484,6 @@ class MenuWheelGui {
             this._aliveHwnd := this.ui.wpfHwnd
             this.Gui := { Hwnd: this.ui.wpfHwnd }
         }
-        ; 注冊數字鍵熱鍵（窗口打開期間全局有效，關閉時注銷）
-        this._hkIds := WinHotkey.Register(MenuWheelGui.Hotkeys, ObjBindMethod(this, "_OnHotkey"))
     }
 
     _OnHotkey(key) {
