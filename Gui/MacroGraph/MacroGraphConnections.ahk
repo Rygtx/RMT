@@ -296,10 +296,21 @@ class MacroGraphConnectionsMixin {
             this.graph.lastRightClickX := Number(parts[2])
             this.graph.lastRightClickY := Number(parts[3])
         }
-        ; 连线拖放到空白处：直接弹出指令菜单（延迟一帧避开 mouse up 冲突）
-        SetTimer(() => this.ui.Update("MG_DropCM", "IsOpen", "True"), -50)
-        ; 监听菜单关闭：如果用户没有选择指令，清除 pending 状态
-        this.ui.OnEvent("MG_DropCM", "Closed", (*) => (this._pendingConnectionFrom := ""))
+        ; 连线拖放到空白处：先确保菜单关闭（重置 transitional 状态），再延迟弹出
+        ; 延迟 120ms 避开 WPF mouse capture release 与 ContextMenu 内部状态竞争
+        this.ui.Update("MG_DropCM", "IsOpen", "False")
+        SetTimer(() => this._OpenDropMenu(), -120)
+    }
+
+    ; 弹出拖线指令菜单（Closed 事件一次性绑定，避免重复注册累积处理器）
+    _OpenDropMenu() {
+        if (this.ui == "")
+            return
+        if (!this.HasOwnProp("_dropMenuClosedBound") || !this._dropMenuClosedBound) {
+            this.ui.OnEvent("MG_DropCM", "Closed", (*) => (this._pendingConnectionFrom := ""))
+            this._dropMenuClosedBound := true
+        }
+        this.ui.Update("MG_DropCM", "IsOpen", "True")
     }
 
     ; 把所有连线加粗，增大命中区域以便单击选中（默认 2.5px 太细难以点中）

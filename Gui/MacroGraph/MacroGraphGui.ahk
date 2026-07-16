@@ -458,13 +458,17 @@ class MacroGraphGui {
         }
     }
 
-    ; 重算按键节点 点击时长/次数/间隔 行的显隐
+    ; 重算按键节点 点击时长/次数/间隔 行的显隐；同时同步控件值，避免切换后显示旧值
     _RefreshKeyVisibility(id) {
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (d.type != GetLang("按键") || this.ui == "")
             return
         isClick := d.ktype == GetLang("点击")
         showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
+        ; 同步控件值，确保切换类型后控件内容与数据模型一致
+        this.ui.Update("Hold_" id, "Text", d.hold)
+        this.ui.Update("Count_" id, "Text", d.count)
+        this.ui.Update("Inter_" id, "Text", d.inter)
         this.ui.Update("HoldRow_" id, "Visibility", isClick ? "Visible" : "Collapsed")
         this.ui.Update("CountRow_" id, "Visibility", isClick ? "Visible" : "Collapsed")
         this.ui.Update("InterRow_" id, "Visibility", showInter ? "Visible" : "Collapsed")

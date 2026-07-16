@@ -40,12 +40,15 @@ class MacroGraphHandlersMixin {
         this._Apply()
     }
 
-    ; 随机模式显示第二时间行，固定模式隐藏
+    ; 随机模式显示第二时间行，固定模式隐藏；同时同步时间控件值，避免切换后显示旧值
     _RefreshIntervalVisibility(id) {
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (d.type != GetLang("间隔") || this.ui == "")
             return
         isRandom := d.itype == GetLang("随机")
+        ; 同步时间控件值，确保切换类型后控件内容与数据模型一致
+        this.ui.Update("Time_" id, "Text", d.time)
+        this.ui.Update("Time2_" id, "Text", d.time2)
         this.ui.Update("Time2Row_" id, "Visibility", isRandom ? "Visible" : "Collapsed")
     }
 
@@ -74,7 +77,7 @@ class MacroGraphHandlersMixin {
         this._Apply()
     }
 
-    ; 游戏视角模式下速度固定100且禁用编辑；其余模式恢复可编辑
+    ; 游戏视角模式下速度固定100且禁用编辑；其余模式恢复可编辑并同步速度值
     _RefreshMoveVisibility(id) {
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (d.type != GetLang("移动") || this.ui == "")
@@ -85,6 +88,8 @@ class MacroGraphHandlersMixin {
             this.ui.Update("Speed_" id, "IsEnabled", "False")
         }
         else {
+            ; 切出游戏视角时同步速度值为数据模型中的值，避免残留 100
+            this.ui.Update("Speed_" id, "Text", d.speed)
             this.ui.Update("Speed_" id, "IsEnabled", "True")
         }
     }
@@ -266,6 +271,7 @@ class MacroGraphHandlersMixin {
     }
 
     ; 依据 游戏视角 / 拟真轨迹 状态联动刷新各控件的可用性与可见性（与 MMProGui.OnTypeChange / OnHumanMouseTogClick 一致）
+    ; 同时同步控件值，确保切换后内容与数据模型一致
     _RefreshMMProVisibility(id) {
         if (this.ui == "")
             return
@@ -275,26 +281,36 @@ class MacroGraphHandlersMixin {
         isGameView := (data.MouseMoveMode == 2 || data.MouseMoveMode == "2")
         isHuman := (ObjHasOwnProp(data, "IsHumanMouse") && (data.IsHumanMouse == 1 || data.IsHumanMouse == "1"))
 
-        ; 移动速度：游戏视角固定 100 且禁用
+        ; 移动速度：游戏视角固定 100 且禁用；其余模式同步数据模型中的值
         if (isGameView) {
             this.ui.Update("MPSpeed_" id, "Text", "100")
             this.ui.Update("MPSpeed_" id, "IsEnabled", "False")
         }
         else {
+            speedVal := ObjHasOwnProp(data, "Speed") ? data.Speed : "90"
+            this.ui.Update("MPSpeed_" id, "Text", speedVal)
             this.ui.Update("MPSpeed_" id, "IsEnabled", "True")
         }
 
-        ; 鼠标动作：游戏视角或拟真轨迹下强制「移动」且禁用
+        ; 鼠标动作：游戏视角或拟真轨迹下强制「移动」且禁用；其余模式同步选中项
         if (isGameView || isHuman) {
             this.ui.Update("MPActionCmb_" id, "SelectedIndex", 0)
             this.ui.Update("MPActionCmb_" id, "IsEnabled", "False")
         }
         else {
+            actionIdx := this._MMProActionIndex(ObjHasOwnProp(data, "ActionType") ? data.ActionType : 1)
+            this.ui.Update("MPActionCmb_" id, "SelectedIndex", actionIdx)
             this.ui.Update("MPActionCmb_" id, "IsEnabled", "True")
         }
 
-        ; 移动方式：拟真轨迹开启时禁用
-        this.ui.Update("MPModeCmb_" id, "IsEnabled", isHuman ? "False" : "True")
+        ; 移动方式：拟真轨迹开启时禁用；非禁用时同步选中项
+        if (isHuman) {
+            this.ui.Update("MPModeCmb_" id, "IsEnabled", "False")
+        }
+        else {
+            this.ui.Update("MPModeCmb_" id, "SelectedIndex", this._MoveModeIndex(data.MouseMoveMode))
+            this.ui.Update("MPModeCmb_" id, "IsEnabled", "True")
+        }
 
         ; 拟真轨迹：游戏视角下取消勾选并禁用
         if (isGameView) {
@@ -305,7 +321,9 @@ class MacroGraphHandlersMixin {
             this.ui.Update("MPHuman_" id, "IsEnabled", "True")
         }
 
-        ; 移动次数 / 每次间隔：仅游戏视角显示
+        ; 移动次数 / 每次间隔：仅游戏视角显示；同步控件值
+        this.ui.Update("MPCount_" id, "Text", ObjHasOwnProp(data, "Count") ? data.Count : "1")
+        this.ui.Update("MPInterval_" id, "Text", ObjHasOwnProp(data, "Interval") ? data.Interval : "1000")
         this.ui.Update("MPCountRow_" id, "Visibility", isGameView ? "Visible" : "Collapsed")
         this.ui.Update("MPIntervalRow_" id, "Visibility", isGameView ? "Visible" : "Collapsed")
     }
@@ -397,12 +415,20 @@ class MacroGraphHandlersMixin {
     }
 
     ; 按搜索类型切换 颜色/文本/图片+相似度 行的显隐（兼容 搜索 与 搜索Pro）
+    ; 同时同步控件值，确保切换类型后内容与数据模型一致
     _RefreshSearchVisibility(id) {
         data := this._SearchData(id)
         if (data == "" || this.ui == "")
             return
         st := data.SearchType
         c := this._SearchTypeClass(st)
+        ; 同步控件值，避免切换类型后显示旧值
+        if (ObjHasOwnProp(data, "SearchColor"))
+            this.ui.Update("SColor_" id, "Text", data.SearchColor)
+        if (ObjHasOwnProp(data, "SearchText"))
+            this.ui.Update("SText_" id, "Text", data.SearchText)
+        if (ObjHasOwnProp(data, "Similar"))
+            this.ui.Update("SSim_" id, "Text", data.Similar)
         this.ui.Update("SColorRow_" id, "Visibility", c.isColor ? "Visible" : "Collapsed")
         this.ui.Update("STextRow_" id, "Visibility", c.isText ? "Visible" : "Collapsed")
         this.ui.Update("SImgRow_" id, "Visibility", c.isImage ? "Visible" : "Collapsed")
@@ -908,6 +934,11 @@ class MacroGraphHandlersMixin {
         typeKey := data.Type
         showCancel := (typeKey == "继续&取消")
         showRes := (typeKey == "弹窗" || typeKey == "状态")
+        ; 同步控件值，确保切换类型后内容与数据模型一致
+        if (ObjHasOwnProp(data, "CancelType"))
+            this.ui.Update("InCancelCmb_" id, "SelectedIndex", this._InputCancelTypeIndex(data.CancelType))
+        if (ObjHasOwnProp(data, "SaveName"))
+            this.ui.Update("InSave_" id, "Text", data.SaveName)
         this.ui.Update("InCancelRow_" id, "Visibility", showCancel ? "Visible" : "Collapsed")
         this.ui.Update("InSaveRow_" id, "Visibility", showRes ? "Visible" : "Collapsed")
     }
@@ -967,6 +998,11 @@ class MacroGraphHandlersMixin {
         if (data == "" || this.ui == "")
             return
         isCharVar := (data.OutputType == "字符变量")
+        ; 同步控件值，确保切换类型后内容与数据模型一致
+        if (ObjHasOwnProp(data, "VariableName"))
+            this.ui.Update("OutVar_" id, "Text", data.VariableName)
+        if (ObjHasOwnProp(data, "Text"))
+            this.ui.Update("OutText_" id, "Text", GetLangStr(data.Text, 1))
         this.ui.Update("OutVarRow_" id, "Visibility", isCharVar ? "Visible" : "Collapsed")
     }
 

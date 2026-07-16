@@ -143,6 +143,16 @@ class TriggerKeyGui {
         return true
     }
 
+    ; 统计已勾选的非特殊按键数量（特殊按键=修饰键 Shift/Alt/Ctrl/Win 及其左右变体）
+    CountNonSpecialKeys() {
+        count := 0
+        for index, value in this.CheckedArr {
+            if (!this.ModifyKeyMap.Has(value))
+                count += 1
+        }
+        return count
+    }
+
     Init(triggerKey) {
         this.CheckedArr := []
         loopCount := 0
@@ -1287,6 +1297,16 @@ class TriggerKeyGui {
         this.CheckedInfoCon.Value := lable infoStr
         this.SaveBtnCtrl.Visible := this.ShowSaveBtn
         this.UpdateJoyBtnDisplay()
+
+        ; 顺序触发：仅当非特殊按键多选时可用，否则禁用并灰显
+        nonSpecialKeyNum := this.CountNonSpecialKeys()
+        if (!this.IsToolEdit && nonSpecialKeyNum >= 2) {
+            this.UnorderedTriggerCon.Enabled := true
+        }
+        else {
+            this.UnorderedTriggerCon.Enabled := false
+            this.UnorderedTriggerCon.Value := false
+        }
     }
 
     UpdateJoyBtnDisplay() {
