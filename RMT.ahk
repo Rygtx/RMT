@@ -17,4 +17,3 @@ SetEditData()               ;缓存编辑器数据，设置下拉框变量，检
 PluginInit()
 MyTimingScheduler.Start()
 BindKey()           ;绑定快捷键
-
