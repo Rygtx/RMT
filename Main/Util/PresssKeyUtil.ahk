@@ -1,97 +1,178 @@
 #Requires AutoHotkey v2.0
-SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
-    static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
+; ------------------------------------------------------------
+; Helper
+; ------------------------------------------------------------
+GetHoldBucket(tableItem, index) {
+    return tableItem.HoldKeyArr[index]
+}
+
+TrackDown(bucket, key, source) {
+    if !MySoftData.OnlyDownKeyMap.Has(key)
+        bucket[key] := source
+}
+
+TrackUp(bucket, key) {
+    if !MySoftData.OnlyDownKeyMap.Has(key)
+        bucket.Delete(key)
+}
+
+ClearDpadHoldState(bucket) {
+    for dpadKey in ["Up", "Down", "Left", "Right"]
+        bucket.Delete(dpadKey)
+}
+
+ResolveActionForKey(baseAction, key) {
     static LogicNoKeyMap := Map("Volume_Up", 0, "Volume_Down", 0, "Volume_Mute", 0)
-    static OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0)
+    return (baseAction == SendLogicKey && LogicNoKeyMap.Has(key)) ? SendNormalKey : baseAction
+}
+
+SendKeysUp(keys, state, tableItem, index, Action) {
+    Loop keys.Length {
+        key := keys[keys.Length - A_Index + 1]
+        SendSingleKey(key, state, tableItem, index, Action)
+    }
+}
+SendKeysDown(keys, state, tableItem, index, Action) {
+    for key in keys
+        SendSingleKey(key, state, tableItem, index, Action)
+}
+
+; ------------------------------------------------------------
+; Wrapper
+; ------------------------------------------------------------
+SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
+    if !IsObject(KeyArr) || (KeyArr.Length = 0)
+        return
 
-    GetRealAction(key) {
-        return (Action == SendLogicKey && LogicNoKeyMap.Has(key)) ? SendNormalKey : Action
-    }
-
-    KeyDown() {
-        for key in KeyArr {
-            if (BrightKeyMap.Has(key)) {
-                SetBrightnessByKey(key)
-                continue
-            }
-
-            RealAction := GetRealAction(key)
-
-            if (HandleKeyDownDown(key, tableItem, index, RealAction))
-                continue
-
-            RealAction(key, 1, tableItem, index)
-        }
-    }
-
-    KeyUp() {
-        Loop KeyArr.Length {
-            key := KeyArr[KeyArr.Length - A_Index + 1]
-
-            if (BrightKeyMap.Has(key) || OnlyDownKeyMap.Has(key))
-                continue
-
-            GetRealAction(key)(key, 0, tableItem, index)
-        }
-    }
-
-    if (keyType == 1) {
-        KeyDown()
-    } else if (keyType == 2) {
-        KeyUp()
-    } else if (keyType == 3) {
-        KeyDown()
-        Sleep(holdTime)
-        KeyUp()
+    switch keyType {
+        case 1:
+            SendKeysDown(KeyArr, 1, tableItem, index, Action)
+        case 2:
+            SendKeysUp(KeyArr, 0, tableItem, index, Action)
+        case 3:
+            SendKeysDown(KeyArr, 1, tableItem, index, Action)
+            Sleep(holdTime)
+            SendKeysUp(KeyArr, 0, tableItem, index, Action)
     }
 }
 
-SendNormalKey(Key, state, tableItem, index) {
-    Symbol := state == 1 ? "down" : "up"
-    keySymbol := "{Blind}{" key " " Symbol "}"
-    Send(keySymbol)
-
-    if (MySoftData.OnlyDownKeyMap.Has(Key))
+SendSingleKey(key, state, tableItem, index, Action) {
+    static BrightKeyMap := Map("Bright_Up", 0, "Bright_Down", 0)
+    if BrightKeyMap.Has(key) {
+        if (state = 1)
+            SetBrightnessByKey(key)
         return
-    if (state == 1) {
-        tableItem.HoldKeyArr[index][Key] := "Normal"
     }
-    else {
-        tableItem.HoldKeyArr[index].Delete(Key)
+
+    if (state = 0) && MySoftData.OnlyDownKeyMap.Has(key)
+        return
+
+    RealAction := ResolveActionForKey(Action, key)
+
+    if (state = 1) && HandleRepeatedKeyDown(key, tableItem, index, RealAction)
+        return
+
+    RealAction(key, state, tableItem, index)
+}
+
+; ------------------------------------------------------------
+; Repeated key-down policy
+; ------------------------------------------------------------
+HandleRepeatedKeyDown(key, tableItem, index, Action) {
+    if !(GetKeyState(key) = 1)
+        return false
+
+    switch MainSoftData.KeyDownDownType {
+        case 1:  ; auto release first
+            Action(key, 0, tableItem, index)
+        case 2:  ; ignore later press
+            return true
+        case 3:  ; allow duplicate press
     }
+    return false
+}
+
+; ------------------------------------------------------------
+; Senders
+; ------------------------------------------------------------
+SendNormalKey(Key, state, tableItem, index) {
+    bucket := GetHoldBucket(tableItem, index)
+
+    Send("{Blind}{" Key " " (state ? "down" : "up") "}")
+    if state
+        TrackDown(bucket, Key, "Normal")
+    else
+        TrackUp(bucket, Key)
+}
+
+SendLogicKey(Key, state, tableItem, index) {
+    if !InitLogitechGHubNew()
+        return
+
+    bucket := GetHoldBucket(tableItem, index)
+
+    IbSend("{Blind}{" Key " " (state ? "down" : "up") "}")
+    if state
+        TrackDown(bucket, Key, "Logic")
+    else
+        TrackUp(bucket, Key)
+}
+
+SendAHIKey(Key, state, tableItem, index) {
+    if !InitAHI()
+        return
+
+    bucket := GetHoldBucket(tableItem, index)
+
+    AhiSendKey(Key, state)
+    if state
+        TrackDown(bucket, Key, "AHI")
+    else
+        TrackUp(bucket, Key)
 }
 
 SendGameModeKey(Key, state, tableItem, index) {
-    VK := GetKeyVK(Key)
-    SC := GetKeySC(Key)
+    static MouseVK := Map(
+        1, 0,     ; LButton
+        2, 0,     ; RButton
+        4, 0,     ; MButton
+        5, 0,     ; XButton1
+        6, 0,     ; XButton2
+        158, 0,   ; WheelDown
+        159, 0    ; WheelUp
+    )
 
-    if (VK == 1 || VK == 2 || VK == 4 || VK == 158 || VK == 159 || VK == 5 || VK == 6) {   ; 鼠标左键、右键、中键、下滑，上滑
-        SendGameMouseKey(key, state, tableItem, index)
+    static ExtendedVK := Map(
+        0x21, 0,  ; PageUp
+        0x22, 0,  ; PageDown
+        0x23, 0,  ; End
+        0x24, 0,  ; Home
+        0x25, 0,  ; Left
+        0x26, 0,  ; Up
+        0x27, 0,  ; Right
+        0x28, 0,  ; Down
+        0x2D, 0,  ; Insert
+        0x2E, 0   ; Delete
+    )
+
+    bucket := GetHoldBucket(tableItem, index)
+
+    VK := GetKeyVK(Key)
+    if MouseVK.Has(VK) {
+        SendGameMouseKey(Key, state, tableItem, index)
         return
     }
 
-    ; 检测是否为扩展键
-    isExtendedKey := false
-    extendedArr := [0x25, 0x26, 0x27, 0x28, 0X2D, 0X2E, 0X23, 0X24, 0X21, 0X22]    ; 左、上、右、下箭头
-    for index, value in extendedArr {
-        if (VK == value) {
-            isExtendedKey := true
-            break
-        }
-    }
+    SC := GetKeySC(Key)
+    flags := (state ? 0 : 2) | (ExtendedVK.Has(VK) ? 1 : 0)
+    DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", flags, "UPtr", 0)
 
-    if (state == 1) {
-        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", isExtendedKey ? 0x1 : 0, "UPtr", 0)
-        if (MySoftData.OnlyDownKeyMap.Has(Key))
-            return
-        tableItem.HoldKeyArr[index][key] := "Game"
-    }
-    else {
-        DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", (isExtendedKey ? 0x3 : 0x2), "UPtr", 0)
-        tableItem.HoldKeyArr[index].Delete(key)
-    }
+    if state
+        TrackDown(bucket, Key, "Game")
+    else
+        TrackUp(bucket, Key)
 }
 
 SendGameMouseKey(key, state, tableItem, index) {
@@ -105,132 +186,72 @@ SendGameMouseKey(key, state, tableItem, index) {
         "XButton2",  {Down: 0x0080, Up: 0x0100, Data: 0x0002}
     )
 
+    bucket := GetHoldBucket(tableItem, index)
     info := MouseMap[key]
 
-    if (state) {
+    if state {
         DllCall("mouse_event", "UInt", info.Down, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
-        tableItem.HoldKeyArr[index][key] := "GameMouse"
-    }
-    else {
-        if (info.Up) {
+        TrackDown(bucket, key, "GameMouse")
+    } else {
+        if info.Up
             DllCall("mouse_event", "UInt", info.Up, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
-        }
-        tableItem.HoldKeyArr[index].Delete(key)
-    }
-}
-
-SendLogicKey(Key, state, tableItem, index) {
-    if (!InitLogitechGHubNew())
-        return
-
-    Symbol := state == 1 ? "down" : "up"
-    keySymbol := "{Blind}{" key " " Symbol "}"
-    IbSend(keySymbol)
-
-    if (MySoftData.OnlyDownKeyMap.Has(Key))
-        return
-    if (state == 1) {
-        tableItem.HoldKeyArr[index][Key] := "Logic"
-    }
-    else {
-        tableItem.HoldKeyArr[index].Delete(Key)
-    }
-}
-
-SendAHIKey(Key, state, tableItem, index) {
-    if (!InitAHI())
-        return
-
-    AhiSendKey(Key, state)
-
-    if (MySoftData.OnlyDownKeyMap.Has(Key))
-        return
-    if (state == 1) {
-        tableItem.HoldKeyArr[index][Key] := "AHI"
-    }
-    else {
-        tableItem.HoldKeyArr[index].Delete(Key)
+        TrackUp(bucket, key)
     }
 }
 
 SendJoyBtnKey(key, state, tableItem, index) {
-    JoyBtnName := SubStr(key, 4)
-    if (JoyBtnName == "LT" || JoyBtnName == "RT") {
-        Value := state == 1 ? 100 : 0
-        MyViGJoySetState("Axis", JoyBtnName, Value)
-    }
-    else {
-        MyViGJoySetState("Btn", JoyBtnName, state)
-    }
+    bucket := GetHoldBucket(tableItem, index)
 
-    if (state == 1) {
-        tableItem.HoldKeyArr[index][key] := "Joy"
-    }
-    else {
-        tableItem.HoldKeyArr[index].Delete(key)
-    }
+    JoyBtnName := SubStr(key, 4)
+    if (JoyBtnName = "LT" || JoyBtnName = "RT")
+        MyViGJoySetState("Axis", JoyBtnName, state ? 100 : 0)
+    else
+        MyViGJoySetState("Btn", JoyBtnName, state)
+
+    if state
+        TrackDown(bucket, key, "Joy")
+    else
+        TrackUp(bucket, key)
 }
 
 SendJoyAxisKey(key, state, tableItem, index) {
-    Value := InStr(key, "Min") ? 0 : 100
-    Value := state == 1 ? Value : 50
-    JoyAxisName := SubStr(key, 8, 2)
-    MyViGJoySetState("Axis", JoyAxisName, Value)
+    bucket := GetHoldBucket(tableItem, index)
 
-    if (state == 1) {
-        tableItem.HoldKeyArr[index][key] := "JoyAxis"
-    }
-    else {
-        tableItem.HoldKeyArr[index].Delete(key)
-    }
+    Value := InStr(key, "Min") ? 0 : 100
+    MyViGJoySetState("Axis", SubStr(key, 8, 2), state ? Value : 50)
+
+    if state
+        TrackDown(bucket, key, "JoyAxis")
+    else
+        TrackUp(bucket, key)
 }
 
 SendJoyDpadKey(key, state, tableItem, index) {
-    RealKey := SubStr(key, 8)
-    Value := state ? RealKey : "None"
-    MyViGJoySetState("Dpad", Value, 0)
+    bucket := GetHoldBucket(tableItem, index)
 
-    if (state == 1 && Value != "None") {
-        tableItem.HoldKeyArr[index][key] := "JoyDpad"
-    }
-    else {
-        DpadArr := ["Up", "Down", "Left", "Right"]
-        loop DpadArr.Length {
-            tableItem.HoldKeyArr[index].Delete(DpadArr[A_Index])
-        }
-    }
+    RealKey := SubStr(key, 8)
+    MyViGJoySetState("Dpad", state ? RealKey : "None", 0)
+
+    if state && (RealKey != "None")
+        TrackDown(bucket, key, "JoyDpad")
+    else
+        ClearDpadHoldState(bucket)
 }
 
+; ------------------------------------------------------------
+; Brightness
+; ------------------------------------------------------------
 SetBrightnessByKey(key, *) {
-    if (key == "Bright_Down")
+    if (key = "Bright_Down")
         ChangeBrightness(false)
-    if (key == "Bright_Up")
+    else if (key = "Bright_Up")
         ChangeBrightness(true)
 }
 
 ChangeBrightness(isAdd) {
     CurrentBrightness := GetBrightness()
-    Value := isAdd ? CurrentBrightness + 10 : CurrentBrightness - 10
-    Value := Max(0, Min(100, Value)) ; 限制在 0-100
+    Value := Max(0, Min(100, CurrentBrightness + (isAdd ? 10 : -10)))
     wmi := ComObjGet("winmgmts:\\.\root\WMI")
-    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods") {
+    for item in wmi.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
         item.WmiSetBrightness(1, Value)
-    }
-}
-
-;处理宏按键：按下时按下
-HandleKeyDownDown(key, tableItem, index, Action) {
-    isSkip := false
-    try {   ;按下前已经按下的话先松开
-        state := GetKeyState(key)
-        if (state == 1) {
-            if (MainSoftData.KeyDownDownType == 1)    ; 1自动松开
-                Action(key, 0, tableItem, index)
-            else if (MainSoftData.KeyDownDownType == 2)   ;2忽略后续按下
-                isSkip := true
-            else if (MainSoftData.KeyDownDownType == 3) { ;3允许该行为，不做任何干预
-            }
-        }
-    }
-    return isSkip
 }
