@@ -13,6 +13,11 @@ class RunGui {
         this.RunModeCon := ""
         this.SaveNameConArr := []
         this.SaveNameTipConArr := []
+        this.HideCon := ""
+        this.StdInCon := ""
+        this.StdInTipCon := ""
+        this.StdOutTipCon := ""
+        this.ActiveEdit := ""
 
         this.Data := ""
     }
@@ -67,30 +72,12 @@ class RunGui {
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("模式："))
 
         PosX += 40
-        ModeArr := [GetLang("不等待"), GetLang("等待+返回值"), GetLang("等待+完整输出")]
+        ModeArr := [GetLang("不等待"), GetLang("等待+返回值"), GetLang("等待+輸入输出")]
         this.RunModeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R3", PosX, PosY - 3, 110), ModeArr)
         this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
 
         PosX += 120
-        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值"))
-        this.SaveNameTipConArr.Push(tip1)
-        PosX += 50
-        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 80), [])
-        this.SaveNameConArr.Push(con1)
-
-        PosX += 90
-        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出"))
-        this.SaveNameTipConArr.Push(tip2)
-        PosX += 40
-        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 80), [])
-        this.SaveNameConArr.Push(con2)
-
-        PosX += 90
-        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误"))
-        this.SaveNameTipConArr.Push(tip3)
-        PosX += 40
-        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 80), [])
-        this.SaveNameConArr.Push(con3)
+        this.HideCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("隐藏窗口"))
 
         PosY += 35
         PosX := 10
@@ -112,19 +99,47 @@ class RunGui {
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("目标："))
 
         PosX += 40
-        this.PathTextCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 440))
+        this.PathTextCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 450))
+        this.PathTextCon.OnEvent("Focus", (*) => this.ActiveEdit := this.PathTextCon)
 
-        PosX += 445
+        PosX += 455
         btnCon := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("选择文件"))
         btnCon.OnEvent("Click", (*) => this.OnClickFileSelectBtn())
 
-        PosY += 25
+        PosY += 35
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("支持类别：CMD指令、网址、文件等等"))
+        this.StdOutTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("输出："))
+        PosX += 40
+        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值"))
+        this.SaveNameTipConArr.Push(tip1)
+        PosX += 40
+        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        this.SaveNameConArr.Push(con1)
+
+        PosX += 110
+        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出"))
+        this.SaveNameTipConArr.Push(tip2)
+        PosX += 40
+        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        this.SaveNameConArr.Push(con2)
+
+        PosX += 110
+        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误"))
+        this.SaveNameTipConArr.Push(tip3)
+        PosX += 40
+        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        this.SaveNameConArr.Push(con3)
 
         PosY += 25
         PosX := 10
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("支持文件后缀：exe、txt、bat、vbs、mp4、mp3、py等等"))
+        this.StdInTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("输入："))
+        PosX += 40
+        this.StdInCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi VScroll WantReturn", PosX, PosY - 3, 450, 60), "")
+        this.StdInCon.OnEvent("Focus", (*) => this.ActiveEdit := this.StdInCon)
+
+        PosY += 65
+        PosX := 10
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("支持启动程序（如.exe、.bat）、打开文件（如.txt、.mp4）或网址等等"))
 
         PosY += 35
         PosX := 240
@@ -132,29 +147,38 @@ class RunGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(580, 260)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 260))
+        pos := GetCenterPosOnActiveMonitor(580, 340)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 340))
     }
 
     OnModeChange() {
         val := this.RunModeCon.Value
         if (val == 1) {
+            this.StdOutTipCon.Visible := false
             loop 3 {
                 this.SaveNameTipConArr[A_Index].Visible := false
                 this.SaveNameConArr[A_Index].Visible := false
             }
+            this.StdInTipCon.Visible := false
+            this.StdInCon.Visible := false
         } else if (val == 2) {
+            this.StdOutTipCon.Visible := true
             this.SaveNameTipConArr[1].Visible := true
             this.SaveNameConArr[1].Visible := true
             loop 2 {
                 this.SaveNameTipConArr[A_Index + 1].Visible := false
                 this.SaveNameConArr[A_Index + 1].Visible := false
             }
+            this.StdInTipCon.Visible := false
+            this.StdInCon.Visible := false
         } else {
+            this.StdOutTipCon.Visible := true
             loop 3 {
                 this.SaveNameTipConArr[A_Index].Visible := true
                 this.SaveNameConArr[A_Index].Visible := true
             }
+            this.StdInTipCon.Visible := true
+            this.StdInCon.Visible := true
         }
     }
 
@@ -164,18 +188,23 @@ class RunGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
 
-        this.PathTextCon.Value := this.Data.RunPath
+        this.PathTextCon.Value := this.Data.Target
 
         DLVariableArr := GetGuiVarArr(1)
         this.VariCon.Delete()
         this.VariCon.Add(DLVariableArr)
         this.VariCon.Value := 1
 
-        this.RunModeCon.Value := this.Data.RunMode
+        this.RunModeCon.Value := this.Data.Mode
+        this.HideCon.Value := ObjHasOwnProp(this.Data, "Hide") ? this.Data.Hide : false
+        this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
         loop 3 {
             this.SaveNameConArr[A_Index].Delete()
             this.SaveNameConArr[A_Index].Add(GetGuiVarArr(0))
-            this.SaveNameConArr[A_Index].Text := this.Data.SaveNameArr[A_Index]
+            if (ObjHasOwnProp(this.Data, "SaveNameArr") && this.Data.SaveNameArr.Length >= A_Index)
+                this.SaveNameConArr[A_Index].Text := this.Data.SaveNameArr[A_Index]
+            else
+                this.SaveNameConArr[A_Index].Text := (A_Index == 1 ? "ExitCode" : (A_Index == 2 ? "StdOut" : "StdErr"))
         }
         this.OnModeChange()
     }
@@ -247,21 +276,38 @@ class RunGui {
     }
 
     SaveRunData() {
-        this.Data.RunPath := GetLangStr(this.PathTextCon.Value, 2)
-        this.Data.RunMode := this.RunModeCon.Value
-        loop 3 {
-            this.Data.SaveNameArr[A_Index] := this.SaveNameConArr[A_Index].Text
+        this.Data.Target := GetLangStr(this.PathTextCon.Value, 2)
+        this.Data.Mode := this.RunModeCon.Value
+        this.Data.Hide := this.HideCon.Value ? true : false
+
+        if (this.Data.Mode == 1) {
+            if (ObjHasOwnProp(this.Data, "StdIn"))
+                this.Data.DeleteProp("StdIn")
+            if (ObjHasOwnProp(this.Data, "SaveNameArr"))
+                this.Data.DeleteProp("SaveNameArr")
+        } else if (this.Data.Mode == 2) {
+            if (ObjHasOwnProp(this.Data, "StdIn"))
+                this.Data.DeleteProp("StdIn")
+            this.Data.SaveNameArr := [this.SaveNameConArr[1].Text]
+        } else if (this.Data.Mode == 3) {
+            this.Data.StdIn := this.StdInCon.Value
+            this.Data.SaveNameArr := [this.SaveNameConArr[1].Text, this.SaveNameConArr[2].Text, this.SaveNameConArr[3].Text]
         }
 
         SaveMacroCMDData(this.Data)
     }
 
     OnClickAddVarNameBtn() {
-        this.PathTextCon.Value .= this.VariCon.Text
+        targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
+        if (targetCon && targetCon.Hwnd)
+            SendMessage(0x00C2, true, StrPtr(this.VariCon.Text), targetCon.Hwnd)
     }
 
     OnClickAddVarValueBtn() {
-        if (this.VariCon.Text != "")
-            this.PathTextCon.Value .= "{" this.VariCon.Text "}"
+        if (this.VariCon.Text != "") {
+            targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
+            if (targetCon && targetCon.Hwnd)
+                SendMessage(0x00C2, true, StrPtr("{" this.VariCon.Text "}"), targetCon.Hwnd)
+        }
     }
 }

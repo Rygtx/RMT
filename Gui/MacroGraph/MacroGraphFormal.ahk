@@ -617,14 +617,28 @@ class MacroGraphFormalMixin {
         lw := this._FormalLW(), cw := this._FormalCW()
         modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
         saveLabels := [GetLang("退出码"), GetLang("标准输出"), GetLang("标准错误")]
-        rm := d.HasOwnProp("runMode") ? d.runMode : 1
-        rp := d.HasOwnProp("runPath") ? d.runPath : ""
+        rm := d.HasOwnProp("mode") ? d.runMode : 1
+        rp := d.HasOwnProp("target") ? d.runPath : ""
         showSave := rm >= 2
+        hideVal := d.HasOwnProp("hide") ? d.hide : 0
+        stdinVal := d.HasOwnProp("stdin") ? d.stdin : ""
+        showStdIn := rm == 3
         ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
         runPathRow := body.Add("StackPanel").Name("RunPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         runPathRow.Add("TextBox").Name("RunPath_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
         runPathRow.Add("Button").Name("RunPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
+
+        ; 隐藏窗口 CheckBox
+        this._AddCheckRow(body, "RunHideRow_" id, "RunHide_" id, GetLang("隐藏窗口"), hideVal == 1 || hideVal == "1" || hideVal == true, true)
+
+        ; 标准输入 Row
+        stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!showStdIn)
+            stdinRow.Visibility("Collapsed")
+        stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("White").VerticalContentAlignment("Center").Padding("0")
+        stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(stdinVal).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
+
         loop 3 {
             i := A_Index
             sn := d.HasOwnProp("runSave" i) ? d["runSave" i] : (i == 1 ? "ExitCode" : (i == 2 ? "StdOut" : "StdErr"))

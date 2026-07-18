@@ -223,16 +223,37 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
-        if (state.Has("RunPath_" id))
-            data.RunPath := state["RunPath_" id]
+        if (state.Has("RunPath_" id)) {
+            data.Target := state["RunPath_" id]
+        }
         if (state.Has("RunModeCmb_" id) && state["RunModeCmb_" id] != "") {
             modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
-            data.RunMode := this._IndexInLangArr(modes, state["RunModeCmb_" id]) + 1
+            data.Mode := this._IndexInLangArr(modes, state["RunModeCmb_" id]) + 1
         }
-        loop 3 {
-            i := A_Index
-            if (state.Has("RunSave" i "_" id) && state["RunSave" i "_" id] != "")
-                data.SaveNameArr[i] := GetVarName(state["RunSave" i "_" id])
+        data.Hide := this._FormalChecked(state, "RunHide_" id) ? true : false
+
+        ; Remove properties based on Mode
+        if (data.Mode == 1) {
+            if (ObjHasOwnProp(data, "StdIn"))
+                data.DeleteProp("StdIn")
+            if (ObjHasOwnProp(data, "SaveNameArr"))
+                data.DeleteProp("SaveNameArr")
+        } else if (data.Mode == 2) {
+            if (ObjHasOwnProp(data, "StdIn"))
+                data.DeleteProp("StdIn")
+            saveVal := (state.Has("RunSave1_" id) && state["RunSave1_" id] != "") ? GetVarName(state["RunSave1_" id]) : "ExitCode"
+            data.SaveNameArr := [saveVal]
+        } else if (data.Mode == 3) {
+            if (state.Has("RunStdIn_" id))
+                data.StdIn := state["RunStdIn_" id]
+            else
+                data.StdIn := ""
+            arr := []
+            loop 3 {
+                val := (state.Has("RunSave" A_Index "_" id) && state["RunSave" A_Index "_" id] != "") ? GetVarName(state["RunSave" A_Index "_" id]) : (A_Index == 1 ? "ExitCode" : (A_Index == 2 ? "StdOut" : "StdErr"))
+                arr.Push(val)
+            }
+            data.SaveNameArr := arr
         }
         SaveMacroCMDData(data)
         this._RefreshFormalRunVisibility(id)
@@ -1077,8 +1098,10 @@ class MacroGraphFormalHandlersMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
-        rm := d.HasOwnProp("runMode") ? d.runMode : 1
+        rm := d.HasOwnProp("mode") ? d.mode : 1
         showSave := rm >= 2
+        showStdIn := rm == 3
+        this._FormalSetVis(id, "RunStdInRow_" id, showStdIn)
         loop 3
             this._FormalSetVis(id, "RunSave" A_Index "Row_" id, showSave)
     }
@@ -1964,7 +1987,7 @@ class MacroGraphFormalHandlersMixin {
             return GetLang("运算")
         }
         if (d.type == GetLang("运行")) {
-            p := d.HasOwnProp("runPath") ? d.runPath : ""
+            p := d.HasOwnProp("target") ? d.target : ""
             if (StrLen(p) > 28)
                 p := SubStr(p, 1, 28) "..."
             return p

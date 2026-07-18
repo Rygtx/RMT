@@ -111,16 +111,14 @@ SetGlobalData(macroStr, visitMap) {
             SetFileIOGlobalData(Data)
         }
         else if (IsRun) {
-            if (ObjHasOwnProp(Data, "RunMode")) {
-                if (Data.RunMode == 2) {
-                    if (Data.SaveNameArr[1] != "")
-                        VariableMap[Data.SaveNameArr[1]] := true
-                }
-                else if (Data.RunMode == 3) {
-                    loop 3 {
-                        if (Data.SaveNameArr[A_Index] != "")
-                            VariableMap[Data.SaveNameArr[A_Index]] := true
-                    }
+            if (Data.Mode = 2) {
+                if (Data.SaveNameArr[1] != "")
+                    VariableMap[Data.SaveNameArr[1]] := true
+            }
+            else if (Data.Mode = 3) {
+                loop 3 {
+                    if (Data.SaveNameArr[A_Index] != "")
+                        VariableMap[Data.SaveNameArr[A_Index]] := true
                 }
             }
         }
