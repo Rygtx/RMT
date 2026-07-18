@@ -16,8 +16,14 @@ class RunGui {
         this.HideCon := ""
         this.StdInCon := ""
         this.StdInTipCon := ""
+        this.StdInEditBtnCon := ""
         this.StdOutTipCon := ""
         this.ActiveEdit := ""
+
+        this.StdInText := ""
+        this.StdInEditGui := ""
+        this.StdInEditCon := ""
+        this.StdInEditVariCon := ""
 
         this.Data := ""
     }
@@ -130,14 +136,19 @@ class RunGui {
         con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
         this.SaveNameConArr.Push(con3)
 
-        PosY += 25
+        PosY += 30
         PosX := 10
-        this.StdInTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("输入："))
+        this.StdInTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 50), GetLang("输入："))
         PosX += 40
-        this.StdInCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi VScroll WantReturn", PosX, PosY - 3, 450, 60), "")
+        this.StdInCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi VScroll WantReturn", PosX, PosY - 1, 390, 60), "")
         this.StdInCon.OnEvent("Focus", (*) => this.ActiveEdit := this.StdInCon)
 
-        PosY += 65
+        PosX += 400
+        this.StdInEditBtnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 100, 60), GetLang("编辑"))
+        this.StdInEditBtnCon.OnEvent("Click", (*) => this.OpenStdInEditor())
+        this.StdInCon.OnEvent("Change", (*) => this.OnStdInOuterChange())
+
+        PosY += 70
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("支持启动程序（如.exe、.bat）、打开文件（如.txt、.mp4）或网址等等"))
 
@@ -147,8 +158,17 @@ class RunGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(580, 340)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 340))
+        pos := GetCenterPosOnActiveMonitor(580, 350)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 350))
+    }
+
+    OnStdInOuterChange() {
+        if (this.StdInCon == "")
+            return
+        this.StdInText := this.StdInCon.Value
+        if (this.StdInEditGui != "" && this.StdInEditGui.Visible) {
+            this.StdInEditCon.Value := this.StdInText
+        }
     }
 
     OnModeChange() {
@@ -161,6 +181,7 @@ class RunGui {
             }
             this.StdInTipCon.Visible := false
             this.StdInCon.Visible := false
+            this.StdInEditBtnCon.Visible := false
         } else if (val == 2) {
             this.StdOutTipCon.Visible := true
             this.SaveNameTipConArr[1].Visible := true
@@ -171,6 +192,7 @@ class RunGui {
             }
             this.StdInTipCon.Visible := false
             this.StdInCon.Visible := false
+            this.StdInEditBtnCon.Visible := false
         } else {
             this.StdOutTipCon.Visible := true
             loop 3 {
@@ -179,6 +201,7 @@ class RunGui {
             }
             this.StdInTipCon.Visible := true
             this.StdInCon.Visible := true
+            this.StdInEditBtnCon.Visible := true
         }
     }
 
@@ -197,7 +220,9 @@ class RunGui {
 
         this.RunModeCon.Value := this.Data.Mode
         this.HideCon.Value := ObjHasOwnProp(this.Data, "Hide") ? this.Data.Hide : false
-        this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
+        this.StdInText := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
+        this.UpdateStdInPreview()
+
         loop 3 {
             this.SaveNameConArr[A_Index].Delete()
             this.SaveNameConArr[A_Index].Add(GetGuiVarArr(0))
@@ -235,6 +260,108 @@ class RunGui {
         this.PathTextCon.Value := fileString
     }
 
+    OpenStdInEditor() {
+        if (this.StdInEditGui == "") {
+            this.AddStdInEditorGui()
+        }
+
+        if (this.OwnerHwnd != "") {
+            this.StdInEditGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        this.StdInEditVariCon.Delete()
+        this.StdInEditVariCon.Add(GetGuiVarArr(1))
+        this.StdInEditVariCon.Value := 1
+        this.StdInEditCon.Value := this.StdInText
+        this.StdInEditGui.Show()
+        try this.StdInEditGui.Activate()
+    }
+
+    AddStdInEditorGui() {
+        MyGui := Gui(, this.ParentTile GetLang("输入编辑器"))
+        this.StdInEditGui := MyGui
+
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 50), GetLang("变量："))
+
+        PosX += 40
+        this.StdInEditVariCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R6", PosX, PosY - 1, 130), [])
+        this.StdInEditVariCon.Add(GetGuiVarArr(1))
+        this.StdInEditVariCon.Value := 1
+
+        PosX += 140
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 70, 25), GetLang("追加名"))
+        btnCon.OnEvent("Click", (*) => this.OnClickStdInEditorAddVarNameBtn())
+
+        PosX += 80
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 1, 70, 25), GetLang("追加值"))
+        btnCon.OnEvent("Click", (*) => this.OnClickStdInEditorAddVarValueBtn())
+
+        PosX := 10
+        PosY += 35
+        this.StdInEditCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi VScroll WantReturn", PosX, PosY, 680, 300), this.StdInText)
+        this.StdInEditCon.OnEvent("Focus", (*) => this.ActiveEdit := this.StdInEditCon)
+        this.StdInEditCon.OnEvent("Change", (*) => this.OnStdInEditChange())
+
+        btnOk := MyGui.Add("Button", "x330 y350 w90 h30", GetLang("确定"))
+        btnOk.OnEvent("Click", (*) => this.OnClickStdInEditorOk())
+
+        MyGui.OnEvent("Close", (*) => this.OnClickStdInEditorClose())
+        MyGui.Show("w700 h395")
+    }
+
+    OnStdInEditChange() {
+        if (this.StdInEditCon != "") {
+            this.StdInText := this.StdInEditCon.Value
+            this.UpdateStdInPreview()
+        }
+    }
+
+    OnClickStdInEditorAddVarNameBtn() {
+        if (this.StdInEditCon == "")
+            return
+
+        SendMessage(0x00C2, true, StrPtr(this.StdInEditVariCon.Text), this.StdInEditCon.Hwnd)
+        this.OnStdInEditChange()
+    }
+
+    OnClickStdInEditorAddVarValueBtn() {
+        if (this.StdInEditCon == "")
+            return
+
+        if (this.StdInEditVariCon.Text != "") {
+            SendMessage(0x00C2, true, StrPtr("{" this.StdInEditVariCon.Text "}"), this.StdInEditCon.Hwnd)
+            this.OnStdInEditChange()
+        }
+    }
+
+    OnClickStdInEditorOk() {
+        this.OnStdInEditChange()
+        this.StdInEditGui.Hide()
+    }
+
+    OnClickStdInEditorClose() {
+        if (this.StdInEditGui != "") {
+            this.StdInEditGui.Hide()
+        }
+    }
+
+    UpdateStdInPreview() {
+        if (this.StdInCon == "")
+            return
+
+        previewText := this.StdInText
+        if (previewText == "")
+            previewText := GetLang("（空）")
+
+        this.StdInCon.Value := previewText
+    }
+
     OnClickSureBtn() {
         valid := this.CheckIfValid()
         if (!valid)
@@ -243,6 +370,10 @@ class RunGui {
         this.ToggleFunc(false)
         action := this.SureBtnAction
         action(this.GetCommandStr())
+
+        if (this.StdInEditGui != "") {
+            this.StdInEditGui.Hide()
+        }
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
@@ -254,6 +385,11 @@ class RunGui {
 
     OnGuiClose() {
         this.ToggleFunc(false)
+
+        if (this.StdInEditGui != "") {
+            this.StdInEditGui.Hide()
+        }
+
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -281,13 +417,10 @@ class RunGui {
         this.Data.Hide := this.HideCon.Value ? true : false
 
         if (this.Data.Mode == 1) {
-            if (ObjHasOwnProp(this.Data, "StdIn"))
-                this.Data.DeleteProp("StdIn")
-            if (ObjHasOwnProp(this.Data, "SaveNameArr"))
-                this.Data.DeleteProp("SaveNameArr")
+            this.Data.DeleteProp("StdIn")
+            this.Data.DeleteProp("SaveNameArr")
         } else if (this.Data.Mode == 2) {
-            if (ObjHasOwnProp(this.Data, "StdIn"))
-                this.Data.DeleteProp("StdIn")
+            this.Data.DeleteProp("StdIn")
             this.Data.SaveNameArr := [this.SaveNameConArr[1].Text]
         } else if (this.Data.Mode == 3) {
             this.Data.StdIn := this.StdInCon.Value
@@ -300,14 +433,18 @@ class RunGui {
     OnClickAddVarNameBtn() {
         targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
         if (targetCon && targetCon.Hwnd)
-            SendMessage(0x00C2, true, StrPtr(this.VariCon.Text), targetCon.Hwnd)
+            this.InsertIntoEdit(targetCon, this.VariCon.Text)
     }
 
     OnClickAddVarValueBtn() {
         if (this.VariCon.Text != "") {
             targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
             if (targetCon && targetCon.Hwnd)
-                SendMessage(0x00C2, true, StrPtr("{" this.VariCon.Text "}"), targetCon.Hwnd)
+                this.InsertIntoEdit(targetCon, "{" this.VariCon.Text "}")
         }
+    }
+
+    InsertIntoEdit(editCon, text) {
+        SendMessage(0x00C2, true, StrPtr(text), editCon.Hwnd) ; EM_REPLACESEL
     }
 }
