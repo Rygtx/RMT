@@ -77,7 +77,7 @@ class RunGui {
         MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("模式："))
 
         PosX += 40
-        ModeArr := [GetLang("不等待"), GetLang("等待+返回值"), GetLang("等待+輸入输出")]
+        ModeArr := [GetLang("不等待"), GetLang("等待+返回值"), GetLang("等待+输入输出")]
         this.RunModeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R3", PosX, PosY - 3, 110), ModeArr)
         this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
 
