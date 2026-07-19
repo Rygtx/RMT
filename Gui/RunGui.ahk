@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 class RunGui {
     __new() {
@@ -166,7 +166,7 @@ class RunGui {
         if (this.StdInCon == "")
             return
         this.StdInText := this.StdInCon.Value
-        if (this.StdInEditGui != "" && this.StdInEditGui.Visible) {
+        if (this.StdInEditGui != "") {
             this.StdInEditCon.Value := this.StdInText
         }
     }
@@ -237,9 +237,9 @@ class RunGui {
     GetCommandStr() {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
-        CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
-        return CommandStr
+        commandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
+        commandStr := CorrectRemark(commandStr, this.RemarkCon.Value)
+        return commandStr
     }
 
     ToggleFunc(state) {
@@ -423,7 +423,7 @@ class RunGui {
             this.Data.DeleteProp("StdIn")
             this.Data.SaveNameArr := [this.SaveNameConArr[1].Text]
         } else if (this.Data.Mode == 3) {
-            this.Data.StdIn := this.StdInCon.Value
+            this.Data.StdIn := this.StdInText
             this.Data.SaveNameArr := [this.SaveNameConArr[1].Text, this.SaveNameConArr[2].Text, this.SaveNameConArr[3].Text]
         }
 
