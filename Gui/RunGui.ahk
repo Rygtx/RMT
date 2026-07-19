@@ -106,6 +106,7 @@ class RunGui {
         PosX += 40
         this.PathTextCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 450))
         this.PathTextCon.OnEvent("Focus", (*) => this.ActiveEdit := this.PathTextCon)
+        this.ActiveEdit := this.PathTextCon
 
         PosX += 455
         btnCon := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("选择文件"))
