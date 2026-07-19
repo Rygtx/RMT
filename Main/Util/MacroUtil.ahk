@@ -206,8 +206,6 @@ OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
     processedPath := GetReplaceVarText(tableItem, index, Data.Target)
-    stdinText := Data.HasProp("StdIn") ? GetReplaceVarText(tableItem, index, Data.StdIn) : ""
-    MsgBox(stdinText)
 
     if (Data.Mode = 1) {
         if (Data.Hide)
@@ -225,6 +223,7 @@ OnRunFile(tableItem, cmd, index) {
     } else if (Data.Mode = 3) {
         stdout := ""
         stderr := ""
+        stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
         exitCode := RunHiddenCapture(processedPath, Data.Hide, stdinText, &stdout, &stderr)
         MySetGlobalVariable(
             Data.SaveNameArr,
