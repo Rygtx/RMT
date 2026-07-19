@@ -512,9 +512,9 @@ CompatRun(filePath) {
             Data.DeleteProp("RunMode")
             curFix := true
         }
-        if (ObjHasOwnProp(Data, "RunPath") && !ObjHasOwnProp(Data, "Target")) {
-            Data.Target := Data.RunPath
-            Data.DeleteProp("RunPath")
+        if (ObjHasOwnProp(Data, "Target") && !ObjHasOwnProp(Data, "Target")) {
+            Data.Target := Data.Target
+            Data.DeleteProp("Target")
             curFix := true
         }
         if (ObjHasOwnProp(Data, "SaveName")) {
@@ -532,8 +532,8 @@ CompatRun(filePath) {
             Data.Target := ""
             curFix := true
         }
-        if (!ObjHasOwnProp(Data, "Hide")) {
-            Data.Hide := false
+        if (!ObjHasOwnProp(Data, "Option")) {
+            Data.Option := 2
             curFix := true
         }
 

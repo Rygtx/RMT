@@ -13,7 +13,7 @@ class RunGui {
         this.RunModeCon := ""
         this.SaveNameConArr := []
         this.SaveNameTipConArr := []
-        this.HideCon := ""
+        this.OptionCon := ""
         this.StdInCon := ""
         this.StdInTipCon := ""
         this.StdInEditBtnCon := ""
@@ -82,7 +82,8 @@ class RunGui {
         this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
 
         PosX += 120
-        this.HideCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("隐藏窗口"))
+        Options := ["Hide", "", "Min", "Max"]
+        this.OptionCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R4", PosX, PosY - 3, 50), Options)
 
         PosY += 35
         PosX := 10
@@ -218,7 +219,7 @@ class RunGui {
         this.VariCon.Value := 1
 
         this.RunModeCon.Value := this.Data.Mode
-        this.HideCon.Value := ObjHasOwnProp(this.Data, "Hide") ? this.Data.Hide : false
+        this.OptionCon.Value := this.Data.Option
         this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
 
         loop 3 {
@@ -389,7 +390,7 @@ class RunGui {
     SaveRunData() {
         this.Data.Target := GetLangStr(this.PathTextCon.Value, 2)
         this.Data.Mode := this.RunModeCon.Value
-        this.Data.Hide := this.HideCon.Value ? true : false
+        this.Data.Option := this.OptionCon.Value
 
         if (this.Data.Mode == 1) {
             this.Data.DeleteProp("StdIn")

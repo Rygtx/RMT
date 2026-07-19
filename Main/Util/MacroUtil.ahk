@@ -205,26 +205,27 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    processedPath := GetReplaceVarText(tableItem, index, Data.Target)
+    target := GetReplaceVarText(tableItem, index, Data.Target)
+    options := ["Hide", "", "Min", "Max"]
 
     if (Data.Mode = 1) {
-        if (Data.Hide)
-            Run(processedPath, , "Hide")
+        if (Data.Option)
+            Run(target, , options[Data.Option])
         else
-            Run(processedPath)
+            Run(target)
 
     } else if (Data.Mode = 2) {
-        if (Data.Hide)
-            exitCode := RunWait(processedPath, , "Hide")
+        if (Data.Option)
+            exitCode := RunWait(target, , options[Data.Option])
         else
-            exitCode := RunWait(processedPath)
+            exitCode := RunWait(target)
         MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
 
     } else if (Data.Mode = 3) {
         stdout := ""
         stderr := ""
         stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
-        exitCode := RunHiddenCapture(processedPath, Data.Hide, stdinText, &stdout, &stderr)
+        exitCode := RunHiddenCapture(target, Data.Option, stdinText, &stdout, &stderr)
         MySetGlobalVariable(
             Data.SaveNameArr,
             [exitCode, stdout, stderr],
@@ -233,14 +234,12 @@ OnRunFile(tableItem, cmd, index) {
     }
 }
 
-RunHiddenCapture(commandLine, isHide, stdinText := "", &stdout := "", &stderr := "") {
+RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr := "") {
     static STARTF_USESHOWWINDOW := 0x00000001
     static STARTF_USESTDHANDLES := 0x00000100
     static CREATE_NO_WINDOW := 0x08000000
     static HANDLE_FLAG_INHERIT := 0x00000001
     static WAIT_TIMEOUT := 0x00000102
-    static SW_HIDE := 0
-    static SW_SHOWNORMAL := 1
     commandLine := Trim(commandLine)
     if (commandLine = "")
         throw Error("RunHiddenCapture: commandLine is empty")
@@ -272,15 +271,13 @@ RunHiddenCapture(commandLine, isHide, stdinText := "", &stdout := "", &stderr :=
         DllCall("Kernel32\SetHandleInformation", "Ptr", stdoutRd, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
         DllCall("Kernel32\SetHandleInformation", "Ptr", stderrRd, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
         DllCall("Kernel32\SetHandleInformation", "Ptr", stdinWr, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
-        siFlags := STARTF_USESTDHANDLES
-        if (isHide)
-            siFlags |= STARTF_USESHOWWINDOW
+        siFlags := STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
         NumPut("UInt", siFlags, si, (A_PtrSize = 8) ? 60 : 44)
-        NumPut("UShort", isHide ? SW_HIDE : SW_SHOWNORMAL, si, (A_PtrSize = 8) ? 64 : 48)
+        NumPut("UShort", option, si, (A_PtrSize = 8) ? 64 : 48)
         NumPut("Ptr", stdinRd, si, (A_PtrSize = 8) ? 80 : 56)
         NumPut("Ptr", stdoutWr, si, (A_PtrSize = 8) ? 88 : 60)
         NumPut("Ptr", stderrWr, si, (A_PtrSize = 8) ? 96 : 64)
-        creationFlags := isHide ? CREATE_NO_WINDOW : 0
+        creationFlags := (option = 1) ? CREATE_NO_WINDOW : 0
         if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int") {
             throw Error("CreateProcessW failed. LastError=" A_LastError)
         }

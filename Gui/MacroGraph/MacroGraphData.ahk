@@ -418,12 +418,12 @@ class MacroGraphDataMixin {
                 d["expression" i] := data.ExpressionArr[i]
             }
         } else if (cmdKey == "运行") {
-            d.runPath := data.Target
+            d.runTarget := data.Target
             d.runMode := data.Mode
             d.hide := data.Hide
             d.stdin := ObjHasOwnProp(data, "StdIn") ? data.StdIn : ""
             loop 3 {
-                if (ObjHasOwnProp(data, "SaveNameArr"))
+                if (ObjHasOwnProp(data, "SaveNameArr") && data.SaveNameArr.Length >= A_Index)
                     d["runSave" A_Index] := data.SaveNameArr[A_Index]
                 else
                     d["runSave" A_Index] := (A_Index == 1 ? "ExitCode" : (A_Index == 2 ? "StdOut" : "StdErr"))

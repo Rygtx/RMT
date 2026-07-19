@@ -656,7 +656,7 @@ class RunData {
         this.SerialStr := ""
         this.Target := ""
         this.Mode := 1
-        this.Hide := false
+        this.Option := 2
     }
 }
 

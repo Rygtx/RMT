@@ -223,14 +223,17 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
-        if (state.Has("RunPath_" id)) {
-            data.Target := state["RunPath_" id]
+        if (state.Has("RunTarget_" id)) {
+            data.Target := state["RunTarget_" id]
         }
         if (state.Has("RunModeCmb_" id) && state["RunModeCmb_" id] != "") {
             modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
             data.Mode := this._IndexInLangArr(modes, state["RunModeCmb_" id]) + 1
         }
-        data.Hide := this._FormalChecked(state, "RunHide_" id) ? true : false
+        if (state.Has("RunOptionCmb_" id) && state["RunOptionCmb_" id] != "") {
+            options := ["Hide", "", "Min", "Max"]
+            data.option := this._IndexInLangArr(options, state["RunOptionCmb_" id])
+        }
 
         ; Remove properties based on Mode
         if (data.Mode == 1) {
