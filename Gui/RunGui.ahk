@@ -244,12 +244,7 @@ class RunGui {
 
     ToggleFunc(state) {
         MacroAction := (*) => this.TriggerMacro()
-        if (state) {
-            Hotkey("!l", MacroAction, "On")
-        }
-        else {
-            Hotkey("!l", MacroAction, "Off")
-        }
+        Hotkey("!l", MacroAction, state ? "On" : "Off")
     }
 
     OnClickFileSelectBtn() {
@@ -431,14 +426,14 @@ class RunGui {
     }
 
     OnClickAddVarNameBtn() {
-        targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
+        targetCon := (this.ActiveEdit != "" && this.ActiveEdit.Visible) ? this.ActiveEdit : this.PathTextCon
         if (targetCon && targetCon.Hwnd)
             this.InsertIntoEdit(targetCon, this.VariCon.Text)
     }
 
     OnClickAddVarValueBtn() {
         if (this.VariCon.Text != "") {
-            targetCon := (this.ActiveEdit != "") ? this.ActiveEdit : this.PathTextCon
+            targetCon := (this.ActiveEdit != "" && this.ActiveEdit.Visible) ? this.ActiveEdit : this.PathTextCon
             if (targetCon && targetCon.Hwnd)
                 this.InsertIntoEdit(targetCon, "{" this.VariCon.Text "}")
         }
