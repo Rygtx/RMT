@@ -219,7 +219,7 @@ class RunGui {
         this.VariCon.Value := 1
 
         this.RunModeCon.Value := this.Data.Mode
-        this.OptionCon.Value := this.Data.Option
+        this.OptionCon.Value := this.Data.Option + 1
         this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
 
         loop 3 {
@@ -390,7 +390,7 @@ class RunGui {
     SaveRunData() {
         this.Data.Target := GetLangStr(this.PathTextCon.Value, 2)
         this.Data.Mode := this.RunModeCon.Value
-        this.Data.Option := this.OptionCon.Value
+        this.Data.Option := this.OptionCon.Value - 1
 
         if (this.Data.Mode == 1) {
             this.Data.DeleteProp("StdIn")

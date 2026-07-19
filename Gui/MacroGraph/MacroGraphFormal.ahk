@@ -620,7 +620,7 @@ class MacroGraphFormalMixin {
         rm := d.HasOwnProp("mode") ? d.runMode : 1
         rp := d.HasOwnProp("target") ? d.runTarget : ""
         showSave := rm >= 2
-        hideVal := d.HasOwnProp("hide") ? d.hide : 0
+        optionVal := d.HasOwnProp("option") ? d.option : 0
         stdinVal := d.HasOwnProp("stdin") ? d.stdin : ""
         showStdIn := rm == 3
         ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
@@ -629,10 +629,9 @@ class MacroGraphFormalMixin {
         RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
 
-        ; 窗口状态 ComboBox ( / Max / Min / Hide)
-        hideOptions := ["", "Max", "Min", "Hide"]
-        hideIdx := (hideVal == "Max") ? 1 : (hideVal == "Min") ? 2 : (hideVal == "Hide" || hideVal == true || hideVal == 1) ? 3 : 0
-        this._AddComboRow(body, "RunHideRow_" id, GetLang("窗口："), "RunOptionCmb_" id, hideOptions, hideIdx, true, true, lw, cw)
+        ; 窗口状态 ComboBox (Hide / / Max / Min)
+        options := ["Hide", "", "Min", "Max"]
+        this._AddComboRow(body, "RunHideRow_" id, GetLang("窗口："), "RunOptionCmb_" id, options, optionVal, true, true, lw, cw)
 
         ; 标准输入 Row
         stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")

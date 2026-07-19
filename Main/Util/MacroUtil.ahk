@@ -277,7 +277,7 @@ RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr :=
         NumPut("Ptr", stdinRd, si, (A_PtrSize = 8) ? 80 : 56)
         NumPut("Ptr", stdoutWr, si, (A_PtrSize = 8) ? 88 : 60)
         NumPut("Ptr", stderrWr, si, (A_PtrSize = 8) ? 96 : 64)
-        creationFlags := (option = 1) ? CREATE_NO_WINDOW : 0
+        creationFlags := option ? 0 : CREATE_NO_WINDOW
         if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int") {
             throw Error("CreateProcessW failed. LastError=" A_LastError)
         }

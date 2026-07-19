@@ -420,7 +420,7 @@ class MacroGraphDataMixin {
         } else if (cmdKey == "运行") {
             d.runTarget := data.Target
             d.runMode := data.Mode
-            d.hide := data.Hide
+            d.option := data.option
             d.stdin := ObjHasOwnProp(data, "StdIn") ? data.StdIn : ""
             loop 3 {
                 if (ObjHasOwnProp(data, "SaveNameArr") && data.SaveNameArr.Length >= A_Index)
