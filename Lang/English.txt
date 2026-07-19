@@ -1150,7 +1150,6 @@ tip2:请确保上述指令运行过=tip2:Please ensure the above commands have b
 不等待=No Wait
 等待+返回值=Wait + ExitCode
 等待+输入输出=Wait + Input/Output
-隐藏窗口=Hide
 返回值=Exit
 输出=Out
 错误=Err
