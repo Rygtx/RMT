@@ -226,11 +226,7 @@ OnRunFile(tableItem, cmd, index) {
         stderr := ""
         stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
         exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr)
-        MySetGlobalVariable(
-            Data.SaveNameArr,
-            [exitCode, stdout, stderr],
-            false
-        )
+        MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
     }
 }
 
@@ -251,7 +247,6 @@ _RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") 
     exitCode := 0
     outText := ""
     errText := ""
-    caught := 0
     saSize := (A_PtrSize = 8) ? 24 : 12
     sa := Buffer(saSize, 0)
     NumPut("UInt", saSize, sa, 0)
@@ -309,18 +304,25 @@ _RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") 
         stdout := outText
         stderr := errText
     } catch as e {
-        caught := e
+        throw e
+    } finally {
+        if (stdinRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
+        if (stdinWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
+        if (stdoutRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdoutRd)
+        if (stdoutWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdoutWr)
+        if (stderrRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stderrRd)
+        if (stderrWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
+        if (hThread)
+            DllCall("Kernel32\CloseHandle", "Ptr", hThread)
+        if (hProcess)
+            DllCall("Kernel32\CloseHandle", "Ptr", hProcess)
     }
-    if (stdinRd) DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
-    if (stdinWr) DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
-    if (stdoutRd) DllCall("Kernel32\CloseHandle", "Ptr", stdoutRd)
-    if (stdoutWr) DllCall("Kernel32\CloseHandle", "Ptr", stdoutWr)
-    if (stderrRd) DllCall("Kernel32\CloseHandle", "Ptr", stderrRd)
-    if (stderrWr) DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
-    if (hThread) DllCall("Kernel32\CloseHandle", "Ptr", hThread)
-    if (hProcess) DllCall("Kernel32\CloseHandle", "Ptr", hProcess)
-    if (caught)
-        throw caught
     return exitCode
 }
 
@@ -385,29 +387,11 @@ _AssocQueryCommand(ext) {
     static ASSOCF_NONE := 0x00000000
     static ASSOCSTR_COMMAND := 0x00000001
     cch := 0
-    hr := DllCall(
-        "Shlwapi\AssocQueryStringW",
-        "UInt", ASSOCF_NONE,
-        "UInt", ASSOCSTR_COMMAND,
-        "Str", ext,
-        "Str", "open",
-        "Ptr", 0,
-        "UInt*", &cch,
-        "Int"
-    )
+    hr := DllCall("Shlwapi\AssocQueryStringW", "UInt", ASSOCF_NONE, "UInt", ASSOCSTR_COMMAND, "Str", ext, "Str", "open", "Ptr", 0, "UInt*", &cch, "Int")
     if (hr != 0 && hr != 1)
         return ""
     buf := Buffer(cch * 2, 0)
-    hr := DllCall(
-        "Shlwapi\AssocQueryStringW",
-        "UInt", ASSOCF_NONE,
-        "UInt", ASSOCSTR_COMMAND,
-        "Str", ext,
-        "Str", "open",
-        "Ptr", buf.Ptr,
-        "UInt*", &cch,
-        "Int"
-    )
+    hr := DllCall("Shlwapi\AssocQueryStringW", "UInt", ASSOCF_NONE, "UInt", ASSOCSTR_COMMAND, "Str", ext, "Str", "open", "Ptr", buf.Ptr, "UInt*", &cch, "Int")
     if (hr != 0)
         return ""
     return StrGet(buf, "UTF-16")
