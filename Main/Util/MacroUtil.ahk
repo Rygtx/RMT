@@ -225,7 +225,7 @@ OnRunFile(tableItem, cmd, index) {
         stdout := ""
         stderr := ""
         stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
-        exitCode := RunHiddenCapture(target, Data.Option, stdinText, &stdout, &stderr)
+        exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr)
         MySetGlobalVariable(
             Data.SaveNameArr,
             [exitCode, stdout, stderr],
@@ -234,7 +234,7 @@ OnRunFile(tableItem, cmd, index) {
     }
 }
 
-RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr := "") {
+_RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") {
     static STARTF_USESHOWWINDOW := 0x00000001
     static STARTF_USESTDHANDLES := 0x00000100
     static CREATE_NO_WINDOW := 0x08000000
@@ -242,7 +242,7 @@ RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr :=
     static WAIT_TIMEOUT := 0x00000102
     commandLine := Trim(commandLine)
     if (commandLine = "")
-        throw Error("RunHiddenCapture: commandLine is empty")
+        throw Error("_RunCommand: commandLine is empty")
     commandLine := _ResolveAssociatedCommand(commandLine)
     stdoutRd := 0, stdoutWr := 0
     stderrRd := 0, stderrWr := 0
@@ -278,9 +278,8 @@ RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr :=
         NumPut("Ptr", stdoutWr, si, (A_PtrSize = 8) ? 88 : 60)
         NumPut("Ptr", stderrWr, si, (A_PtrSize = 8) ? 96 : 64)
         creationFlags := option ? 0 : CREATE_NO_WINDOW
-        if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int") {
+        if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int")
             throw Error("CreateProcessW failed. LastError=" A_LastError)
-        }
         hProcess := NumGet(pi, 0, "Ptr")
         hThread := NumGet(pi, A_PtrSize, "Ptr")
         DllCall("Kernel32\CloseHandle", "Ptr", hThread)
@@ -298,13 +297,12 @@ RunHiddenCapture(commandLine, option, stdinText := "", &stdout := "", &stderr :=
         loop {
             outText .= _DrainPipe(stdoutRd)
             errText .= _DrainPipe(stderrRd)
-            wait := DllCall("Kernel32\WaitForSingleObject", "Ptr", hProcess, "UInt", 25, "UInt")
+            wait := DllCall("Kernel32\WaitForSingleObject", "Ptr", hProcess, "UInt", 50, "UInt")
             if (wait != WAIT_TIMEOUT) {
                 outText .= _DrainPipe(stdoutRd)
                 errText .= _DrainPipe(stderrRd)
                 break
             }
-            Sleep(5)
         }
         if !DllCall("Kernel32\GetExitCodeProcess", "Ptr", hProcess, "UInt*", &exitCode := 0, "Int")
             throw Error("GetExitCodeProcess failed. LastError=" A_LastError)
