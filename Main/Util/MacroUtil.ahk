@@ -209,14 +209,14 @@ OnRunFile(tableItem, cmd, index) {
     options := ["Hide", "", "Min", "Max"]
 
     if (Data.Mode = 1) {
-        if (Data.Option)
-            Run(target, , options[Data.Option])
+        if (Data.Option != 1)
+            Run(target, , options[1 + Data.Option])
         else
             Run(target)
 
     } else if (Data.Mode = 2) {
-        if (Data.Option)
-            exitCode := RunWait(target, , options[Data.Option])
+        if (Data.Option != 1)
+            exitCode := RunWait(target, , options[1 + Data.Option])
         else
             exitCode := RunWait(target)
         MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
