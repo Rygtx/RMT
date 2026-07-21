@@ -457,17 +457,10 @@ class RunGui {
         } else if (this.Data.Mode == 3) {
             this.Data.StdIn := this.StdInCon.Value
             this.Data.SaveNameArr := [this.SaveNameConArr[1].Text, this.SaveNameConArr[2].Text, this.SaveNameConArr[3].Text]
-            ; Save encoding (only persist if not default UTF-8 for both)
-            encInVal  := this.EncInCon.Text
-            encOutVal := this.EncOutCon.Text
-            if (encInVal != "UTF-8" || encOutVal != "UTF-8") {
-                enc := {}
-                enc.In  := encInVal
-                enc.Out := encOutVal
-                this.Data.Encoding := enc
-            } else if (ObjHasOwnProp(this.Data, "Encoding")) {
-                this.Data.DeleteProp("Encoding")
-            }
+            enc := {}
+            enc.In  := this.EncInCon.Text
+            enc.Out := this.EncOutCon.Text
+            this.Data.Encoding := enc
         }
 
         SaveMacroCMDData(this.Data)
