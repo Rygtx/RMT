@@ -373,6 +373,21 @@ class RunGui {
     }
 
     OnClickSureBtn() {
+         ; ----- 编码提示（仅当模式为“等待+输入输出”时）-----
+        if (this.RunModeCon.Value == 3) {
+            for enc in [this.EncInCon.Text, this.EncOutCon.Text] {
+                if (enc != "UTF-8" && enc != "UTF-16" && (SubStr(enc, 1, 2) != "CP")) {
+                    MsgBox(Format("不支持{}编码", enc))
+                    return
+                }
+            }
+        }
+        ; ----- 目標為空提示 -----
+        if (this.PathTextCon.Value == "") {
+            MsgBox(GetLang("目标不能为空！"))
+            return
+        }
+
         valid := this.CheckIfValid()
         if (!valid)
             return
