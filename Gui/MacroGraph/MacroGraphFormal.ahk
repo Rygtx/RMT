@@ -640,6 +640,12 @@ class MacroGraphFormalMixin {
         stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("White").VerticalContentAlignment("Center").Padding("0")
         stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(stdinVal).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
 
+        encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
+        encInVal  := d.HasOwnProp("encIn")  ? d.encIn  : "UTF-8"
+        encOutVal := d.HasOwnProp("encOut") ? d.encOut : "UTF-8"
+        this._AddComboRow(body, "RunEncInRow_" id,  GetLang("输入编码："), "RunEncInCmb_"  id, encArr, this._IndexInLangArr(encArr, encInVal),  showStdIn, true, lw, cw)
+        this._AddComboRow(body, "RunEncOutRow_" id, GetLang("输出编码："), "RunEncOutCmb_" id, encArr, this._IndexInLangArr(encArr, encOutVal), showStdIn, true, lw, cw)
+
         loop 3 {
             i := A_Index
             sn := d.HasOwnProp("runSave" i) ? d["runSave" i] : (i == 1 ? "ExitCode" : (i == 2 ? "StdOut" : "StdErr"))
@@ -1298,6 +1304,8 @@ class MacroGraphFormalMixin {
             this._FormalTrackCombo(id, "RunModeCmb", h, runtime)
             this._FormalTrackCombo(id, "RunOptionCmb", h, runtime)
             this._FormalTrackField(id, "RunStdIn", h, runtime)
+            this._FormalTrackCombo(id, "RunEncInCmb", h, runtime)
+            this._FormalTrackCombo(id, "RunEncOutCmb", h, runtime)
             loop 3
                 this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
         } else if (t == GetLang("文件读写")) {

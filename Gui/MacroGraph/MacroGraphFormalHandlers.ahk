@@ -241,9 +241,13 @@ class MacroGraphFormalHandlersMixin {
                 data.DeleteProp("StdIn")
             if (ObjHasOwnProp(data, "SaveNameArr"))
                 data.DeleteProp("SaveNameArr")
+            if (ObjHasOwnProp(data, "Encoding"))
+                data.DeleteProp("Encoding")
         } else if (data.Mode == 2) {
             if (ObjHasOwnProp(data, "StdIn"))
                 data.DeleteProp("StdIn")
+            if (ObjHasOwnProp(data, "Encoding"))
+                data.DeleteProp("Encoding")
             saveVal := (state.Has("RunSave1_" id) && state["RunSave1_" id] != "") ? GetVarName(state["RunSave1_" id]) : "ExitCode"
             data.SaveNameArr := [saveVal]
         } else if (data.Mode == 3) {
@@ -257,6 +261,17 @@ class MacroGraphFormalHandlersMixin {
                 arr.Push(val)
             }
             data.SaveNameArr := arr
+            ; Read encoding values (default UTF-8)
+            encIn  := (state.Has("RunEncInCmb_"  id) && state["RunEncInCmb_"  id] != "") ? state["RunEncInCmb_"  id] : "UTF-8"
+            encOut := (state.Has("RunEncOutCmb_" id) && state["RunEncOutCmb_" id] != "") ? state["RunEncOutCmb_" id] : "UTF-8"
+            if (encIn != "UTF-8" || encOut != "UTF-8") {
+                enc := {}
+                enc.In  := encIn
+                enc.Out := encOut
+                data.Encoding := enc
+            } else if (ObjHasOwnProp(data, "Encoding")) {
+                data.DeleteProp("Encoding")
+            }
         }
         SaveMacroCMDData(data)
         this._RefreshFormalRunVisibility(id)
@@ -1105,6 +1120,8 @@ class MacroGraphFormalHandlersMixin {
         showSave := rm >= 2
         showStdIn := rm == 3
         this._FormalSetVis(id, "RunStdInRow_" id, showStdIn)
+        this._FormalSetVis(id, "RunEncInRow_" id, showStdIn)
+        this._FormalSetVis(id, "RunEncOutRow_" id, showStdIn)
         loop 3
             this._FormalSetVis(id, "RunSave" A_Index "Row_" id, showSave)
     }

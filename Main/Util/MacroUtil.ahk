@@ -225,12 +225,12 @@ OnRunFile(tableItem, cmd, index) {
         stdout := ""
         stderr := ""
         stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
-        exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr)
+        exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr, Data.Encoding.In, Data.Encoding.Out)
         MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
     }
 }
 
-_RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") {
+_RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, outEncoding) {
     static STARTF_USESHOWWINDOW := 0x00000001
     static STARTF_USESTDHANDLES := 0x00000100
     static CREATE_NO_WINDOW := 0x08000000
@@ -286,16 +286,16 @@ _RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") 
         DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
         stderrWr := 0
         if (stdinText != "")
-            _WriteTextToPipe(stdinWr, stdinText)
+            _WriteTextToPipe(stdinWr, stdinText, stdinEncoding)
         DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
         stdinWr := 0
         loop {
-            outText .= _DrainPipe(stdoutRd)
-            errText .= _DrainPipe(stderrRd)
+            outText .= _DrainPipe(stdoutRd, outEncoding)
+            errText .= _DrainPipe(stderrRd, outEncoding)
             wait := DllCall("Kernel32\WaitForSingleObject", "Ptr", hProcess, "UInt", 50, "UInt")
             if (wait != WAIT_TIMEOUT) {
-                outText .= _DrainPipe(stdoutRd)
-                errText .= _DrainPipe(stderrRd)
+                outText .= _DrainPipe(stdoutRd, outEncoding)
+                errText .= _DrainPipe(stderrRd, outEncoding)
                 break
             }
         }
@@ -326,14 +326,14 @@ _RunCommand(commandLine, option, stdinText := "", &stdout := "", &stderr := "") 
     return exitCode
 }
 
-_WriteTextToPipe(hPipe, text) {
+_WriteTextToPipe(hPipe, text, encoding) {
     if (!hPipe || text = "")
         return
-    byteCount := StrPut(text, "CP0") - 1
+    byteCount := StrPut(text, encoding) - 1
     if (byteCount <= 0)
         return
     buf := Buffer(byteCount + 8, 0)
-    StrPut(text, buf, "CP0")
+    StrPut(text, buf, encoding)
     totalWritten := 0
     while (totalWritten < byteCount) {
         written := 0
@@ -344,7 +344,7 @@ _WriteTextToPipe(hPipe, text) {
     }
 }
 
-_DrainPipe(hPipe) {
+_DrainPipe(hPipe, encoding) {
     if (!hPipe)
         return ""
     out := ""
@@ -361,7 +361,7 @@ _DrainPipe(hPipe) {
             break
         if (bytesRead <= 0)
             break
-        out .= StrGet(buf.Ptr, bytesRead, "CP0")
+        out .= StrGet(buf.Ptr, bytesRead, encoding)
     }
     return out
 }
