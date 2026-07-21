@@ -654,9 +654,9 @@ class MMProData {
 class RunData {
     __New() {
         this.SerialStr := ""
-        this.RunPath := ""
-        this.RunMode := 1
-        this.SaveNameArr := ["ExitCode", "StdOut", "StdErr"]
+        this.Target := ""
+        this.Mode := 1
+        this.Option := 1
     }
 }
 

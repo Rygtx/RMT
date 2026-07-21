@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 class MacroGraphFormalMixin {
     ; 转义 XAML 特殊字符：{ } 在 XAML 中是标记扩展语法，需要转义
@@ -617,14 +617,35 @@ class MacroGraphFormalMixin {
         lw := this._FormalLW(), cw := this._FormalCW()
         modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
         saveLabels := [GetLang("退出码"), GetLang("标准输出"), GetLang("标准错误")]
-        rm := d.HasOwnProp("runMode") ? d.runMode : 1
-        rp := d.HasOwnProp("runPath") ? d.runPath : ""
+        rm := d.HasOwnProp("mode") ? d.runMode : 1
+        rp := d.HasOwnProp("target") ? d.runTarget : ""
         showSave := rm >= 2
+        optionVal := d.HasOwnProp("option") ? d.option : 0
+        stdinVal := d.HasOwnProp("stdin") ? d.stdin : ""
+        showStdIn := rm == 3
         ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
-        runPathRow := body.Add("StackPanel").Name("RunPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
-        runPathRow.Add("TextBox").Name("RunPath_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        runPathRow.Add("Button").Name("RunPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        RunTargetRow := body.Add("StackPanel").Name("RunTargetRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        RunTargetRow.Add("TextBox").Name("RunTarget_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
+        RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
+
+        ; 窗口状态 ComboBox (Hide / / Max / Min)
+        options := ["Hide", "", "Min", "Max"]
+        this._AddComboRow(body, "RunHideRow_" id, GetLang("窗口："), "RunOptionCmb_" id, options, optionVal, true, true, lw, cw)
+
+        ; 标准输入 Row
+        stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!showStdIn)
+            stdinRow.Visibility("Collapsed")
+        stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("White").VerticalContentAlignment("Center").Padding("0")
+        stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(stdinVal).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
+
+        encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
+        encInVal  := d.HasOwnProp("encIn")  ? d.encIn  : "UTF-8"
+        encOutVal := d.HasOwnProp("encOut") ? d.encOut : "UTF-8"
+        this._AddComboRow(body, "RunEncInRow_" id,  GetLang("输入编码："), "RunEncInCmb_"  id, encArr, this._IndexInLangArr(encArr, encInVal),  showStdIn, true, lw, cw)
+        this._AddComboRow(body, "RunEncOutRow_" id, GetLang("输出编码："), "RunEncOutCmb_" id, encArr, this._IndexInLangArr(encArr, encOutVal), showStdIn, true, lw, cw)
+
         loop 3 {
             i := A_Index
             sn := d.HasOwnProp("runSave" i) ? d["runSave" i] : (i == 1 ? "ExitCode" : (i == 2 ? "StdOut" : "StdErr"))
@@ -634,20 +655,20 @@ class MacroGraphFormalMixin {
     }
 
     ; 选择文件按钮：打开文件选择对话框，选择后填入路径输入框
-    _OnRunPathBrowse(id, *) {
+    _OnRunTargetBrowse(id, *) {
         try {
             ; 尝试获取当前路径作为初始目录
             curPath := ""
             if (this.ui != "") {
                 try {
-                    curPath := this.ui.Get("RunPath_" id, "Text")
+                    curPath := this.ui.Get("RunTarget_" id, "Text")
                 }
             }
             ; 打开文件选择对话框（支持所有文件类型）
             selectedPath := FileSelect(1, curPath, GetLang("选择运行程序"), "All files (*.*)")
             if (selectedPath != "") {
                 if (this.ui != "") {
-                    this.ui.Update("RunPath_" id, "Text", selectedPath)
+                    this.ui.Update("RunTarget_" id, "Text", selectedPath)
                 }
             }
         }
@@ -1278,9 +1299,13 @@ class MacroGraphFormalMixin {
             }
         } else if (t == GetLang("运行")) {
             h := this._OnFormalRun.Bind(this, id)
-            this._FormalTrackField(id, "RunPath", h, runtime)
-            this._BindCtrl("RunPathBrowse_" id, "Click", this._OnRunPathBrowse.Bind(this, id), runtime)
+            this._FormalTrackField(id, "runTarget", h, runtime)
+            this._BindCtrl("RunTargetBrowse_" id, "Click", this._OnRunTargetBrowse.Bind(this, id), runtime)
             this._FormalTrackCombo(id, "RunModeCmb", h, runtime)
+            this._FormalTrackCombo(id, "RunOptionCmb", h, runtime)
+            this._FormalTrackField(id, "RunStdIn", h, runtime)
+            this._FormalTrackCombo(id, "RunEncInCmb", h, runtime)
+            this._FormalTrackCombo(id, "RunEncOutCmb", h, runtime)
             loop 3
                 this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
         } else if (t == GetLang("文件读写")) {

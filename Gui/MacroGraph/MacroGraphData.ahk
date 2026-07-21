@@ -418,10 +418,18 @@ class MacroGraphDataMixin {
                 d["expression" i] := data.ExpressionArr[i]
             }
         } else if (cmdKey == "运行") {
-            d.runPath := data.RunPath
-            d.runMode := data.RunMode
-            loop 3
-                d["runSave" A_Index] := data.SaveNameArr[A_Index]
+            d.runTarget := data.Target
+            d.runMode := data.Mode
+            d.option := ObjHasOwnProp(data, "Option") ? data.Option : 1
+            d.stdin := ObjHasOwnProp(data, "StdIn") ? data.StdIn : ""
+            d.encIn  := (ObjHasOwnProp(data, "Encoding") && ObjHasOwnProp(data.Encoding, "In"))  ? data.Encoding.In  : "UTF-8"
+            d.encOut := (ObjHasOwnProp(data, "Encoding") && ObjHasOwnProp(data.Encoding, "Out")) ? data.Encoding.Out : "UTF-8"
+            loop 3 {
+                if (ObjHasOwnProp(data, "SaveNameArr") && data.SaveNameArr.Length >= A_Index)
+                    d["runSave" A_Index] := data.SaveNameArr[A_Index]
+                else
+                    d["runSave" A_Index] := (A_Index == 1 ? "ExitCode" : (A_Index == 2 ? "StdOut" : "StdErr"))
+            }
         } else if (cmdKey == "文件读写") {
             d.operType := data.OperType
             d.operMode := data.OperMode

@@ -205,39 +205,224 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    processedPath := GetReplaceVarText(tableItem, index, Data.RunPath)
+    target := GetReplaceVarText(tableItem, index, Data.Target)
+    options := ["Hide", "", "Min", "Max"]
 
-    if (Data.RunMode == 1) {
-        Run(processedPath)
+    if (Data.Mode = 1) {
+        if (Data.Option != 1)
+            Run(target, , options[1 + Data.Option])
+        else
+            Run(target)
 
-    } else if (Data.RunMode == 2) {
-        exitCode := RunWait(processedPath)
+    } else if (Data.Mode = 2) {
+        if (Data.Option != 1)
+            exitCode := RunWait(target, , options[1 + Data.Option])
+        else
+            exitCode := RunWait(target)
         MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
 
-    } else if (Data.RunMode == 3) {
-        shell := ComObject("WScript.Shell")
-        exec := shell.Exec(processedPath)
-
-        output := ""
-        err := ""
-
-        while (!exec.StdOut.AtEndOfStream || !exec.StdErr.AtEndOfStream) {
-
-            if !exec.StdOut.AtEndOfStream
-                output .= exec.StdOut.Read(1024)
-
-            if !exec.StdErr.AtEndOfStream
-                err .= exec.StdErr.Read(1024)
-
-            Sleep(10)
-        }
-
-        MySetGlobalVariable(
-            [Data.SaveNameArr[2], Data.SaveNameArr[3], Data.SaveNameArr[1]],
-            [output, err, exec.ExitCode],
-            false
-        )
+    } else if (Data.Mode = 3) {
+        stdout := ""
+        stderr := ""
+        stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
+        exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr, Data.Encoding.In, Data.Encoding.Out)
+        MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
     }
+}
+
+_RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, outEncoding) {
+    static STARTF_USESHOWWINDOW := 0x00000001
+    static STARTF_USESTDHANDLES := 0x00000100
+    static CREATE_NO_WINDOW := 0x08000000
+    static HANDLE_FLAG_INHERIT := 0x00000001
+    static WAIT_TIMEOUT := 0x00000102
+    commandLine := Trim(commandLine)
+    if (commandLine = "")
+        throw Error("_RunCommand: commandLine is empty")
+    commandLine := _ResolveAssociatedCommand(commandLine)
+    stdoutRd := 0, stdoutWr := 0
+    stderrRd := 0, stderrWr := 0
+    stdinRd := 0, stdinWr := 0
+    hProcess := 0, hThread := 0
+    exitCode := 0
+    outText := ""
+    errText := ""
+    saSize := (A_PtrSize = 8) ? 24 : 12
+    sa := Buffer(saSize, 0)
+    NumPut("UInt", saSize, sa, 0)
+    NumPut("Int", 1, sa, (A_PtrSize = 8) ? 16 : 8)
+    siSize := (A_PtrSize = 8) ? 104 : 68
+    si := Buffer(siSize, 0)
+    NumPut("UInt", siSize, si, 0)
+    piSize := (A_PtrSize = 8) ? 24 : 16
+    pi := Buffer(piSize, 0)
+    try {
+        if !DllCall("Kernel32\CreatePipe", "Ptr*", &stdinRd, "Ptr*", &stdinWr, "Ptr", sa.Ptr, "UInt", 0, "Int")
+            throw Error("CreatePipe(stdin) failed. LastError=" A_LastError)
+        if !DllCall("Kernel32\CreatePipe", "Ptr*", &stdoutRd, "Ptr*", &stdoutWr, "Ptr", sa.Ptr, "UInt", 0, "Int")
+            throw Error("CreatePipe(stdout) failed. LastError=" A_LastError)
+        if !DllCall("Kernel32\CreatePipe", "Ptr*", &stderrRd, "Ptr*", &stderrWr, "Ptr", sa.Ptr, "UInt", 0, "Int")
+            throw Error("CreatePipe(stderr) failed. LastError=" A_LastError)
+        DllCall("Kernel32\SetHandleInformation", "Ptr", stdoutRd, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
+        DllCall("Kernel32\SetHandleInformation", "Ptr", stderrRd, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
+        DllCall("Kernel32\SetHandleInformation", "Ptr", stdinWr, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
+        siFlags := STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
+        NumPut("UInt", siFlags, si, (A_PtrSize = 8) ? 60 : 44)
+        NumPut("UShort", option, si, (A_PtrSize = 8) ? 64 : 48)
+        NumPut("Ptr", stdinRd, si, (A_PtrSize = 8) ? 80 : 56)
+        NumPut("Ptr", stdoutWr, si, (A_PtrSize = 8) ? 88 : 60)
+        NumPut("Ptr", stderrWr, si, (A_PtrSize = 8) ? 96 : 64)
+        creationFlags := option ? 0 : CREATE_NO_WINDOW
+        if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int")
+            throw Error("CreateProcessW failed. LastError=" A_LastError)
+        hProcess := NumGet(pi, 0, "Ptr")
+        hThread := NumGet(pi, A_PtrSize, "Ptr")
+        DllCall("Kernel32\CloseHandle", "Ptr", hThread)
+        hThread := 0
+        DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
+        stdinRd := 0
+        DllCall("Kernel32\CloseHandle", "Ptr", stdoutWr)
+        stdoutWr := 0
+        DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
+        stderrWr := 0
+        if (stdinText != "")
+            _WriteTextToPipe(stdinWr, stdinText, stdinEncoding)
+        DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
+        stdinWr := 0
+        loop {
+            outText .= _DrainPipe(stdoutRd, outEncoding)
+            errText .= _DrainPipe(stderrRd, outEncoding)
+            wait := DllCall("Kernel32\WaitForSingleObject", "Ptr", hProcess, "UInt", 50, "UInt")
+            if (wait != WAIT_TIMEOUT) {
+                outText .= _DrainPipe(stdoutRd, outEncoding)
+                errText .= _DrainPipe(stderrRd, outEncoding)
+                break
+            }
+        }
+        if !DllCall("Kernel32\GetExitCodeProcess", "Ptr", hProcess, "UInt*", &exitCode := 0, "Int")
+            throw Error("GetExitCodeProcess failed. LastError=" A_LastError)
+        stdout := outText
+        stderr := errText
+    } catch as e {
+        throw e
+    } finally {
+        if (stdinRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
+        if (stdinWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
+        if (stdoutRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdoutRd)
+        if (stdoutWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdoutWr)
+        if (stderrRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stderrRd)
+        if (stderrWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
+        if (hThread)
+            DllCall("Kernel32\CloseHandle", "Ptr", hThread)
+        if (hProcess)
+            DllCall("Kernel32\CloseHandle", "Ptr", hProcess)
+    }
+    return exitCode
+}
+
+_WriteTextToPipe(hPipe, text, encoding) {
+    if (!hPipe || text = "")
+        return
+    byteCount := StrPut(text, encoding) - 1
+    if (byteCount <= 0)
+        return
+    buf := Buffer(byteCount + 8, 0)
+    StrPut(text, buf, encoding)
+    totalWritten := 0
+    while (totalWritten < byteCount) {
+        written := 0
+        ok := DllCall("Kernel32\WriteFile", "Ptr", hPipe, "Ptr", buf.Ptr + totalWritten, "UInt", byteCount - totalWritten, "UInt*", &written, "Ptr", 0, "Int")
+        if (!ok || written <= 0)
+            break
+        totalWritten += written
+    }
+}
+
+_DrainPipe(hPipe, encoding) {
+    if (!hPipe)
+        return ""
+    out := ""
+    buf := Buffer(4096, 0)
+    loop {
+        avail := 0
+        if !DllCall("Kernel32\PeekNamedPipe", "Ptr", hPipe, "Ptr", 0, "UInt", 0, "Ptr", 0, "UInt*", &avail, "Ptr", 0, "Int")
+            break
+        if (avail <= 0)
+            break
+        toRead := (avail > buf.Size) ? buf.Size : avail
+        bytesRead := 0
+        if !DllCall("Kernel32\ReadFile", "Ptr", hPipe, "Ptr", buf.Ptr, "UInt", toRead, "UInt*", &bytesRead, "Ptr", 0, "Int")
+            break
+        if (bytesRead <= 0)
+            break
+        out .= StrGet(buf.Ptr, bytesRead, encoding)
+    }
+    return out
+}
+
+_ResolveAssociatedCommand(commandLine) {
+    s := LTrim(commandLine)
+    if (s = "")
+        return commandLine
+    if !RegExMatch(s, '^(?:"([^"]+)"|(\S+))(.*)$', &m)
+        return commandLine
+    file := m[1] ? m[1] : m[2]
+    tail := Trim(m[3])
+    if !FileExist(file)
+        return commandLine
+    SplitPath(file, , , &ext)
+    if (ext = "")
+        return commandLine
+    assocCmd := _AssocQueryCommand("." ext)
+    return assocCmd ? _BuildAssociatedCommand(assocCmd, file, tail) : commandLine
+}
+
+_AssocQueryCommand(ext) {
+    static ASSOCF_NONE := 0x00000000
+    static ASSOCSTR_COMMAND := 0x00000001
+    cch := 0
+    hr := DllCall("Shlwapi\AssocQueryStringW", "UInt", ASSOCF_NONE, "UInt", ASSOCSTR_COMMAND, "Str", ext, "Str", "open", "Ptr", 0, "UInt*", &cch, "Int")
+    if (hr != 0 && hr != 1)
+        return ""
+    buf := Buffer(cch * 2, 0)
+    hr := DllCall("Shlwapi\AssocQueryStringW", "UInt", ASSOCF_NONE, "UInt", ASSOCSTR_COMMAND, "Str", ext, "Str", "open", "Ptr", buf.Ptr, "UInt*", &cch, "Int")
+    if (hr != 0)
+        return ""
+    return StrGet(buf, "UTF-16")
+}
+
+_BuildAssociatedCommand(template, filePath, tailArgs := "") {
+    cmd := _ExpandEnvironmentStrings(template)
+    quotedFile := '"' StrReplace(filePath, '"', '""') '"'
+    cmd := StrReplace(cmd, '"%1"', quotedFile)
+    cmd := StrReplace(cmd, '"%L"', quotedFile)
+    cmd := StrReplace(cmd, '"%l"', quotedFile)
+    cmd := StrReplace(cmd, "%1", quotedFile)
+    cmd := StrReplace(cmd, "%L", quotedFile)
+    cmd := StrReplace(cmd, "%l", quotedFile)
+    if (InStr(cmd, "%*"))
+        cmd := StrReplace(cmd, "%*", tailArgs)
+    else if (Trim(tailArgs) != "")
+        cmd := Trim(cmd) " " tailArgs
+    else
+        cmd := Trim(cmd)
+    return cmd
+}
+
+_ExpandEnvironmentStrings(text) {
+    cch := DllCall("Kernel32\ExpandEnvironmentStringsW", "Str", text, "Ptr", 0, "UInt", 0, "UInt")
+    if (cch <= 0)
+        return text
+    buf := Buffer(cch * 2, 0)
+    if !DllCall("Kernel32\ExpandEnvironmentStringsW", "Str", text, "Ptr", buf.Ptr, "UInt", cch, "UInt")
+        return text
+    return StrGet(buf, "UTF-16")
 }
 
 OnCompare(tableItem, cmd, index) {
