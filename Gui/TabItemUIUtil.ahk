@@ -854,7 +854,7 @@ LoadTabSingleItem(tableItem, ItemConObj) {
     TKBtnCon.OriPosX := TabPosX + 250
 
     ;触发类型
-    TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", TabPosX + 360, -1000, 70),
+    TKTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h30", TabPosX + 360, -1000, 70),
     GetLangArr(["按下", "松开", "松止", "开关", "长按", "双击"]))
     TKTypeCon.Enabled := isNormal
     TKTypeCon.OriPosX := TabPosX + 360

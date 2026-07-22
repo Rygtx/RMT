@@ -88,7 +88,7 @@ class ScreenShotGui {
         this.ScreenShotTypeCon.Value := 1
 
         PosX := 230
-        this.NameTypeCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 8, 90), GetLang("固定名称："))
+        this.NameTypeCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 90), GetLang("固定名称："))
         this.NameTypeCon.OnEvent("Click", (*) => this.OnChangeNameType())
         PosX += 90
         this.FixedNameCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 3, 100), "")

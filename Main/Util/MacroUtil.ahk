@@ -1558,14 +1558,14 @@ OnScreenShot(tableItem, cmd, index) {
     if (shotWidth <= 0 || shotHeight <= 0)
         return
 
-    baseDir := ProjectRootDir "\Setting\" MySoftData.CurSettingName "\Images\Temp_ScreenShot"
+    baseDir := ProjectRootDir "\Setting\" MySoftData.CurSettingName "\Images\TempShot"
     if (!DirExist(baseDir))
         DirCreate(baseDir)
 
     if (Data.NameType == 1 && Data.FixedName != "") {
         fileName := Data.FixedName ".png"
     } else {
-        fileName := Data.SerialStr ".png"
+        fileName := Data.SerialStr "-" A_Now ".png"
     }
 
     filePath := baseDir "\" fileName

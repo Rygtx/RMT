@@ -12,7 +12,7 @@ class WindowManageGui {
         this.ActionTypeArr := [
             GetLang("激活窗口"), GetLang("最大化窗口"), GetLang("最小化窗口"), GetLang("还原窗口"), GetLang("关闭窗口"),
             GetLang("移动窗口"), GetLang("调整大小"), GetLang("置顶窗口"), GetLang("取消置顶"), GetLang("修改标题"),
-            GetLang("修改透明度"),GetLang("開啟鼠標穿透"), GetLang("關閉鼠標穿透")
+            GetLang("修改透明度"),GetLang("开启鼠标穿透"), GetLang("关闭鼠标穿透")
         ]
     }
 
@@ -233,10 +233,10 @@ class WindowManageGui {
     SaveData() {
         this.Data.ActionType := GetLangKey(this.ActionTypeCon.Text)
         this.Data.SearchValue := this.SearchValueCon.Value
-        this.Data.PosX := this.PosXCon.Value
-        this.Data.PosY := this.PosYCon.Value
-        this.Data.Width := this.WidthCon.Value
-        this.Data.Height := this.HeightCon.Value
+        this.Data.PosX := this.PosXCon.Text
+        this.Data.PosY := this.PosYCon.Text
+        this.Data.Width := this.WidthCon.Text
+        this.Data.Height := this.HeightCon.Text
         this.Data.NewTitle := this.NewTitleCon.Text
         this.Data.Transparency := StrReplace(this.TransparencyCon.Text, "%")
         SaveMacroCMDData(this.Data)
