@@ -507,72 +507,28 @@ CompatRun(filePath) {
             continue
 
         curFix := false
-        if (ObjHasOwnProp(Data, "RunMode") && !ObjHasOwnProp(Data, "Mode")) {
+        if (ObjHasOwnProp(Data, "RunMode")) {
+            if Data.RunMode = 3
+                Data.Mode := 4
             Data.Mode := Data.RunMode
             Data.DeleteProp("RunMode")
             curFix := true
         }
-        if (ObjHasOwnProp(Data, "Target") && !ObjHasOwnProp(Data, "Target")) {
-            Data.Target := Data.Target
-            Data.DeleteProp("Target")
+        if (ObjHasOwnProp(Data, "RunPath")) {
+            Data.Target := Data.RunPath
+            Data.DeleteProp("RunPath")
             curFix := true
         }
         if (ObjHasOwnProp(Data, "SaveName")) {
             if (!ObjHasOwnProp(Data, "SaveNameArr")) {
-                Data.SaveNameArr := [Data.SaveName, "Var2", "Var3"]
+                Data.SaveNameArr := [Data.SaveName, "StdOut", "StdErr"]
             }
             Data.DeleteProp("SaveName")
             curFix := true
         }
-        if (!ObjHasOwnProp(Data, "Mode")) {
-            Data.Mode := 1
-            curFix := true
-        }
-        if (!ObjHasOwnProp(Data, "Target")) {
-            Data.Target := ""
-            curFix := true
-        }
         if (!ObjHasOwnProp(Data, "Option")) {
-            Data.Option := 2
+            Data.Option := 1
             curFix := true
-        }
-
-        ; Trim properties depending on Mode
-        if (Data.Mode == 1) {
-            if (ObjHasOwnProp(Data, "StdIn")) {
-                Data.DeleteProp("StdIn")
-                curFix := true
-            }
-            if (ObjHasOwnProp(Data, "SaveNameArr")) {
-                Data.DeleteProp("SaveNameArr")
-                curFix := true
-            }
-        } else if (Data.Mode == 2) {
-            if (ObjHasOwnProp(Data, "StdIn")) {
-                Data.DeleteProp("StdIn")
-                curFix := true
-            }
-            if (!ObjHasOwnProp(Data, "SaveNameArr")) {
-                Data.SaveNameArr := ["ExitCode"]
-                curFix := true
-            } else if (Data.SaveNameArr.Length != 1) {
-                Data.SaveNameArr := [Data.SaveNameArr[1]]
-                curFix := true
-            }
-        } else if (Data.Mode == 3) {
-            if (!ObjHasOwnProp(Data, "StdIn")) {
-                Data.StdIn := ""
-                curFix := true
-            }
-            if (!ObjHasOwnProp(Data, "SaveNameArr")) {
-                Data.SaveNameArr := ["ExitCode", "StdOut", "StdErr"]
-                curFix := true
-            } else if (Data.SaveNameArr.Length < 3) {
-                while (Data.SaveNameArr.Length < 3) {
-                    Data.SaveNameArr.Push(Data.SaveNameArr.Length == 1 ? "StdOut" : "StdErr")
-                }
-                curFix := true
-            }
         }
 
         hasFix := hasFix || curFix
