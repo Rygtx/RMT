@@ -1,7 +1,10 @@
 ﻿# RMT 自动打包脚本
 # 使用 Ahk2Exe.exe 编译 Work.ahk 为 Work.exe
 # 此脚本需要编码格式为UTF-8 BOM 或者 UTF-16才能正常运行
-$Host.UI.RawUI.WindowTitle = "RMT 打包工具"
+# 若运行直接闪退，请在powershell执行：Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+param([switch]$NoPause)
+
+try { $Host.UI.RawUI.WindowTitle = "RMT 打包工具" } catch { }
 $ErrorActionPreference = "Stop"
 
 # ============================================================
@@ -45,22 +48,20 @@ function Write-Section {
     Write-Host "========================================" -ForegroundColor Cyan
 }
 
+# 读取单个按键；宿主不支持 ReadKey 时返回 $null，由调用方回退到 Read-Host
+function Read-SingleKey {
+    try {
+        if ([Console]::IsInputRedirected) { return $null }
+        return $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
+    }
+    catch { return $null }
+}
+
 function Wait-KeyPress {
-    param([string]$Message = "按任意键退出...", [int]$TimeoutSeconds = 0)
+    param([string]$Message = "按任意键退出...")
     Write-Host "`n$Message" -ForegroundColor Yellow
-    if ($TimeoutSeconds -gt 0) {
-        $timer = [System.Diagnostics.Stopwatch]::StartNew()
-        while ($timer.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-            if ([Console]::KeyAvailable) {
-                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown"); break
-            }
-            Start-Sleep -Milliseconds 100
-        }
-        $timer.Stop()
-    }
-    else {
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    }
+    if ($null -ne (Read-SingleKey)) { return }
+    try { $null = Read-Host } catch { }
 }
 
 function Ask-Choice {
@@ -72,11 +73,60 @@ function Ask-Choice {
     }
     Write-Host ""
     while ($true) {
-        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
+        $key = Read-SingleKey
+        if ($null -eq $key) {
+            $input = Read-Host "请输入序号 (1-$($Options.Length))"
+            if ($input -match '^\d+$' -and [int]$input -ge 1 -and [int]$input -le $Options.Length) {
+                return [int]$input
+            }
+            continue
+        }
         if ([int]$key -ge 49 -and [int]$key -le 48 + $Options.Length) {
             return [int]$key - 48
         }
     }
+}
+
+function Show-ErrorDetail {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+
+    Write-Host "`n========================================" -ForegroundColor Red
+    Write-Host "  打包中断：发生错误" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "消息: $($ErrorRecord.Exception.Message)" -ForegroundColor Red
+    Write-Host "类型: $($ErrorRecord.Exception.GetType().FullName)" -ForegroundColor Gray
+    Write-Host "分类: $($ErrorRecord.CategoryInfo.Category)" -ForegroundColor Gray
+
+    if ($ErrorRecord.InvocationInfo) {
+        Write-Host "位置: 第 $($ErrorRecord.InvocationInfo.ScriptLineNumber) 行" -ForegroundColor Gray
+        if ($ErrorRecord.InvocationInfo.Line) {
+            Write-Host "代码: $($ErrorRecord.InvocationInfo.Line.Trim())" -ForegroundColor Gray
+        }
+    }
+
+    $inner = $ErrorRecord.Exception.InnerException
+    while ($inner) {
+        Write-Host "内部异常: $($inner.Message)" -ForegroundColor DarkYellow
+        $inner = $inner.InnerException
+    }
+
+    if ($ErrorRecord.ScriptStackTrace) {
+        Write-Host "`n调用堆栈:" -ForegroundColor Gray
+        Write-Host $ErrorRecord.ScriptStackTrace -ForegroundColor DarkGray
+    }
+}
+
+# 资源管理器右键运行时不会附带 -ExecutionPolicy，用的是持久化策略
+function Get-PersistedPolicy {
+    try {
+        $list = Get-ExecutionPolicy -List
+        foreach ($scope in @("MachinePolicy", "UserPolicy", "CurrentUser", "LocalMachine")) {
+            $policy = ($list | Where-Object { $_.Scope -eq $scope }).ExecutionPolicy
+            if ($policy -and $policy -ne "Undefined") { return $policy }
+        }
+        return "Restricted"
+    }
+    catch { return $null }
 }
 
 # ============================================================
@@ -168,7 +218,7 @@ function Compile {
     )
 
     Write-Log "  执行: Ahk2Exe /in ... /base ... /out ..." "Gray"
-    $process = Start-Process -FilePath $Ahk2exe -ArgumentList $arguments -NoNewWindow -Wait -PassThru
+    $process = Start-Process -FilePath $script:Ahk2exe -ArgumentList $arguments -NoNewWindow -Wait -PassThru
 
     if ($process.ExitCode -ne 0) {
         Write-Log "  [ERROR] 进程退出码: $($process.ExitCode)" "Red"
@@ -201,8 +251,10 @@ function Pack-HelpDoc {
 
     Write-Log "Node.js $(node -v) 打包中..." "Gray"
     Push-Location $WebDir
-    $null = Start-Process -FilePath "node" -ArgumentList "SingleHtml.js" -NoNewWindow -Wait -PassThru
-    Pop-Location
+    try {
+        $null = Start-Process -FilePath "node" -ArgumentList "SingleHtml.js" -NoNewWindow -Wait -PassThru
+    }
+    finally { Pop-Location }
 
     $OutputFile = Join-Path $PSScriptRoot "index.html"
     if (Test-Path $OutputFile) {
@@ -267,12 +319,12 @@ function New-Release {
         Remove-OldFiles -Dir $releaseThread -Filter "Work.exe"
 
         # 编译 Work.exe
-        if (-not (Compile -AhkFile $WorkAhk -BaseExe $Base64Exe -OutputExe "$releaseThread\Work.exe" -IconPath $IconPath -Name "Work.exe")) {
+        if (-not (Compile -AhkFile $script:WorkAhk -BaseExe $script:Base64Exe -OutputExe "$releaseThread\Work.exe" -IconPath $IconPath -Name "Work.exe")) {
             return $false
         }
 
         # 编译主程序 RMTv{version}.exe
-        if (-not (Compile -AhkFile $RmtAhk -BaseExe $Base64Exe -OutputExe "$releaseDir\RMTv$version.exe" -IconPath $IconPath -Name "RMTv$version.exe")) {
+        if (-not (Compile -AhkFile $RmtAhk -BaseExe $script:Base64Exe -OutputExe "$releaseDir\RMTv$version.exe" -IconPath $IconPath -Name "RMTv$version.exe")) {
             return $false
         }
 
@@ -318,12 +370,12 @@ function New-Release {
         Remove-OldFiles -Dir $releaseThread -Filter "Work.exe"
 
         # 编译 Work.exe (32位)
-        if (-not (Compile -AhkFile $WorkAhk -BaseExe $Base32Exe -OutputExe "$releaseThread\Work.exe" -IconPath $IconPath -Name "Work.exe")) {
+        if (-not (Compile -AhkFile $script:WorkAhk -BaseExe $script:Base32Exe -OutputExe "$releaseThread\Work.exe" -IconPath $IconPath -Name "Work.exe")) {
             return $false
         }
 
         # 编译主程序 RMTv{version}.exe
-        if (-not (Compile -AhkFile $RmtAhk -BaseExe $Base32Exe -OutputExe "$releaseDir\RMTv$version.exe" -IconPath $IconPath -Name "RMTv$version.exe")) {
+        if (-not (Compile -AhkFile $RmtAhk -BaseExe $script:Base32Exe -OutputExe "$releaseDir\RMTv$version.exe" -IconPath $IconPath -Name "RMTv$version.exe")) {
             return $false
         }
 
@@ -469,94 +521,131 @@ function Compress-ReleaseZip {
 # ============================================================
 
 function Main {
-    try {
-        Write-Section "RMT 打包工具"
-        Write-Log "PowerShell $($PSVersionTable.PSVersion)" "Gray"
-        Write-Log "工作目录: $PSScriptRoot" "Gray"
+    Write-Section "RMT 打包工具"
+    Write-Log "PowerShell $($PSVersionTable.PSVersion)" "Gray"
+    Write-Log "工作目录: $PSScriptRoot" "Gray"
 
-        if (-not $PSScriptRoot) {
-            Write-Log "错误: 无法确定脚本目录" "Red"
-            Wait-KeyPress; exit 1
+    if (-not $PSScriptRoot) {
+        throw "无法确定脚本目录（PSScriptRoot 为空），请直接运行 PackRMT.cmd"
+    }
+
+    $persisted = Get-PersistedPolicy
+    if ($persisted -eq "Restricted" -or $persisted -eq "AllSigned") {
+        Write-Log "提示: 系统执行策略为 $persisted，右键 [使用 PowerShell 运行] 本 ps1 会被拒绝并闪退" "Yellow"
+        Write-Log "      请始终用 PackRMT.cmd 启动，或执行: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned" "Yellow"
+    }
+
+    # 步骤 1: 检查文件
+    Write-Step 1 "检查源文件"
+    $script:WorkAhk = Join-Path $PSScriptRoot "Thread\Work.ahk"
+    $WorkDir = Join-Path $PSScriptRoot "Thread"
+    if (-not (Test-Path $script:WorkAhk)) {
+        throw "找不到源文件: $($script:WorkAhk)"
+    }
+    Write-Log "[OK] Work.ahk 存在" "Green"
+
+    # 步骤 2: 查找编译工具
+    Write-Step 2 "查找编译工具"
+    $script:Ahk2exe = Find-Exe "Ahk2Exe" $Ahk2ExePaths
+    if (-not $script:Ahk2exe) {
+        throw "未找到 Ahk2Exe.exe，请确认已安装 AutoHotkey 编译器: $($Ahk2ExePaths -join ' | ')"
+    }
+
+    $script:Base64Exe = Find-Exe "64Base (AutoHotkey64.exe)" $Base64Paths
+    if (-not $script:Base64Exe) {
+        throw "未找到 AutoHotkey64.exe: $($Base64Paths -join ' | ')"
+    }
+
+    $script:Base32Exe = Find-Exe "32Base (AutoHotkey32.exe)" $Base32Paths
+
+    # 步骤 3: 关闭正在运行的 RMT.ahk
+    Write-Step 3 "关闭正在运行的 RMT.ahk"
+    Stop-RunningRMT
+
+    # 步骤 4: 清理旧文件
+    Write-Step 4 "清理旧文件"
+    Remove-OldFiles -Dir $WorkDir -Filter "Work.exe"
+
+    # 步骤 5: 编译 Work.exe
+    Write-Step 5 "编译 Work.exe"
+    $IconPath = Join-Path $PSScriptRoot "Images\Soft\rabit.ico"
+    if (-not (Compile -AhkFile $script:WorkAhk -BaseExe $script:Base64Exe -OutputExe "$WorkDir\Work.exe" -IconPath $IconPath -Name "Work.exe")) {
+        throw "编译 Work.exe 失败，详见上方 Ahk2Exe 输出"
+    }
+
+    # 步骤 6: 打包帮助文档
+    Write-Step 6 "打包帮助文档"
+    if (-not (Pack-HelpDoc)) {
+        Write-Log "警告: 帮助文档打包失败" "Yellow"
+    }
+    Write-Log "运行环境work编译完成" "Green"
+
+    # 步骤 7: 询问是否生成发行版
+    Write-Step 7 "生成发行版"
+    $choice = Ask-Choice "请选择发行版类型:" @("不生成", "测试版 (仅 X64)", "正式版 (X64 + X32)")
+
+    if ($choice -eq 2) {
+        if (-not (New-Release -Type "x64")) {
+            Write-Log "发行版创建失败" "Red"
         }
-
-        # 步骤 1: 检查文件
-        Write-Step 1 "检查源文件"
-        $WorkAhk = Join-Path $PSScriptRoot "Thread\Work.ahk"
-        $WorkDir = Join-Path $PSScriptRoot "Thread"
-        if (-not (Test-Path $WorkAhk)) {
-            Write-Log "错误: 找不到 $WorkAhk" "Red"
-            Wait-KeyPress; exit 1
+    }
+    elseif ($choice -eq 3) {
+        if ($script:Base32Exe) {
+            if (-not (New-Release -Type "both")) {
+                Write-Log "发行版创建失败" "Red"
+            }
         }
-        Write-Log "[OK] Work.ahk 存在" "Green"
-
-        # 步骤 2: 查找编译工具
-        Write-Step 2 "查找编译工具"
-        $Ahk2exe = Find-Exe "Ahk2Exe" $Ahk2ExePaths
-        if (-not $Ahk2exe) { Wait-KeyPress; exit 1 }
-
-        $Base64Exe = Find-Exe "64Base (AutoHotkey64.exe)" $Base64Paths
-        if (-not $Base64Exe) { Wait-KeyPress; exit 1 }
-
-        $Base32Exe = Find-Exe "32Base (AutoHotkey32.exe)" $Base32Paths
-
-        # 步骤 3: 关闭正在运行的 RMT.ahk
-        Write-Step 3 "关闭正在运行的 RMT.ahk"
-        Stop-RunningRMT
-
-        # 步骤 4: 清理旧文件
-        Write-Step 4 "清理旧文件"
-        Remove-OldFiles -Dir $WorkDir -Filter "Work.exe"
-
-        # 步骤 5: 编译 Work.exe
-        Write-Step 5 "编译 Work.exe"
-        $IconPath = Join-Path $PSScriptRoot "Images\Soft\rabit.ico"
-        $result = Compile -AhkFile $WorkAhk -BaseExe $Base64Exe -OutputExe "$WorkDir\Work.exe" -IconPath $IconPath -Name "Work.exe"
-        if (-not $result) { Wait-KeyPress; exit 1 }
-
-        # 步骤 6: 打包帮助文档
-        Write-Step 6 "打包帮助文档"
-        if (-not (Pack-HelpDoc)) {
-            Write-Log "警告: 帮助文档打包失败" "Yellow"
-        }
-        Write-Log "运行环境work编译完成" "Green"
-
-        # 步骤 7: 询问是否生成发行版
-        Write-Step 7 "生成发行版"
-        $choice = Ask-Choice "请选择发行版类型:" @("不生成", "测试版 (仅 X64)", "正式版 (X64 + X32)")
-
-        if ($choice -eq 2) {
+        else {
+            Write-Log "未找到 32 位编译器，生成 X64 测试版" "Yellow"
             if (-not (New-Release -Type "x64")) {
                 Write-Log "发行版创建失败" "Red"
             }
         }
-        elseif ($choice -eq 3) {
-            if ($Base32Exe) {
-                if (-not (New-Release -Type "both")) {
-                    Write-Log "发行版创建失败" "Red"
-                }
-            }
-            else {
-                Write-Log "未找到 32 位编译器，生成 X64 测试版" "Yellow"
-                if (-not (New-Release -Type "x64")) {
-                    Write-Log "发行版创建失败" "Red"
-                }
-            }
+    }
+    else {
+        Write-Log "跳过发行版生成" "Gray"
+    }
+
+    Write-Section "打包完成"
+}
+
+# ============================================================
+# 入口：任何异常都打印完整信息，且必须等待手动按键才退出
+# ============================================================
+
+$script:ExitCode = 0
+$script:Transcript = $null
+
+try {
+    if ($PSScriptRoot) {
+        $logDir = Join-Path $PSScriptRoot "Log"
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+        $script:Transcript = Join-Path $logDir "PackRMT_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        Start-Transcript -Path $script:Transcript -Force | Out-Null
+    }
+}
+catch { $script:Transcript = $null }
+
+try {
+    Main
+}
+catch {
+    Show-ErrorDetail $_
+    $script:ExitCode = 1
+}
+finally {
+    if ($script:Transcript) {
+        try { Stop-Transcript | Out-Null } catch { }
+        Write-Host "`n日志: $($script:Transcript)" -ForegroundColor DarkGray
+    }
+    if (-not $NoPause) {
+        if ($script:ExitCode -eq 0) {
+            Wait-KeyPress "==== 全部完成，按任意键关闭窗口 ===="
         }
         else {
-            Write-Log "跳过发行版生成" "Gray"
+            Wait-KeyPress "==== 执行失败（退出码 $($script:ExitCode)），请查看上方错误信息，按任意键关闭窗口 ===="
         }
-
-        # 完成
-        Write-Section "打包完成"
-        Write-Host ""
-        Wait-KeyPress -TimeoutSeconds 30
-
-    }
-    catch {
-        Write-Log "错误: $($_.Exception.Message)" "Red"
-        Write-Log "位置: $($_.InvocationInfo.ScriptLineNumber)" "Gray"
-        Wait-KeyPress; exit 1
     }
 }
 
-Main
+exit $script:ExitCode

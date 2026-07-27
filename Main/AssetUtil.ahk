@@ -5,7 +5,7 @@
 #Include Util\JsonUtil.ahk
 #Include Util\LangUtil.ahk
 #Include Util\Gdip_All.ahk
-#Include Util\FixCompatUtil.ahk
+#Include Util\CompatDataUtil.ahk
 #Include Util\CompareUtil.ahk
 #Include Util\PresssKeyUtil.ahk
 #Include Util\TextOpsUtil.ahk

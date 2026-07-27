@@ -21,6 +21,7 @@
 #Include FolderPackager.ahk
 #Include Util\MacroClipboardUtil.ahk
 #Include Util\ErrorHandler.ahk
+#Include Util\FixCompatUtil.ahk
 #Include ..\Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
 
 #Include ..\Gui\TriggerKeyGui.ahk
