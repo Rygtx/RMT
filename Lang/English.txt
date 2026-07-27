@@ -71,6 +71,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 ⎖循环次数：{}=⎖Loop Count: {}
 ⎖继续条件：=⎖Continue:
 ⎖退出条件：=⎖Exit:
+⎖流程控制：=⎖Flow Control:
 一维数组时，保持默认值0即可=For 1D arrays, keep the default value 0.
 上=Up
 上一首=Prev
@@ -1135,7 +1136,6 @@ Tip2：按下时再次按下，按键检测网站可能无法检测，但记事�
 分支-跳出：跳出上层分支=Branch-Exit: Exit upper branch
 流程控制说明=Flow Control Description
 不可与特殊指令进行交换=Cannot be exchanged with special commands
-⎖流程控制：=⎖Flow Control:
 管理员权限=Administrator Privileges
 管理员启动=Admin Startup
 tip1:请确保有创建变量-{}的相关指令=tip1:Please ensure there are related commands to create variables-{}
