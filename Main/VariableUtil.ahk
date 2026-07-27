@@ -115,7 +115,7 @@ SetGlobalData(macroStr, visitMap) {
                 if (Data.SaveNameArr[1] != "")
                     VariableMap[Data.SaveNameArr[1]] := true
             }
-            else if (Data.Mode = 3) {
+            else if (Data.Mode = 4) {
                 loop 3 {
                     if (Data.SaveNameArr[A_Index] != "")
                         VariableMap[Data.SaveNameArr[A_Index]] := true
