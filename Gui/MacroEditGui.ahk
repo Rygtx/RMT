@@ -59,6 +59,7 @@ class MacroEditGui {
         this.RecordMacroCon := ""
         this.DefaultFocusCon := ""
         this.SubMacroLastIndex := 0
+        this.DragSourceMap := Map()
 
         this.InitCommandConfigs()
         this.InitSubGuiConfigs()
@@ -184,6 +185,9 @@ class MacroEditGui {
         ; 注册快捷键热键（窗口打开期间全局有效，关闭时注销）
         this._hkIds := WinHotkey.Register(["F5", "F6", "Delete"], ObjBindMethod(this, "_OnHotkey"))
 
+        ; 注册拖拽消息监听
+        OnMessage(0x0201, ObjBindMethod(this, "_OnLButtonDown"))
+
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
@@ -214,7 +218,7 @@ class MacroEditGui {
         for config in this.SubGuiConfig {
             guiInstance := this.%config.propName%
             this.AddIconBtn(MyGui, PosX, PosY, config.icon,
-                GetLang(config.name), CreateSubGuiClickHandler(this, guiInstance))
+                GetLang(config.name), CreateSubGuiClickHandler(this, guiInstance), guiInstance)
             index += 1
             if (index & 1) {
                 PosX += 105
@@ -282,14 +286,17 @@ class MacroEditGui {
         MyGui.OnEvent("Close", (*) => this.OnGuiClose())
     }
 
-    AddIconBtn(MyGui, PosX, PosY, ImgFile, LabelText, ClickAction) {
+    AddIconBtn(MyGui, PosX, PosY, ImgFile, LabelText, ClickAction, guiInstance) {
         IconSize := 16
         BtnW := 75
         ImgY := PosY + (30 - IconSize) // 2
-        MyGui.Add("Picture", Format("x{} y{} w{} h{}", PosX, ImgY, IconSize, IconSize), ImgFile)
+        picCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", PosX, ImgY, IconSize, IconSize), ImgFile)
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX + IconSize, PosY, 30, BtnW), LabelText)
         btnCon.SetFont(Format("S{} W{} Q{}", 11, 400, 5))
         btnCon.OnEvent("Click", ClickAction)
+        
+        this.DragSourceMap[picCon.Hwnd] := {gui: guiInstance, name: LabelText}
+        this.DragSourceMap[btnCon.Hwnd] := {gui: guiInstance, name: LabelText}
     }
 
     InitGuiMenu() {
@@ -1468,6 +1475,184 @@ class MacroEditGui {
             PreItemID := this.MacroTreeViewCon.GetPrev(PreItemID)
         }
         return ItemNumber
+    }
+
+    _OnLButtonDown(wParam, lParam, msg, hwnd) {
+        if (!this.Gui || !WinActive("ahk_id " this.Gui.Hwnd))
+            return
+            
+        if (!this.DragSourceMap.Has(hwnd))
+            return
+            
+        dragInfo := this.DragSourceMap[hwnd]
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&startX, &startY)
+        dragStarted := false
+        
+        hwndTV := this.MacroTreeViewCon.Hwnd
+        
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+        
+        lastTargetItem := -1
+        lastMode := 0
+        
+        plannedMode := 1
+        plannedTarget := 0
+        
+        while GetKeyState("LButton", "P") {
+            MouseGetPos(&curX, &curY, &curWin, &curCtrlHwnd, 2)
+            if (!dragStarted) {
+                if (Abs(curX - startX) > 8 || Abs(curY - startY) > 8) {
+                    dragStarted := true
+                }
+            }
+            if (dragStarted) {
+                if (curCtrlHwnd == hwndTV) {
+                    targetItem := this.TreeViewHitTest(this.MacroTreeViewCon, curX, curY)
+                    
+                    mode := 1
+                    after := 0
+                    
+                    if (targetItem == 0) {
+                        mode := 1
+                    } else {
+                        itemText := this.MacroTreeViewCon.GetText(targetItem)
+                        cleanText := StrReplace(itemText, "→", "")
+                        
+                        if (SubStr(cleanText, 1, 1) == "⎖") {
+                            mode := -1
+                        } else if (this.IsContainerNode(itemText)) {
+                            mode := 5
+                        } else {
+                            rect := this.GetItemRect(this.MacroTreeViewCon, targetItem)
+                            if (rect) {
+                                pt := Buffer(8)
+                                NumPut("Int", curX, pt, 0)
+                                NumPut("Int", curY, pt, 4)
+                                DllCall("ScreenToClient", "Ptr", hwndTV, "Ptr", pt)
+                                clientY := NumGet(pt, 4, "Int")
+                                
+                                midY := rect.top + (rect.bottom - rect.top) / 2
+                                if (clientY < midY) {
+                                    mode := 3
+                                    after := 0
+                                } else {
+                                    mode := 4
+                                    after := 1
+                                }
+                            } else {
+                                mode := 4
+                                after := 1
+                            }
+                        }
+                    }
+                    
+                    if (targetItem != lastTargetItem || mode != lastMode) {
+                        lastTargetItem := targetItem
+                        lastMode := mode
+                        
+                        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                        
+                        plannedMode := mode
+                        plannedTarget := targetItem
+                        
+                        if (mode == -1) {
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("提示: 无法插入到此位置"))
+                        } else if (mode == 1) {
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 追加到末尾"))
+                        } else if (mode == 5) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 内部"))
+                        } else if (mode == 3) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 上方"))
+                        } else if (mode == 4) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 1, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 下方"))
+                        }
+                    }
+                } else if (curCtrlHwnd == this.MacroEditTextCon.Hwnd) {
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                    lastTargetItem := -1
+                    lastMode := 0
+                    
+                    ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 文本末尾"))
+                    plannedMode := 1
+                    plannedTarget := 0
+                } else {
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                    lastTargetItem := -1
+                    lastMode := 0
+                    
+                    ToolTip(GetLang("拖动插入: ") dragInfo.name)
+                    plannedMode := -1
+                }
+            }
+            Sleep(30)
+        }
+        
+        if (dragStarted) {
+            ToolTip() ; Clear tooltip
+            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+            
+            if (plannedMode != -1) {
+                MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
+                if (releaseCtrlHwnd == hwndTV || releaseCtrlHwnd == this.MacroEditTextCon.Hwnd) {
+                    this.CurItemID := plannedTarget
+                    if (this.CurItemID != 0) {
+                        this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
+                    }
+                    this.OnOpenSubGui(dragInfo.gui, plannedMode)
+                }
+            }
+        }
+    }
+
+    TreeViewHitTest(TVCon, mouseX, mouseY) {
+        hwnd := TVCon.Hwnd
+        pt := Buffer(8)
+        NumPut("Int", mouseX, pt, 0)
+        NumPut("Int", mouseY, pt, 4)
+        DllCall("ScreenToClient", "Ptr", hwnd, "Ptr", pt)
+        clientX := NumGet(pt, 0, "Int")
+        clientY := NumGet(pt, 4, "Int")
+        
+        structSize := A_PtrSize == 8 ? 24 : 16
+        tvhti := Buffer(structSize, 0)
+        NumPut("Int", clientX, tvhti, 0)
+        NumPut("Int", clientY, tvhti, 4)
+        
+        hItem := DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x1111, "Ptr", 0, "Ptr", tvhti, "Ptr")
+        return hItem
+    }
+
+    IsContainerNode(itemText) {
+        cleanItemText := StrReplace(itemText, "→", "")
+        isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
+        return (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi)
+    }
+
+    GetItemRect(TVCon, hItem) {
+        hwnd := TVCon.Hwnd
+        rect := Buffer(16, 0)
+        NumPut("UPtr", hItem, rect, 0)
+        if DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x1104, "Ptr", 0, "Ptr", rect, "Ptr") {
+            return {
+                left: NumGet(rect, 0, "Int"),
+                top: NumGet(rect, 4, "Int"),
+                right: NumGet(rect, 8, "Int"),
+                bottom: NumGet(rect, 12, "Int")
+            }
+        }
+        return ""
     }
 }
 

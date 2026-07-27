@@ -208,29 +208,120 @@ OnRunFile(tableItem, cmd, index) {
     target := GetReplaceVarText(tableItem, index, Data.Target)
     options := ["Hide", "", "Min", "Max"]
 
-    if (Data.Mode = 1) {
-        if (Data.Option != 1)
+    switch Data.Mode {
+        case 1:
             Run(target, , options[1 + Data.Option])
-        else
-            Run(target)
 
-    } else if (Data.Mode = 2) {
-        if (Data.Option != 1)
+        case 2:
             exitCode := RunWait(target, , options[1 + Data.Option])
-        else
-            exitCode := RunWait(target)
-        MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
+            MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
 
-    } else if (Data.Mode = 3) {
-        stdout := ""
-        stderr := ""
-        stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
-        exitCode := _RunCommand(target, Data.Option, stdinText, &stdout, &stderr, Data.Encoding.In, Data.Encoding.Out)
-        MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
+        case 3:
+            stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
+            _RunCommandNoWait(target, &Data, stdinText)
+
+        case 4:
+            stdout := ""
+            stderr := ""
+            stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
+            exitCode := _RunCommand(target, &Data, stdinText, &stdout, &stderr)
+            MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
     }
 }
 
-_RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, outEncoding) {
+_RunCommandNoWait(commandLine, &Data, stdinText) {
+    static STARTF_USESHOWWINDOW := 0x00000001
+    static STARTF_USESTDHANDLES := 0x00000100
+    static CREATE_NO_WINDOW := 0x08000000
+    static HANDLE_FLAG_INHERIT := 0x00000001
+
+    commandLine := Trim(commandLine)
+    if (commandLine = "")
+        throw Error("_RunCommandNoWait: commandLine is empty")
+    commandLine := _ResolveAssociatedCommand(commandLine)
+
+    stdinRd := 0
+    stdinWr := 0
+    hProcess := 0
+    hThread := 0
+
+    saSize := (A_PtrSize = 8) ? 24 : 12
+    sa := Buffer(saSize, 0)
+    NumPut("UInt", saSize, sa, 0)
+    NumPut("Int", 1, sa, (A_PtrSize = 8) ? 16 : 8)
+
+    siSize := (A_PtrSize = 8) ? 104 : 68
+    si := Buffer(siSize, 0)
+    NumPut("UInt", siSize, si, 0)
+
+    piSize := (A_PtrSize = 8) ? 24 : 16
+    pi := Buffer(piSize, 0)
+
+    try {
+        if !DllCall("Kernel32\CreatePipe", "Ptr*", &stdinRd, "Ptr*", &stdinWr, "Ptr", sa.Ptr, "UInt", 0, "Int")
+            throw Error("CreatePipe(stdin) failed. LastError=" A_LastError)
+
+        ; 父程序保留寫入端
+        DllCall("Kernel32\SetHandleInformation", "Ptr", stdinWr, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
+
+        ; 和 RunCommand 一樣
+        siFlags := STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
+        NumPut("UInt", siFlags, si, (A_PtrSize = 8) ? 60 : 44)
+
+        NumPut("UShort", Data.Option, si, (A_PtrSize = 8) ? 64 : 48)
+
+        ; stdin 給子程序
+        NumPut("Ptr", stdinRd, si, (A_PtrSize = 8) ? 80 : 56)
+
+        ; 不指定 stdout/stderr
+        ; 讓 Windows 繼承父程序設定
+
+        creationFlags := Data.Option ? 0 : CREATE_NO_WINDOW
+
+        if !DllCall("Kernel32\CreateProcessW"
+            , "Ptr", 0
+            , "Str", commandLine
+            , "Ptr", 0
+            , "Ptr", 0
+            , "Int", 1
+            , "UInt", creationFlags
+            , "Ptr", 0
+            , "Str", A_WorkingDir
+            , "Ptr", si.Ptr
+            , "Ptr", pi.Ptr
+            , "Int")
+            throw Error("CreateProcessW failed. LastError=" A_LastError)
+
+        hProcess := NumGet(pi, 0, "Ptr")
+        hThread := NumGet(pi, A_PtrSize, "Ptr")
+
+        DllCall("Kernel32\CloseHandle", "Ptr", hThread)
+        hThread := 0
+
+        ; 子程序已複製 stdin handle
+        DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
+        stdinRd := 0
+
+        if (stdinText != "")
+            _WriteTextToPipe(stdinWr, stdinText, Data.Encoding.In)
+
+        ; EOF
+        DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
+        stdinWr := 0
+
+    } finally {
+        if (stdinRd)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
+        if (stdinWr)
+            DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
+        if (hThread)
+            DllCall("Kernel32\CloseHandle", "Ptr", hThread)
+        if (hProcess)
+            DllCall("Kernel32\CloseHandle", "Ptr", hProcess)
+    }
+}
+
+_RunCommand(commandLine, &Data, stdinText, &stdout, &stderr) {
     static STARTF_USESHOWWINDOW := 0x00000001
     static STARTF_USESTDHANDLES := 0x00000100
     static CREATE_NO_WINDOW := 0x08000000
@@ -268,11 +359,11 @@ _RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, out
         DllCall("Kernel32\SetHandleInformation", "Ptr", stdinWr, "UInt", HANDLE_FLAG_INHERIT, "UInt", 0)
         siFlags := STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
         NumPut("UInt", siFlags, si, (A_PtrSize = 8) ? 60 : 44)
-        NumPut("UShort", option, si, (A_PtrSize = 8) ? 64 : 48)
+        NumPut("UShort", Data.Option, si, (A_PtrSize = 8) ? 64 : 48)
         NumPut("Ptr", stdinRd, si, (A_PtrSize = 8) ? 80 : 56)
         NumPut("Ptr", stdoutWr, si, (A_PtrSize = 8) ? 88 : 60)
         NumPut("Ptr", stderrWr, si, (A_PtrSize = 8) ? 96 : 64)
-        creationFlags := option ? 0 : CREATE_NO_WINDOW
+        creationFlags := Data.Option ? 0 : CREATE_NO_WINDOW
         if !DllCall("Kernel32\CreateProcessW", "Ptr", 0, "Str", commandLine, "Ptr", 0, "Ptr", 0, "Int", 1, "UInt", creationFlags, "Ptr", 0, "Str", A_WorkingDir, "Ptr", si.Ptr, "Ptr", pi.Ptr, "Int")
             throw Error("CreateProcessW failed. LastError=" A_LastError)
         hProcess := NumGet(pi, 0, "Ptr")
@@ -286,16 +377,16 @@ _RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, out
         DllCall("Kernel32\CloseHandle", "Ptr", stderrWr)
         stderrWr := 0
         if (stdinText != "")
-            _WriteTextToPipe(stdinWr, stdinText, stdinEncoding)
+            _WriteTextToPipe(stdinWr, stdinText, Data.Encoding.In)
         DllCall("Kernel32\CloseHandle", "Ptr", stdinWr)
         stdinWr := 0
         loop {
-            outText .= _DrainPipe(stdoutRd, outEncoding)
-            errText .= _DrainPipe(stderrRd, outEncoding)
+            outText .= _DrainPipe(stdoutRd, Data.Encoding.Out)
+            errText .= _DrainPipe(stderrRd, Data.Encoding.Err)
             wait := DllCall("Kernel32\WaitForSingleObject", "Ptr", hProcess, "UInt", 50, "UInt")
             if (wait != WAIT_TIMEOUT) {
-                outText .= _DrainPipe(stdoutRd, outEncoding)
-                errText .= _DrainPipe(stderrRd, outEncoding)
+                outText .= _DrainPipe(stdoutRd, Data.Encoding.Out)
+                errText .= _DrainPipe(stderrRd, Data.Encoding.Err)
                 break
             }
         }
@@ -303,8 +394,10 @@ _RunCommand(commandLine, option, stdinText, &stdout, &stderr, stdinEncoding, out
             throw Error("GetExitCodeProcess failed. LastError=" A_LastError)
         stdout := outText
         stderr := errText
+
     } catch as e {
         throw e
+
     } finally {
         if (stdinRd)
             DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
