@@ -1489,6 +1489,17 @@ class MacroEditGui {
         MouseGetPos(&startX, &startY)
         dragStarted := false
         
+        hwndTV := this.MacroTreeViewCon.Hwnd
+        
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+        
+        lastTargetItem := -1
+        lastMode := 0
+        
+        plannedMode := 1
+        plannedTarget := 0
+        
         while GetKeyState("LButton", "P") {
             MouseGetPos(&curX, &curY, &curWin, &curCtrlHwnd, 2)
             if (!dragStarted) {
@@ -1497,23 +1508,91 @@ class MacroEditGui {
                 }
             }
             if (dragStarted) {
-                if (curCtrlHwnd == this.MacroTreeViewCon.Hwnd) {
+                if (curCtrlHwnd == hwndTV) {
                     targetItem := this.TreeViewHitTest(this.MacroTreeViewCon, curX, curY)
-                    if (targetItem) {
-                        text := this.MacroTreeViewCon.GetText(targetItem)
-                        cleanText := StrReplace(text, "→", "")
-                        if (SubStr(cleanText, 1, 1) == "⎖") {
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标节点: ") text "`n" GetLang("提示: 无法插入到此位置"))
-                        } else {
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标节点: ") text)
-                        }
+                    
+                    mode := 1
+                    after := 0
+                    
+                    if (targetItem == 0) {
+                        mode := 1
                     } else {
-                        ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标节点: 末尾"))
+                        itemText := this.MacroTreeViewCon.GetText(targetItem)
+                        cleanText := StrReplace(itemText, "→", "")
+                        
+                        if (SubStr(cleanText, 1, 1) == "⎖") {
+                            mode := -1
+                        } else if (this.IsContainerNode(itemText)) {
+                            mode := 5
+                        } else {
+                            rect := this.GetItemRect(this.MacroTreeViewCon, targetItem)
+                            if (rect) {
+                                pt := Buffer(8)
+                                NumPut("Int", curX, pt, 0)
+                                NumPut("Int", curY, pt, 4)
+                                DllCall("ScreenToClient", "Ptr", hwndTV, "Ptr", pt)
+                                clientY := NumGet(pt, 4, "Int")
+                                
+                                midY := rect.top + (rect.bottom - rect.top) / 2
+                                if (clientY < midY) {
+                                    mode := 3
+                                    after := 0
+                                } else {
+                                    mode := 4
+                                    after := 1
+                                }
+                            } else {
+                                mode := 4
+                                after := 1
+                            }
+                        }
+                    }
+                    
+                    if (targetItem != lastTargetItem || mode != lastMode) {
+                        lastTargetItem := targetItem
+                        lastMode := mode
+                        
+                        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                        
+                        plannedMode := mode
+                        plannedTarget := targetItem
+                        
+                        if (mode == -1) {
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("提示: 无法插入到此位置"))
+                        } else if (mode == 1) {
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 追加到末尾"))
+                        } else if (mode == 5) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 内部"))
+                        } else if (mode == 3) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 上方"))
+                        } else if (mode == 4) {
+                            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 1, "Ptr", targetItem)
+                            itemText := this.MacroTreeViewCon.GetText(targetItem)
+                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 下方"))
+                        }
                     }
                 } else if (curCtrlHwnd == this.MacroEditTextCon.Hwnd) {
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                    lastTargetItem := -1
+                    lastMode := 0
+                    
                     ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 文本末尾"))
+                    plannedMode := 1
+                    plannedTarget := 0
                 } else {
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+                    lastTargetItem := -1
+                    lastMode := 0
+                    
                     ToolTip(GetLang("拖动插入: ") dragInfo.name)
+                    plannedMode := -1
                 }
             }
             Sleep(30)
@@ -1521,36 +1600,18 @@ class MacroEditGui {
         
         if (dragStarted) {
             ToolTip() ; Clear tooltip
-            MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
-            if (releaseCtrlHwnd == this.MacroTreeViewCon.Hwnd) {
-                targetItem := this.TreeViewHitTest(this.MacroTreeViewCon, releaseX, releaseY)
-                if (targetItem) {
-                    ItemText := this.MacroTreeViewCon.GetText(targetItem)
-                    cleanText := StrReplace(ItemText, "→", "")
-                    if (SubStr(cleanText, 1, 1) == "⎖") {
-                        return
+            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+            
+            if (plannedMode != -1) {
+                MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
+                if (releaseCtrlHwnd == hwndTV || releaseCtrlHwnd == this.MacroEditTextCon.Hwnd) {
+                    this.CurItemID := plannedTarget
+                    if (this.CurItemID != 0) {
+                        this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
                     }
-                    
-                    ; 选中并焦点
-                    this.CurItemID := targetItem
-                    this.MacroTreeViewCon.Modify(targetItem, "Select")
-                    
-                    DropMenu := Menu()
-                    if (this.IsContainerNode(ItemText)) {
-                        DropMenu.Add(GetLang("添加子指令"), (*) => (this.CurItemID := targetItem, this.OnOpenSubGui(dragInfo.gui, 5)))
-                    } else {
-                        DropMenu.Add(GetLang("上方插入"), (*) => (this.CurItemID := targetItem, this.OnOpenSubGui(dragInfo.gui, 3)))
-                        DropMenu.Add(GetLang("下方插入"), (*) => (this.CurItemID := targetItem, this.OnOpenSubGui(dragInfo.gui, 4)))
-                    }
-                    
-                    DropMenu.Show()
-                } else {
-                    ; 拖拽到空白处，直接追加到末尾
-                    this.OnOpenSubGui(dragInfo.gui, 1)
+                    this.OnOpenSubGui(dragInfo.gui, plannedMode)
                 }
-            } else if (releaseCtrlHwnd == this.MacroEditTextCon.Hwnd) {
-                ; 拖拽到文本编辑框，直接追加
-                this.OnOpenSubGui(dragInfo.gui, 1)
             }
         }
     }
@@ -1577,6 +1638,21 @@ class MacroEditGui {
         cleanItemText := StrReplace(itemText, "→", "")
         isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
         return (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi)
+    }
+
+    GetItemRect(TVCon, hItem) {
+        hwnd := TVCon.Hwnd
+        rect := Buffer(16, 0)
+        NumPut("UPtr", hItem, rect, 0)
+        if DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x1104, "Ptr", 0, "Ptr", rect, "Ptr") {
+            return {
+                left: NumGet(rect, 0, "Int"),
+                top: NumGet(rect, 4, "Int"),
+                right: NumGet(rect, 8, "Int"),
+                bottom: NumGet(rect, 12, "Int")
+            }
+        }
+        return ""
     }
 }
 
