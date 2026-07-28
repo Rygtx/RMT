@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 ; ============================================================================
 ; MacroClipboardUtil.ahk - 宏复制/粘贴功能工具库
@@ -506,6 +506,20 @@ OnItemCopyMacroBtnClick(tableItem, CopyIndex, *) {
 
 ; 粘贴宏指令集（从剪贴板读取完整指令集及配置）
 OnItemPasteMacroBtnClick(tableItem, btn, *) {
+    foldInfo := tableItem.FoldInfo
+    foldIndex := tableItem.ConIndexMap[btn].itemConInfo.FoldIndex
+    isMenu := CheckIsMenuMacroTable(tableItem.Index)
+    if (isMenu) {
+        IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
+        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
+            Count := IndexSpan[2] - IndexSpan[1] + 1
+            if (Count >= 8) {
+                MsgBox(GetLang("轮盘最多只能添加8个"), GetLang("提示"))
+                return
+            }
+        }
+    }
+
     clipboardText := A_Clipboard
     if (clipboardText == "") {
         MsgBox(GetLang("剪贴板为空"), GetLang("提示"))
@@ -655,6 +669,21 @@ OnItemPasteMacroBtnClick(tableItem, btn, *) {
         tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
         tableItem.SerialArr.InsertAt(AddIndex, GetCMDSerialStr("Item"))
         tableItem.TimingSerialArr.InsertAt(AddIndex, GetCMDSerialStr("Timing"))
+        tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+        tableItem.GraphBranchCountArr.InsertAt(AddIndex, 0)
+        tableItem.IcoPathArr.InsertAt(AddIndex, "")
+        tableItem.KilledArr.InsertAt(AddIndex, false)
+        tableItem.PauseArr.InsertAt(AddIndex, false)
+        tableItem.ActionCount.InsertAt(AddIndex, 0)
+        tableItem.HoldKeyArr.InsertAt(AddIndex, Map())
+        tableItem.ToggleStateArr.InsertAt(AddIndex, false)
+        tableItem.ToggleActionArr.InsertAt(AddIndex, "")
+        VariableMap := Map()
+        VariableMap["宏循环次数"] := 0
+        VariableMap["循环-跳过本轮"] := false
+        VariableMap["循环-跳出"] := false
+        VariableMap["分支-跳出"] := false
+        tableItem.VariableMapArr.InsertAt(AddIndex, VariableMap)
     } else {
         tableItem.ColorStateArr.InsertAt(AddIndex, 0)
         tableItem.TKArr.InsertAt(AddIndex, "")
@@ -670,6 +699,21 @@ OnItemPasteMacroBtnClick(tableItem, btn, *) {
         tableItem.EndTipSoundArr.InsertAt(AddIndex, 1)
         tableItem.SerialArr.InsertAt(AddIndex, GetCMDSerialStr("Item"))
         tableItem.TimingSerialArr.InsertAt(AddIndex, GetCMDSerialStr("Timing"))
+        tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+        tableItem.GraphBranchCountArr.InsertAt(AddIndex, 0)
+        tableItem.IcoPathArr.InsertAt(AddIndex, "")
+        tableItem.KilledArr.InsertAt(AddIndex, false)
+        tableItem.PauseArr.InsertAt(AddIndex, false)
+        tableItem.ActionCount.InsertAt(AddIndex, 0)
+        tableItem.HoldKeyArr.InsertAt(AddIndex, Map())
+        tableItem.ToggleStateArr.InsertAt(AddIndex, false)
+        tableItem.ToggleActionArr.InsertAt(AddIndex, "")
+        VariableMap := Map()
+        VariableMap["宏循环次数"] := 0
+        VariableMap["循环-跳过本轮"] := false
+        VariableMap["循环-跳出"] := false
+        VariableMap["分支-跳出"] := false
+        tableItem.VariableMapArr.InsertAt(AddIndex, VariableMap)
     }
 
     PosY := 1000000
