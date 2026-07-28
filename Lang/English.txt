@@ -868,6 +868,7 @@ Tip:AHI驱动需要安装Interception驱动并以管理员权限运行=Tip: AHI 
 显示扇区名称提示=Show Sector Name Tooltip
 菜单轮设置=Wheel Settings
 轮盘设置=Wheel Settings
+轮盘最多只能添加8个=Wheel can add up to 8 macros
 恢复默认=Restore Defaults
 颜色自定义=Color Customization
 主题预设=Theme Presets

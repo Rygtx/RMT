@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #Include ..\Main\Util\JsonUtil.ahk
 ItemFreeConPoolMap := Map()
 ItemUseConPoolMap := Map()
@@ -90,7 +90,6 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
 
     con := MyGui.Add("Button", Format("x{} y{} h29", MainSoftData.TabPosX + 490, posY - 1), GetLang("新增宏"))
     con.OnEvent("Click", OnItemAddMacroBtnClick.Bind(tableItem))
-    con.Visible := !isMenu
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
@@ -98,7 +97,6 @@ LoadItemFoldTitle(tableItem, foldIndex, PosY) {
 
     con := MyGui.Add("Button", Format("x{} y{} h29", MainSoftData.TabPosX + 560, posY - 1), GetLang("粘贴宏"))
     con.OnEvent("Click", OnItemPasteMacroBtnClick.bind(tableItem))
-    con.Visible := !isMenu
     conInfo := ItemConInfo(con, tableItem, foldIndex)
     conInfo.IsTitle := true
     tableItem.AllConArr.Push(conInfo)
@@ -214,6 +212,16 @@ OnItemAddMacroBtnClick(tableItem, btn, *) {
     foldInfo := tableItem.FoldInfo
     foldIndex := tableItem.ConIndexMap[btn].itemConInfo.FoldIndex
     isMenu := CheckIsMenuMacroTable(tableItem.Index)
+    if (isMenu) {
+        IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
+        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
+            Count := IndexSpan[2] - IndexSpan[1] + 1
+            if (Count >= 8) {
+                MsgBox(GetLang("轮盘最多只能添加8个"), GetLang("提示"))
+                return
+            }
+        }
+    }
     isUI := GetTableSymbol(tableItem.Index) == "UI"
     titleHeight := (isMenu || isUI) ? 85 : 55
     AddIndex := GetFoldAddItemIndex(foldInfo, foldIndex)
@@ -299,30 +307,35 @@ OnItemDelMacro(tableItem, itemIndex, foldInfo, foldIndex) {
     tableItem.FoldOffsetArr[foldIndex] += afterHei - beforeHei
     tableItem.AllGroup[foldIndex].Move(, , , afterHei)
 
-    tableItem.ColorStateArr.RemoveAt(itemIndex)
-    tableItem.SerialArr.RemoveAt(itemIndex)
-    tableItem.TKArr.RemoveAt(itemIndex)
-    tableItem.MacroArr.RemoveAt(itemIndex)
-    tableItem.LoopCountArr.RemoveAt(itemIndex)
-    tableItem.TriggerTypeArr.RemoveAt(itemIndex)
-    tableItem.ModeArr.RemoveAt(itemIndex)
-    tableItem.ForbidArr.RemoveAt(itemIndex)
-    tableItem.HoldTimeArr.RemoveAt(itemIndex)
-    tableItem.UnorderedTriggerArr.RemoveAt(itemIndex)
-    tableItem.RemarkArr.RemoveAt(itemIndex)
-    tableItem.TimingSerialArr.RemoveAt(itemIndex)
-    tableItem.StartTipSoundArr.RemoveAt(itemIndex)
-    tableItem.EndTipSoundArr.RemoveAt(itemIndex)
-    tableItem.IsWorkIndexArr.RemoveAt(itemIndex)
-    tableItem.GraphBranchCountArr.RemoveAt(itemIndex)
-    tableItem.IcoPathArr.RemoveAt(itemIndex)
-    tableItem.KilledArr.RemoveAt(itemIndex)
-    tableItem.PauseArr.RemoveAt(itemIndex)
-    tableItem.ActionCount.RemoveAt(itemIndex)
-    tableItem.HoldKeyArr.RemoveAt(itemIndex)
-    tableItem.ToggleStateArr.RemoveAt(itemIndex)
-    tableItem.ToggleActionArr.RemoveAt(itemIndex)
-    tableItem.VariableMapArr.RemoveAt(itemIndex)
+    SafeRemoveAt(tableItem.ColorStateArr, itemIndex)
+    SafeRemoveAt(tableItem.SerialArr, itemIndex)
+    SafeRemoveAt(tableItem.TKArr, itemIndex)
+    SafeRemoveAt(tableItem.MacroArr, itemIndex)
+    SafeRemoveAt(tableItem.LoopCountArr, itemIndex)
+    SafeRemoveAt(tableItem.TriggerTypeArr, itemIndex)
+    SafeRemoveAt(tableItem.ModeArr, itemIndex)
+    SafeRemoveAt(tableItem.ForbidArr, itemIndex)
+    SafeRemoveAt(tableItem.HoldTimeArr, itemIndex)
+    SafeRemoveAt(tableItem.UnorderedTriggerArr, itemIndex)
+    SafeRemoveAt(tableItem.RemarkArr, itemIndex)
+    SafeRemoveAt(tableItem.TimingSerialArr, itemIndex)
+    SafeRemoveAt(tableItem.StartTipSoundArr, itemIndex)
+    SafeRemoveAt(tableItem.EndTipSoundArr, itemIndex)
+    SafeRemoveAt(tableItem.IsWorkIndexArr, itemIndex)
+    SafeRemoveAt(tableItem.GraphBranchCountArr, itemIndex)
+    SafeRemoveAt(tableItem.IcoPathArr, itemIndex)
+    SafeRemoveAt(tableItem.KilledArr, itemIndex)
+    SafeRemoveAt(tableItem.PauseArr, itemIndex)
+    SafeRemoveAt(tableItem.ActionCount, itemIndex)
+    SafeRemoveAt(tableItem.HoldKeyArr, itemIndex)
+    SafeRemoveAt(tableItem.ToggleStateArr, itemIndex)
+    SafeRemoveAt(tableItem.ToggleActionArr, itemIndex)
+    SafeRemoveAt(tableItem.VariableMapArr, itemIndex)
+}
+
+SafeRemoveAt(arr, index) {
+    if (index > 0 && index <= arr.Length)
+        arr.RemoveAt(index)
 }
 
 ;增加宏模块
@@ -387,6 +400,7 @@ OnItemAddMenuItem(tableItem, foldIndex) {
         tableItem.StartTipSoundArr.InsertAt(AddIndex, 0)
         tableItem.EndTipSoundArr.InsertAt(AddIndex, 0)
         tableItem.IsWorkIndexArr.InsertAt(AddIndex, 0)
+        tableItem.GraphBranchCountArr.InsertAt(AddIndex, 0)
         tableItem.IcoPathArr.InsertAt(AddIndex, "")
         tableItem.KilledArr.InsertAt(AddIndex, false)
         tableItem.PauseArr.InsertAt(AddIndex, false)
@@ -894,7 +908,6 @@ LoadTabSingleItem(tableItem, ItemConObj) {
 
     ;删除
     DelCon := MyGui.Add("Button", Format("x{} y{} w50 h29", TabPosX + 810, -1000), GetLang("删除"))
-    DelCon.Enabled := !isMenu
     DelCon.OffsetY := -1
     DelCon.OriPosX := TabPosX + 820
 
