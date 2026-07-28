@@ -60,6 +60,7 @@ class MacroEditGui {
         this.DefaultFocusCon := ""
         this.SubMacroLastIndex := 0
         this.DragSourceMap := Map()
+        this._dragCancelled := false
 
         this.InitCommandConfigs()
         this.InitSubGuiConfigs()
@@ -1533,6 +1534,8 @@ class MacroEditGui {
             if (!dragStarted) {
                 if (Abs(curX - startX) > 8 || Abs(curY - startY) > 8) {
                     dragStarted := true
+                    ; 捕捉滑鼠到 TreeView，防止 WM_LBUTTONUP 流向編輯器造成焦點偷換
+                    DllCall("SetCapture", "Ptr", hwndTV)
                 }
             }
             if (dragStarted) {
@@ -1628,31 +1631,44 @@ class MacroEditGui {
             Sleep(30)
         }
         
-        if (dragStarted) {
-            ToolTip() ; Clear tooltip
-            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
-            DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
-            
-            if (plannedMode != -1) {
+        ToolTip() ; Clear tooltip
+        DllCall("ReleaseCapture")  ; 釋放滑鼠捕捉
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
+        
+        if (isFromLeft) {
+            if (!dragStarted) {
+                ; 沒有拖曳：模擬正常按鈕點擊，追加到末尾
+                this.OnOpenSubGui(dragInfo.gui, 1)
+            } else if (plannedMode != -1) {
+                ; 拖曳並在 TreeView 或 Edit 中釋放
                 MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
                 if (releaseCtrlHwnd == hwndTV || releaseCtrlHwnd == this.MacroEditTextCon.Hwnd) {
-                    if (dragInfo.isMove) {
-                        destParent := 0
-                        if (plannedMode == 5) {
-                            destParent := plannedTarget
-                        } else if (plannedMode == 3 || plannedMode == 4) {
-                            destParent := this.MacroTreeViewCon.GetParent(plannedTarget)
-                        }
-                        this.MoveTreeViewItem(dragInfo.sourceItem, destParent, plannedTarget, plannedMode)
-                    } else {
-                        this.CurItemID := plannedTarget
-                        if (this.CurItemID != 0) {
-                            this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
-                        }
-                        this.OnOpenSubGui(dragInfo.gui, plannedMode)
+                    this.CurItemID := plannedTarget
+                    if (this.CurItemID != 0) {
+                        this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
                     }
+                    this.OnOpenSubGui(dragInfo.gui, plannedMode)
+                }
+                ; TreeView 外釋放：什麼都不做
+            }
+            ; 攔截原始 WM_LBUTTONDOWN，防止按鈕的 Click 事件重複觸發
+            return 1
+        } else {
+            ; isFromTV：TreeView 內部指令移動
+            if (dragStarted && plannedMode != -1) {
+                MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
+                if (releaseCtrlHwnd == hwndTV) {
+                    destParent := 0
+                    if (plannedMode == 5) {
+                        destParent := plannedTarget
+                    } else if (plannedMode == 3 || plannedMode == 4) {
+                        destParent := this.MacroTreeViewCon.GetParent(plannedTarget)
+                    }
+                    this.MoveTreeViewItem(dragInfo.sourceItem, destParent, plannedTarget, plannedMode)
                 }
             }
+            ; isFromTV 不攔截原始訊息，讓 TreeView 保持正常選取行為
         }
     }
 
@@ -1710,7 +1726,7 @@ class MacroEditGui {
         } else if (mode == 5) {
             seq := "First"
         } else {
-            seq := "Last"
+            seq := ""
         }
         
         newItem := this.MacroTreeViewCon.Add(sourceText, destParent, seq " " sourceIcon)
@@ -1771,5 +1787,12 @@ class MacroEditGui {
 }
 
 CreateSubGuiClickHandler(self, guiInstance) {
-    return (*) => self.OnOpenSubGui(guiInstance)
+    clickHandler(*) {
+        if (self._dragCancelled) {
+            self._dragCancelled := false
+            return
+        }
+        self.OnOpenSubGui(guiInstance)
+    }
+    return clickHandler
 }
