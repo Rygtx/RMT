@@ -295,8 +295,8 @@ class MacroEditGui {
         btnCon.SetFont(Format("S{} W{} Q{}", 11, 400, 5))
         btnCon.OnEvent("Click", ClickAction)
         
-        this.DragSourceMap[picCon.Hwnd] := {gui: guiInstance, name: LabelText}
-        this.DragSourceMap[btnCon.Hwnd] := {gui: guiInstance, name: LabelText}
+        this.DragSourceMap[picCon.Hwnd] := {gui: guiInstance, name: LabelText, isMove: false}
+        this.DragSourceMap[btnCon.Hwnd] := {gui: guiInstance, name: LabelText, isMove: false}
     }
 
     InitGuiMenu() {
@@ -1481,15 +1481,41 @@ class MacroEditGui {
         if (!this.Gui || !WinActive("ahk_id " this.Gui.Hwnd))
             return
             
-        if (!this.DragSourceMap.Has(hwnd))
+        hwndTV := this.MacroTreeViewCon.Hwnd
+        isFromLeft := this.DragSourceMap.Has(hwnd)
+        isFromTV := (hwnd == hwndTV)
+        
+        if (!isFromLeft && !isFromTV)
             return
             
-        dragInfo := this.DragSourceMap[hwnd]
+        dragInfo := ""
+        sourceItem := 0
         CoordMode("Mouse", "Screen")
         MouseGetPos(&startX, &startY)
-        dragStarted := false
         
-        hwndTV := this.MacroTreeViewCon.Hwnd
+        if (isFromLeft) {
+            dragInfo := this.DragSourceMap[hwnd]
+        } else {
+            sourceItem := this.TreeViewHitTest(this.MacroTreeViewCon, startX, startY)
+            if (sourceItem == 0)
+                return
+                
+            itemText := this.MacroTreeViewCon.GetText(sourceItem)
+            cleanText := StrReplace(itemText, "→", "")
+            
+            isCondi := SubStr(cleanText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
+            if (SubStr(cleanText, 1, 1) == "⎖" 
+                || itemText == GetLang("真") 
+                || itemText == GetLang("假") 
+                || itemText == GetLang("循环体") 
+                || isCondi) {
+                return
+            }
+            
+            dragInfo := {name: itemText, gui: "", isMove: true, sourceItem: sourceItem}
+        }
+        
+        dragStarted := false
         
         DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
         DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
@@ -1499,6 +1525,8 @@ class MacroEditGui {
         
         plannedMode := 1
         plannedTarget := 0
+        
+        actionVerb := dragInfo.isMove ? GetLang("移动") : GetLang("拖动插入")
         
         while GetKeyState("LButton", "P") {
             MouseGetPos(&curX, &curY, &curWin, &curCtrlHwnd, 2)
@@ -1520,7 +1548,9 @@ class MacroEditGui {
                         itemText := this.MacroTreeViewCon.GetText(targetItem)
                         cleanText := StrReplace(itemText, "→", "")
                         
-                        if (SubStr(cleanText, 1, 1) == "⎖") {
+                        if (SubStr(cleanText, 1, 1) == "⎖" || (dragInfo.isMove && targetItem == dragInfo.sourceItem)) {
+                            mode := -1
+                        } else if (dragInfo.isMove && this.IsDescendantOrSelf(this.MacroTreeViewCon, dragInfo.sourceItem, targetItem)) {
                             mode := -1
                         } else if (this.IsContainerNode(itemText)) {
                             mode := 5
@@ -1559,21 +1589,21 @@ class MacroEditGui {
                         plannedTarget := targetItem
                         
                         if (mode == -1) {
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("提示: 无法插入到此位置"))
+                            ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("提示: 无法移动到此位置"))
                         } else if (mode == 1) {
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 追加到末尾"))
+                            ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("目标: 追加到末尾"))
                         } else if (mode == 5) {
                             DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", targetItem)
                             itemText := this.MacroTreeViewCon.GetText(targetItem)
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 内部"))
+                            ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 内部"))
                         } else if (mode == 3) {
                             DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", targetItem)
                             itemText := this.MacroTreeViewCon.GetText(targetItem)
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 上方"))
+                            ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 上方"))
                         } else if (mode == 4) {
                             DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 1, "Ptr", targetItem)
                             itemText := this.MacroTreeViewCon.GetText(targetItem)
-                            ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 下方"))
+                            ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("目标: 插入到 ") itemText GetLang(" 下方"))
                         }
                     }
                 } else if (curCtrlHwnd == this.MacroEditTextCon.Hwnd) {
@@ -1582,7 +1612,7 @@ class MacroEditGui {
                     lastTargetItem := -1
                     lastMode := 0
                     
-                    ToolTip(GetLang("拖动插入: ") dragInfo.name "`n" GetLang("目标: 文本末尾"))
+                    ToolTip(actionVerb ": " dragInfo.name "`n" GetLang("目标: 文本末尾"))
                     plannedMode := 1
                     plannedTarget := 0
                 } else {
@@ -1591,7 +1621,7 @@ class MacroEditGui {
                     lastTargetItem := -1
                     lastMode := 0
                     
-                    ToolTip(GetLang("拖动插入: ") dragInfo.name)
+                    ToolTip(actionVerb ": " dragInfo.name)
                     plannedMode := -1
                 }
             }
@@ -1606,11 +1636,21 @@ class MacroEditGui {
             if (plannedMode != -1) {
                 MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
                 if (releaseCtrlHwnd == hwndTV || releaseCtrlHwnd == this.MacroEditTextCon.Hwnd) {
-                    this.CurItemID := plannedTarget
-                    if (this.CurItemID != 0) {
-                        this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
+                    if (dragInfo.isMove) {
+                        destParent := 0
+                        if (plannedMode == 5) {
+                            destParent := plannedTarget
+                        } else if (plannedMode == 3 || plannedMode == 4) {
+                            destParent := this.MacroTreeViewCon.GetParent(plannedTarget)
+                        }
+                        this.MoveTreeViewItem(dragInfo.sourceItem, destParent, plannedTarget, plannedMode)
+                    } else {
+                        this.CurItemID := plannedTarget
+                        if (this.CurItemID != 0) {
+                            this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
+                        }
+                        this.OnOpenSubGui(dragInfo.gui, plannedMode)
                     }
-                    this.OnOpenSubGui(dragInfo.gui, plannedMode)
                 }
             }
         }
@@ -1653,6 +1693,80 @@ class MacroEditGui {
             }
         }
         return ""
+    }
+
+    MoveTreeViewItem(sourceItem, destParent, relativeToItem, mode) {
+        this.ResetDebugState()
+        
+        sourceText := this.MacroTreeViewCon.GetText(sourceItem)
+        sourceIcon := this.GetCmdIconStr(sourceText)
+        sourceParent := this.MacroTreeViewCon.GetParent(sourceItem)
+        
+        if (mode == 3) {
+            prev := this.MacroTreeViewCon.GetPrev(relativeToItem)
+            seq := prev == 0 ? "First" : prev
+        } else if (mode == 4) {
+            seq := relativeToItem
+        } else if (mode == 5) {
+            seq := "First"
+        } else {
+            seq := "Last"
+        }
+        
+        newItem := this.MacroTreeViewCon.Add(sourceText, destParent, seq " " sourceIcon)
+        this.TreeAddBranch(newItem, sourceText)
+        
+        this.MacroTreeViewCon.Delete(sourceItem)
+        
+        if (sourceParent != 0) {
+            macroStrSource := this.GetTreeMacroStr(sourceParent)
+            RealSourceItemID := this.MacroTreeViewCon.GetParent(sourceParent)
+            RealSourceCommandStr := this.MacroTreeViewCon.GetText(RealSourceItemID)
+            this.SaveCommandData(RealSourceCommandStr, macroStrSource, sourceParent)
+        }
+        
+        if (destParent != 0) {
+            macroStrDest := this.GetTreeMacroStr(destParent)
+            RealDestItemID := this.MacroTreeViewCon.GetParent(destParent)
+            RealDestCommandStr := this.MacroTreeViewCon.GetText(RealDestItemID)
+            this.SaveCommandData(RealDestCommandStr, macroStrDest, destParent)
+        }
+        
+        if (sourceParent != 0) {
+            this.RefreshTree(RealSourceItemID)
+        }
+        if (destParent != 0 && destParent != sourceParent) {
+            this.RefreshTree(RealDestItemID)
+        }
+        
+        if (destParent != 0) {
+            child := this.MacroTreeViewCon.GetChild(destParent)
+            while (child) {
+                if (this.MacroTreeViewCon.GetText(child) == sourceText) {
+                    this.MacroTreeViewCon.Modify(child, "Select")
+                    break
+                }
+                child := this.MacroTreeViewCon.GetNext(child)
+            }
+        } else {
+            this.MacroTreeViewCon.Modify(newItem, "Select")
+        }
+        
+        return newItem
+    }
+
+    IsDescendantOrSelf(TVCon, item, potentialParent) {
+        if (potentialParent == 0)
+            return false
+        if (potentialParent == item)
+            return true
+        parent := TVCon.GetParent(potentialParent)
+        while (parent != 0) {
+            if (parent == item)
+                return true
+            parent := TVCon.GetParent(parent)
+        }
+        return false
     }
 }
 
