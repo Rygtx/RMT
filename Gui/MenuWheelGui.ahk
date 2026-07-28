@@ -58,9 +58,16 @@ class MenuWheelGui {
         modSelectedText := IniRead(themesIniPath, themeSection, "SelectedText", "#FFFFFFFF")
         modSwipeLine := IniRead(themesIniPath, themeSection, "SwipeLineColor", "#3A88F5")
 
+        IndexSpan := StrSplit(tableItem.FoldInfo.IndexSpanArr[MenuIndex], "-")
+        if (!IsInteger(IndexSpan[1]) || !IsInteger(IndexSpan[2]))
+            return
+
+        itemCount := IndexSpan[2] - IndexSpan[1] + 1
+        startIdx := IndexSpan[1]
+
         items := []
-        loop 8 {
-            macroIndex := (MenuIndex - 1) * 8 + A_Index
+        loop itemCount {
+            macroIndex := startIdx - 1 + A_Index
             remark := tableItem.RemarkArr[macroIndex]
             btnName := remark != "" ? remark : "菜单" A_Index
 
@@ -471,13 +478,17 @@ class MenuWheelGui {
         }
 
         tableItem := MySoftData.TableInfo[3]
-        Loop itemCount {
-            idx := A_Index
-            macroIndex := (this.MenuIndex - 1) * 8 + idx
-            isWorkRunning := tableItem.IsWorkIndexArr.Length >= macroIndex && tableItem.IsWorkIndexArr[macroIndex] != 0
-            state := isWorkRunning ? 1 : (tableItem.ColorStateArr.Length >= macroIndex ? tableItem.ColorStateArr[macroIndex] : 0)
-            if (state > 0 && MacroStateColors.Has(state))
-                this.sectors[idx].RenderState(this, MacroStateColors[state])
+        IndexSpan := StrSplit(tableItem.FoldInfo.IndexSpanArr[this.MenuIndex], "-")
+        if (IsInteger(IndexSpan[1]) && IsInteger(IndexSpan[2])) {
+            startIdx := IndexSpan[1]
+            Loop itemCount {
+                idx := A_Index
+                macroIndex := startIdx - 1 + idx
+                isWorkRunning := tableItem.IsWorkIndexArr.Length >= macroIndex && tableItem.IsWorkIndexArr[macroIndex] != 0
+                state := isWorkRunning ? 1 : (tableItem.ColorStateArr.Length >= macroIndex ? tableItem.ColorStateArr[macroIndex] : 0)
+                if (state > 0 && MacroStateColors.Has(state))
+                    this.sectors[idx].RenderState(this, MacroStateColors[state])
+            }
         }
 
         if (IsObject(this.ui)) {
@@ -577,7 +588,10 @@ class MenuWheelGui {
 
     OnRadialMenuSelect(ArcNr, MenuIndex) {
         tableItem := MySoftData.TableInfo[3]
-        macroIndex := (MenuIndex - 1) * 8 + ArcNr
+        IndexSpan := StrSplit(tableItem.FoldInfo.IndexSpanArr[MenuIndex], "-")
+        if (!IsInteger(IndexSpan[1]) || !IsInteger(IndexSpan[2]))
+            return
+        macroIndex := IndexSpan[1] - 1 + ArcNr
         triggerType := tableItem.TriggerTypeArr[macroIndex]
 
         ; 开关模式：与按键宏保持一致，统一走 OnToggleTriggerMacro
