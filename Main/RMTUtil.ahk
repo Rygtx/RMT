@@ -681,7 +681,7 @@ ExcuteRMTCMDAction(Cmd) {
                 }
             }
         case "显示菜单":
-            OpenMenuWheel(paramArr[3], false)
+            OpenMenuWheel(paramArr[4], false)
         case "关闭菜单":
             CloseMenuWheel()
         case "启用键鼠":

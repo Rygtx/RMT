@@ -297,24 +297,37 @@ class MenuWheelGui {
         Loop itemCount {
             idx := A_Index
             sec := this.sectors[idx]
-            startRad := sec.StartAngle * 0.0174532925199433
-            endRad := sec.EndAngle * 0.0174532925199433
-            largeArc := angleStep > 180 ? "1" : "0"
 
-            ix1 := Round(cx + innerR * Cos(startRad))
-            iy1 := Round(cy + innerR * Sin(startRad))
-            ox1 := Round(cx + radius * Cos(startRad))
-            oy1 := Round(cy + radius * Sin(startRad))
-            ox2 := Round(cx + radius * Cos(endRad))
-            oy2 := Round(cy + radius * Sin(endRad))
-            ix2 := Round(cx + innerR * Cos(endRad))
-            iy2 := Round(cy + innerR * Sin(endRad))
+            if (itemCount == 1) {
+                ; 繪製無縫的完整圓環
+                pathData := "M " cx "," (cy - radius)
+                    . " A " radius "," radius " 0 1 1 " cx "," (cy + radius)
+                    . " A " radius "," radius " 0 1 1 " cx "," (cy - radius)
+                    . " M " cx "," (cy - innerR)
+                    . " A " innerR "," innerR " 0 1 0 " cx "," (cy + innerR)
+                    . " A " innerR "," innerR " 0 1 0 " cx "," (cy - innerR)
+                    . " Z"
+            } else {
+                ; 繪製普通扇區
+                startRad := sec.StartAngle * 0.0174532925199433
+                endRad := sec.EndAngle * 0.0174532925199433
+                largeArc := angleStep > 180 ? "1" : "0"
 
-            pathData := "M " ix1 "," iy1
-                . " L " ox1 "," oy1
-                . " A " radius "," radius " 0 " largeArc " 1 " ox2 "," oy2
-                . " L " ix2 "," iy2
-                . " A " innerR "," innerR " 0 " largeArc " 0 " ix1 "," iy1 " Z"
+                ix1 := Round(cx + innerR * Cos(startRad))
+                iy1 := Round(cy + innerR * Sin(startRad))
+                ox1 := Round(cx + radius * Cos(startRad))
+                oy1 := Round(cy + radius * Sin(startRad))
+                ox2 := Round(cx + radius * Cos(endRad))
+                oy2 := Round(cy + radius * Sin(endRad))
+                ix2 := Round(cx + innerR * Cos(endRad))
+                iy2 := Round(cy + innerR * Sin(endRad))
+
+                pathData := "M " ix1 "," iy1
+                    . " L " ox1 "," oy1
+                    . " A " radius "," radius " 0 " largeArc " 1 " ox2 "," oy2
+                    . " L " ix2 "," iy2
+                    . " A " innerR "," innerR " 0 " largeArc " 0 " ix1 "," iy1 " Z"
+            }
 
             wedge := canvas.Add("Path").Name("Wedge_" idx)
             wedge.Data(pathData).Style("{StaticResource WheelWedgeStyle}").Cursor("Hand")
