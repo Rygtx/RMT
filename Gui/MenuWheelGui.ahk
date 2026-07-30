@@ -28,6 +28,14 @@ class MenuWheelGui {
         this.showTooltip := !!MainSoftData.MenuWheelShowTooltip
         this.selectMode := MainSoftData.HasProp("MenuWheelSelectMode") ? MainSoftData.MenuWheelSelectMode : 2
 
+        tableItem := MySoftData.TableInfo[3]
+        IndexSpan := StrSplit(tableItem.FoldInfo.IndexSpanArr[MenuIndex], "-")
+        if (!IsInteger(IndexSpan[1]) || !IsInteger(IndexSpan[2]))
+            return
+
+        itemCount := IndexSpan[2] - IndexSpan[1] + 1
+        startIdx := IndexSpan[1]
+
         if (this.isOpen) {          ; 已有轮盘？先自清
             this.closed := true
             this._Cleanup()         ; 关闭旧窗 + sectors:=[] + 重置状态
@@ -38,10 +46,16 @@ class MenuWheelGui {
         this.swipeTriggered := false
         this.isOpen := true
 
-        ; 先注册数字键：轮盘还没显示时也能收到输入
-        this._hkIds := WinHotkey.Register(MenuWheelGui.Hotkeys, ObjBindMethod(this, "_OnHotkey"))
-
-        tableItem := MySoftData.TableInfo[3]
+        ; 根据实际宏数量注册对应数量的数字键
+        activeHotkeys := []
+        Loop Min(itemCount, MenuWheelGui.Hotkeys.Length) {
+            activeHotkeys.Push(MenuWheelGui.Hotkeys[A_Index])
+        }
+        if (activeHotkeys.Length > 0) {
+            this._hkIds := WinHotkey.Register(activeHotkeys, ObjBindMethod(this, "_OnHotkey"))
+        } else {
+            this._hkIds := []
+        }
 
         ; 从 WheelThemes.ini 读取当前主题的颜色值
         themeKey := MainSoftData.HasProp("MenuWheelTheme") ? MainSoftData.MenuWheelTheme : "Default"
@@ -57,12 +71,6 @@ class MenuWheelGui {
         modHoverText := IniRead(themesIniPath, themeSection, "HoverText", "#FFE81123")
         modSelectedText := IniRead(themesIniPath, themeSection, "SelectedText", "#FFFFFFFF")
         modSwipeLine := IniRead(themesIniPath, themeSection, "SwipeLineColor", "#3A88F5")
-
-        IndexSpan := StrSplit(tableItem.FoldInfo.IndexSpanArr[MenuIndex], "-")
-        if (!IsInteger(IndexSpan[1]) || !IsInteger(IndexSpan[2]))
-            return
-
-        itemCount := IndexSpan[2] - IndexSpan[1] + 1
         startIdx := IndexSpan[1]
 
         items := []
