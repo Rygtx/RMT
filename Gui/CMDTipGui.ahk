@@ -11,6 +11,11 @@ class CMDTipGui {
         this._wheelCb := ""
     }
 
+    GetShowOptions() {
+        ; -DPIScale：x/y/w/h 与 MouseGetPos、A_ScreenWidth 同为物理像素
+        return Format("NoActivate x{} y{} w{} h{}", this.PosX, this.PosY, this.Width, this.Height)
+    }
+
     ShowGui(CMDStr) {
         if (!this.isLoadParams) {
             this.isLoadParams := true
@@ -25,7 +30,7 @@ class CMDTipGui {
             style := WinGetStyle(this.Gui.Hwnd)
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (!isVisible)
-                this.Gui.Show(Format("NoActivate x{} y{} w{} h{}", this.PosX, this.PosY, this.Width, this.Height))
+                this.Gui.Show(this.GetShowOptions())
         }
 
         this.AddCMD(CMDStr)
@@ -39,19 +44,62 @@ class CMDTipGui {
     }
 
     LoadParams() {
-        this.PosX := MainSoftData.CMDPosX
-        this.PosY := MainSoftData.CMDPosY
-        this.Width := MainSoftData.CMDWidth
-        this.Height := MainSoftData.CMDHeight
+        this.PosX := Integer(MainSoftData.CMDPosX)
+        this.PosY := Integer(MainSoftData.CMDPosY)
+        this.Width := Integer(MainSoftData.CMDWidth)
+        this.Height := Integer(MainSoftData.CMDHeight)
         this.BGColor := MainSoftData.CMDBGColor
         this.RunBGColor := MainSoftData.CMDRunBGColor
-        this.Transparency := (Integer)(MainSoftData.CMDTransparency * 2.55)
+        ; 配置值为「背景透明度」：0=不透明，100=完全透明 → WinSetTransparent 相反
+        this.Transparency := Integer((100 - MainSoftData.CMDTransparency) * 2.55)
         this.FontSize := MainSoftData.CMDFontSize
         this.FontColor := MainSoftData.CMDFontColor
     }
 
+    ; 设置保存后刷新布局；重建窗口以确保 -DPIScale 生效
+    ApplySettings() {
+        this.LoadParams()
+        this.isLoadParams := true
+        if (this.Gui == "")
+            return
+
+        savedText := ""
+        savedCount := this.ShowCount
+        wasVisible := false
+        try {
+            savedText := this.ContentCon.Value
+            style := WinGetStyle(this.Gui.Hwnd)
+            wasVisible := (style & 0x10000000)
+        }
+        try this.Gui.Destroy()
+        this.Gui := ""
+        this.ContentCon := ""
+
+        if (!wasVisible)
+            return
+
+        this.AddGui()
+        this.ContentCon.Value := savedText
+        this.ShowCount := savedCount
+        this.OnToggleMacroWorkState()
+    }
+
+    ; 主题变更后刷新颜色（保留已有窗口与内容）
+    ApplyThemeColors() {
+        this.BGColor := MainSoftData.CMDBGColor
+        this.RunBGColor := MainSoftData.CMDRunBGColor
+        this.FontColor := MainSoftData.CMDFontColor
+        if (this.Gui == "")
+            return
+        try {
+            this.Gui.SetFont(Format("S{} W550 Q2 C{}", this.FontSize, this.FontColor), MainSoftData.FontType)
+            this.OnToggleMacroWorkState()
+        }
+    }
+
     AddGui() {
-        MyGui := Gui("+AlwaysOnTop -Caption +ToolWindow")
+        ; 与 ColorPanelGui / 录制浮层一致：禁用 DPIScale，直接使用物理屏幕坐标
+        MyGui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")
         this.Gui := MyGui
         MyGui.BackColor := this.BGColor
         MyGui.SetFont(Format("S{} W550 Q2 C{}", this.FontSize, this.FontColor), MainSoftData.FontType)
@@ -62,8 +110,7 @@ class CMDTipGui {
         this.ContentCon := MyGui.Add("Edit", Format("x0 y0 w{} h{}", this.Width, this.Height), "")
         this.ContentCon.Opt("Background" this.BGColor)
 
-        ; 显示窗口（固定宽高）
-        MyGui.Show(Format("NoActivate  x{} y{} w{} h{}", this.PosX, this.PosY, this.Width, this.Height))
+        MyGui.Show(this.GetShowOptions())
     }
 
     AddCMD(CMDStr) {
@@ -124,7 +171,7 @@ class CMDTipGui {
         if (!isVisible)
             return
 
-        ; 鼠标在窗口上才滑动
+        ; 鼠标与窗口均为物理坐标
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
         isOnWin := mouseX >= this.PosX && mouseY >= this.PosY

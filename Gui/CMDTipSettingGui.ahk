@@ -1,286 +1,515 @@
 ﻿#Requires AutoHotkey v2.0
 
 class CMDTipSettingGui {
+    static instances := Map()
+    static _opening := false
+    static WidthSliderMax := 800
+    static HeightSliderMax := 600
+
     __new() {
-        this.Gui := ""
-        this.PosAction := () => this.RefreshMouseInfo()
-        this.SureBtnAction := ""
-
+        this.ui := 0
+        this.closed := false
+        this._instanceKey := ""
+        this._posX := 0
+        this._posY := 0
+        this._width := GetDefaultCMDTipWidth()
+        this._height := 300
+        this._fontSize := 12
+        this._transparency := 50
+        this._syncing := false
+        this._hotkeysOn := false
+        this._posAction := ObjBindMethod(this, "RefreshMousePos")
+        this._f1Action := ObjBindMethod(this, "OnF1SetPos")
     }
 
-    ShowGui() {
-        if (this.Gui != "") {
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
-        this.PosXCon.Value := MainSoftData.CMDPosX
-        this.PosYCon.Value := MainSoftData.CMDPosY
-        this.WidthCon.Value := MainSoftData.CMDWidth
-        this.HeightCon.Value := MainSoftData.CMDHeight
-        this.BGColorCon.Value := MainSoftData.CMDBGColor
-        this.RunBGColorCon.Value := MainSoftData.CMDRunBGColor
-        this.TransparencyCon.Value := MainSoftData.CMDTransparency
-        this.FontSizeCon.Value := MainSoftData.CMDFontSize
-        this.FontColorCon.Value := MainSoftData.CMDFontColor
+    static ShowGui() {
+        key := "global"
 
-        this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
-        this.FontColorTipCon.Redraw()
-        this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
-        this.BGColorTipCon.Redraw()
-        this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
-        this.RunBGColorTipCon.Redraw()
-    
+        if (CMDTipSettingGui.instances.Has(key)) {
+            oldInst := CMDTipSettingGui.instances[key]
+            if (!oldInst.closed && IsObject(oldInst.ui) && oldInst.ui.wpfHwnd) {
+                try WinActivate("ahk_id " oldInst.ui.wpfHwnd)
+                return
+            }
+            if (!oldInst.closed)
+                oldInst.Close()
+            CMDTipSettingGui.instances.Delete(key)
+        }
+
+        if (CMDTipSettingGui._opening)
+            return
+        CMDTipSettingGui._opening := true
+
+        try {
+            inst := CMDTipSettingGui()
+            inst._instanceKey := key
+            inst._BuildAndShow()
+            CMDTipSettingGui.instances[key] := inst
+        } finally {
+            CMDTipSettingGui._opening := false
+        }
+    }
+
+    _BuildAndShow() {
+        this.closed := false
+
+        title := GetLang("指令显示编辑器")
+        titleHeight := "36"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main.Rows(titleHeight, "*")
+
+        ; 标题栏
+        tb := main.Add("Border").Grid_Row(0).Background("Transparent").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TextMain}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TextMain}").BorderThickness(0)
+        closeBtn.InjectResources(CloseBtnTemplate)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; 内容区
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
+        scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+        panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
+
+        labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 90 }
+
+        group1 := panel.Add("GroupBox").Header(GetLang("指令显示")).Margin("0,0,0,0")
+        inner1 := group1.Add("StackPanel").Margin("14, 12")
+
+        ; 实时鼠标坐标 + F1 填入位置
+        rowMouse := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,0,0,0")
+        rowMouse.Add("TextBlock").Name("MousePosCon")
+            .Text(GetLang("屏幕坐标：0,0"))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(200)
+        rowMouse.Add("TextBlock").Text(GetLang("F1:选取当前坐标"))
+            .Foreground("{DynamicResource TextSub}").FontSize(12)
+            .VerticalAlignment("Center").Margin("12,0,0,0")
+
+        ; 显示位置 X / Y（文本输入）
+        rowPos := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowPos.Add("TextBlock").Text(GetLang("显示位置X："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowPos.Add("TextBox").Name("PosXCon")
+            .Width(70).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("0,0,16,0")
+        rowPos.Add("TextBlock").Text(GetLang("显示位置Y："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowPos.Add("TextBox").Name("PosYCon")
+            .Width(70).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+
+        ; 显示宽度：滑块最大 800，文本框可输入更大值
+        rowW := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowW.Add("TextBlock").Text(GetLang("显示宽度："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowW.Add("Slider").Name("WidthCon")
+            .Width(180).Height(28).Margin("8,0,8,0")
+            .Minimum(80).Maximum(CMDTipSettingGui.WidthSliderMax).Value(GetDefaultCMDTipWidth())
+            .IsSnapToTickEnabled("True").TickFrequency("5")
+            .Tag("Throttle:50")
+        rowW.Add("TextBox").Name("WidthValText")
+            .Width(60).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+
+        ; 显示高度：滑块最大 600，文本框可输入更大值
+        rowH := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowH.Add("TextBlock").Text(GetLang("显示高度："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowH.Add("Slider").Name("HeightCon")
+            .Width(180).Height(28).Margin("8,0,8,0")
+            .Minimum(40).Maximum(CMDTipSettingGui.HeightSliderMax).Value(300)
+            .IsSnapToTickEnabled("True").TickFrequency("5")
+            .Tag("Throttle:50")
+        rowH.Add("TextBox").Name("HeightValText")
+            .Width(60).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+
+        ; 字体大小
+        rowF := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowF.Add("TextBlock").Text(GetLang("字体大小："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowF.Add("Slider").Name("FontSizeCon")
+            .Width(180).Height(28).Margin("8,0,8,0")
+            .Minimum(8).Maximum(36).Value(12)
+            .IsSnapToTickEnabled("True").TickFrequency("1")
+            .Tag("Throttle:50")
+        rowF.Add("TextBox").Name("FontSizeValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=FontSizeCon}")
+
+        ; 背景透明度
+        rowT := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowT.Add("TextBlock").Text(GetLang("背景透明度："))
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowT.Add("Slider").Name("TransparencyCon")
+            .Width(180).Height(28).Margin("8,0,8,0")
+            .Minimum(0).Maximum(100).Value(50)
+            .IsSnapToTickEnabled("True").TickFrequency("1")
+            .Tag("Throttle:50")
+        rowT.Add("TextBox").Name("TransparencyValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=TransparencyCon}")
+
+        tip2 := inner1.Add("TextBlock").Text(GetLang("透明度(0~100)：0不透明，100完全透明"))
+            .Foreground("{DynamicResource TextSub}").FontSize(11).Margin("0,8,0,0")
+
+        ; 底部按钮
+        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+
+        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
+        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
+        revertBtn.InjectResources(PrimaryBtnStyle)
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)
+        okBtn.InjectResources(PrimaryBtnStyle)
+
+        ; 编译 XAML
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="460" Height="440" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius>')
+
+        ; 事件绑定
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+
+        this.ui.Track("PosXCon")
+        this.ui.Track("PosYCon")
+        this.ui.Track("WidthCon")
+        this.ui.Track("HeightCon")
+        this.ui.Track("FontSizeCon")
+        this.ui.Track("TransparencyCon")
+        this.ui.Track("WidthValText")
+        this.ui.Track("HeightValText")
+        this.ui.Track("FontSizeValText")
+        this.ui.Track("TransparencyValText")
+
+        this.ui.OnEvent("PosXCon", "TextChanged", ObjBindMethod(this, "OnPosXTextChanged"))
+        this.ui.OnEvent("PosYCon", "TextChanged", ObjBindMethod(this, "OnPosYTextChanged"))
+        this.ui.OnEvent("WidthCon", "ValueChanged", ObjBindMethod(this, "OnWidthChanged"))
+        this.ui.OnEvent("HeightCon", "ValueChanged", ObjBindMethod(this, "OnHeightChanged"))
+        this.ui.OnEvent("FontSizeCon", "ValueChanged", ObjBindMethod(this, "OnFontSizeChanged"))
+        this.ui.OnEvent("TransparencyCon", "ValueChanged", ObjBindMethod(this, "OnTransparencyChanged"))
+        this.ui.OnEvent("WidthValText", "TextChanged", ObjBindMethod(this, "OnWidthTextChanged"))
+        this.ui.OnEvent("HeightValText", "TextChanged", ObjBindMethod(this, "OnHeightTextChanged"))
+        this.ui.OnEvent("FontSizeValText", "TextChanged", ObjBindMethod(this, "OnFontSizeTextChanged"))
+        this.ui.OnEvent("TransparencyValText", "TextChanged", ObjBindMethod(this, "OnTransparencyTextChanged"))
+
+        this.ui.OnEvent("BtnRevert", "Click", ObjBindMethod(this, "OnRevertClick"))
+        this.ui.OnEvent("BtnConfirm", "Click", ObjBindMethod(this, "OnConfirmClick"))
+
+        this.LoadInitValues()
+        this.ApplyValuesToUI()
+        this.ui.Show()
         this.ToggleFunc(true)
-    }
 
-    AddGui() {
-        MyGui := Gui(, GetLang("指令显示编辑器"))
-        this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
-
-        PosX := 10
-        PosY := 15
-        this.MousePosCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 200), GetLang("屏幕坐标：0,0"))
-        PosX += 230
-        this.MouseColorCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 170), GetLang("鼠标颜色：FFFFFF"))
-        PosX += 170
-        this.MouseColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
-
-        PosX := 10
-        PosY += 25
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 30), "F1")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取字体颜色"))
-
-        PosX += 125
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 30), "F2")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取背景颜色"))
-
-        PosX += 125
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 30), "F3")
-        con.Enabled := false
-        PosX += 30
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY + 3, 25), GetLang("选取运行时背景"))
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("显示位置X："))
-        PosX += 90
-        this.PosXCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX += 140
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("显示位置Y："))
-        PosX += 90
-        this.PosYCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("显示宽度："))
-        PosX += 90
-        this.WidthCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX += 140
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("显示高度："))
-        PosX += 90
-        this.HeightCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("字体颜色："))
-        PosX += 90
-        this.FontColorCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-        this.FontColorCon.OnEvent("Change", (*) => this.OnEditColor())
-        this.FontColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX + 85, PosY, 20, "FF0000"), ""
-        )
-
-        PosX += 140
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("字体大小："))
-        PosX += 90
-        this.FontSizeCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("背景颜色："))
-        PosX += 90
-        this.BGColorCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-        this.BGColorCon.OnEvent("Change", (*) => this.OnEditColor())
-        this.BGColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX + 85, PosY, 20, "FF0000"), "")
-
-        PosX += 140
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("运行时背景："))
-        PosX += 90
-        this.RunBGColorCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-        this.RunBGColorCon.OnEvent("Change", (*) => this.OnEditColor())
-        this.RunBGColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX + 85, PosY, 20, "09ff00"),
-        "")
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("背景透明度："))
-        PosX += 90
-        this.TransparencyCon := MyGui.Add("Edit", Format("x{} y{} w80", PosX, PosY - 3), "")
-
-        PosX += 140
-        PosX += 90
-        con := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 3), GetLang("恢复默认"))
-        con.OnEvent("Click", (*) => this.OnClickRestoreBtn())
-
-        PosX := 10
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("透明度(0~100)：0完全透明，100完全不透明"))
-
-        PosX := 180
-        PosY += 40
-        con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
-        con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        pos := GetCenterPosOnActiveMonitor(480, 350)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 480, 350))
+        loop 20 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                break
+            }
+            Sleep(50)
+        }
     }
 
     ToggleFunc(state) {
         if (state) {
-            SetTimer this.PosAction, 100
-            Hotkey("F1", (*) => this.SureFontColor(), "On")
-            Hotkey("F2", (*) => this.SureBGColor(), "On")
-            Hotkey("F3", (*) => this.SureRunBGColor(), "On")
-        }
-        else {
-            SetTimer this.PosAction, 0
-            Hotkey("F1", (*) => this.SureFontColor(), "OFF")
-            Hotkey("F2", (*) => this.SureBGColor(), "OFF")
-            Hotkey("F3", (*) => this.SureRunBGColor(), "OFF")
+            SetTimer(this._posAction, 100)
+            try Hotkey("F1", this._f1Action, "On")
+            this._hotkeysOn := true
+        } else {
+            SetTimer(this._posAction, 0)
+            if (this._hotkeysOn) {
+                try Hotkey("F1", this._f1Action, "Off")
+                this._hotkeysOn := false
+            }
         }
     }
 
-    CheckIfValid() {
-        if (!RegExMatch(this.FontColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            MsgBox(GetLang("字体颜色：请输入正确的颜色值"))
-            return false
-        }
-
-        if (!RegExMatch(this.BGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            MsgBox(GetLang("背景颜色：请输入正确的颜色值"))
-            return false
-        }
-
-        if (!RegExMatch(this.RunBGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            MsgBox(GetLang("运行时背景：请输入正确的颜色值"))
-            return false
-        }
-
-        return true
-    }
-
-    OnClickRestoreBtn() {
-        this.PosXCon.Value := A_ScreenWidth - 225
-        this.PosYCon.Value := 0
-        this.WidthCon.Value := 225
-        this.HeightCon.Value := 120
-        this.BGColorCon.Value := "FFFFFF"
-        this.TransparencyCon.Value := 50
-        this.FontSizeCon.Value := 12
-        this.FontColorCon.Value := "000000"
-    }
-
-    OnSureBtnClick() {
-        isValid := this.CheckIfValid()
-        if (!isValid)
+    RefreshMousePos() {
+        if (this.closed || !IsObject(this.ui))
             return
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&mouseX, &mouseY)
+        try this.ui.Update("MousePosCon", "Text", Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY))
+    }
 
-        MainSoftData.CMDPosX := this.PosXCon.Value
-        MainSoftData.CMDPosY := this.PosYCon.Value
-        MainSoftData.CMDWidth := this.WidthCon.Value
-        MainSoftData.CMDHeight := this.HeightCon.Value
-        MainSoftData.CMDBGColor := this.BGColorCon.Value
-        MainSoftData.CMDRunBGColor := this.RunBGColorCon.Value
-        MainSoftData.CMDTransparency := this.TransparencyCon.Value
-        MainSoftData.CMDFontSize := this.FontSizeCon.Value
-        MainSoftData.CMDFontColor := this.FontColorCon.Value
+    OnF1SetPos(*) {
+        if (this.closed || !IsObject(this.ui))
+            return
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&mouseX, &mouseY)
+        this._posX := mouseX
+        this._posY := mouseY
+        this._syncing := true
+        try {
+            this.ui.Update("PosXCon", "Text", String(mouseX))
+            this.ui.Update("PosYCon", "Text", String(mouseY))
+        } finally {
+            this._syncing := false
+        }
+    }
 
+    OnWindowClosing(state, ctrl, event) {
+        this.ToggleFunc(false)
+        this.closed := true
+        CMDTipSettingGui._opening := false
+        if (this._instanceKey != "" && CMDTipSettingGui.instances.Has(this._instanceKey))
+            CMDTipSettingGui.instances.Delete(this._instanceKey)
+        this.ui := ""
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+            this.ApplyValuesToUI()
+        } finally {
+            this.ui.Update("Window", "Opacity", "1")
+        }
+    }
+
+    LoadInitValues() {
+        this._posX := Integer(MainSoftData.CMDPosX)
+        this._posY := Integer(MainSoftData.CMDPosY)
+        this._width := Max(80, Integer(MainSoftData.CMDWidth))
+        this._height := Max(40, Integer(MainSoftData.CMDHeight))
+        this._fontSize := Max(8, Min(36, Integer(MainSoftData.CMDFontSize)))
+        this._transparency := Max(0, Min(100, Integer(MainSoftData.CMDTransparency)))
+    }
+
+    ApplyValuesToUI() {
+        if (!IsObject(this.ui))
+            return
+        this._syncing := true
+        try {
+            this.ui.Update("PosXCon", "Text", String(this._posX))
+            this.ui.Update("PosYCon", "Text", String(this._posY))
+            ; 滑块只到默认上限；文本框显示真实值（可大于上限）
+            this.ui.Update("WidthCon", "Value", String(Min(this._width, CMDTipSettingGui.WidthSliderMax)))
+            this.ui.Update("HeightCon", "Value", String(Min(this._height, CMDTipSettingGui.HeightSliderMax)))
+            this.ui.Update("WidthValText", "Text", String(this._width))
+            this.ui.Update("HeightValText", "Text", String(this._height))
+            this.ui.Update("FontSizeCon", "Value", String(this._fontSize))
+            this.ui.Update("TransparencyCon", "Value", String(this._transparency))
+        } finally {
+            this._syncing := false
+        }
+    }
+
+    _ParseInt(valStr) {
+        if (valStr == "" || !IsNumber(valStr))
+            return ""
+        return Integer(Round(Number(valStr)))
+    }
+
+    OnPosXTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("PosXCon") ? state["PosXCon"] : "")
+        if (val == "")
+            return
+        this._posX := val
+    }
+
+    OnPosYTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("PosYCon") ? state["PosYCon"] : "")
+        if (val == "")
+            return
+        this._posY := val
+    }
+
+    OnWidthChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("WidthCon") ? state["WidthCon"] : "")
+        if (val == "")
+            return
+        this._width := val
+        this._syncing := true
+        try this.ui.Update("WidthValText", "Text", String(this._width))
+        finally this._syncing := false
+    }
+
+    OnHeightChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("HeightCon") ? state["HeightCon"] : "")
+        if (val == "")
+            return
+        this._height := val
+        this._syncing := true
+        try this.ui.Update("HeightValText", "Text", String(this._height))
+        finally this._syncing := false
+    }
+
+    OnFontSizeChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("FontSizeCon") ? state["FontSizeCon"] : "")
+        if (val == "")
+            return
+        this._fontSize := val
+    }
+
+    OnTransparencyChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("TransparencyCon") ? state["TransparencyCon"] : "")
+        if (val == "")
+            return
+        this._transparency := val
+    }
+
+    OnWidthTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("WidthValText") ? state["WidthValText"] : "")
+        if (val == "")
+            return
+        val := Max(80, val)
+        if (val == this._width)
+            return
+        this._width := val
+        this._syncing := true
+        try this.ui.Update("WidthCon", "Value", String(Min(val, CMDTipSettingGui.WidthSliderMax)))
+        finally this._syncing := false
+    }
+
+    OnHeightTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("HeightValText") ? state["HeightValText"] : "")
+        if (val == "")
+            return
+        val := Max(40, val)
+        if (val == this._height)
+            return
+        this._height := val
+        this._syncing := true
+        try this.ui.Update("HeightCon", "Value", String(Min(val, CMDTipSettingGui.HeightSliderMax)))
+        finally this._syncing := false
+    }
+
+    OnFontSizeTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("FontSizeValText") ? state["FontSizeValText"] : "")
+        if (val == "")
+            return
+        val := Max(8, Min(36, val))
+        if (val != this._fontSize) {
+            this._fontSize := val
+            this._syncing := true
+            try this.ui.Update("FontSizeCon", "Value", String(val))
+            finally this._syncing := false
+        }
+    }
+
+    OnTransparencyTextChanged(state, ctrl, event) {
+        if (this._syncing)
+            return
+        val := this._ParseInt(state.Has("TransparencyValText") ? state["TransparencyValText"] : "")
+        if (val == "")
+            return
+        val := Max(0, Min(100, val))
+        if (val != this._transparency) {
+            this._transparency := val
+            this._syncing := true
+            try this.ui.Update("TransparencyCon", "Value", String(val))
+            finally this._syncing := false
+        }
+    }
+
+    OnRevertClick(state, ctrl, event) {
+        ; 默认：宽按 DPI 缩放，高 300，X = 屏幕宽 - 显示宽
+        this._width := GetDefaultCMDTipWidth()
+        this._height := 300
+        this._posX := A_ScreenWidth - this._width
+        this._posY := 0
+        this._fontSize := 12
+        this._transparency := 50
+        this.ApplyValuesToUI()
+    }
+
+    OnConfirmClick(state, ctrl, event) {
+        this.SaveData()
+        this.ui.Update("Window", "Close", "")
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this.ui.Update("Window", "Close", "")
+    }
+
+    Close() {
+        this.ToggleFunc(false)
+        this.closed := true
+        if IsObject(this.ui) {
+            try this.ui.Update("Window", "Close", "")
+            this.ui := ""
+        }
+    }
+
+    SaveData() {
         global IniFile, IniSection
+
+        MainSoftData.CMDPosX := this._posX
+        MainSoftData.CMDPosY := this._posY
+        MainSoftData.CMDWidth := this._width
+        MainSoftData.CMDHeight := this._height
+        MainSoftData.CMDFontSize := this._fontSize
+        MainSoftData.CMDTransparency := this._transparency
+
         IniWrite(MainSoftData.CMDPosX, IniFile, IniSection, "CMDPosX")
         IniWrite(MainSoftData.CMDPosY, IniFile, IniSection, "CMDPosY")
         IniWrite(MainSoftData.CMDWidth, IniFile, IniSection, "CMDWidth")
         IniWrite(MainSoftData.CMDHeight, IniFile, IniSection, "CMDHeight")
-        IniWrite(MainSoftData.CMDBGColor, IniFile, IniSection, "CMDBGColor")
-        IniWrite(MainSoftData.CMDRunBGColor, IniFile, IniSection, "CMDRunBGColor")
-        IniWrite(MainSoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
         IniWrite(MainSoftData.CMDFontSize, IniFile, IniSection, "CMDFontSize")
-        IniWrite(MainSoftData.CMDFontColor, IniFile, IniSection, "CMDFontColor")
+        IniWrite(MainSoftData.CMDTransparency, IniFile, IniSection, "CMDTransparency")
 
-        this.ToggleFunc(false)
-        this.Gui.Hide()
-    }
-
-    SureFontColor() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        ColorText := StrReplace(Color, "0x", "")
-        this.FontColorCon.Value := ColorText
-        this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
-        this.FontColorTipCon.Redraw()
-    }
-
-    SureBGColor() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        ColorText := StrReplace(Color, "0x", "")
-        this.BGColorCon.Value := ColorText
-        this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
-        this.BGColorTipCon.Redraw()
-    }
-
-    SureRunBGColor() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        ColorText := StrReplace(Color, "0x", "")
-        this.RunBGColorCon.Value := ColorText
-        this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
-        this.RunBGColorTipCon.Redraw()
-    }
-
-    OnEditColor() {
-        if (RegExMatch(this.FontColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            this.FontColorTipCon.Opt(Format("+Background0x{}", this.FontColorCon.Value))
-            this.FontColorTipCon.Redraw()
-        }
-
-        if (RegExMatch(this.BGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            this.BGColorTipCon.Opt(Format("+Background0x{}", this.BGColorCon.Value))
-            this.BGColorTipCon.Redraw()
-        }
-
-        if (RegExMatch(this.RunBGColorCon.Value, "^([0-9A-Fa-f]{6})$")) {
-            this.RunBGColorTipCon.Opt(Format("+Background0x{}", this.RunBGColorCon.Value))
-            this.RunBGColorTipCon.Redraw()
-        }
-    }
-
-    RefreshMouseInfo() {
-        CoordMode("Mouse", "Screen")
-        MouseGetPos &mouseX, &mouseY
-        this.MousePosCon.Value := Format("{}{},{}", GetLang("屏幕坐标："), mouseX, mouseY)
-
-        CoordMode("Pixel", "Screen")
-        Color := PixelGetColor(mouseX, mouseY, "Slow")
-        ColorText := StrReplace(Color, "0x", "")
-        this.MouseColorCon.Value := Format("{}{}", GetLang("鼠标颜色："), ColorText)
-        this.MouseColorTipCon.Opt(Format("+Background0x{}", ColorText))
-        this.MouseColorTipCon.Redraw()
+        if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
+            MyCMDTipGui.ApplySettings()
     }
 }

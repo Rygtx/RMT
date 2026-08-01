@@ -209,9 +209,12 @@ class UIMacroGui {
         if (panelInfo._cfg_BtnHeight != MainSoftData.UIPanelBtnHeight
             || panelInfo._cfg_BtnWidth != MainSoftData.UIPanelBtnWidth
             || panelInfo._cfg_Cols != MainSoftData.UIPanelCols
+            || panelInfo._cfg_FontSize != MainSoftData.UIPanelFontSize
             || panelInfo._cfg_BtnColor != MainSoftData.UIPanelBtnColor
+            || panelInfo._cfg_BtnText != MainSoftData.UIPanelBtnText
             || panelInfo._cfg_BgColor != MainSoftData.UIPanelBgColor
-            || panelInfo._cfg_FontColor != MainSoftData.UIPanelFontColor) {
+            || panelInfo._cfg_TitleBg != MainSoftData.UIPanelTitleBg
+            || panelInfo._cfg_TitleText != MainSoftData.UIPanelTitleText) {
             parts := StrSplit(panelKey, "|")
             foldIndex := Integer(parts[1])
             targetHwnd := (parts.Length >= 2) ? Integer(parts[2]) : 0
@@ -244,8 +247,11 @@ class UIMacroGui {
         pw := cols * (btnItemW + 4) + 8
 
         btnColor := MainSoftData.UIPanelBtnColor
+        btnTextColor := MainSoftData.UIPanelBtnText
         bgColor := MainSoftData.UIPanelBgColor
-        fontColor := MainSoftData.UIPanelFontColor
+        titleBg := MainSoftData.UIPanelTitleBg
+        titleText := MainSoftData.UIPanelTitleText
+        fontSize := Integer(MainSoftData.UIPanelFontSize)
 
         tableItem := MySoftData.TableInfo[4]
         foldRemark := tableItem.FoldInfo.RemarkArr[foldIndex]
@@ -298,17 +304,26 @@ class UIMacroGui {
             }
         }
 
+        ; 配置的位置偏移（相对出现位置）
+        cfgOffX := Integer(MainSoftData.UIPanelOffsetX)
+        cfgOffY := Integer(MainSoftData.UIPanelOffsetY)
+        initX += cfgOffX
+        initY += cfgOffY
+        offsetX += cfgOffX
+        offsetY += cfgOffY
+
         ; 构建XAML（与 floating_panel L213-233 完全一致的结构）
         main := XAML_Generator("Grid")
         main.Background(bgColor)
         main.Rows(titleBarH, "*")
 
-        titleBar := main.Add("Border").Grid_Row(0).Name("TitleBar").Background("#88000000")
+        titleBar := main.Add("Border").Grid_Row(0).Name("TitleBar").Background(titleBg)
         titleBar.Add("TextBlock").Name("TitleText").Text(foldRemark)
-            .Foreground("#FFFFFF").FontSize(11).FontWeight("SemiBold")
+            .Foreground(titleText).FontSize(11).FontWeight("SemiBold")
             .VerticalAlignment("Center").HorizontalAlignment("Center").Margin("6,0,6,0")
 
-        body := main.Add("Grid").Grid_Row(1).Name("BodyPanel").Margin("4,2,4,4")
+        body := main.Add("Grid").Grid_Row(1).Name("BodyPanel").Margin("2,1,2,2")
+        textMaxW := Max(btnItemW - 8, 24)
 
         ; 列定义：根据按钮宽度显式设置
         colDefs := body.Add("Grid.ColumnDefinitions")
@@ -325,32 +340,33 @@ class UIMacroGui {
             col := Mod(i - 1, cols)
             isLastRow := (row = rows - 1)
             marginBottom := isLastRow ? "0" : btnGap
-            marginStr := "2,0,2," marginBottom
+            marginStr := "1,0,1," marginBottom
 
             btn := body.Add("Button").Name(item.name).Height(btnItemH)
                 .Grid_Row(row).Grid_Column(col)
                 .Margin(marginStr)
-            btn.Background(btnColor).Foreground(fontColor).FontSize(10)
+            btn.Background(btnColor).Foreground(btnTextColor).FontSize(fontSize)
             btn.HorizontalAlignment("Stretch")
-            btn.Padding("2,0,2,0")
+            btn.Padding("0")
 
             sp := btn.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
+                .VerticalAlignment("Center")
 
             ; 运行状态色点（默认隐藏）
             sp.Add("Ellipse").Name(item.name "_State")
-                .Width(8).Height(8).VerticalAlignment("Center").Margin("0,0,3,0")
+                .Width(8).Height(8).VerticalAlignment("Center").Margin("0,0,2,0")
                 .Visibility("Collapsed").IsHitTestVisible("False")
 
             if (item.icon != "") {
                 fullIconPath := this.GetFullIconPath(item.icon)
                 if (fullIconPath != "" && FileExist(fullIconPath)) {
                     sp.Add("Image").Name(item.name "_Img")
-                        .Source(fullIconPath).Width(14).Height(14).VerticalAlignment("Center").Margin("0,0,3,0")
+                        .Source(fullIconPath).Width(14).Height(14).VerticalAlignment("Center").Margin("0,0,2,0")
                 }
             }
 
-            sp.Add("TextBlock").Text(item.text).VerticalAlignment("Center").Foreground(fontColor).FontSize(10)
-                .TextTrimming("CharacterEllipsis").MaxWidth("50")
+            sp.Add("TextBlock").Text(item.text).VerticalAlignment("Center").Foreground(btnTextColor).FontSize(fontSize)
+                .TextTrimming("CharacterEllipsis").MaxWidth(String(textMaxW))
         }
 
         ; XAML字符串处理（对齐 floating_panel L235-244）
@@ -363,7 +379,7 @@ class UIMacroGui {
         ui.xaml := StrReplace(ui.xaml, 'Background="Transparent"', 'Background="' bgColor '"')
 
         ; 窗口级按钮样式：覆盖全局默认样式，取消 hover 背景变化，改为 hover/按下时显示边框
-        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="2"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/><Setter TargetName="Bd" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         ui.xaml := StrReplace(ui.xaml, '%resources%', '<CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>' panelBtnStyle)
         ui.xaml := StrReplace(ui.xaml, '%components%', '')
 
@@ -404,9 +420,12 @@ class UIMacroGui {
             _cfg_BtnHeight: btnItemH,
             _cfg_BtnWidth: btnItemW,
             _cfg_Cols: cols,
+            _cfg_FontSize: fontSize,
             _cfg_BtnColor: btnColor,
+            _cfg_BtnText: btnTextColor,
             _cfg_BgColor: bgColor,
-            _cfg_FontColor: fontColor
+            _cfg_TitleBg: titleBg,
+            _cfg_TitleText: titleText
         }
     }
 
@@ -598,9 +617,12 @@ class UIMacroGui {
             && (panelInfo._cfg_BtnHeight != MainSoftData.UIPanelBtnHeight
                 || panelInfo._cfg_BtnWidth != MainSoftData.UIPanelBtnWidth
                 || panelInfo._cfg_Cols != MainSoftData.UIPanelCols
+                || panelInfo._cfg_FontSize != MainSoftData.UIPanelFontSize
                 || panelInfo._cfg_BtnColor != MainSoftData.UIPanelBtnColor
+                || panelInfo._cfg_BtnText != MainSoftData.UIPanelBtnText
                 || panelInfo._cfg_BgColor != MainSoftData.UIPanelBgColor
-                || panelInfo._cfg_FontColor != MainSoftData.UIPanelFontColor)) {
+                || panelInfo._cfg_TitleBg != MainSoftData.UIPanelTitleBg
+                || panelInfo._cfg_TitleText != MainSoftData.UIPanelTitleText)) {
             this.DestroyPanel(panelKey)
             if (targetHwnd)
                 this.CreateAutoPanel(foldIndex, panelKey, targetHwnd)
@@ -1042,6 +1064,9 @@ class UIMacroGui {
             MouseGetPos(&initX, &initY)
             ; 鼠标位置本身已是屏幕绝对坐标，SetWindowPos 直接使用
         }
+
+        initX += Integer(MainSoftData.UIPanelOffsetX)
+        initY += Integer(MainSoftData.UIPanelOffsetY)
 
         DllCall("user32\SetWindowPos", "Ptr", panelInfo.wpfHwnd, "Ptr", 0
             , "Int", initX, "Int", initY, "Int", 0, "Int", 0, "UInt", 0x0001)

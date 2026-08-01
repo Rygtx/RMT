@@ -57,20 +57,14 @@ class MenuWheelGui {
             this._hkIds := []
         }
 
-        ; 从 WheelThemes.ini 读取当前主题的颜色值
-        themeKey := MainSoftData.HasProp("MenuWheelTheme") ? MainSoftData.MenuWheelTheme : "Default"
-        themesIniPath := A_WorkingDir "\Setting\WheelThemes.ini"
-        themeSection := "Theme_" themeKey
-        modNormalFill := IniRead(themesIniPath, themeSection, "NormalFill", "#FFFCFCFC")
-        modNormalStroke := IniRead(themesIniPath, themeSection, "NormalStroke", "#FFC6DFFC")
-        modHoverFill := IniRead(themesIniPath, themeSection, "HoverFill", "#FFFDE8E8")
-        modHoverStroke := IniRead(themesIniPath, themeSection, "HoverStroke", "#FFE81123")
-        modSelectedFill := IniRead(themesIniPath, themeSection, "SelectedFill", "#FF0078D7")
-        modSelectedStroke := IniRead(themesIniPath, themeSection, "SelectedStroke", "#FFFFFFFF")
-        modNormalText := IniRead(themesIniPath, themeSection, "NormalText", "#CC333333")
-        modHoverText := IniRead(themesIniPath, themeSection, "HoverText", "#FFE81123")
-        modSelectedText := IniRead(themesIniPath, themeSection, "SelectedText", "#FFFFFFFF")
-        modSwipeLine := IniRead(themesIniPath, themeSection, "SwipeLineColor", "#3A88F5")
+        ; 从统一主题配置读取轮盘颜色（选中态复用悬停色）
+        modNormalFill := AppThemeUtil.GetWheelColor("NormalFill", "#FFFCFCFC")
+        modNormalStroke := AppThemeUtil.GetWheelColor("NormalStroke", "#FFC6DFFC")
+        modHoverFill := AppThemeUtil.GetWheelColor("HoverFill", "#FFE8F1FB")
+        modHoverStroke := AppThemeUtil.GetWheelColor("HoverStroke", "#FF0078D7")
+        modNormalText := AppThemeUtil.GetWheelColor("NormalText", "#CC333333")
+        modHoverText := AppThemeUtil.GetWheelColor("HoverText", "#FF0078D7")
+        modSwipeLine := AppThemeUtil.GetWheelColor("SwipeLineColor", "#FF3A88F5")
         startIdx := IndexSpan[1]
 
         items := []
@@ -123,9 +117,9 @@ class MenuWheelGui {
             HoverStroke: modHoverStroke,
             HoverText: modHoverText,
             HoverThickness: 2,
-            SelectedFill: modSelectedFill,
-            SelectedStroke: modSelectedStroke,
-            SelectedText: modSelectedText,
+            SelectedFill: modHoverFill,
+            SelectedStroke: modHoverStroke,
+            SelectedText: modHoverText,
             SelectedThickness: 2,
             SwipeLineColor: modSwipeLine,
             IconPosRatio: 0.72,
@@ -176,12 +170,12 @@ class MenuWheelGui {
         fontSize := options.HasProp("FontSize") ? options.FontSize : 11
         normalFill := options.HasProp("NormalFill") ? options.NormalFill : "#FFFCFCFC"
         normalStroke := options.HasProp("NormalStroke") ? options.NormalStroke : "#FFC6DFFC"
-        hoverFill := options.HasProp("HoverFill") ? options.HoverFill : "#FFFDE8E8"
-        hoverStroke := options.HasProp("HoverStroke") ? options.HoverStroke : "#FFE81123"
+        hoverFill := options.HasProp("HoverFill") ? options.HoverFill : "#FFE8F1FB"
+        hoverStroke := options.HasProp("HoverStroke") ? options.HoverStroke : "#FF0078D7"
         selectedFill := options.HasProp("SelectedFill") ? options.SelectedFill : "#FF0078D7"
         selectedStroke := options.HasProp("SelectedStroke") ? options.SelectedStroke : "#FFFFFFFF"
         normalText := options.HasProp("NormalText") ? options.NormalText : "#CC333333"
-        hoverText := options.HasProp("HoverText") ? options.HoverText : "#FFE81123"
+        hoverText := options.HasProp("HoverText") ? options.HoverText : "#FF0078D7"
         selectedText := options.HasProp("SelectedText") ? options.SelectedText : "#FFFFFFFF"
         normalThickness := options.HasProp("NormalThickness") ? options.NormalThickness : 1
         hoverThickness := options.HasProp("HoverThickness") ? options.HoverThickness : 2
@@ -297,6 +291,18 @@ class MenuWheelGui {
             . '    </DataTrigger>'
             . '  </Style.Triggers>'
             . '</Style>'
+        ; 扇区文字悬停色：用 Style+DataTrigger，避免本地 Foreground 盖住触发器
+        Loop itemCount {
+            idx := A_Index
+            wheelStyle .= '<Style x:Key="WheelLabelStyle_' idx '" TargetType="TextBlock">'
+                . '  <Setter Property="Foreground" Value="' this.normalText '"/>'
+                . '  <Style.Triggers>'
+                . '    <DataTrigger Binding="{Binding IsMouseOver, ElementName=Wedge_' idx '}" Value="True">'
+                . '      <Setter Property="Foreground" Value="' this.hoverText '"/>'
+                . '    </DataTrigger>'
+                . '  </Style.Triggers>'
+                . '</Style>'
+        }
         win.InjectResources(wheelStyle)
 
         canvas := win.Add("Canvas").Name("RootCanvas")
@@ -383,7 +389,8 @@ class MenuWheelGui {
                 lbl := canvas.Add("TextBlock").Name("Label_" idx)
                 lbl.Text(sec.Name)
                 lbl.FontFamily("Segoe UI Variable Display, Segoe UI, sans-serif")
-                lbl.FontSize(fontSize).Foreground(this.normalText).FontWeight("SemiBold")
+                lbl.FontSize(fontSize).FontWeight("SemiBold")
+                lbl.Style("{StaticResource WheelLabelStyle_" idx "}")
                 lbl.TextAlignment("Center").TextTrimming("CharacterEllipsis")
                 lbl.Width(Round(78 * this.dpiScale)).Canvas_Left(lpx - Round(39 * this.dpiScale)).Canvas_Top(lpy - 8).IsHitTestVisible("False")
 
@@ -406,7 +413,8 @@ class MenuWheelGui {
                 lbl := canvas.Add("TextBlock").Name("Label_" idx)
                 lbl.Text(sec.Name)
                 lbl.FontFamily("Segoe UI Variable Display, Segoe UI, sans-serif")
-                lbl.FontSize(fontSize).Foreground(this.normalText).FontWeight("SemiBold")
+                lbl.FontSize(fontSize).FontWeight("SemiBold")
+                lbl.Style("{StaticResource WheelLabelStyle_" idx "}")
                 lbl.TextAlignment("Center").TextTrimming("CharacterEllipsis")
                 lbl.Width(Round(78 * this.dpiScale)).Canvas_Left(cpx - Round(39 * this.dpiScale)).Canvas_Top(cpy - 8).IsHitTestVisible("False")
 

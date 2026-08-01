@@ -18,6 +18,7 @@
 #Include Util\MacroUtil.ahk
 #Include Util\GraphMacroUtil.ahk
 #Include Util\PluginUtil.ahk
+#Include Util\ThemeUtil.ahk
 
 #Include ..\Plugins\CLR.ahk
 #Include "..\Plugins\RapidOcr\RapidOcr.ahk"
@@ -401,6 +402,11 @@ InitMouseControl() {
 }
 
 ;资源读取
+; 指令显示默认宽度：基准 225，按屏幕 DPI 缩放（100%→225，150%→338）
+GetDefaultCMDTipWidth() {
+    return Round(225 * A_ScreenDPI / 96)
+}
+
 LoadMainSetting() {
     global MainSoftData, MySoftData
     global IniSection := "UserSettings"
@@ -446,18 +452,19 @@ LoadMainSetting() {
     MainSoftData.MenuWheelSelectMode := IniRead(IniFile, IniSection, "MenuWheelSelectMode", 2)
     MainSoftData.MenuWheelShowTooltip := IniRead(IniFile, IniSection, "MenuWheelShowTooltip", false)
     MainSoftData.MenuWheelScale := IniRead(IniFile, IniSection, "MenuWheelScale", 100)
-    MainSoftData.MenuWheelTheme := IniRead(IniFile, IniSection, "MenuWheelTheme", "Default")
     MainSoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
-    ; 界面浮窗配置
+    ; 界面浮窗配置（非颜色）
     MainSoftData.UIPanelShowOnActive := IniRead(IniFile, IniSection, "UIPanelShowOnActive", true)
     MainSoftData.UIPanelDefaultPos := IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1)
-    MainSoftData.UIPanelBtnColor := IniRead(IniFile, IniSection, "UIPanelBtnColor", "#FF333333")
-    MainSoftData.UIPanelBgColor := IniRead(IniFile, IniSection, "UIPanelBgColor", "#40FFB6C1")
-    MainSoftData.UIPanelFontColor := IniRead(IniFile, IniSection, "UIPanelFontColor", "#FFDDDDDD")
+    MainSoftData.UIPanelOffsetX := IniRead(IniFile, IniSection, "UIPanelOffsetX", 100)
+    MainSoftData.UIPanelOffsetY := IniRead(IniFile, IniSection, "UIPanelOffsetY", 100)
     MainSoftData.UIPanelBtnHeight := IniRead(IniFile, IniSection, "UIPanelBtnHeight", 34)
+    MainSoftData.UIPanelFontSize := IniRead(IniFile, IniSection, "UIPanelFontSize", 12)
     MainSoftData.UIPanelBtnWidth := IniRead(IniFile, IniSection, "UIPanelBtnWidth", 80)
     MainSoftData.UIPanelCols := IniRead(IniFile, IniSection, "UIPanelCols", 3)
     EnsureXAMLThemesIni()
+    ; 统一主题颜色（轮盘/浮窗/指令显示），不兼容旧分散颜色配置
+    AppThemeUtil.LoadFromIni()
     MainSoftData.IsModalSubGui := IniRead(IniFile, IniSection, "IsModalSubGui", true)
     MainSoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", -1)
     MainSoftData.DynamicCorePoolSize := IniRead(IniFile, IniSection, "DynamicCorePoolSize", 2)
@@ -475,14 +482,13 @@ LoadMainSetting() {
     MainSoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
     MainSoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
     MainSoftData.JoyType := IniRead(IniFile, IniSection, "JoyType", "Xbox")
-    MainSoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - 225 - 55)
+    ; CMD 默认：宽按 DPI 缩放，高 300，X = 屏幕宽 - 显示宽（物理像素 / -DPIScale）
+    defCMDWidth := GetDefaultCMDTipWidth()
+    MainSoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", defCMDWidth)
+    MainSoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 300)
+    MainSoftData.CMDPosX := IniRead(IniFile, IniSection, "CMDPosX", A_ScreenWidth - Integer(MainSoftData.CMDWidth))
     MainSoftData.CMDPosY := IniRead(IniFile, IniSection, "CMDPosY", 0)
-    MainSoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", 225)
-    MainSoftData.CMDHeight := IniRead(IniFile, IniSection, "CMDHeight", 200)
-    MainSoftData.CMDBGColor := IniRead(IniFile, IniSection, "CMDBGColor", "FFFFFF")
-    MainSoftData.CMDRunBGColor := IniRead(IniFile, IniSection, "CMDRunBGColor", "12fc0a")
     MainSoftData.CMDTransparency := IniRead(IniFile, IniSection, "CMDTransparency", 50)
-    MainSoftData.CMDFontColor := IniRead(IniFile, IniSection, "CMDFontColor", "000000")
     MainSoftData.CMDFontSize := IniRead(IniFile, IniSection, "CMDFontSize", 12)
     MainSoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
     MainSoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)

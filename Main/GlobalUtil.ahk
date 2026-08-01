@@ -40,6 +40,7 @@
 #Include ..\Gui\UIMacroGui.ahk
 #Include ..\Gui\UIMacroSettingGui.ahk
 #Include ..\Gui\UIMacroPanelSettingGui.ahk
+#Include ..\Gui\ThemeSettingGui.ahk
 #Include ..\Gui\ReplaceKeyGui.ahk
 #Include ..\Gui\UseExplainGui.ahk
 #Include ..\Gui\TargetGui.ahk
@@ -98,7 +99,6 @@ global MyMsgboxGui := CustomMsgBoxGui()
 global MyErrorMsgBoxGui := ErrorMsgBoxGui()
 global MyInputGui := CustomInputGui()
 global MyInputBtnGui := InputBtnGui()
-global MyCMDTipSettingGui := CMDTipSettingGui()
 global MyToolRecordSettingGui := ToolRecordSettingGui()
 global MyUseExplainGui := UseExplainGui()
 global MyConfigMergeGui := ConfigMergeGui()

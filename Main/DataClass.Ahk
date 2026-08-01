@@ -191,30 +191,40 @@ class MainConfig {
         this.MenuWheelSelectMode := 2   ; 轮盘选择模式 (1=点击选择, 2=划线选择)
         this.MenuWheelShowTooltip := false  ; 是否显示扇区名称提示
         this.MenuWheelScale := 100      ; 轮盘大小 (百分比, 50~200)
-        this.MenuWheelTheme := "Default"  ; 轮盘主题名称
         this.CurMenuWheelIndex := -1    ; 当前显示的菜单轮盘索引
+
+        ; ========== 统一主题颜色（轮盘/浮窗/指令显示） ==========
+        ; 扩展与缺键回退见 AppThemeUtil 文件头约定；DefaultThemeKey=WarmSun
+        this.AppTheme := "WarmSun"
+        this.ThemeColors := Map()       ; Key→#ARGB，加载后应含 ColorDefs 全部项
 
         ; ========== 界面浮窗 ==========
         this.UIPanelShowOnActive := true    ; 界面激活时默认显示浮窗
-        this.UIPanelDefaultPos := 1         ; 浮窗默认出现位置 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 8=鼠标位置)
-        this.UIPanelBtnColor := "#FF333333"  ; 按钮颜色 (ARGB)
-        this.UIPanelBgColor := "#40FFB6C1"   ; 背景颜色 (半透明粉色)
-        this.UIPanelFontColor := "#FFDDDDDD" ; 字体颜色
+        this.UIPanelDefaultPos := 1         ; 浮窗出现位置 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 8=鼠标位置)
+        this.UIPanelOffsetX := 100          ; 出现位置偏移 X (0~500)
+        this.UIPanelOffsetY := 100          ; 出现位置偏移 Y (0~500)
+        this.UIPanelTitleBg := "#FF8B4513"   ; 标题背景 (由主题同步)
+        this.UIPanelTitleText := "#FFFFFFFF" ; 标题文本 (由主题同步)
+        this.UIPanelBtnColor := "#FFDAA520"  ; 按钮背景 (由主题同步)
+        this.UIPanelBtnText := "#FF5C3317"  ; 按钮文本 (由主题同步)
+        this.UIPanelFontColor := "#FF5C3317" ; 兼容旧字段，等同按钮文本
+        this.UIPanelBgColor := "#C0FFE4B5"   ; 内容背景 (由主题同步)
         this.UIPanelBtnHeight := 34          ; 按钮高度
+        this.UIPanelFontSize := 12           ; 按钮字体大小
         this.UIPanelBtnWidth := 80           ; 按钮宽度
         this.UIPanelCols := 3                ; 每行按钮个数
 
         ; ========== CMD 指令提示窗口 ==========
         this.CMDTip := false            ; 是否显示指令提示
-        this.CMDPosX := 0               ; CMD 窗口 X 坐标
+        this.CMDWidth := Round(225 * A_ScreenDPI / 96)  ; CMD 窗口宽度（按 DPI 缩放）
+        this.CMDHeight := 300           ; CMD 窗口高度
+        this.CMDPosX := A_ScreenWidth - this.CMDWidth  ; 默认靠右
         this.CMDPosY := 0               ; CMD 窗口 Y 坐标
-        this.CMDWidth := 225            ; CMD 窗口宽度
-        this.CMDHeight := 120           ; CMD 窗口高度
-        this.CMDBGColor := "FFFFFF"     ; CMD 窗口背景色
-        this.CMDRunBGColor := "00FF00"  ; CMD 运行中背景色
-        this.CMDTransparency := 50      ; CMD 窗口透明度 (0~100)
+        this.CMDBGColor := "FFF8DC"     ; CMD 窗口背景色 (6位RGB，由主题同步)
+        this.CMDRunBGColor := "FF8C00"  ; CMD 运行中背景色 (由主题同步)
+        this.CMDTransparency := 50      ; CMD 背景透明度 (0=不透明，100=完全透明)
         this.CMDFontSize := "12"        ; CMD 字体大小
-        this.CMDFontColor := "000000"   ; CMD 字体颜色
+        this.CMDFontColor := "5C3317"   ; CMD 字体颜色 (由主题同步)
 
         ; ========== 变量监视器 ==========
         this.VarListenTop := false      ; 变量监视器窗口是否置顶

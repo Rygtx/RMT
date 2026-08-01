@@ -156,7 +156,7 @@ SaveCurWinPos() {
 }
 
 OnEditCMDTipGui() {
-    MyCMDTipSettingGui.ShowGui()
+    CMDTipSettingGui.ShowGui()
 }
 
 OnTabValueChanged(*) {

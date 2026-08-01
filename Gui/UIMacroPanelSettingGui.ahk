@@ -24,12 +24,13 @@ class UIMacroPanelSettingGui {
         this._instanceKey := ""
         this._showOnActive := true
         this._defaultPos := 1
-        this._btnColor := "#FF333333"
-        this._bgColor := "#40FFB6C1"
-        this._fontColor := "#FFDDDDDD"
+        this._offsetX := 100
+        this._offsetY := 100
         this._btnHeight := 34
+        this._fontSize := 12
         this._btnWidth := 80
         this._cols := 3
+        this._applyingUI := false
     }
 
     static ShowGui() {
@@ -91,65 +92,10 @@ class UIMacroPanelSettingGui {
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
         panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
 
-        labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 70 }
+        labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 90 }
 
-        ; ====== 外观（置于最上方） ======
-        group2 := panel.Add("GroupBox").Header(GetLang("外观")).Margin("0,0,0,0")
-        inner2 := group2.Add("StackPanel").Margin("14, 12")
-
-        ; 按钮颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
-        row3 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        row3.Add("TextBlock").Text(GetLang("按钮颜色") "：")
-            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
-            .VerticalAlignment("Center").Width(labelStyle.w)
-        row3.Add("TextBox").Name("BtnColorText")
-            .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(10)
-            .Foreground("{DynamicResource TextSub}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .IsReadOnly("True").Text("#FF333333")
-        btnColorPrev := row3.Add("Border").Name("BtnColorPreview")
-            .Width(28).Height(26).CornerRadius("3").Margin("8,0,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Background("#FF333333").Cursor("Hand")
-
-        ; 背景颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
-        row4 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row4.Add("TextBlock").Text(GetLang("背景颜色") "：")
-            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
-            .VerticalAlignment("Center").Width(labelStyle.w)
-        row4.Add("TextBox").Name("BgColorText")
-            .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(10)
-            .Foreground("{DynamicResource TextSub}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .IsReadOnly("True").Text("#40FFB6C1")
-        bgColorPrev := row4.Add("Border").Name("BgColorPreview")
-            .Width(28).Height(26).CornerRadius("3").Margin("8,0,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Background("#40FFB6C1").Cursor("Hand")
-
-        ; 字体颜色：标签 + #ARGB文本 + 预览块(点击打开选择器)
-        row5 := inner2.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row5.Add("TextBlock").Text(GetLang("字体颜色") "：")
-            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
-            .VerticalAlignment("Center").Width(labelStyle.w)
-        row5.Add("TextBox").Name("FontColorText")
-            .Width(110).Height(26).VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(10)
-            .Foreground("{DynamicResource TextSub}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .IsReadOnly("True").Text("#FFDDDDDD")
-        fontColorPrev := row5.Add("Border").Name("FontColorPreview")
-            .Width(28).Height(26).CornerRadius("3").Margin("8,0,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Background("#FFDDDDDD").Cursor("Hand")
-
-        ; ====== 通用选项（含尺寸设置） ======
-        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,16,0,0")
+        ; ====== 通用选项 ======
+        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,0,0,0")
         inner1 := group1.Add("StackPanel").Margin("14, 12")
 
         ; 选择框：界面激活时默认显示
@@ -158,15 +104,52 @@ class UIMacroPanelSettingGui {
             .Content(GetLang("界面激活时显示"))
             .Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,0")
 
-        ; 下拉框：浮窗默认出现位置
+        ; 下拉框：浮窗出现位置
         row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        row2.Add("TextBlock").Text(GetLang("默认出现位置") "：")
+        row2.Add("TextBlock").Text(GetLang("出现位置") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
-            .VerticalAlignment("Center").Width(90)
+            .VerticalAlignment("Center").Width(labelStyle.w)
         posCombo := row2.Add("ComboBox").Name("DefaultPosCon")
             .Width(140).Height(28).Margin("8,0,0,0")
         for opt in UIMacroPanelSettingGui.PosOptions
-            posCombo.Add("ComboBoxItem").Content(opt.label)
+            posCombo.Add("ComboBoxItem").Content(GetLang(opt.label))
+
+        ; 位置偏移 X / Y
+        rowOffX := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowOffX.Add("TextBlock").Text(GetLang("位置偏移X") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowOffX.Add("Slider").Name("OffsetXCon")
+            .Width(140).Height(28).Margin("8,0,8,0")
+            .Minimum(0).Maximum(500).Value(100)
+            .IsSnapToTickEnabled("True").TickFrequency("5")
+            .Tag("Throttle:50")
+        rowOffX.Add("TextBox").Name("OffsetXValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=OffsetXCon}")
+
+        rowOffY := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowOffY.Add("TextBlock").Text(GetLang("位置偏移Y") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowOffY.Add("Slider").Name("OffsetYCon")
+            .Width(140).Height(28).Margin("8,0,8,0")
+            .Minimum(0).Maximum(500).Value(100)
+            .IsSnapToTickEnabled("True").TickFrequency("5")
+            .Tag("Throttle:50")
+        rowOffY.Add("TextBox").Name("OffsetYValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=OffsetYCon}")
 
         ; 按钮宽度
         row6b := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
@@ -206,6 +189,25 @@ class UIMacroPanelSettingGui {
             .Margin("2,0,0,0")
             .Text("{Binding Value, ElementName=BtnHeightCon}")
 
+        ; 按钮字体大小
+        rowFont := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowFont.Add("TextBlock").Text(GetLang("字体大小") "：")
+            .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
+            .VerticalAlignment("Center").Width(labelStyle.w)
+        rowFont.Add("Slider").Name("FontSizeCon")
+            .Width(140).Height(28).Margin("8,0,8,0")
+            .Minimum(8).Maximum(24).Value(12)
+            .IsSnapToTickEnabled("True").TickFrequency("1")
+            .Tag("Throttle:50")
+        rowFont.Add("TextBox").Name("FontSizeValText")
+            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .TextAlignment("Center").FontSize(11)
+            .Foreground("{DynamicResource TextMain}")
+            .Background("{DynamicResource ControlBg}")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Margin("2,0,0,0")
+            .Text("{Binding Value, ElementName=FontSizeCon}")
+
         ; 按钮每行最大个数
         row7 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         row7.Add("TextBlock").Text(GetLang("每行个数") "：")
@@ -237,7 +239,7 @@ class UIMacroPanelSettingGui {
         ; 编译 XAML
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="560"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="510" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
 
@@ -251,34 +253,41 @@ class UIMacroPanelSettingGui {
 
         this.ui.Track("ShowOnActiveCon")
         this.ui.Track("DefaultPosCon")
+        this.ui.Track("OffsetXCon")
+        this.ui.Track("OffsetYCon")
         this.ui.Track("BtnHeightCon")
+        this.ui.Track("FontSizeCon")
         this.ui.Track("BtnWidthCon")
         this.ui.Track("ColsCon")
+        this.ui.Track("OffsetXValText")
+        this.ui.Track("OffsetYValText")
         this.ui.Track("BtnHeightValText")
+        this.ui.Track("FontSizeValText")
         this.ui.Track("BtnWidthValText")
         this.ui.Track("ColsValText")
 
         this.ui.OnEvent("ShowOnActiveCon", "Checked", ObjBindMethod(this, "OnShowOnActiveChanged"))
         this.ui.OnEvent("ShowOnActiveCon", "Unchecked", ObjBindMethod(this, "OnShowOnActiveChanged"))
         this.ui.OnEvent("DefaultPosCon", "SelectionChanged", ObjBindMethod(this, "OnDefaultPosChanged"))
+        this.ui.OnEvent("OffsetXCon", "ValueChanged", ObjBindMethod(this, "OnOffsetXChanged"))
+        this.ui.OnEvent("OffsetYCon", "ValueChanged", ObjBindMethod(this, "OnOffsetYChanged"))
         this.ui.OnEvent("BtnHeightCon", "ValueChanged", ObjBindMethod(this, "OnBtnHeightChanged"))
+        this.ui.OnEvent("FontSizeCon", "ValueChanged", ObjBindMethod(this, "OnFontSizeChanged"))
         this.ui.OnEvent("BtnWidthCon", "ValueChanged", ObjBindMethod(this, "OnBtnWidthChanged"))
         this.ui.OnEvent("ColsCon", "ValueChanged", ObjBindMethod(this, "OnColsChanged"))
         ; 文本框输入 → 同步到滑动条
+        this.ui.OnEvent("OffsetXValText", "TextChanged", ObjBindMethod(this, "OnOffsetXTextChanged"))
+        this.ui.OnEvent("OffsetYValText", "TextChanged", ObjBindMethod(this, "OnOffsetYTextChanged"))
         this.ui.OnEvent("BtnHeightValText", "TextChanged", ObjBindMethod(this, "OnBtnHeightTextChanged"))
+        this.ui.OnEvent("FontSizeValText", "TextChanged", ObjBindMethod(this, "OnFontSizeTextChanged"))
         this.ui.OnEvent("BtnWidthValText", "TextChanged", ObjBindMethod(this, "OnBtnWidthTextChanged"))
         this.ui.OnEvent("ColsValText", "TextChanged", ObjBindMethod(this, "OnColsTextChanged"))
-
-        ; 预览块点击 → 打开 XColorPicker
-        this.ui.OnEvent("BtnColorPreview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickBtnColor"))
-        this.ui.OnEvent("BgColorPreview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickBgColor"))
-        this.ui.OnEvent("FontColorPreview", "MouseLeftButtonDown", ObjBindMethod(this, "OnPickFontColor"))
 
         this.ui.OnEvent("BtnRevert", "Click", ObjBindMethod(this, "OnRevertClick"))
         this.ui.OnEvent("BtnConfirm", "Click", ObjBindMethod(this, "OnConfirmClick"))
 
         this.LoadInitValues()
-
+        this.ApplyValuesToUI()
         this.ui.Show()
 
         ; 等待窗口就绪后激活到最前，避免被主界面挡住
@@ -289,8 +298,6 @@ class UIMacroPanelSettingGui {
             }
             Sleep(50)
         }
-
-        SetTimer(ObjBindMethod(this, "ApplyValuesToUI"), -100)
     }
 
     OnWindowClosing(state, ctrl, event) {
@@ -302,79 +309,141 @@ class UIMacroPanelSettingGui {
     }
 
     OnWindowLoad(state, ctrl, event) {
-        themeName := (IsSet(MySoftData) && MySoftData.HasProp("Theme")) ? MainSoftData.Theme : "RMT_Light"
-        ApplyXamlTheme(this.ui, themeName)
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+            this.ApplyValuesToUI()
+        } finally {
+            this.ui.Update("Window", "Opacity", "1")
+        }
     }
 
     LoadInitValues() {
         this._showOnActive := !!MainSoftData.UIPanelShowOnActive
         this._defaultPos := MainSoftData.UIPanelDefaultPos
-        this._btnColor := MainSoftData.UIPanelBtnColor
-        this._bgColor := MainSoftData.UIPanelBgColor
-        this._fontColor := MainSoftData.UIPanelFontColor
+        this._offsetX := Max(0, Min(500, Integer(MainSoftData.UIPanelOffsetX)))
+        this._offsetY := Max(0, Min(500, Integer(MainSoftData.UIPanelOffsetY)))
         this._btnHeight := MainSoftData.UIPanelBtnHeight
+        this._fontSize := Max(8, Min(24, Integer(MainSoftData.UIPanelFontSize)))
         w := MainSoftData.UIPanelBtnWidth
         this._btnWidth := (w < 40) ? 80 : w
         this._cols := MainSoftData.UIPanelCols
     }
 
     ApplyValuesToUI() {
-        this.ui.Update("ShowOnActiveCon", "IsChecked", this._showOnActive ? "True" : "False")
+        this._applyingUI := true
+        try {
+            this.ui.Update("ShowOnActiveCon", "IsChecked", this._showOnActive ? "True" : "False")
 
-        posIdx := 0
-        for i, opt in UIMacroPanelSettingGui.PosOptions {
-            if (opt.id == this._defaultPos) {
-                posIdx := i - 1
-                break
+            posIdx := 0
+            for i, opt in UIMacroPanelSettingGui.PosOptions {
+                if (opt.id == this._defaultPos) {
+                    posIdx := i - 1
+                    break
+                }
             }
+            this.ui.Update("DefaultPosCon", "SelectedIndex", String(posIdx))
+            this.ui.Update("OffsetXCon", "Value", String(this._offsetX))
+            this.ui.Update("OffsetYCon", "Value", String(this._offsetY))
+            this.ui.Update("BtnHeightCon", "Value", String(this._btnHeight))
+            this.ui.Update("FontSizeCon", "Value", String(this._fontSize))
+            this.ui.Update("BtnWidthCon", "Value", String(this._btnWidth))
+            this.ui.Update("ColsCon", "Value", String(this._cols))
+        } finally {
+            this._applyingUI := false
         }
-        this.ui.Update("DefaultPosCon", "SelectedIndex", String(posIdx))
-
-        this.ui.Update("BtnColorPreview", "Background", this._btnColor)
-        this.ui.Update("BtnColorText", "Text", this._btnColor)
-        this.ui.Update("BgColorPreview", "Background", this._bgColor)
-        this.ui.Update("BgColorText", "Text", this._bgColor)
-        this.ui.Update("FontColorPreview", "Background", this._fontColor)
-        this.ui.Update("FontColorText", "Text", this._fontColor)
-
-        this.ui.Update("BtnHeightCon", "Value", String(this._btnHeight))
-
-        this.ui.Update("BtnWidthCon", "Value", String(this._btnWidth))
-
-        this.ui.Update("ColsCon", "Value", String(this._cols))
     }
 
     OnShowOnActiveChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         this._showOnActive := (event == "Checked")
     }
 
     OnDefaultPosChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         text := state.Has("DefaultPosCon") ? state["DefaultPosCon"] : ""
         for opt in UIMacroPanelSettingGui.PosOptions {
-            if (opt.label == text) {
+            if (opt.label == text || GetLang(opt.label) == text) {
                 this._defaultPos := opt.id
                 return
             }
         }
     }
 
+    OnOffsetXChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        valStr := state.Has("OffsetXCon") ? state["OffsetXCon"] : ""
+        this._offsetX := Integer(valStr)
+    }
+
+    OnOffsetYChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        valStr := state.Has("OffsetYCon") ? state["OffsetYCon"] : ""
+        this._offsetY := Integer(valStr)
+    }
+
+    OnOffsetXTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        text := state.Has("OffsetXValText") ? state["OffsetXValText"] : ""
+        if (text == "" || !IsNumber(text))
+            return
+        val := Max(0, Min(500, Integer(Number(text))))
+        if (val != this._offsetX) {
+            this._offsetX := val
+            this.ui.Update("OffsetXCon", "Value", String(val))
+        }
+    }
+
+    OnOffsetYTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        text := state.Has("OffsetYValText") ? state["OffsetYValText"] : ""
+        if (text == "" || !IsNumber(text))
+            return
+        val := Max(0, Min(500, Integer(Number(text))))
+        if (val != this._offsetY) {
+            this._offsetY := val
+            this.ui.Update("OffsetYCon", "Value", String(val))
+        }
+    }
+
     OnBtnHeightChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         valStr := state.Has("BtnHeightCon") ? state["BtnHeightCon"] : ""
         this._btnHeight := Integer(valStr)
     }
 
+    OnFontSizeChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        valStr := state.Has("FontSizeCon") ? state["FontSizeCon"] : ""
+        this._fontSize := Integer(valStr)
+    }
+
     OnBtnWidthChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         valStr := state.Has("BtnWidthCon") ? state["BtnWidthCon"] : ""
         this._btnWidth := Integer(valStr)
     }
 
     OnColsChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         valStr := state.Has("ColsCon") ? state["ColsCon"] : ""
         this._cols := Integer(valStr)
     }
 
     ; 文本框输入 → 校验并同步到滑动条
     OnBtnHeightTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         text := state.Has("BtnHeightValText") ? state["BtnHeightValText"] : ""
         if (text == "" || !IsNumber(text))
             return
@@ -386,7 +455,22 @@ class UIMacroPanelSettingGui {
         }
     }
 
+    OnFontSizeTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        text := state.Has("FontSizeValText") ? state["FontSizeValText"] : ""
+        if (text == "" || !IsNumber(text))
+            return
+        val := Max(8, Min(24, Integer(Number(text))))
+        if (val != this._fontSize) {
+            this._fontSize := val
+            this.ui.Update("FontSizeCon", "Value", String(val))
+        }
+    }
+
     OnBtnWidthTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         text := state.Has("BtnWidthValText") ? state["BtnWidthValText"] : ""
         if (text == "" || !IsNumber(text))
             return
@@ -399,6 +483,8 @@ class UIMacroPanelSettingGui {
     }
 
     OnColsTextChanged(state, ctrl, event) {
+        if (this._applyingUI)
+            return
         text := state.Has("ColsValText") ? state["ColsValText"] : ""
         if (text == "" || !IsNumber(text))
             return
@@ -410,54 +496,16 @@ class UIMacroPanelSettingGui {
         }
     }
 
-    OnPickBtnColor(state, ctrl, event) {
-        result := XColorPicker.Show({ Title: GetLang("按钮颜色"), DefaultColor: this._btnColor, Owner: this.ui.wpfHwnd, Modal: true })
-        if (result.Status == "OK") {
-            this._btnColor := result.Color
-            this.ui.Update("BtnColorPreview", "Background", result.Color)
-            this.ui.Update("BtnColorText", "Text", result.Color)
-        }
-    }
-
-    OnPickBgColor(state, ctrl, event) {
-        result := XColorPicker.Show({ Title: GetLang("背景颜色"), DefaultColor: this._bgColor, Owner: this.ui.wpfHwnd, Modal: true })
-        if (result.Status == "OK") {
-            this._bgColor := result.Color
-            this.ui.Update("BgColorPreview", "Background", result.Color)
-            this.ui.Update("BgColorText", "Text", result.Color)
-        }
-    }
-
-    OnPickFontColor(state, ctrl, event) {
-        result := XColorPicker.Show({ Title: GetLang("字体颜色"), DefaultColor: this._fontColor, Owner: this.ui.wpfHwnd, Modal: true })
-        if (result.Status == "OK") {
-            this._fontColor := result.Color
-            this.ui.Update("FontColorPreview", "Background", result.Color)
-            this.ui.Update("FontColorText", "Text", result.Color)
-        }
-    }
-
     OnRevertClick(state, ctrl, event) {
-        this.ui.Update("ShowOnActiveCon", "IsChecked", "True")
-        this.ui.Update("DefaultPosCon", "SelectedIndex", "1")  ; 左上（PosOptions 第二项）
-        this.ui.Update("BtnColorPreview", "Background", "#FF333333")
-        this.ui.Update("BtnColorText", "Text", "#FF333333")
-        this.ui.Update("BgColorPreview", "Background", "#40FFB6C1")
-        this.ui.Update("BgColorText", "Text", "#40FFB6C1")
-        this.ui.Update("FontColorPreview", "Background", "#FFDDDDDD")
-        this.ui.Update("FontColorText", "Text", "#FFDDDDDD")
-        this.ui.Update("BtnHeightCon", "Value", "34")
-        this.ui.Update("BtnWidthCon", "Value", "80")
-        this.ui.Update("ColsCon", "Value", "3")
-
         this._showOnActive := true
         this._defaultPos := 1
-        this._btnColor := "#FF333333"
-        this._bgColor := "#40FFB6C1"
-        this._fontColor := "#FFDDDDDD"
+        this._offsetX := 100
+        this._offsetY := 100
         this._btnHeight := 34
+        this._fontSize := 12
         this._btnWidth := 80
         this._cols := 3
+        this.ApplyValuesToUI()
     }
 
     OnConfirmClick(state, ctrl, event) {
@@ -480,20 +528,19 @@ class UIMacroPanelSettingGui {
 
         MainSoftData.UIPanelShowOnActive := this._showOnActive
         MainSoftData.UIPanelDefaultPos := this._defaultPos
-        MainSoftData.UIPanelBtnColor := this._btnColor
-        MainSoftData.UIPanelBgColor := this._bgColor
-        MainSoftData.UIPanelFontColor := this._fontColor
+        MainSoftData.UIPanelOffsetX := this._offsetX
+        MainSoftData.UIPanelOffsetY := this._offsetY
         MainSoftData.UIPanelBtnHeight := this._btnHeight
+        MainSoftData.UIPanelFontSize := this._fontSize
         MainSoftData.UIPanelBtnWidth := this._btnWidth
         MainSoftData.UIPanelCols := this._cols
 
-        iniPath := A_WorkingDir "\Setting\MainSettings.ini"
         IniWrite(MainSoftData.UIPanelShowOnActive, IniFile, IniSection, "UIPanelShowOnActive")
         IniWrite(MainSoftData.UIPanelDefaultPos, IniFile, IniSection, "UIPanelDefaultPos")
-        IniWrite(MainSoftData.UIPanelBtnColor, IniFile, IniSection, "UIPanelBtnColor")
-        IniWrite(MainSoftData.UIPanelBgColor, IniFile, IniSection, "UIPanelBgColor")
-        IniWrite(MainSoftData.UIPanelFontColor, IniFile, IniSection, "UIPanelFontColor")
+        IniWrite(MainSoftData.UIPanelOffsetX, IniFile, IniSection, "UIPanelOffsetX")
+        IniWrite(MainSoftData.UIPanelOffsetY, IniFile, IniSection, "UIPanelOffsetY")
         IniWrite(MainSoftData.UIPanelBtnHeight, IniFile, IniSection, "UIPanelBtnHeight")
+        IniWrite(MainSoftData.UIPanelFontSize, IniFile, IniSection, "UIPanelFontSize")
         IniWrite(MainSoftData.UIPanelBtnWidth, IniFile, IniSection, "UIPanelBtnWidth")
         IniWrite(MainSoftData.UIPanelCols, IniFile, IniSection, "UIPanelCols")
     }
