@@ -506,7 +506,7 @@ AddSettingUI(index) {
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MainSoftData.MutiThreadNum,
     tableItem)
     con.OnEvent("Change", (ctrl, info) => MainSoftData.MutiThreadNum := Integer(ctrl.Value))
-    Con := AddTableControl("Button", Format("x{} y{} h27", posX + 865, posY - 4), "?", tableItem)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 865, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickMutiThreadHelpBtn)
 
     ; posY += 40
@@ -537,6 +537,8 @@ AddSettingUI(index) {
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("管理员启动"), tableItem)
     con.Value := MainSoftData.IsAdminStart
     con.OnEvent("Click", OnAdminStartChanged)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 415, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickAdminStartHelpBtn)
 
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("仅前台运行宏"), tableItem)
     con.Value := MainSoftData.CheckForeground
@@ -550,6 +552,8 @@ AddSettingUI(index) {
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("模态子窗口"), tableItem)
     con.Value := MainSoftData.IsModalSubGui
     con.OnEvent("Click", (ctrl, info) => MainSoftData.IsModalSubGui := ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 415, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickModalSubGuiHelpBtn)
 
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"), tableItem)
     con.Value := MainSoftData.ShowSplitLine
@@ -605,7 +609,7 @@ AddSettingUI(index) {
         "允许重复按下"]), tableItem)
     con.Value := MainSoftData.KeyDownDownType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.KeyDownDownType := ctrl.Value)
-    Con := AddTableControl("Button", Format("x{} y{} h27", posX + 231, posY - 4), "?", tableItem)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 231, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickKeyDownDownHelpBtn)
 
     AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("手柄类型："), tableItem)

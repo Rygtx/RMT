@@ -252,6 +252,24 @@ OnClickMutiThreadHelpBtn(*) {
     MsgBox(str, GetLang("多线程说明"))
 }
 
+OnClickModalSubGuiHelpBtn(*) {
+    str1 := GetLang("开启后：打开指令编辑等子窗口时，会禁用主窗口，必须先关闭子窗口才能继续操作主窗口。")
+    str2 := GetLang("关闭后：子窗口与主窗口可同时操作，方便对照主界面内容进行编辑。")
+    str3 := GetLang("提示：默认开启，一般建议保持开启，避免误操作主窗口导致编辑内容丢失。")
+
+    str := Format("{}`n{}`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("模态子窗口说明"))
+}
+
+OnClickAdminStartHelpBtn(*) {
+    str1 := GetLang("开启后：软件会以管理员身份启动。部分功能（如后台键鼠、部分游戏按键模拟等）需要管理员权限才能生效。")
+    str2 := GetLang("若同时开启开机自启，自启时也会以管理员身份启动。")
+    str3 := GetLang("重要：请不要自行通过「右键若梦兔 → 属性 → 兼容性 → 以管理员身份运行此程序」绑定管理员权限，这样会导致「开机自启」选项失效。如需管理员权限，请使用本选项。")
+
+    str := Format("{}`n{}`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("管理员启动说明"))
+}
+
 OnClickKeyDownDownHelpBtn(*) {
     str1 := GetLang("当宏按键已经处于按下状态，再次触发按下指令时特别处理")
     str2 := GetLang("自动松开：再次按下前，先松开该按键（确保指令正常执行）")

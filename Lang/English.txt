@@ -1139,6 +1139,15 @@ Tip2：按下时再次按下，按键检测网站可能无法检测，但记事�
 不可与特殊指令进行交换=Cannot be exchanged with special commands
 管理员权限=Administrator Privileges
 管理员启动=Admin Startup
+管理员启动说明=Admin Startup Description
+开启后：软件会以管理员身份启动。部分功能（如后台键鼠、部分游戏按键模拟等）需要管理员权限才能生效。=When enabled: RMT starts as administrator. Some features (e.g. background keyboard/mouse, certain game key simulation) require admin privileges.
+若同时开启开机自启，自启时也会以管理员身份启动。=If Start on Boot is also enabled, auto-start will launch with admin privileges.
+重要：请不要自行通过「右键若梦兔 → 属性 → 兼容性 → 以管理员身份运行此程序」绑定管理员权限，这样会导致「开机自启」选项失效。如需管理员权限，请使用本选项。=Important: Do NOT manually bind admin via "Right-click RMT → Properties → Compatibility → Run this program as an administrator". That will break the Start on Boot option. Use this setting instead if admin is needed.
+模态子窗口=Modal Sub-Windows
+模态子窗口说明=Modal Sub-Windows Description
+开启后：打开指令编辑等子窗口时，会禁用主窗口，必须先关闭子窗口才能继续操作主窗口。=When enabled: opening command editors and other sub-windows disables the main window; close the sub-window before using the main window again.
+关闭后：子窗口与主窗口可同时操作，方便对照主界面内容进行编辑。=When disabled: sub-windows and the main window can be used together, convenient for editing while viewing the main UI.
+提示：默认开启，一般建议保持开启，避免误操作主窗口导致编辑内容丢失。=Tip: Enabled by default. Keeping it on is recommended to avoid accidental main-window edits while a dialog is open.
 tip1:请确保有创建变量-{}的相关指令=tip1:Please ensure there are related commands to create variables-{}
 tip2:请确保上述指令运行过=tip2:Please ensure the above commands have been executed
 循环-跳出=Loop-Exit
