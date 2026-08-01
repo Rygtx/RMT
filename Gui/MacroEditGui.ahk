@@ -486,27 +486,17 @@ class MacroEditGui {
             this.ContextMenu.Add(GetLang("跳过指令"), (*) => this.ContentMenuHandler("Skip"))
             this.ContextMenu.IsDebug := true
             this.ContextMenu.Add(GetLang("调试起点"), (*) => this.ContentMenuHandler("Debug"))
-            this.ContextMenu.Add(GetLang("指令上移"), (*) => this.ContentMenuHandler(GetLang("指令上移")))
-            this.ContextMenu.Add(GetLang("指令下移"), (*) => this.ContentMenuHandler(GetLang("指令下移")))
 
             this.ContextMenu.Add()  ; 分隔线
-            subMenu := Menu()
-            for index, value in this.CMDStrArr {
-                subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Pre_" value))
-                subMenu.SetIcon(value, this.CMDIconFileArr[index])
-            }
-            this.ContextMenu.Add(GetLang("上方插入"), subMenu)  ; 将子菜单添加到主菜单
             subMenu := Menu()
             for index, value in this.CMDStrArr {
                 subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Next_" value))
                 subMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
-            this.ContextMenu.Add(GetLang("下方插入"), subMenu)  ; 将子菜单添加到主菜单
+            this.ContextMenu.Add(GetLang("插入指令"), subMenu)
 
-            this.ContextMenu.Add()  ; 分隔线
             this.ContextMenu.Add(GetLang("复制"), (*) => this.ContentMenuHandler(GetLang("复制")))
-            this.ContextMenu.Add(GetLang("上方粘贴"), (*) => this.ContentMenuHandler(GetLang("上方粘贴")))
-            this.ContextMenu.Add(GetLang("下方粘贴"), (*) => this.ContentMenuHandler(GetLang("下方粘贴")))
+            this.ContextMenu.Add(GetLang("粘贴"), (*) => this.ContentMenuHandler(GetLang("粘贴")))
 
             this.ContextMenu.Add()  ; 分隔线
             this.ContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
@@ -796,24 +786,12 @@ class MacroEditGui {
                 CommandStr := IsToDebug ? "⭐" cleanItemText : SubStr(cleanItemText, 2)
                 ; ⭐是持久标记，由F6单步时FindDebugStartItem查找，不直接设DebugItemID
                 this.OnModifyCmd(CommandStr)
-            case GetLang("指令上移"):
-            {
-                this.OnPreMoveCmd()
-            }
-            case GetLang("指令下移"):
-            {
-                this.OnNextMoveCmd()
-            }
             case GetLang("复制"):
             {
                 newCmd := FullCopyCmd(cleanItemText)
                 SetClipboard(newCmd)
             }
-            case GetLang("上方粘贴"):
-            {
-                this.OnPreInsertCmd(A_Clipboard)
-            }
-            case GetLang("下方粘贴"):
+            case GetLang("粘贴"):
             {
                 this.OnNextInsertCmd(A_Clipboard)
             }
