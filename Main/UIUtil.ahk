@@ -530,20 +530,20 @@ AddSettingUI(index) {
     ; 顺序：主题、快捷键、指令录制 / 轮盘、界面浮窗、指令显示
     posY += 30
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("主题"), tableItem)
-    con.OnEvent("Click", (*) => ThemeSettingGui.ShowGui())
+    con.OnEvent("Click", OnClickThemeSettingBtn)
 
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("快捷键"), tableItem)
-    con.OnEvent("Click", (*) => HotkeySettingGui.ShowGui())
+    con.OnEvent("Click", OnClickHotkeySettingBtn)
 
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("指令录制"), tableItem)
     con.OnEvent("Click", OnClickToolRecordSettingBtn)
 
     posY += 40
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("轮盘"), tableItem)
-    con.OnEvent("Click", (*) => MenuWheelGlobalSettingGui.ShowGui())
+    con.OnEvent("Click", OnClickMenuWheelSettingBtn)
 
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("界面浮窗"), tableItem)
-    con.OnEvent("Click", (*) => UIMacroPanelSettingGui.ShowGui())
+    con.OnEvent("Click", OnClickUIMacroPanelSettingBtn)
 
     con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "", tableItem)
     UIControls.CMDTip := con

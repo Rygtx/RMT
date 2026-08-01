@@ -1162,7 +1162,8 @@ public class AhkWpfEngine
         {
             IntPtr hwndVal = new WindowInteropHelper(win).Handle;
             HwndSource.FromHwnd(hwndVal).AddHook(WndProc);
-            SendToAhk("EVENT|" + winId + "|Window|LoadedHwnd|" + hwndVal.ToString() + "\n");
+            // Async: 避免 CREATE_WINDOW 的 SendMessage 与 LoadedHwnd 回调互相嵌套死锁
+            SendToAhkAsync("EVENT|" + winId + "|Window|LoadedHwnd|" + hwndVal.ToString() + "\n");
             UpdateSnapState(win);
             InheritWindowIconAndTitle(win, ownerHwndStr);
             DumpState("Window", "Loaded");
@@ -1178,11 +1179,12 @@ public class AhkWpfEngine
                 SetWindowPos(ownHwnd, IntPtr.Zero, 0, 0, 0, 0, 0x0003);
                 SetForegroundWindow(ownHwnd);
             }
-            SendToAhk("EVENT|" + winId + "|Window|Closing\n");
+            // Async: avoid deadlock when AHK closes via synchronous SendMessage(Update Close)
+            SendToAhkAsync("EVENT|" + winId + "|Window|Closing\n");
         };
         win.Closed += (s, e) =>
         {
-            SendToAhk("EVENT|" + winId + "|Window|Closed\n");
+            SendToAhkAsync("EVENT|" + winId + "|Window|Closed\n");
             lock (_activeEngines)
             {
                 _activeEngines.Remove(winId);
@@ -1749,7 +1751,8 @@ public class AhkWpfEngine
         {
             IntPtr hwnd = new WindowInteropHelper(win).Handle;
             HwndSource.FromHwnd(hwnd).AddHook(WndProc);
-            SendToAhk("EVENT|" + winId + "|Window|LoadedHwnd|" + hwnd.ToString() + "\n");
+            // Async: 避免 CREATE_WINDOW 的 SendMessage 与 LoadedHwnd 回调互相嵌套死锁
+            SendToAhkAsync("EVENT|" + winId + "|Window|LoadedHwnd|" + hwnd.ToString() + "\n");
             UpdateSnapState(win);
             InheritWindowIconAndTitle(win, ownerHwndStr);
             DumpState("Window", "Loaded");
@@ -1781,11 +1784,12 @@ public class AhkWpfEngine
                 SetWindowPos(ownerHwnd, IntPtr.Zero, 0, 0, 0, 0, 0x0003);
                 SetForegroundWindow(ownerHwnd);
             }
-            SendToAhk("EVENT|" + winId + "|Window|Closing\n");
+            // Async: avoid deadlock when AHK closes via synchronous SendMessage(Update Close)
+            SendToAhkAsync("EVENT|" + winId + "|Window|Closing\n");
         };
         win.Closed += (s, e) =>
         {
-            SendToAhk("EVENT|" + winId + "|Window|Closed\n");
+            SendToAhkAsync("EVENT|" + winId + "|Window|Closed\n");
             lock (_activeEngines)
             {
                 _activeEngines.Remove(winId);

@@ -27,15 +27,19 @@ class CMDTipSettingGui {
 
         if (CMDTipSettingGui.instances.Has(key)) {
             oldInst := CMDTipSettingGui.instances[key]
-            if (!oldInst.closed && IsObject(oldInst.ui) && oldInst.ui.wpfHwnd) {
-                try WinActivate("ahk_id " oldInst.ui.wpfHwnd)
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            if (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd)) {
+                try WinActivate("ahk_id " hwnd)
                 return
             }
-            if (!oldInst.closed)
-                oldInst.Close()
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
             CMDTipSettingGui.instances.Delete(key)
         }
 
+        XAMLHost.EnsureDaemonHealthy()
         if (CMDTipSettingGui._opening)
             return
         CMDTipSettingGui._opening := true
@@ -53,37 +57,34 @@ class CMDTipSettingGui {
     _BuildAndShow() {
         this.closed := false
 
-        title := GetLang("指令显示编辑器")
+        title := GetLang("指令显示")
         titleHeight := "36"
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
         main.Rows(titleHeight, "*")
 
         ; 标题栏
-        tb := main.Add("Border").Grid_Row(0).Background("Transparent").Name("DragArea")
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TextMain}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
 
         CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TextMain}").BorderThickness(0)
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
         ; 内容区
-        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
         panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
 
         labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 90 }
 
-        group1 := panel.Add("GroupBox").Header(GetLang("指令显示")).Margin("0,0,0,0")
-        inner1 := group1.Add("StackPanel").Margin("14, 12")
-
         ; 实时鼠标坐标 + F1 填入位置
-        rowMouse := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,0,0,0")
+        rowMouse := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,0,0,0")
         rowMouse.Add("TextBlock").Name("MousePosCon")
             .Text(GetLang("屏幕坐标：0,0"))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
@@ -92,30 +93,36 @@ class CMDTipSettingGui {
             .Foreground("{DynamicResource TextSub}").FontSize(12)
             .VerticalAlignment("Center").Margin("12,0,0,0")
 
+        ; 右侧数值框与「显示宽度/高度」对齐：label(90)+slider边距(8)+slider(180)+边距(8)=286
+        ; 左侧 X：label(90)+输入(60)=150 → Y 标签前间距 = 286-90-150 = 46
+        valBoxW := 60
+        yLabelGap := 46
+
         ; 显示位置 X / Y（文本输入）
-        rowPos := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowPos := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowPos.Add("TextBlock").Text(GetLang("显示位置X："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         rowPos.Add("TextBox").Name("PosXCon")
-            .Width(70).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("0,0,16,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         rowPos.Add("TextBlock").Text(GetLang("显示位置Y："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
+            .Margin(yLabelGap ",0,0,0")
         rowPos.Add("TextBox").Name("PosYCon")
-            .Width(70).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+            .Margin("2,0,0,0")
 
         ; 显示宽度：滑块最大 800，文本框可输入更大值
-        rowW := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowW := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowW.Add("TextBlock").Text(GetLang("显示宽度："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
@@ -125,15 +132,15 @@ class CMDTipSettingGui {
             .IsSnapToTickEnabled("True").TickFrequency("5")
             .Tag("Throttle:50")
         rowW.Add("TextBox").Name("WidthValText")
-            .Width(60).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Margin("2,0,0,0")
 
         ; 显示高度：滑块最大 600，文本框可输入更大值
-        rowH := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowH := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowH.Add("TextBlock").Text(GetLang("显示高度："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
@@ -143,15 +150,15 @@ class CMDTipSettingGui {
             .IsSnapToTickEnabled("True").TickFrequency("5")
             .Tag("Throttle:50")
         rowH.Add("TextBox").Name("HeightValText")
-            .Width(60).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Margin("2,0,0,0")
 
-        ; 字体大小
-        rowF := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        ; 字体大小（输入框与宽高一致）
+        rowF := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowF.Add("TextBlock").Text(GetLang("字体大小："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
@@ -161,16 +168,15 @@ class CMDTipSettingGui {
             .IsSnapToTickEnabled("True").TickFrequency("1")
             .Tag("Throttle:50")
         rowF.Add("TextBox").Name("FontSizeValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Margin("2,0,0,0")
-            .Text("{Binding Value, ElementName=FontSizeCon}")
 
-        ; 背景透明度
-        rowT := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        ; 背景透明度（输入框与宽高一致）
+        rowT := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowT.Add("TextBlock").Text(GetLang("背景透明度："))
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
@@ -180,30 +186,35 @@ class CMDTipSettingGui {
             .IsSnapToTickEnabled("True").TickFrequency("1")
             .Tag("Throttle:50")
         rowT.Add("TextBox").Name("TransparencyValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Margin("2,0,0,0")
-            .Text("{Binding Value, ElementName=TransparencyCon}")
 
-        tip2 := inner1.Add("TextBlock").Text(GetLang("透明度(0~100)：0不透明，100完全透明"))
+        tip2 := panel.Add("TextBlock").Text(GetLang("透明度(0~100)：0不透明，100完全透明"))
             .Foreground("{DynamicResource TextSub}").FontSize(11).Margin("0,8,0,0")
 
         ; 底部按钮
-        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
-        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
+        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,14,0,6")
+        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认"))
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
         revertBtn.InjectResources(PrimaryBtnStyle)
-        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定"))
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(32)
         okBtn.InjectResources(PrimaryBtnStyle)
 
         ; 编译 XAML
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="460" Height="440" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="330" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius>')
@@ -297,6 +308,10 @@ class CMDTipSettingGui {
         if (this._instanceKey != "" && CMDTipSettingGui.instances.Has(this._instanceKey))
             CMDTipSettingGui.instances.Delete(this._instanceKey)
         this.ui := ""
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
     }
 
     OnWindowLoad(state, ctrl, event) {
@@ -331,7 +346,9 @@ class CMDTipSettingGui {
             this.ui.Update("WidthValText", "Text", String(this._width))
             this.ui.Update("HeightValText", "Text", String(this._height))
             this.ui.Update("FontSizeCon", "Value", String(this._fontSize))
+            this.ui.Update("FontSizeValText", "Text", String(this._fontSize))
             this.ui.Update("TransparencyCon", "Value", String(this._transparency))
+            this.ui.Update("TransparencyValText", "Text", String(this._transparency))
         } finally {
             this._syncing := false
         }
@@ -392,6 +409,9 @@ class CMDTipSettingGui {
         if (val == "")
             return
         this._fontSize := val
+        this._syncing := true
+        try this.ui.Update("FontSizeValText", "Text", String(this._fontSize))
+        finally this._syncing := false
     }
 
     OnTransparencyChanged(state, ctrl, event) {
@@ -401,6 +421,9 @@ class CMDTipSettingGui {
         if (val == "")
             return
         this._transparency := val
+        this._syncing := true
+        try this.ui.Update("TransparencyValText", "Text", String(this._transparency))
+        finally this._syncing := false
     }
 
     OnWidthTextChanged(state, ctrl, event) {

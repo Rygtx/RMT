@@ -15,25 +15,46 @@ class ThemeSettingGui {
 
     static ShowGui() {
         key := "global"
+        XamlUiDiag("ShowGui enter _opening=" ThemeSettingGui._opening " hasInst=" ThemeSettingGui.instances.Has(key), "Theme")
+        XamlUiDiagDaemon("Theme.pre")
         if (ThemeSettingGui.instances.Has(key)) {
             oldInst := ThemeSettingGui.instances[key]
-            if (!oldInst.closed && IsObject(oldInst.ui) && oldInst.ui.wpfHwnd) {
-                try WinActivate("ahk_id " oldInst.ui.wpfHwnd)
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            reuse := (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd))
+            XamlUiDiag(Format("oldInst closed={} hwnd={} reuse={}", oldInst.closed, hwnd, reuse), "Theme")
+            XamlUiDiagWindow(hwnd, "Theme.oldInst", false)
+            if (reuse) {
+                try WinActivate("ahk_id " hwnd)
+                XamlUiDiag("reuse existing window + Activate", "Theme")
+                XamlUiDiagWindow(hwnd, "Theme.reuse", true)
                 return
             }
-            if (!oldInst.closed)
-                oldInst.Close()
+            ; 窗口已失效/卡死但实例残留：清理后重建
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
             ThemeSettingGui.instances.Delete(key)
+            XamlUiDiag("deleted stale instance", "Theme")
         }
 
-        if (ThemeSettingGui._opening)
+        t0 := A_TickCount
+        XAMLHost.EnsureDaemonHealthy()
+        XamlUiDiag("EnsureDaemonHealthy cost=" (A_TickCount - t0) "ms", "Theme")
+        XamlUiDiagDaemon("Theme.afterHealthy")
+        if (ThemeSettingGui._opening) {
+            XamlUiDiag("ABORT: _opening=true (reentry)", "Theme")
             return
+        }
         ThemeSettingGui._opening := true
         try {
             inst := ThemeSettingGui()
             inst._instanceKey := key
             inst._BuildAndShow()
             ThemeSettingGui.instances[key] := inst
+            XamlUiDiag("ShowGui done hwnd=" (IsObject(inst.ui) && inst.ui.HasProp("wpfHwnd") ? inst.ui.wpfHwnd : 0), "Theme")
+        } catch as e {
+            XamlUiDiag("ShowGui EXCEPTION: " e.Message " @ " e.File ":" e.Line, "Theme")
         } finally {
             ThemeSettingGui._opening := false
         }
@@ -47,36 +68,38 @@ class ThemeSettingGui {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
         main.Rows(titleHeight, "*")
 
-        tb := main.Add("Border").Grid_Row(0).Background("Transparent").Name("DragArea")
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TextMain}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
         CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TextMain}").BorderThickness(0)
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
         panel := scrollViewer.Add("StackPanel").Margin("14, 6, 14, 10")
 
         ; 颜色值用 Border+TextBlock 显示，避免 WPF TextBox 默认 MinHeight 导致高度调不动
         this._colorUi := {
-            labelFg: "{DynamicResource TextMain}", labelFs: 12, labelW: 68,
+            labelFg: "{DynamicResource TextMain}", labelFs: 12, labelW: 78,
             boxW: 100, boxH: 24, boxFs: 13,
             previewW: 24, previewH: 24,
-            col2Margin: 38
+            col2Margin: 28
         }
 
         ; ===== 顶部：主题下拉 =====
         themeGroup := panel.Add("GroupBox").Header(GetLang("主题预设")).Margin("0,0,0,0")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource TextMain}")
         themeInner := themeGroup.Add("StackPanel").Margin("12, 8")
         themeRow := themeInner.Add("StackPanel").Orientation("Horizontal").Margin("0,2,0,0")
         themeRow.Add("TextBlock").Text(GetLang("选择主题") "：")
             .Foreground(this._colorUi.labelFg).FontSize(this._colorUi.labelFs)
             .VerticalAlignment("Center").Width(this._colorUi.labelW)
-        themeCombo := themeRow.Add("ComboBox").Name("ThemeCombo").Width(180).Height(28).Margin("6,0,0,0")
+        themeCombo := themeRow.Add("ComboBox").Name("ThemeCombo").Width(180).Height(26).MinHeight(26).Margin("6,0,0,0")
         for item in AppThemeUtil.Presets
             themeCombo.Add("ComboBoxItem").Content(GetLang(item.Name))
         themeCombo.Add("ComboBoxItem").Content(GetLang("自定义"))
@@ -85,6 +108,8 @@ class ThemeSettingGui {
         groups := AppThemeUtil.GetGroupNames()
         for gi, groupName in groups {
             groupBox := panel.Add("GroupBox").Header(GetLang(groupName)).Margin(gi == 1 ? "0,10,0,0" : "0,8,0,0")
+                .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+                .Foreground("{DynamicResource TextMain}")
             inner := groupBox.Add("StackPanel").Margin("12, 6")
             rowKeys := this._GetGroupRowKeys(groupName)
             for ri, keys in rowKeys {
@@ -95,17 +120,18 @@ class ThemeSettingGui {
             }
         }
 
-        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
-        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(80).Height(32)
         okBtn.InjectResources(PrimaryBtnStyle)
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="520" Height="520" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="540" Height="640" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius>')
+        groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius><SolidColorBrush x:Key="GroupStroke" Color="#999999"/>' groupBoxStyle)
 
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
@@ -120,14 +146,28 @@ class ThemeSettingGui {
         ; Show 前入队配置，LoadedHwnd 时立即刷入，避免先闪默认值
         this.LoadInitValues()
         this.ApplyValuesToUI()
+        XamlUiDiag("before ui.Show() hostId=" this.ui.id, "Theme")
+        tShow := A_TickCount
         this.ui.Show()
+        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "Theme")
 
-        loop 20 {
+        gotHwnd := false
+        loop 40 {
             if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                gotHwnd := true
+                hwnd := this.ui.wpfHwnd
+                XamlUiDiag("got wpfHwnd at loop=" A_Index " +" (A_TickCount - tShow) "ms", "Theme")
+                ; LoadedHwnd 异步后 Opacity=1 可能尚未执行，这里兜底强制可见
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " hwnd)
+                XamlUiDiagWindow(hwnd, "Theme.afterShow", true)
                 break
             }
             Sleep(50)
+        }
+        if (!gotHwnd) {
+            XamlUiDiag("FAIL: no wpfHwnd after wait (LoadedHwnd missing?)", "Theme")
+            XamlUiDiagDaemon("Theme.noHwnd")
         }
     }
 
@@ -169,16 +209,16 @@ class ThemeSettingGui {
             .VerticalAlignment("Center").Width(ui.labelW)
         ; 只读色值展示：Border + TextBlock，高度可控
         box := item.Add("Border").Width(ui.boxW).Height(ui.boxH).CornerRadius("3")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .VerticalAlignment("Center")
         box.Add("TextBlock").Name(def.Key "_Text")
             .Text("#FF000000").FontSize(ui.boxFs)
-            .Foreground("{DynamicResource TextSub}")
+            .Foreground("{DynamicResource InputText}")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
         item.Add("Border").Name(def.Key "_Preview")
             .Width(ui.previewW).Height(ui.previewH).CornerRadius("3").Margin("6,0,0,0")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Background("#FF000000").Cursor("Hand").VerticalAlignment("Center")
     }
 
@@ -186,7 +226,7 @@ class ThemeSettingGui {
         this._themeKey := MainSoftData.HasProp("AppTheme") ? MainSoftData.AppTheme : AppThemeUtil.DefaultThemeKey
         if (this._themeKey == "" || !AppThemeUtil.IsPresetKey(this._themeKey))
             this._themeKey := AppThemeUtil.DefaultThemeKey
-        ; CloneColorMap 会以暖阳补齐缺失 Key，兼容版本升级后的自定义主题
+        ; CloneColorMap 会以默认主题补齐缺失 Key，兼容版本升级后的自定义主题
         if (IsObject(MainSoftData.ThemeColors))
             this._colors := AppThemeUtil.CloneColorMap(MainSoftData.ThemeColors)
         else
@@ -232,6 +272,7 @@ class ThemeSettingGui {
         this._themeKey := preset.Key
         this._colors := AppThemeUtil.NewColorMapFromPreset(preset)
         this.RefreshColorRows()
+        AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
     }
 
     OnPickColor(colorKey, labelKey, state, ctrl, event) {
@@ -247,6 +288,8 @@ class ThemeSettingGui {
         this._colors[colorKey] := result.Color
         this.ui.Update(colorKey "_Preview", "Background", result.Color)
         this.ui.Update(colorKey "_Text", "Text", result.Color)
+        if (InStr(colorKey, "Win_") == 1)
+            AppThemeUtil.ApplyWinThemeToXaml(this.ui, this._colors)
         this._themeKey := "Custom"
         this._applyingTheme := true
         try this.ui.Update("ThemeCombo", "SelectedIndex", String(AppThemeUtil.Presets.Length))
@@ -266,32 +309,48 @@ class ThemeSettingGui {
         if (this._themeKey == "" || !AppThemeUtil.IsPresetKey(this._themeKey))
             this._themeKey := AppThemeUtil.DefaultThemeKey
         MainSoftData.AppTheme := this._themeKey
-        ; 补齐缺失项后再落盘，保证后续新增 ColorDefs 写入暖阳默认色
+        ; 补齐缺失项后再落盘，保证后续新增 ColorDefs 写入默认主题色
         MainSoftData.ThemeColors := AppThemeUtil.CloneColorMap(this._colors)
         AppThemeUtil.ApplyToRuntime(MainSoftData.ThemeColors)
         AppThemeUtil.SaveToIni()
-        ; 浮窗 / 指令显示已打开时刷新样式
+        ; 浮窗 / 指令显示运行时已打开时刷新业务色
         if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
             MyUIMacroGui.RefreshPanels()
         if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
             MyCMDTipGui.ApplyThemeColors()
+        ; 已打开的设置窗同步「通用窗口」色
+        AppThemeUtil.RefreshOpenSettingWindows()
     }
 
     OnWindowClosing(state, ctrl, event) {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        XamlUiDiag("OnWindowClosing hwnd=" hwnd, "Theme")
+        XamlUiDiagWindow(hwnd, "Theme.closing", false)
         this.closed := true
         ThemeSettingGui._opening := false
         if (this._instanceKey != "" && ThemeSettingGui.instances.Has(this._instanceKey))
             ThemeSettingGui.instances.Delete(this._instanceKey)
         this.ui := ""
+        ; 仅清理已退出的句柄；卡死检测放在下次 ShowGui / 发送消息时处理
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
+        XamlUiDiagDaemon("Theme.afterClose")
     }
 
     OnWindowLoad(state, ctrl, event) {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        XamlUiDiag("OnWindowLoad enter hwnd=" hwnd, "Theme")
         try {
             themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
             ApplyXamlTheme(this.ui, themeName)
             this.ApplyValuesToUI()
+        } catch as e {
+            XamlUiDiag("OnWindowLoad err: " e.Message, "Theme")
         } finally {
-            this.ui.Update("Window", "Opacity", "1")
+            try this.ui.Update("Window", "Opacity", "1")
+            XamlUiDiagWindow(hwnd, "Theme.loaded", true)
         }
     }
 

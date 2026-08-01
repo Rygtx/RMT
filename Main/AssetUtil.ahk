@@ -519,15 +519,27 @@ EnsureXAMLThemesIni() {
     IniWrite("2,0", iniPath, "RMT_Light", "Window_DWM")
     IniWrite("CornerRadius:8", iniPath, "RMT_Light", "Resource_WindowRadius")
     IniWrite("#FFF0F0F0", iniPath, "RMT_Light", "Resource_BgColor")
+    IniWrite("#FFEBEBEB", iniPath, "RMT_Light", "Resource_TitleBarColor")
+    IniWrite("#FF1A1A1A", iniPath, "RMT_Light", "Resource_TitleBarForeground")
     IniWrite("#20E0E0E0", iniPath, "RMT_Light", "Resource_SidebarColor")
     IniWrite("#FF1A1A1A", iniPath, "RMT_Light", "Resource_TextMain")
     IniWrite("#FF666666", iniPath, "RMT_Light", "Resource_TextSub")
-    IniWrite("#FFFFFFFF", iniPath, "RMT_Light", "Resource_ControlBg")
-    IniWrite("#FFD0D0D0", iniPath, "RMT_Light", "Resource_ControlBorder")
+    IniWrite("#FFF0F0F0", iniPath, "RMT_Light", "Resource_ControlBg")
+    IniWrite("#FF999999", iniPath, "RMT_Light", "Resource_ControlBorder")
+    IniWrite("#FFFFFFFF", iniPath, "RMT_Light", "Resource_InputBg")
+    IniWrite("#FFCCCCCC", iniPath, "RMT_Light", "Resource_InputStroke")
+    IniWrite("#FF1A1A1A", iniPath, "RMT_Light", "Resource_InputText")
+    IniWrite("#FFFFFFFF", iniPath, "RMT_Light", "Resource_EditBg")
+    IniWrite("#FFCCCCCC", iniPath, "RMT_Light", "Resource_EditStroke")
+    IniWrite("#FF1A1A1A", iniPath, "RMT_Light", "Resource_EditText")
+    IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ActionBg")
+    IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ActionStroke")
+    IniWrite("#FFFFFFFF", iniPath, "RMT_Light", "Resource_ActionText")
+    IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ProgressBar")
     IniWrite("#FFFFFFFF", iniPath, "RMT_Light", "Resource_DropdownBg")
     IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_Accent")
     IniWrite("Double:8", iniPath, "RMT_Light", "Resource_ScrollBarWidth")
-    IniWrite("CornerRadius:4", iniPath, "RMT_Light", "Resource_ScrollBarRadius")
+    IniWrite("CornerRadius:3", iniPath, "RMT_Light", "Resource_ScrollBarRadius")
     IniWrite("#FF0078D7", iniPath, "RMT_Light", "Resource_ScrollBarHover")
 
     IniWrite("2,1", iniPath, "RMT_Dark", "Window_DWM")
@@ -541,31 +553,93 @@ EnsureXAMLThemesIni() {
     IniWrite("#FF252525", iniPath, "RMT_Dark", "Resource_DropdownBg")
     IniWrite("#FF0A84FF", iniPath, "RMT_Dark", "Resource_Accent")
     IniWrite("Double:8", iniPath, "RMT_Dark", "Resource_ScrollBarWidth")
-    IniWrite("CornerRadius:4", iniPath, "RMT_Dark", "Resource_ScrollBarRadius")
+    IniWrite("CornerRadius:3", iniPath, "RMT_Dark", "Resource_ScrollBarRadius")
     IniWrite("#FF0A84FF", iniPath, "RMT_Dark", "Resource_ScrollBarHover")
     done := true
 }
 
-ApplyXamlTheme(ui, themeName, iniPath := "") {
+; XAML 设置窗诊断日志（排查：打不开 / 打开了但看不见）
+; 输出：A_WorkingDir\Log\XamlUiDiag.log
+XamlUiDiag(msg, tag := "diag") {
+    try {
+        logDir := A_WorkingDir "\Log"
+        if !DirExist(logDir)
+            DirCreate(logDir)
+        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " +" A_TickCount " [" tag "] " msg "`n"
+            , logDir "\XamlUiDiag.log", "UTF-8")
+    }
+}
+
+XamlUiDiagDaemon(tag := "daemon") {
+    try {
+        hwnd := XAMLHost.daemonHwnd
+        alive := XAMLHost.IsDaemonAlive()
+        resp := alive ? XAMLHost.IsDaemonResponsive(300) : false
+        XamlUiDiag(Format("daemonHwnd={} alive={} responsive={}", hwnd, alive, resp), tag)
+    } catch as e {
+        XamlUiDiag("daemon status err: " e.Message, tag)
+    }
+}
+
+; 记录窗口位置/可见性；若疑似透明或跑出屏幕则强制可见并居中
+XamlUiDiagWindow(hwnd, tag := "win", fixIfHidden := false) {
+    if (!hwnd) {
+        XamlUiDiag("hwnd=0 (no window)", tag)
+        return false
+    }
+    exists := DllCall("user32\IsWindow", "Ptr", hwnd, "Int")
+    visible := DllCall("user32\IsWindowVisible", "Ptr", hwnd, "Int")
+    try {
+        WinGetPos(&x, &y, &w, &h, "ahk_id " hwnd)
+        title := ""
+        try title := WinGetTitle("ahk_id " hwnd)
+        XamlUiDiag(Format("hwnd={} exists={} visible={} pos=({},{}) size={}x{} title=[{}] screen={}x{}"
+            , hwnd, exists, visible, x, y, w, h, title, A_ScreenWidth, A_ScreenHeight), tag)
+        odd := (w < 40 || h < 40 || x < -3000 || y < -3000
+            || x > A_ScreenWidth + 200 || y > A_ScreenHeight + 200 || !visible)
+        if (fixIfHidden && odd) {
+            nw := (w > 40) ? w : 540
+            nh := (h > 40) ? h : 640
+            cx := Max(0, (A_ScreenWidth - nw) // 2)
+            cy := Max(0, (A_ScreenHeight - nh) // 2)
+            XamlUiDiag(Format("FIX offscreen/hidden -> Move({},{}) size={}x{}", cx, cy, nw, nh), tag)
+            try WinMove(cx, cy, nw, nh, "ahk_id " hwnd)
+            try WinShow("ahk_id " hwnd)
+            try WinActivate("ahk_id " hwnd)
+            WinGetPos(&x2, &y2, &w2, &h2, "ahk_id " hwnd)
+            XamlUiDiag(Format("after FIX pos=({},{}) size={}x{} visible={}"
+                , x2, y2, w2, h2, DllCall("user32\IsWindowVisible", "Ptr", hwnd, "Int")), tag)
+        }
+        return true
+    } catch as e {
+        XamlUiDiag(Format("hwnd={} exists={} visible={} WinGetPos err={}", hwnd, exists, visible, e.Message), tag)
+        return false
+    }
+}
+
+; useAppWinTheme：是否用 AppTheme「通用窗口」色覆盖 XAML Resource（设置窗默认 true）
+ApplyXamlTheme(ui, themeName, iniPath := "", useAppWinTheme := true) {
     if (iniPath == "")
         iniPath := A_WorkingDir "\Setting\themes.ini"
-    if !FileExist(iniPath)
-        return
-    themeData := ""
-    try themeData := IniRead(iniPath, themeName)
-    if (themeData == "")
-        return
-    Loop Parse, themeData, "`n", "`r" {
-        parts := StrSplit(A_LoopField, "=", " `t", 2)
-        if (parts.Length == 2) {
-            key := Trim(parts[1])
-            val := Trim(parts[2])
-            if (key == "Window_DWM")
-                ui.Update("Window", "DWM", val)
-            else if (InStr(key, "Resource_") == 1)
-                ui.Update("Resource", SubStr(key, 10), val)
+    if FileExist(iniPath) {
+        themeData := ""
+        try themeData := IniRead(iniPath, themeName)
+        if (themeData != "") {
+            Loop Parse, themeData, "`n", "`r" {
+                parts := StrSplit(A_LoopField, "=", " `t", 2)
+                if (parts.Length == 2) {
+                    key := Trim(parts[1])
+                    val := Trim(parts[2])
+                    if (key == "Window_DWM")
+                        ui.Update("Window", "DWM", val)
+                    else if (InStr(key, "Resource_") == 1)
+                        ui.Update("Resource", SubStr(key, 10), val)
+                }
+            }
         }
     }
+    if (useAppWinTheme)
+        AppThemeUtil.ApplyWinThemeToXaml(ui)
 }
 
 SetFontList() {

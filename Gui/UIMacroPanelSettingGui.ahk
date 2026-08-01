@@ -39,16 +39,20 @@ class UIMacroPanelSettingGui {
         ; 检查已有实例，有则激活并返回
         if (UIMacroPanelSettingGui.instances.Has(key)) {
             oldInst := UIMacroPanelSettingGui.instances[key]
-            if (!oldInst.closed && IsObject(oldInst.ui) && oldInst.ui.wpfHwnd) {
-                try WinActivate("ahk_id " oldInst.ui.wpfHwnd)
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            if (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd)) {
+                try WinActivate("ahk_id " hwnd)
                 return
             }
-            ; 实例已失效，清理
-            if (!oldInst.closed)
-                oldInst.Close()
+            ; 实例已失效/卡死，清理后重建
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
             UIMacroPanelSettingGui.instances.Delete(key)
         }
 
+        XAMLHost.EnsureDaemonHealthy()
         ; 防重入
         if (UIMacroPanelSettingGui._opening)
             return
@@ -74,172 +78,167 @@ class UIMacroPanelSettingGui {
         main.Rows(titleHeight, "*")
 
         ; 标题栏
-        tb := main.Add("Border").Grid_Row(0).Background("Transparent").Name("DragArea")
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TextMain}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
 
         CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TextMain}").BorderThickness(0)
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        ; 内容区
-        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
-
-        scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        panel := scrollViewer.Add("StackPanel").Margin("30, 6, 30, 12")
-
+        ; 内容区（内容固定高度，无需滚动条；滚动条会挤压右侧数值框导致右边框被裁切）
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
+        panel := body.Add("StackPanel").Margin("24, 6, 24, 8")
         labelStyle := { fg: "{DynamicResource TextMain}", fs: 13, w: 90 }
-
-        ; ====== 通用选项 ======
-        group1 := panel.Add("GroupBox").Header(GetLang("通用选项")).Margin("0,0,0,0")
-        inner1 := group1.Add("StackPanel").Margin("14, 12")
+        sliderW := 136
+        valBoxW := 50
 
         ; 选择框：界面激活时默认显示
-        row1 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
+        row1 := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
         row1.Add("CheckBox").Name("ShowOnActiveCon")
             .Content(GetLang("界面激活时显示"))
             .Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,0")
 
         ; 下拉框：浮窗出现位置
-        row2 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
+        row2 := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
         row2.Add("TextBlock").Text(GetLang("出现位置") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         posCombo := row2.Add("ComboBox").Name("DefaultPosCon")
-            .Width(140).Height(28).Margin("8,0,0,0")
+            .Width(140).Height(26).MinHeight(26).Margin("8,0,0,0")
         for opt in UIMacroPanelSettingGui.PosOptions
             posCombo.Add("ComboBoxItem").Content(GetLang(opt.label))
 
         ; 位置偏移 X / Y
-        rowOffX := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowOffX := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowOffX.Add("TextBlock").Text(GetLang("位置偏移X") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         rowOffX.Add("Slider").Name("OffsetXCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(0).Maximum(500).Value(100)
             .IsSnapToTickEnabled("True").TickFrequency("5")
             .Tag("Throttle:50")
         rowOffX.Add("TextBox").Name("OffsetXValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=OffsetXCon}")
 
-        rowOffY := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowOffY := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowOffY.Add("TextBlock").Text(GetLang("位置偏移Y") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         rowOffY.Add("Slider").Name("OffsetYCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(0).Maximum(500).Value(100)
             .IsSnapToTickEnabled("True").TickFrequency("5")
             .Tag("Throttle:50")
         rowOffY.Add("TextBox").Name("OffsetYValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=OffsetYCon}")
 
         ; 按钮宽度
-        row6b := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row6b := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         row6b.Add("TextBlock").Text(GetLang("按钮宽度") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         widthSlider := row6b.Add("Slider").Name("BtnWidthCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(40).Maximum(250).Value(80)
             .IsSnapToTickEnabled("True").TickFrequency("5")
             .Tag("Throttle:50")
         widthValBox := row6b.Add("TextBox").Name("BtnWidthValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=BtnWidthCon}")
 
         ; 按钮高度
-        row6 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row6 := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         row6.Add("TextBlock").Text(GetLang("按钮高度") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         heightSlider := row6.Add("Slider").Name("BtnHeightCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(20).Maximum(60).Value(34)
             .IsSnapToTickEnabled("True").TickFrequency("2")
             .Tag("Throttle:50")
         heightValBox := row6.Add("TextBox").Name("BtnHeightValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=BtnHeightCon}")
 
         ; 按钮字体大小
-        rowFont := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        rowFont := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         rowFont.Add("TextBlock").Text(GetLang("字体大小") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         rowFont.Add("Slider").Name("FontSizeCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(8).Maximum(24).Value(12)
             .IsSnapToTickEnabled("True").TickFrequency("1")
             .Tag("Throttle:50")
         rowFont.Add("TextBox").Name("FontSizeValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=FontSizeCon}")
 
         ; 按钮每行最大个数
-        row7 := inner1.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
+        row7 := panel.Add("StackPanel").Orientation("Horizontal").Margin("0,10,0,0")
         row7.Add("TextBlock").Text(GetLang("每行个数") "：")
             .Foreground(labelStyle.fg).FontSize(labelStyle.fs)
             .VerticalAlignment("Center").Width(labelStyle.w)
         colsSlider := row7.Add("Slider").Name("ColsCon")
-            .Width(140).Height(28).Margin("8,0,8,0")
+            .Width(sliderW).Height(28).Margin("8,0,8,0")
             .Minimum(1).Maximum(6).Value(3)
             .IsSnapToTickEnabled("True").TickFrequency("1")
             .Tag("Throttle:50")
         colsValBox := row7.Add("TextBox").Name("ColsValText")
-            .Width(50).Height(26).VerticalContentAlignment("Center").Padding("4,0")
+            .Width(valBoxW).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
             .TextAlignment("Center").FontSize(11)
-            .Foreground("{DynamicResource TextMain}")
-            .Background("{DynamicResource ControlBg}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
-            .Margin("2,0,0,0")
+            .Foreground("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .Text("{Binding Value, ElementName=ColsCon}")
 
         ; 底部按钮行
-        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,10")
-        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
+        btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,14,0,4")
+        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认"))
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(32).Margin("0,0,16,0")
         revertBtn.InjectResources(PrimaryBtnStyle)
-        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32)
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定"))
+            .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold")
+            .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(32)
         okBtn.InjectResources(PrimaryBtnStyle)
 
         ; 编译 XAML
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="420" Height="510" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="370" Height="400" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
 
@@ -306,6 +305,10 @@ class UIMacroPanelSettingGui {
         if (this._instanceKey != "" && UIMacroPanelSettingGui.instances.Has(this._instanceKey))
             UIMacroPanelSettingGui.instances.Delete(this._instanceKey)
         this.ui := ""
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
     }
 
     OnWindowLoad(state, ctrl, event) {

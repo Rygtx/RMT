@@ -198,8 +198,8 @@ class MainConfig {
         this.CurMenuWheelIndex := -1    ; 当前显示的菜单轮盘索引
 
         ; ========== 统一主题颜色（轮盘/浮窗/指令显示） ==========
-        ; 扩展与缺键回退见 AppThemeUtil 文件头约定；DefaultThemeKey=WarmSun
-        this.AppTheme := "WarmSun"
+        ; 扩展与缺键回退见 AppThemeUtil 文件头约定；DefaultThemeKey=Default
+        this.AppTheme := "Default"
         this.ThemeColors := Map()       ; Key→#ARGB，加载后应含 ColorDefs 全部项
 
         ; ========== 界面浮窗 ==========

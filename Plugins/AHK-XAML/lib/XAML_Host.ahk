@@ -229,6 +229,12 @@ class XAMLHost {
             this._updateQueue.Push({ type: "single", ctrl: controlName, prop: propertyName, val: valueStr })
             return
         }
+        ; Window.Close 必须异步：若用 SendMessage 同步关窗，WPF Closing 回调里再 SendMessage 回 AHK 会死锁，
+        ; 导致引擎卡死、之后所有 XAML 界面都打不开。
+        if (controlName = "Window" && (propertyName = "Close" || propertyName = "close")) {
+            DllCall("user32\PostMessageW", "Ptr", this.wpfHwnd, "UInt", 0x0010, "Ptr", 0, "Ptr", 0) ; WM_CLOSE
+            return
+        }
         val := StrReplace(valueStr, "`r", "&#x0D;")
         val := StrReplace(val, "`n", "&#x0A;")
         payload := controlName "|" propertyName "|" val
@@ -291,10 +297,83 @@ class XAMLHost {
         this.Update("CONFIG", "LightweightEvents", enabled ? "1" : "0")
     }
 
+    ; 引擎 HWND 是否仍有效（进程崩溃/被杀后需清零以便重启）
+    static IsDaemonAlive() {
+        return XAMLHost.daemonHwnd && DllCall("user32\IsWindow", "Ptr", XAMLHost.daemonHwnd, "Int")
+    }
+
+    ; 窗口消息泵是否仍响应（卡死但 HWND 仍在时 IsWindow 为真，需用超时探测）
+    static IsHwndResponsive(hwnd, timeoutMs := 400) {
+        if (!hwnd || !DllCall("user32\IsWindow", "Ptr", hwnd, "Int"))
+            return false
+        ret := 0
+        ; SMTO_ABORTIFHUNG = 0x0002
+        ok := DllCall("user32\SendMessageTimeoutW", "Ptr", hwnd, "UInt", 0x0000, "Ptr", 0, "Ptr", 0
+            , "UInt", 0x0002, "UInt", timeoutMs, "UPtr*", &ret, "Ptr")
+        return ok != 0
+    }
+
+    static IsDaemonResponsive(timeoutMs := 400) {
+        return XAMLHost.IsDaemonAlive() && XAMLHost.IsHwndResponsive(XAMLHost.daemonHwnd, timeoutMs)
+    }
+
+    ; 设置窗复用前检查：存在、可见、且未卡死
+    static CanReuseWindow(hwnd) {
+        if (!hwnd || !DllCall("user32\IsWindow", "Ptr", hwnd, "Int"))
+            return false
+        if (!DllCall("user32\IsWindowVisible", "Ptr", hwnd, "Int"))
+            return false
+        return XAMLHost.IsHwndResponsive(hwnd, 400)
+    }
+
+    static ResetDaemon() {
+        XAMLHost.daemonHwnd := 0
+    }
+
+    ; 可选诊断：宿主若定义了全局函数 XamlUiDiag 则写日志，库本身不依赖
+    static Diag(msg, tag := "XAMLHost") {
+        try Func("XamlUiDiag").Call(msg, tag)
+    }
+
+    ; 强制结束卡死的 XAML 引擎进程，便于下次重新拉起
+    static KillDaemon() {
+        hwnd := XAMLHost.daemonHwnd
+        XAMLHost.Diag("KillDaemon hwnd=" hwnd)
+        XAMLHost.daemonHwnd := 0
+        if (hwnd) {
+            try {
+                pid := 0
+                DllCall("user32\GetWindowThreadProcessId", "Ptr", hwnd, "UInt*", &pid)
+                if (pid)
+                    ProcessClose(pid)
+            }
+        }
+        try {
+            loop 10 {
+                if !ProcessExist("ahk-xaml.dll")
+                    break
+                ProcessClose("ahk-xaml.dll")
+                Sleep(50)
+            }
+        }
+    }
+
+    static EnsureDaemonHealthy() {
+        if (!XAMLHost.daemonHwnd)
+            return
+        alive := XAMLHost.IsDaemonAlive()
+        resp := alive ? XAMLHost.IsDaemonResponsive(500) : false
+        if (!alive || !resp) {
+            XAMLHost.Diag(Format("EnsureDaemonHealthy BAD alive={} resp={} -> Kill", alive, resp))
+            XAMLHost.KillDaemon()
+        }
+    }
+
     static Prewarm(exePath := "") {
         ; global XAML_ENGINE_BUILD_LOCATION, XAML_WEBVIEW_USER_DATA_DIR
         wvDataDir := (IsSet(XAML_WEBVIEW_USER_DATA_DIR) && XAML_WEBVIEW_USER_DATA_DIR != "") ? XAML_WEBVIEW_USER_DATA_DIR : A_Temp "\AhkWpf\WebView2Data"
         EnvSet("AHK_XAML_WEBVIEW_DIR", wvDataDir)
+        XAMLHost.EnsureDaemonHealthy()
         if XAMLHost.daemonHwnd
             return
         if (!XAMLHost.daemonReceiver) {
@@ -1099,6 +1178,8 @@ class XAMLHost {
         EnvSet("AHK_XAML_WEBVIEW_DIR", wvDataDir)
         baseDllName := XAMLHost.GetEngineDllName()
         targetExe := (this.exePath != "") ? this.exePath : A_Temp "\AhkWpf\" baseDllName
+        ; 引擎已退出或卡死时必须清掉并重启，否则后续所有 XAML 窗口无法再创建
+        XAMLHost.EnsureDaemonHealthy()
         if XAMLHost.daemonHwnd
             return targetExe
 
@@ -1226,17 +1307,54 @@ class XAMLHost {
         return RTrim(eventBindings, ",")
     }
 
-    _SendToEngine(payload) {
-        if (!this.IsDevToolsWindow()) {
-            XAMLHost.LogDevTools("OUT", payload)
-        }
-        buf := Buffer(StrPut(payload, "UTF-8"))
-        StrPut(payload, buf, "UTF-8")
+    _SendCopyData(hwnd, buf, timeoutMs := 8000) {
+        if (!hwnd)
+            return false
         cds := Buffer(A_PtrSize * 3)
         NumPut("Ptr", 0, cds, 0)
         NumPut("UInt", buf.Size, cds, A_PtrSize)
         NumPut("Ptr", buf.Ptr, cds, A_PtrSize * 2)
-        DllCall("user32\SendMessageW", "Ptr", XAMLHost.daemonHwnd, "UInt", 0x004A, "Ptr", 0, "Ptr", cds.Ptr)
+        ret := 0
+        ; SMTO_ABORTIFHUNG：引擎卡死时超时返回，避免 AHK 永久挂起
+        ok := DllCall("user32\SendMessageTimeoutW", "Ptr", hwnd, "UInt", 0x004A, "Ptr", 0, "Ptr", cds.Ptr
+            , "UInt", 0x0002, "UInt", timeoutMs, "UPtr*", &ret, "Ptr")
+        return ok != 0
+    }
+
+    _SendToEngine(payload) {
+        if (!this.IsDevToolsWindow()) {
+            XAMLHost.LogDevTools("OUT", payload)
+        }
+        XAMLHost.EnsureDaemonHealthy()
+        if (!XAMLHost.daemonHwnd) {
+            this._EnsureDaemon()
+            startWait := A_TickCount
+            while (!XAMLHost.daemonHwnd && A_TickCount - startWait < 5000)
+                Sleep(10)
+        }
+        if (!XAMLHost.daemonHwnd || !XAMLHost.IsDaemonAlive())
+            return
+        buf := Buffer(StrPut(payload, "UTF-8"))
+        StrPut(payload, buf, "UTF-8")
+        head := SubStr(payload, 1, 48)
+        t0 := A_TickCount
+        if (this._SendCopyData(XAMLHost.daemonHwnd, buf, 8000)) {
+            XAMLHost.Diag(Format("SendToEngine OK cost={}ms head=[{}]", A_TickCount - t0, head))
+            return
+        }
+        ; 超时：杀掉卡死引擎后重试一次
+        XAMLHost.Diag(Format("SendToEngine TIMEOUT cost={}ms head=[{}] -> Kill+retry", A_TickCount - t0, head))
+        XAMLHost.KillDaemon()
+        this._EnsureDaemon()
+        startWait := A_TickCount
+        while (!XAMLHost.daemonHwnd && A_TickCount - startWait < 5000)
+            Sleep(10)
+        if (XAMLHost.daemonHwnd && XAMLHost.IsDaemonAlive()) {
+            ok2 := this._SendCopyData(XAMLHost.daemonHwnd, buf, 8000)
+            XAMLHost.Diag("SendToEngine retry " (ok2 ? "OK" : "FAIL"))
+        } else {
+            XAMLHost.Diag("SendToEngine retry aborted: no daemon")
+        }
     }
 
     Show(assetPath := "") {
@@ -2102,14 +2220,25 @@ XAML_TEMPLATE := '
     
         <Window.Resources>
             <sys:Double x:Key="TitleBarHeight">%CaptionHeight%</sys:Double>
-            <SolidColorBrush x:Key="BgColor" Color="#1E1E1E" />
-            <SolidColorBrush x:Key="TitleBarColor" Color="Transparent" />
-            <SolidColorBrush x:Key="TitleBarForeground" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="TextMain" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="TextSub" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="BgColor" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="TitleBarColor" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="TitleBarForeground" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="TextMain" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="TextSub" Color="#666666" />
             <SolidColorBrush x:Key="SidebarColor" Color="#252526" />
-            <SolidColorBrush x:Key="ControlBg" Color="#333333" />
-            <SolidColorBrush x:Key="ControlBorder" Color="#2D2D2D" />
+            <SolidColorBrush x:Key="ControlBg" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="ControlBorder" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="InputBg" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="InputStroke" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="InputText" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="EditBg" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="EditStroke" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="EditText" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="ActionBg" Color="#0078D7" />
+            <SolidColorBrush x:Key="ActionStroke" Color="#0078D7" />
+            <SolidColorBrush x:Key="ActionText" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ProgressBar" Color="#0078D7" />
+            <SolidColorBrush x:Key="Accent" Color="#0078D7" />
             <CornerRadius x:Key="WindowRadius">12</CornerRadius>
             <Thickness x:Key="WindowBorderThickness">0</Thickness>
             <SolidColorBrush x:Key="WindowBorderBrush" Color="Transparent" />

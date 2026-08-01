@@ -184,7 +184,28 @@ SetToolCheckInfo() {
 }
 
 OnClickToolRecordSettingBtn(*) {
-    MyToolRecordSettingGui.ShowGui()
+    XamlUiDiag("=== click 指令录制按钮 ===", "UIUtil")
+    ToolRecordSettingGui.ShowGui()
+}
+
+OnClickThemeSettingBtn(*) {
+    XamlUiDiag("=== click 主题按钮 ===", "UIUtil")
+    ThemeSettingGui.ShowGui()
+}
+
+OnClickHotkeySettingBtn(*) {
+    XamlUiDiag("=== click 快捷键按钮 ===", "UIUtil")
+    HotkeySettingGui.ShowGui()
+}
+
+OnClickMenuWheelSettingBtn(*) {
+    XamlUiDiag("=== click 轮盘按钮 ===", "UIUtil")
+    MenuWheelGlobalSettingGui.ShowGui()
+}
+
+OnClickUIMacroPanelSettingBtn(*) {
+    XamlUiDiag("=== click 界面浮窗按钮 ===", "UIUtil")
+    UIMacroPanelSettingGui.ShowGui()
 }
 
 OnToolTextFilterScreenShot(*) {

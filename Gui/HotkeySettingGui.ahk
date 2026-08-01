@@ -37,25 +37,42 @@ class HotkeySettingGui {
 
     static ShowGui() {
         key := "global"
+        XamlUiDiag("ShowGui enter _opening=" HotkeySettingGui._opening " hasInst=" HotkeySettingGui.instances.Has(key), "Hotkey")
+        XamlUiDiagDaemon("Hotkey.pre")
         if (HotkeySettingGui.instances.Has(key)) {
             oldInst := HotkeySettingGui.instances[key]
-            if (!oldInst.closed && IsObject(oldInst.ui) && oldInst.ui.wpfHwnd) {
-                try WinActivate("ahk_id " oldInst.ui.wpfHwnd)
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            reuse := (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd))
+            XamlUiDiag(Format("oldInst closed={} hwnd={} reuse={}", oldInst.closed, hwnd, reuse), "Hotkey")
+            if (reuse) {
+                try WinActivate("ahk_id " hwnd)
+                XamlUiDiagWindow(hwnd, "Hotkey.reuse", true)
                 return
             }
-            if (!oldInst.closed)
-                oldInst.Close()
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
             HotkeySettingGui.instances.Delete(key)
+            XamlUiDiag("deleted stale instance", "Hotkey")
         }
 
-        if (HotkeySettingGui._opening)
+        t0 := A_TickCount
+        XAMLHost.EnsureDaemonHealthy()
+        XamlUiDiag("EnsureDaemonHealthy cost=" (A_TickCount - t0) "ms", "Hotkey")
+        if (HotkeySettingGui._opening) {
+            XamlUiDiag("ABORT: _opening=true", "Hotkey")
             return
+        }
         HotkeySettingGui._opening := true
         try {
             inst := HotkeySettingGui()
             inst._instanceKey := key
             inst._BuildAndShow()
             HotkeySettingGui.instances[key] := inst
+            XamlUiDiag("ShowGui done hwnd=" (IsObject(inst.ui) && inst.ui.HasProp("wpfHwnd") ? inst.ui.wpfHwnd : 0), "Hotkey")
+        } catch as e {
+            XamlUiDiag("ShowGui EXCEPTION: " e.Message " @ " e.File ":" e.Line, "Hotkey")
         } finally {
             HotkeySettingGui._opening := false
         }
@@ -69,22 +86,22 @@ class HotkeySettingGui {
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
         main.Rows(titleHeight, "*")
 
-        tb := main.Add("Border").Grid_Row(0).Background("Transparent").Name("DragArea")
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TextMain}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
 
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
         CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TextMain}").BorderThickness(0)
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.InjectResources(CloseBtnTemplate)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource ControlBg}")
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
         scrollViewer := body.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
         panel := scrollViewer.Add("StackPanel").Margin("24, 14, 24, 10")
 
-        ; 紧凑「编辑」按钮：白底+主题描边，去掉默认 Padding
-        this._editBtnStyle := '<Style TargetType="Button"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        ; 紧凑「编辑」按钮：主题编辑色，去掉默认 Padding
+        this._editBtnStyle := '<Style TargetType="Button"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
         defs := HotkeySettingGui.HotkeyDefs
         half := Integer((defs.Length + 1) // 2)
@@ -97,11 +114,11 @@ class HotkeySettingGui {
                 this._AddHotkeyItem(row, defs[rightIdx], 70)
         }
 
-        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        PrimaryBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         btnRow := panel.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,18,0,6")
-        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(90).Height(32).Margin("0,0,16,0").IsDefault("False").IsCancel("False")
+        revertBtn := btnRow.Add("Button").Name("BtnRevert").Content(GetLang("恢复默认")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(90).Height(32).Margin("0,0,16,0").IsDefault("False").IsCancel("False")
         revertBtn.InjectResources(PrimaryBtnStyle)
-        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource Accent}").Foreground("White").FontWeight("Bold").BorderThickness(0).FontSize(13).Cursor("Hand").Width(80).Height(32).IsDefault("False").IsCancel("False")
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定")).Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").FontWeight("Bold").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize(13).Cursor("Hand").Width(80).Height(32).IsDefault("False").IsCancel("False")
         okBtn.InjectResources(PrimaryBtnStyle)
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
@@ -123,14 +140,26 @@ class HotkeySettingGui {
 
         this.LoadInitValues()
         this.ApplyValuesToUI()
+        XamlUiDiag("before ui.Show() hostId=" this.ui.id, "Hotkey")
+        tShow := A_TickCount
         this.ui.Show()
+        XamlUiDiag("ui.Show() returned cost=" (A_TickCount - tShow) "ms", "Hotkey")
 
-        loop 20 {
+        gotHwnd := false
+        loop 40 {
             if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                gotHwnd := true
+                hwnd := this.ui.wpfHwnd
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " hwnd)
+                XamlUiDiagWindow(hwnd, "Hotkey.afterShow", true)
                 break
             }
             Sleep(50)
+        }
+        if (!gotHwnd) {
+            XamlUiDiag("FAIL: no wpfHwnd after wait", "Hotkey")
+            XamlUiDiagDaemon("Hotkey.noHwnd")
         }
     }
 
@@ -140,18 +169,18 @@ class HotkeySettingGui {
             .Foreground("{DynamicResource TextMain}").FontSize(13)
             .VerticalAlignment("Center").Width(72)
         box := item.Add("Border").Width(120).Height(28).CornerRadius("3")
-            .Background("{DynamicResource BgColor}")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .VerticalAlignment("Center")
         box.Add("TextBlock").Name("Val_" def.Field)
             .Text("").FontSize(12)
-            .Foreground("{DynamicResource TextMain}")
+            .Foreground("{DynamicResource InputText}")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
         editBtn := item.Add("Button").Name("BtnEdit_" def.Field).Content(GetLang("编辑"))
             .Width(52).Height(28).Margin("8,0,0,0").Padding("0").FontSize(12).Cursor("Hand")
-            .Background("{DynamicResource BgColor}")
-            .BorderBrush("{DynamicResource Accent}").BorderThickness("1")
-            .Foreground("{DynamicResource Accent}")
+            .Background("{DynamicResource EditBg}")
+            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1")
+            .Foreground("{DynamicResource EditText}")
             .VerticalAlignment("Center")
             .IsDefault("False").IsCancel("False")
         editBtn.InjectResources(this._editBtnStyle)
@@ -235,21 +264,33 @@ class HotkeySettingGui {
     }
 
     OnWindowClosing(state, ctrl, event) {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        XamlUiDiag("OnWindowClosing hwnd=" hwnd, "Hotkey")
         this.closed := true
         HotkeySettingGui._opening := false
         MyEditHotkeyGui.AfterSureAction := ""
         if (this._instanceKey != "" && HotkeySettingGui.instances.Has(this._instanceKey))
             HotkeySettingGui.instances.Delete(this._instanceKey)
         this.ui := ""
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
+        XamlUiDiagDaemon("Hotkey.afterClose")
     }
 
     OnWindowLoad(state, ctrl, event) {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        XamlUiDiag("OnWindowLoad enter hwnd=" hwnd, "Hotkey")
         try {
             themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
             ApplyXamlTheme(this.ui, themeName)
             this.ApplyValuesToUI()
+        } catch as e {
+            XamlUiDiag("OnWindowLoad err: " e.Message, "Hotkey")
         } finally {
-            this.ui.Update("Window", "Opacity", "1")
+            try this.ui.Update("Window", "Opacity", "1")
+            XamlUiDiagWindow(hwnd, "Hotkey.loaded", true)
         }
     }
 
