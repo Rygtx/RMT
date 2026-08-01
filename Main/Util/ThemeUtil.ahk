@@ -537,11 +537,17 @@ class AppThemeUtil {
                 }
             }
         }
-        ; 变量监视器（非 instances 模式）
+        ; 变量监视器 / 变量修改（非 instances 模式）
         try {
             if (IsSet(MyVarListenGui) && IsObject(MyVarListenGui)
                 && !MyVarListenGui.closed && IsObject(MyVarListenGui.ui))
                 AppThemeUtil.ApplyWinThemeToXaml(MyVarListenGui.ui)
+        }
+        try {
+            if (IsSet(MyVarListenGui) && IsObject(MyVarListenGui)
+                && IsObject(MyVarListenGui.ModifyGui)
+                && !MyVarListenGui.ModifyGui.closed && IsObject(MyVarListenGui.ModifyGui.ui))
+                AppThemeUtil.ApplyWinThemeToXaml(MyVarListenGui.ModifyGui.ui)
         }
     }
 }
