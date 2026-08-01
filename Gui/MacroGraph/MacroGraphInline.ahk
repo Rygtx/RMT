@@ -164,7 +164,7 @@ class MacroGraphInlineMixin {
             keep := []
             for conn in g.connections {
                 if (conn.From == sid || conn.To == sid)
-                    this.ui.Update(conn.PathId, "Visibility", "Collapsed")
+                    g.SetConnVisible(conn.PathId, "Collapsed")
                 else
                     keep.Push(conn)
             }

@@ -77,7 +77,7 @@ class MacroGraphEditMixin {
             keep := []
             for conn in g.connections {
                 if (conn.From == brId || conn.To == brId)
-                    g.ui.Update(conn.PathId, "Visibility", "Collapsed")
+                    g.SetConnVisible(conn.PathId, "Collapsed")
                 else
                     keep.Push(conn)
             }
@@ -112,7 +112,7 @@ class MacroGraphEditMixin {
             keep := []
             for conn in g.connections {
                 if (conn.From == id || conn.To == id)
-                    g.ui.Update(conn.PathId, "Visibility", "Collapsed")
+                    g.SetConnVisible(conn.PathId, "Collapsed")
                 else
                     keep.Push(conn)
             }

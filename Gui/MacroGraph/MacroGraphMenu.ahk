@@ -137,11 +137,11 @@ class MacroGraphMenuMixin {
         if (isBlank) {
             g.selectedNodes.Clear()
             for n in g.nodes
-                this.ui.Update("Node_" n.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+                g.SetNodeSelected(n.Id, false)
             for conn in g.connections {
                 if (conn.Selected) {
                     conn.Selected := false
-                    this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
+                    g.SetConnSelected(conn.PathId, false)
                 }
             }
         } else {
@@ -151,15 +151,15 @@ class MacroGraphMenuMixin {
             if (hitId != "" && !g.selectedNodes.Has(hitId)) {
                 g.selectedNodes.Clear()
                 for n in g.nodes
-                    this.ui.Update("Node_" n.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+                    g.SetNodeSelected(n.Id, false)
                 for conn in g.connections {
                     if (conn.Selected) {
                         conn.Selected := false
-                        this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
+                        g.SetConnSelected(conn.PathId, false)
                     }
                 }
                 g.selectedNodes[hitId] := true
-                this.ui.Update("Node_" hitId, "BorderBrush", "#60A0FF")
+                g.SetNodeSelected(hitId, true)
             }
         }
         hasSelection := g.selectedNodes.Count > 0

@@ -314,7 +314,7 @@ class MacroGraphGui {
         try this.ui.Update("Window", "Background", darkBg)
         try this.ui.Update("Resource", "BgColor", darkBg)
         try this.ui.Update("MG_GraphChrome", "Background", darkBg)
-        ; 网格线走主题「图形线条」(GraphLine)；节点体/标题/输入框走 DropdownBg、TitleBar*、Input* 等
+        ; 网格/连线走主题「图形节点」组(GraphLine/GraphConn)；节点体走 DropdownBg、TitleBar*、Input* 等
     }
 
     static RefreshOpenThemes() {

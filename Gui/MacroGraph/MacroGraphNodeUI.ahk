@@ -919,7 +919,7 @@ class MacroGraphNodeUIMixin {
         el.Foreground(color)
         el.FontSize(this._MGFontSize(12))
         el.FontWeight("Bold")
-        el.SetProp("Panel.ZIndex", "1")
+        el.SetProp("Panel.ZIndex", "0")
         el.SetProp("Canvas.Left", String(cx))
         el.SetProp("Canvas.Top", String(cy))
         return el
@@ -1082,7 +1082,8 @@ class MacroGraphNodeUIMixin {
         p := this.pos.Has(id) ? this.pos[id] : { x: 200, y: 200 }
         x := p.x + g.offsetX
         y := p.y + g.offsetY
-        headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "{DynamicResource TitleBarColor}")
+        ; 开始(Input)与普通节点一致：用主题标题背景；Output 仍区分结束色
+        headerColor := nodeType == "Output" ? "#5A2E2E" : "{DynamicResource TitleBarColor}"
         if (nodeW == "")
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 

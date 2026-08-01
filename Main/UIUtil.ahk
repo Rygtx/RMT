@@ -189,7 +189,7 @@ AddOperBtnUI() {
     con := MyGui.Add("Text", Format("x{} y{} w{} h{} Center", 15, posY, 100, 45), MySoftData.CurSettingName)
     posY += 45
     con := MyGui.Add("Button", Format("x{} y{} w{} h{} center", 15, posY, 100, 30), GetLang("配置管理"))
-    con.OnEvent("Click", (*) => MySettingMgrGui.ShowGui())
+    con.OnEvent("Click", (*) => SettingMgrGui.ShowGui())
 
     posY += 45
     con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{} center", 10, posY, 110, 455), GetLang("全局操作"))

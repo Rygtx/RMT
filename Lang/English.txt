@@ -427,7 +427,9 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 通用窗口=General Window
 窗口背景=Window BG
 组描边=Group Stroke
-图形线条=Graph Line
+背景线条=Background Grid
+节点连线=Node Connection
+选中描边=Selection Stroke
 标签颜色=Label Color
 输入框背景=Input BG
 输入框描边=Input Stroke
@@ -696,6 +698,8 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 新增模块=Module+
 新增配置=Add Null
 新增配置操作=Add Config
+添加与导入=Add & Import
+新增与导入=Add & Import
 新设备和原设备分辨率不同时，可以增加屏幕规格选项，然后设置新的搜索目标和搜索范围进行适配=Diff res: add screen spec, reset target/range
 新设置和原设备分辨率不同时，可以增加屏幕规格选项，然后设置新的搜索目标和搜索范围进行适配=New/old diff: add screen spec, reset target
 新配置名不符合文件目录命名规则，请修改新配置名=New name invalid, modify.
@@ -1273,6 +1277,7 @@ tip2:请确保上述指令运行过=tip2:Please ensure the above commands have b
 宽高请输入数字！=Width and height must be numbers!
 新标题不能为空！=New title cannot be empty!
 移动速度请输入0~100的数字=Please enter the number 0 to 100 for the moving speed
+合并导入=Merge Import
 配置合并导入=Config Merge Import
 源配置选择=Source Config Selection
 从文件导入(.rmt)=Import from File (.rmt)

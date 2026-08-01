@@ -232,13 +232,13 @@ class MacroGraphIfProMixin {
         if (geom == "")
             return
         if (initial && pathEl != "") {
-            pathEl.SetProp("Data", geom)
+            g._SetConnPathData(pathId, geom, true, pathEl)
             sy := this._IfProParsePathStartY(geom)
             pn := g.GetNode(fromId)
             if (sy != "" && pn)
                 pathEl.SetProp("Tag", "ifproStartY:" Round(sy - pn.Y))
         } else if (this.ui != "") {
-            this.ui.Update(pathId, "Data", geom)
+            g._SetConnPathData(pathId, geom)
             sy := this._IfProParsePathStartY(geom)
             if (sy != "")
                 this._SetIfProPathDragTag(pathId, fromId, sy)
@@ -357,10 +357,11 @@ class MacroGraphIfProMixin {
             pathId := g.id "_Path_" parentId "_" brId
             geom := this._IfProBranchPathGeom(parentId, brId, px, py)
             if (geom != "") {
-                this.ui.Update(pathId, "Data", geom)
+                g._SetConnPathData(pathId, geom)
                 sy := this._IfProParsePathStartY(geom)
                 if (sy != "")
                     this._SetIfProPathDragTag(pathId, parentId, sy)
+                g._PlaceConnArrow(brId, pathId)
             }
         }
     }
@@ -782,7 +783,7 @@ class MacroGraphIfProMixin {
         for conn in g.connections {
             drop := brSet.Has(conn.From) || brSet.Has(conn.To) || (conn.From == parentId && brSet.Has(conn.To))
             if (drop)
-                g.ui.Update(conn.PathId, "Visibility", "Collapsed")
+                g.SetConnVisible(conn.PathId, "Collapsed")
             else
                 keep.Push(conn)
         }

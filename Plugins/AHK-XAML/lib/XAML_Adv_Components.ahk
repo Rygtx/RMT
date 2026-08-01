@@ -553,7 +553,8 @@ class XNodeGraph {
         this.offsetX := 10000
         this.offsetY := 10000
         this.canvas := this.bdr.Add("Canvas").Name(this.id).Background("Transparent").Width("20000").Height("20000").Margin("-" this.offsetX ",-" this.offsetY ",0,0")
-        this.canvas.Add("Rectangle").Fill("{DynamicResource GridPattern}").Width("20000").Height("20000").IsHitTestVisible("False")
+        ; 网格垫底（ZIndex 低于连线），避免背景线盖住节点连线
+        this.canvas.Add("Rectangle").Fill("{DynamicResource GridPattern}").Width("20000").Height("20000").IsHitTestVisible("False").SetProp("Panel.ZIndex", "-10")
     }
 
     AddNode(id, title, x, y, nodeType := "Process") {
@@ -565,13 +566,14 @@ class XNodeGraph {
         grid := node.Add("Grid")
         grid.Rows("30", "Auto")
 
-        ; Color-coded header by type
-        headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
+        ; Color-coded header by type（Input/开始 跟主题标题栏）
+        headerColor := nodeType == "Output" ? "#5A2E2E" : (nodeType == "Input" ? "{DynamicResource TitleBarColor}" : "#3E3E50")
+        headerFg := (nodeType == "Input") ? "{DynamicResource TitleBarForeground}" : "White"
         header := grid.Add("Border").Name(this.id "_Header_" id).Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
         headerGrid := header.Add("Grid")
         headerGrid.Cols("*", "Auto")
-        headerGrid.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize("11").VerticalAlignment("Center").Margin("10,0")
-        headerGrid.Add("TextBlock").Text(nodeType).Grid_Column(1).Foreground("#DDDDDD").FontSize("9").VerticalAlignment("Center").Margin("0,0,8,0")
+        headerGrid.Add("TextBlock").Text(title).Foreground(headerFg).FontWeight("Bold").FontSize("11").VerticalAlignment("Center").Margin("10,0")
+        headerGrid.Add("TextBlock").Text(nodeType).Grid_Column(1).Foreground(nodeType == "Input" ? "{DynamicResource TitleBarForeground}" : "#DDDDDD").FontSize("9").VerticalAlignment("Center").Margin("0,0,8,0")
 
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
         bodyTb := body.Add("TextBlock").Foreground("#999").FontSize("10")
@@ -619,30 +621,121 @@ class XNodeGraph {
         return ""
     }
 
+    ; 连线路径名 → 入口三角箭头名
+    ConnArrowId(pathId) {
+        return StrReplace(pathId, "_Path_", "_Arrow_")
+    }
+
+    SetConnVisible(pathId, vis) {
+        if (this.ui == "")
+            return
+        this.ui.Update(pathId, "Visibility", vis)
+        this.ui.Update(this.ConnArrowId(pathId), "Visibility", vis)
+    }
+
+    ; 主题：节点连线色 / 选中色（资源 GraphConnSel，主题项「选中描边」）
+    ConnColorNormal() {
+        return "{DynamicResource GraphConn}"
+    }
+    ConnColorSelected() {
+        return "{DynamicResource GraphConnSel}"
+    }
+
+    SetConnColor(pathId, color) {
+        if (this.ui == "")
+            return
+        this.ui.Update(pathId, "Stroke", color)
+        this.ui.Update(this.ConnArrowId(pathId), "Fill", color)
+    }
+
+    ; 选中态：直接改连线/箭头颜色（更直观，不用外描边）
+    SetConnSelected(pathId, selected) {
+        if (this.ui == "")
+            return
+        this.SetConnColor(pathId, selected ? this.ConnColorSelected() : this.ConnColorNormal())
+    }
+
+    ; 节点选中描边（GraphConnSel，加粗便于辨认）
+    SetNodeSelected(nodeId, selected) {
+        if (this.ui == "")
+            return
+        if (selected) {
+            this.ui.Update("Node_" nodeId, "BorderBrush", this.ConnColorSelected())
+            this.ui.Update("Node_" nodeId, "BorderThickness", "3")
+        } else {
+            this.ui.Update("Node_" nodeId, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.ui.Update("Node_" nodeId, "BorderThickness", "1")
+        }
+    }
+
+    _SetConnPathData(pathId, geom, initial := false, pathEl := "") {
+        if (initial && pathEl != "")
+            pathEl.SetProp("Data", geom)
+        else if (this.ui)
+            this.ui.Update(pathId, "Data", geom)
+    }
+
+    ; 入口三角箭头：指向目标节点入点（▶），表示从出口流向入口
+    ; endX/endY 为入口中心；箭头尖端略偏左，三角主体在入口左侧
+    _PlaceConnArrow(toId, pathId, endX := "", endY := "", initial := false) {
+        if (endX == "" || endY == "") {
+            n2 := this.GetNode(toId)
+            if (!n2)
+                return
+            endX := n2.X
+            endY := n2.Y + 31
+        }
+        ; 三角 11×13，尖端对准入口左侧约 2px
+        ax := endX - 13
+        ay := endY - 6.5
+        arrowId := this.ConnArrowId(pathId)
+        if (this.ui) {
+            this.ui.Update(arrowId, "SetPosition", Format("{},{}", ax, ay))
+            return
+        }
+        if (!initial)
+            return
+        for conn in this.connections {
+            if (conn.PathId == pathId && conn.HasOwnProp("ArrowEl") && conn.ArrowEl != "") {
+                conn.ArrowEl.SetProp("Canvas.Left", String(ax))
+                conn.ArrowEl.SetProp("Canvas.Top", String(ay))
+                break
+            }
+        }
+    }
+
     AddConnection(fromId, toId) {
         pathId := this.id "_Path_" fromId "_" toId
-        
+        arrowId := this.id "_Arrow_" fromId "_" toId
+
         ; Prevent duplicate links visually
         for conn in this.connections {
             if (conn.From == fromId && conn.To == toId) {
                 if (this.ui) {
-                    this.ui.Update(pathId, "Visibility", "Visible")
+                    this.SetConnVisible(pathId, "Visible")
+                    this.SetConnSelected(pathId, conn.Selected)
                     this.UpdatePath(fromId, toId, pathId)
                 }
                 return
             }
         }
 
-        pathEl := this.canvas.Add("Path").Name(pathId).Stroke("#60A0FF").StrokeThickness("6").Opacity("0.9").SetProp("Panel.ZIndex", "-1")
-        conn := { From: fromId, To: toId, PathId: pathId, PathEl: pathEl, Selected: false }
+        ; 层级：网格(-10) < 连线(-1) < 入口三角(0) ≤ 节点(0)
+        pathEl := this.canvas.Add("Path").Name(pathId).Stroke(this.ConnColorNormal()).StrokeThickness("6").Opacity("0.9").SetProp("Panel.ZIndex", "-1")
+        arrowEl := this.canvas.Add("Path").Name(arrowId).Fill(this.ConnColorNormal()).Data("M0,0 L11,6.5 L0,13 Z").Opacity("0.95").SetProp("Panel.ZIndex", "0").SetProp("IsHitTestVisible", "False")
+        conn := { From: fromId, To: toId, PathId: pathId, ArrowId: arrowId, PathEl: pathEl, ArrowEl: arrowEl, Selected: false }
         this.connections.Push(conn)
-        
+
         if (this.ui) {
             ; UI is already loaded, we must push this new element to WPF dynamically
             xamlStr := pathEl.ToString()
             xamlStr := StrReplace(xamlStr, "<Path ", "<Path xmlns=`"http://schemas.microsoft.com/winfx/2006/xaml/presentation`" ")
             this.ui.Update(this.id, "AddXamlItem", xamlStr)
-            this.ui.Update(pathId, "Visibility", "Visible")
+            arrowXaml := arrowEl.ToString()
+            arrowXaml := StrReplace(arrowXaml, "<Path ", "<Path xmlns=`"http://schemas.microsoft.com/winfx/2006/xaml/presentation`" ")
+            this.ui.Update(this.id, "AddXamlItem", arrowXaml)
+            this.SetConnVisible(pathId, "Visible")
+            this.SetConnSelected(pathId, false)
             this.UpdatePath(fromId, toId, pathId)
             this.ui.OnEvent(pathId, "MouseLeftButtonDown", ObjBindMethod(this, "OnPathClicked", pathId))
         } else {
@@ -656,8 +749,10 @@ class XNodeGraph {
 
     UpdatePath(fromId, toId, pathId, initial := false, pathEl := "") {
         if (this.HasProp("_mgIfProGui") && IsObject(this._mgIfProGui)) {
-            if (this._mgIfProGui._TryIfProUpdatePath(fromId, toId, pathId, initial, pathEl))
+            if (this._mgIfProGui._TryIfProUpdatePath(fromId, toId, pathId, initial, pathEl)) {
+                this._PlaceConnArrow(toId, pathId, , , initial)
                 return
+            }
         }
         this._DefaultUpdatePath(fromId, toId, pathId, initial, pathEl)
     }
@@ -676,25 +771,24 @@ class XNodeGraph {
         nodeW := (n1.W != "" && n1.W != 0) ? n1.W : 200
         startX := n1.X + nodeW
         startY := n1.Y + 31
-        nodeW2 := (n2.W != "" && n2.W != 0) ? n2.W : 200
         endX := n2.X
         endY := n2.Y + 31
+        ; 路径止于箭头底部，避免粗线盖住三角尖端
+        lineEndX := endX - 12
+        lineEndY := endY
 
         ; Bezier control point offset scales with distance
-        dx := Abs(endX - startX) * 0.5
+        dx := Abs(lineEndX - startX) * 0.5
         if (dx < 40)
             dx := 40
         ctrl1X := startX + dx
         ctrl1Y := startY
-        ctrl2X := endX - dx
-        ctrl2Y := endY
+        ctrl2X := lineEndX - dx
+        ctrl2Y := lineEndY
 
-        geom := Format("M{},{} C{},{} {},{} {},{}", startX, startY, ctrl1X, ctrl1Y, ctrl2X, ctrl2Y, endX, endY)
-        if (initial && pathEl != "") {
-            ; Set initial Data string on the Path element directly at XAML build time
-            pathEl.SetProp("Data", geom)
-        } else if (this.ui)
-            this.ui.Update(pathId, "Data", geom)
+        geom := Format("M{},{} C{},{} {},{} {},{}", startX, startY, ctrl1X, ctrl1Y, ctrl2X, ctrl2Y, lineEndX, lineEndY)
+        this._SetConnPathData(pathId, geom, initial, pathEl)
+        this._PlaceConnArrow(toId, pathId, endX, endY, initial)
     }
 
     Bind(ui) {
@@ -761,7 +855,8 @@ class XNodeGraph {
     OnNewNode(nodeType, state, ctrl, event) {
         idx := this.nodes.Length + 1
         newId := this.id "_Node" idx
-        headerBg := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : (nodeType == "MultiProcess" ? "#8A2BE2" : "#3E3E50"))
+        headerBg := nodeType == "Input" ? "{DynamicResource TitleBarColor}" : (nodeType == "Output" ? "#5A2E2E" : (nodeType == "MultiProcess" ? "#8A2BE2" : "#3E3E50"))
+        headerFg := nodeType == "Input" ? "{DynamicResource TitleBarForeground}" : "White"
         label := nodeType == "Input" ? "Source" : (nodeType == "Output" ? "Sink" : "Transform")
 
         x := this.HasProp("lastRightClickX") ? this.lastRightClickX : this.offsetX + 200
@@ -787,7 +882,7 @@ class XNodeGraph {
             }
         }
 
-        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="White" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="#DDDDDD" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel>' portInXAML portOutXAML '</Grid></Border>'
+        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="' headerFg '" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="' (nodeType == "Input" ? headerFg : "#DDDDDD") '" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel>' portInXAML portOutXAML '</Grid></Border>'
         this.ui.Update(this.id, "AddXamlItem", xamlStr)
 
         nodeObj := { Id: newId, Title: nodeType " " idx, X: x, Y: y, W: 200, H: 60, Type: nodeType }
@@ -808,40 +903,46 @@ class XNodeGraph {
             if (node) {
                 dx := Number(parts[1]) - node.X
                 dy := Number(parts[2]) - node.Y
+                movedIds := [nodeId]
 
                 ; If this node is part of a selection, move all selected nodes together
-                if (this.selectedNodes.Has(nodeId)) {
+                if (this.selectedNodes.Has(nodeId) && this.selectedNodes.Count > 1) {
                     for sid in this.selectedNodes {
                         snode := this.GetNode(sid)
                         if (snode && sid != nodeId) {
                             snode.X += dx
                             snode.Y += dy
                             this.ui.Update("Node_" sid, "SetPosition", String(snode.X) "," String(snode.Y))
+                            movedIds.Push(sid)
                         }
                     }
                 }
 
                 node.X := Number(parts[1])
                 node.Y := Number(parts[2])
-                ; 节流连线更新：用 SetTimer 合并多次 DragMove 为一次连线刷新
-                if (this.HasOwnProp("_pathUpdatePending") && this._pathUpdatePending)
-                    return
-                this._pathUpdatePending := true
-                SetTimer(ObjBindMethod(this, "_FlushPathUpdates"), -30)
+                ; 立即刷新相关连线（只更新涉及的边）。C# 跟手刷新需重编译引擎后生效，未编译时仍靠此处
+                this._UpdatePathsForNodes(movedIds)
             }
+        }
+    }
+
+    ; 仅刷新涉及指定节点的连线（含入口箭头）
+    _UpdatePathsForNodes(nodeIds) {
+        if (this.ui == "" || nodeIds.Length = 0)
+            return
+        idSet := Map()
+        for id in nodeIds
+            idSet[id] := true
+        for conn in this.connections {
+            if (idSet.Has(conn.From) || idSet.Has(conn.To))
+                this.UpdatePath(conn.From, conn.To, conn.PathId)
         }
     }
 
     _FlushPathUpdates() {
         this._pathUpdatePending := false
-        mg := (this.HasProp("_mgIfProGui") && IsObject(this._mgIfProGui)) ? this._mgIfProGui : ""
-        for conn in this.connections {
-            if (mg != "" && mg._IsIfProBranchLink(conn.From, conn.To)) {
-                mg._ApplyIfProConnectionPath(conn.From, conn.To, conn.PathId)
-                continue
-            }
-            this._DefaultUpdatePath(conn.From, conn.To, conn.PathId)
-        }
+        for conn in this.connections
+            this.UpdatePath(conn.From, conn.To, conn.PathId)
     }
 
     UpdateNodePorts(node) {
@@ -890,18 +991,18 @@ class XNodeGraph {
         }
         this.selectedNodes.Clear()
         for node in this.nodes
-            this.ui.Update("Node_" node.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.SetNodeSelected(node.Id, false)
         this.selectedNodes[nodeId] := true
-        this.ui.Update("Node_" nodeId, "BorderBrush", "#60A0FF")
+        this.SetNodeSelected(nodeId, true)
     }
 
     OnCtrlSelectNode(nodeId, state, ctrl, event) {
         if (this.selectedNodes.Has(nodeId)) {
             this.selectedNodes.Delete(nodeId)
-            this.ui.Update("Node_" nodeId, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.SetNodeSelected(nodeId, false)
         } else {
             this.selectedNodes[nodeId] := true
-            this.ui.Update("Node_" nodeId, "BorderBrush", "#60A0FF")
+            this.SetNodeSelected(nodeId, true)
         }
     }
 
@@ -913,13 +1014,13 @@ class XNodeGraph {
 
         ; Reset all borders
         for node in this.nodes
-            this.ui.Update("Node_" node.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.SetNodeSelected(node.Id, false)
 
-        ; Set highlighted borders
+        ; 框选节点：显示选中描边
         if (selectedStr != "") {
             for selId in StrSplit(selectedStr, ",") {
                 this.selectedNodes[selId] := true
-                this.ui.Update("Node_" selId, "BorderBrush", "#60A0FF")
+                this.SetNodeSelected(selId, true)
             }
         }
     }
@@ -931,7 +1032,7 @@ class XNodeGraph {
         if (selectedStr != "") {
             for selId in StrSplit(selectedStr, ",") {
                 this.selectedNodes[selId] := true
-                this.ui.Update("Node_" selId, "BorderBrush", "#60A0FF")
+                this.SetNodeSelected(selId, true)
             }
         }
     }
@@ -946,7 +1047,7 @@ class XNodeGraph {
                 fromId := conn.From
                 toId := conn.To
                 this.connections.RemoveAt(i)
-                this.ui.Update(pathId, "Visibility", "Collapsed")
+                this.SetConnVisible(pathId, "Collapsed")
                 ; 更新两端节点的端口可见性
                 this._RefreshPortVisibility(fromId)
                 this._RefreshPortVisibility(toId)
@@ -958,13 +1059,12 @@ class XNodeGraph {
     OnClearSelection(state, ctrl, event) {
         this.selectedNodes.Clear()
         for node in this.nodes
-            this.ui.Update("Node_" node.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.SetNodeSelected(node.Id, false)
 
-        ; Clear connection path selections
         for conn in this.connections {
             if (conn.Selected) {
                 conn.Selected := false
-                this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
+                this.SetConnSelected(conn.PathId, false)
             }
         }
     }
@@ -1004,15 +1104,11 @@ class XNodeGraph {
         ; 选中连线时清除节点选中，避免删除连线时误删节点（连线单击=仅选中该连线）
         this.selectedNodes.Clear()
         for node in this.nodes
-            this.ui.Update("Node_" node.Id, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.SetNodeSelected(node.Id, false)
         for conn in this.connections {
-            if (conn.PathId == pathId) {
-                conn.Selected := true
-                this.ui.Update(pathId, "Stroke", "White")
-            } else {
-                conn.Selected := false
-                this.ui.Update(conn.PathId, "Stroke", "#60A0FF")
-            }
+            sel := (conn.PathId == pathId)
+            conn.Selected := sel
+            this.SetConnSelected(conn.PathId, sel)
         }
     }
 
@@ -1023,7 +1119,7 @@ class XNodeGraph {
         this.OnPathClicked(state["PathClicked"], state, ctrl, event)
     }
 
-    ; 框选连线（C# 端按几何相交算出框中的连线集合，连线名列表在 state["SelectionBoxConn"]）
+    ; 框选连线：切换为选中色
     OnSelectionBoxConn(state, ctrl, event) {
         selStr := state.Has("SelectionBoxConn") ? state["SelectionBoxConn"] : ""
         selMap := Map()
@@ -1034,7 +1130,7 @@ class XNodeGraph {
         for conn in this.connections {
             sel := selMap.Has(conn.PathId)
             conn.Selected := sel
-            this.ui.Update(conn.PathId, "Stroke", sel ? "White" : "#60A0FF")
+            this.SetConnSelected(conn.PathId, sel)
         }
     }
 
@@ -1042,7 +1138,7 @@ class XNodeGraph {
         newConns := []
         for conn in this.connections {
             if (conn.Selected) {
-                this.ui.Update(conn.PathId, "Visibility", "Collapsed")
+                this.SetConnVisible(conn.PathId, "Collapsed")
             } else {
                 newConns.Push(conn)
             }
@@ -1129,7 +1225,7 @@ class XNodeGraph {
         newConns := []
         for conn in this.connections {
             if (conn.HasOwnProp("Active") && !conn.Active) {
-                ui.Update(conn.PathId, "Visibility", "Collapsed")
+                this.SetConnVisible(conn.PathId, "Collapsed")
             } else {
                 newConns.Push(conn)
             }

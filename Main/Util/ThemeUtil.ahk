@@ -34,7 +34,6 @@ class AppThemeUtil {
         {Key: "Win_TitleText", Group: "通用窗口", Label: "标题文本"},
         {Key: "Win_WindowBg", Group: "通用窗口", Label: "窗口背景"},
         {Key: "Win_GroupStroke", Group: "通用窗口", Label: "组描边"},
-        {Key: "Win_GraphLine", Group: "通用窗口", Label: "图形线条"},
         {Key: "Win_LabelColor", Group: "通用窗口", Label: "标签颜色"},
         {Key: "Win_InputBg", Group: "通用窗口", Label: "输入框背景"},
         {Key: "Win_InputStroke", Group: "通用窗口", Label: "输入框描边"},
@@ -46,6 +45,10 @@ class AppThemeUtil {
         {Key: "Win_ActionStroke", Group: "通用窗口", Label: "操作描边"},
         {Key: "Win_ActionText", Group: "通用窗口", Label: "操作文本"},
         {Key: "Win_ProgressBar", Group: "通用窗口", Label: "进度条"},
+        ; 节点编辑器画布：网格 / 连线 / 选中连线
+        {Key: "Win_GraphLine", Group: "图形节点", Label: "背景线条"},
+        {Key: "Win_GraphConn", Group: "图形节点", Label: "节点连线"},
+        {Key: "Win_GraphConnSel", Group: "图形节点", Label: "选中描边"},
         {Key: "Wheel_NormalText", Group: "菜单轮盘", Label: "常态文字"},
         {Key: "Wheel_NormalFill", Group: "菜单轮盘", Label: "常态填充"},
         {Key: "Wheel_NormalStroke", Group: "菜单轮盘", Label: "常态描边"},
@@ -66,10 +69,11 @@ class AppThemeUtil {
     ; 预设列表；DefaultThemeKey 对应项必须存在，且应含 ColorDefs 全部 Key
     ; 显示顺序：默认、霜灰、暗夜、暖阳、海洋、绯樱、抹茶、青瓷、暮紫
     static Presets := [
-        ; Win_GraphLine：节点编辑器画布网格线（画布底固定深色，故各主题取低亮度色）
+        ; Win_GraphLine=背景网格；Win_GraphConn=节点连线；Win_GraphConnSel=选中连线色兼节点选中描边
         {Key: "Default", Name: "默认",
             Win_TitleBg: "#FFEBEBEB", Win_TitleText: "#FF1A1A1A",
-            Win_WindowBg: "#FFF0F0F0", Win_GroupStroke: "#FF999999", Win_GraphLine: "#FF333333", Win_LabelColor: "#FF1A1A1A",
+            Win_WindowBg: "#FFF0F0F0", Win_GroupStroke: "#FF999999", Win_GraphLine: "#FF333333",
+            Win_GraphConn: "#FFFFFFFF", Win_GraphConnSel: "#FF0078D7", Win_LabelColor: "#FF1A1A1A",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFCCCCCC", Win_InputText: "#FF1A1A1A",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFCCCCCC", Win_EditText: "#FF1A1A1A",
             Win_ActionBg: "#FF0078D7", Win_ActionStroke: "#FF0078D7", Win_ActionText: "#FFFFFFFF",
@@ -82,7 +86,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF1A1A1A", CMD_BGColor: "#FFF5F5F5", CMD_RunBGColor: "#FF0078D7"},
         {Key: "FrostGray", Name: "霜灰",
             Win_TitleBg: "#FFE2E8F0", Win_TitleText: "#FF1E293B",
-            Win_WindowBg: "#FFF8FAFC", Win_GroupStroke: "#FF94A3B8", Win_GraphLine: "#FF2E3540", Win_LabelColor: "#FF1E293B",
+            Win_WindowBg: "#FFF8FAFC", Win_GroupStroke: "#FF94A3B8", Win_GraphLine: "#FF2E3540",
+            Win_GraphConn: "#FFF8FAFC", Win_GraphConnSel: "#FF475569", Win_LabelColor: "#FF1E293B",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFCBD5E1", Win_InputText: "#FF1E293B",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF64748B", Win_EditText: "#FF334155",
             Win_ActionBg: "#FF475569", Win_ActionStroke: "#FF475569", Win_ActionText: "#FFFFFFFF",
@@ -95,7 +100,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF1E293B", CMD_BGColor: "#FFF8FAFC", CMD_RunBGColor: "#FF64748B"},
         {Key: "DarkNight", Name: "暗夜",
             Win_TitleBg: "#FF111111", Win_TitleText: "#FFE8E8E8",
-            Win_WindowBg: "#FF1E1E1E", Win_GroupStroke: "#FF666666", Win_GraphLine: "#FF2A2A2A", Win_LabelColor: "#FFE0E0E0",
+            Win_WindowBg: "#FF1E1E1E", Win_GroupStroke: "#FF666666", Win_GraphLine: "#FF2A2A2A",
+            Win_GraphConn: "#FFE8E8E8", Win_GraphConnSel: "#FFB0B0B0", Win_LabelColor: "#FFE0E0E0",
             Win_InputBg: "#FF2D2D2D", Win_InputStroke: "#FF6E6E6E", Win_InputText: "#FFE8E8E8",
             Win_EditBg: "#FF2D2D2D", Win_EditStroke: "#FF9E9E9E", Win_EditText: "#FFF0F0F0",
             Win_ActionBg: "#FF4A4A4A", Win_ActionStroke: "#FF6A6A6A", Win_ActionText: "#FFFFFFFF",
@@ -108,7 +114,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FFE0E0E0", CMD_BGColor: "#FF1E1E1E", CMD_RunBGColor: "#FF5A5A5A"},
         {Key: "WarmSun", Name: "暖阳",
             Win_TitleBg: "#FFFFE4B5", Win_TitleText: "#FF5C3317",
-            Win_WindowBg: "#FFFFF8DC", Win_GroupStroke: "#FFE8B86D", Win_GraphLine: "#FF3A3228", Win_LabelColor: "#FF5C3317",
+            Win_WindowBg: "#FFFFF8DC", Win_GroupStroke: "#FFE8B86D", Win_GraphLine: "#FF3A3228",
+            Win_GraphConn: "#FFFFF8DC", Win_GraphConnSel: "#FFFF8C00", Win_LabelColor: "#FF5C3317",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFE8B86D", Win_InputText: "#FF5C3317",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFFF8C00", Win_EditText: "#FF8B4513",
             Win_ActionBg: "#FFFF8C00", Win_ActionStroke: "#FFE67E00", Win_ActionText: "#FFFFFFFF",
@@ -121,7 +128,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF5C3317", CMD_BGColor: "#FFFFF8DC", CMD_RunBGColor: "#FFFF8C00"},
         {Key: "Ocean", Name: "海洋",
             Win_TitleBg: "#FFD6EAF8", Win_TitleText: "#FF1A365D",
-            Win_WindowBg: "#FFF0F8FF", Win_GroupStroke: "#FF7EB3E8", Win_GraphLine: "#FF283848", Win_LabelColor: "#FF1A365D",
+            Win_WindowBg: "#FFF0F8FF", Win_GroupStroke: "#FF7EB3E8", Win_GraphLine: "#FF283848",
+            Win_GraphConn: "#FFF0F8FF", Win_GraphConnSel: "#FF1E90FF", Win_LabelColor: "#FF1A365D",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FF90CAF9", Win_InputText: "#FF1A365D",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF1E90FF", Win_EditText: "#FF1E90FF",
             Win_ActionBg: "#FF1E90FF", Win_ActionStroke: "#FF1E90FF", Win_ActionText: "#FFFFFFFF",
@@ -134,7 +142,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF1A365D", CMD_BGColor: "#FFF0F8FF", CMD_RunBGColor: "#FF1E90FF"},
         {Key: "PinkSakura", Name: "绯樱",
             Win_TitleBg: "#FFFFE4EC", Win_TitleText: "#FF9F1239",
-            Win_WindowBg: "#FFFFF0F5", Win_GroupStroke: "#FFF9A8C4", Win_GraphLine: "#FF3A2830", Win_LabelColor: "#FF9F1239",
+            Win_WindowBg: "#FFFFF0F5", Win_GroupStroke: "#FFF9A8C4", Win_GraphLine: "#FF3A2830",
+            Win_GraphConn: "#FFFFF0F5", Win_GraphConnSel: "#FFDB2777", Win_LabelColor: "#FF9F1239",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFFFB6C1", Win_InputText: "#FF9F1239",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFDB2777", Win_EditText: "#FFDB2777",
             Win_ActionBg: "#FFDB2777", Win_ActionStroke: "#FFDB2777", Win_ActionText: "#FFFFFFFF",
@@ -147,7 +156,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF9F1239", CMD_BGColor: "#FFFFF0F5", CMD_RunBGColor: "#FFF472B6"},
         {Key: "Matcha", Name: "抹茶",
             Win_TitleBg: "#FFECF4D3", Win_TitleText: "#FF365314",
-            Win_WindowBg: "#FFF7FBEA", Win_GroupStroke: "#FF8FA076", Win_GraphLine: "#FF2E3828", Win_LabelColor: "#FF365314",
+            Win_WindowBg: "#FFF7FBEA", Win_GroupStroke: "#FF8FA076", Win_GraphLine: "#FF2E3828",
+            Win_GraphConn: "#FFF7FBEA", Win_GraphConnSel: "#FF65A30D", Win_LabelColor: "#FF365314",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFA3B18A", Win_InputText: "#FF365314",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF65A30D", Win_EditText: "#FF4D7C0F",
             Win_ActionBg: "#FF65A30D", Win_ActionStroke: "#FF65A30D", Win_ActionText: "#FFFFFFFF",
@@ -160,7 +170,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF365314", CMD_BGColor: "#FFF7FBEA", CMD_RunBGColor: "#FF84CC16"},
         {Key: "Celadon", Name: "青瓷",
             Win_TitleBg: "#FFCCFBF1", Win_TitleText: "#FF134E4A",
-            Win_WindowBg: "#FFF0FDFA", Win_GroupStroke: "#FF5EEAD4", Win_GraphLine: "#FF283836", Win_LabelColor: "#FF134E4A",
+            Win_WindowBg: "#FFF0FDFA", Win_GroupStroke: "#FF5EEAD4", Win_GraphLine: "#FF283836",
+            Win_GraphConn: "#FFF0FDFA", Win_GraphConnSel: "#FF0D9488", Win_LabelColor: "#FF134E4A",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FF99F6E4", Win_InputText: "#FF134E4A",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF14B8A6", Win_EditText: "#FF0F766E",
             Win_ActionBg: "#FF0D9488", Win_ActionStroke: "#FF0D9488", Win_ActionText: "#FFFFFFFF",
@@ -173,7 +184,8 @@ class AppThemeUtil {
             CMD_FontColor: "#FF134E4A", CMD_BGColor: "#FFF0FDFA", CMD_RunBGColor: "#FF14B8A6"},
         {Key: "DuskPurple", Name: "暮紫",
             Win_TitleBg: "#FFF3E8FF", Win_TitleText: "#FF4C1D95",
-            Win_WindowBg: "#FFFAF5FF", Win_GroupStroke: "#FFC4B5FD", Win_GraphLine: "#FF322840", Win_LabelColor: "#FF4C1D95",
+            Win_WindowBg: "#FFFAF5FF", Win_GroupStroke: "#FFC4B5FD", Win_GraphLine: "#FF322840",
+            Win_GraphConn: "#FFFAF5FF", Win_GraphConnSel: "#FF7C3AED", Win_LabelColor: "#FF4C1D95",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFDDD6FE", Win_InputText: "#FF4C1D95",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF8B5CF6", Win_EditText: "#FF7C3AED",
             Win_ActionBg: "#FF7C3AED", Win_ActionStroke: "#FF7C3AED", Win_ActionText: "#FFFFFFFF",
@@ -432,6 +444,8 @@ class AppThemeUtil {
         windowBg := AppThemeUtil.ResolveColor(colors, "Win_WindowBg")
         groupStroke := AppThemeUtil.ResolveColor(colors, "Win_GroupStroke")
         graphLine := AppThemeUtil.ResolveColor(colors, "Win_GraphLine")
+        graphConn := AppThemeUtil.ResolveColor(colors, "Win_GraphConn")
+        graphConnSel := AppThemeUtil.ResolveColor(colors, "Win_GraphConnSel")
         labelColor := AppThemeUtil.ResolveColor(colors, "Win_LabelColor")
         inputBg := AppThemeUtil.ResolveColor(colors, "Win_InputBg")
         inputStroke := AppThemeUtil.ResolveColor(colors, "Win_InputStroke")
@@ -452,6 +466,8 @@ class AppThemeUtil {
         try ui.Update("Resource", "ControlBorder", groupStroke)
         try ui.Update("Resource", "GroupStroke", groupStroke)
         try ui.Update("Resource", "GraphLine", graphLine)
+        try ui.Update("Resource", "GraphConn", graphConn)
+        try ui.Update("Resource", "GraphConnSel", graphConnSel)
         try ui.Update("Resource", "InputBg", inputBg)
         try ui.Update("Resource", "InputStroke", inputStroke)
         try ui.Update("Resource", "InputText", inputText)

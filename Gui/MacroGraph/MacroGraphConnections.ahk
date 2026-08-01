@@ -264,7 +264,10 @@ class MacroGraphConnectionsMixin {
     ; 停用一条连线：仅隐藏路径并标记失效（不从画布移除，避免桥接器 NameScope 残留导致重建冲突）
     _DeactivateConnection(conn) {
         conn.Active := false
-        this.ui.Update(conn.PathId, "Visibility", "Collapsed")
+        if (this.graph != "")
+            this.graph.SetConnVisible(conn.PathId, "Collapsed")
+        else
+            this.ui.Update(conn.PathId, "Visibility", "Collapsed")
     }
 
     ; 重新绑定所有连线的点击事件（连线集合变动后调用）
@@ -313,7 +316,7 @@ class MacroGraphConnectionsMixin {
         this.ui.Update("MG_DropCM", "IsOpen", "True")
     }
 
-    ; 把所有连线加粗，增大命中区域以便单击选中（默认 2.5px 太细难以点中）
+    ; 把所有连线加粗，增大命中区域以便单击选中
     _ThickenConnections() {
         if (this.graph == "" || this.ui == "")
             return

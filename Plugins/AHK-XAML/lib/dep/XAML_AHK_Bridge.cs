@@ -6655,6 +6655,140 @@ public class AhkWpfEngine
     private System.Collections.Generic.Dictionary<string, double> nodeGridSizes = new System.Collections.Generic.Dictionary<string, double>();
     private System.Collections.Generic.Dictionary<FrameworkElement, bool> dragEnabled = new System.Collections.Generic.Dictionary<FrameworkElement, bool>();
 
+    // 拖动节点时在 WPF 线程直接刷新连线，避免 AHK 往返导致的滞后感
+    private const double NodePortY = 31.0;
+    private const double ConnArrowInset = 12.0;
+    private const double ConnArrowHalfH = 6.5;
+
+    private static double GetNodeCanvasX(FrameworkElement node)
+    {
+        double x = Canvas.GetLeft(node);
+        return double.IsNaN(x) ? 0 : x;
+    }
+
+    private static double GetNodeCanvasY(FrameworkElement node)
+    {
+        double y = Canvas.GetTop(node);
+        return double.IsNaN(y) ? 0 : y;
+    }
+
+    private static double GetNodeWidth(FrameworkElement node)
+    {
+        double w = node.ActualWidth;
+        if (w <= 1 && !double.IsNaN(node.Width) && node.Width > 0)
+            w = node.Width;
+        return w > 1 ? w : 200;
+    }
+
+    private static bool TryParseConnEndpoints(string pathName, System.Collections.Generic.HashSet<string> nodeIds,
+        out string fromId, out string toId)
+    {
+        fromId = null;
+        toId = null;
+        if (string.IsNullOrEmpty(pathName)) return false;
+        int marker = pathName.IndexOf("_Path_", StringComparison.Ordinal);
+        if (marker < 0) return false;
+        string rest = pathName.Substring(marker + 6);
+        string bestFrom = null, bestTo = null;
+        foreach (string id in nodeIds)
+        {
+            if (id.Length == 0) continue;
+            string prefix = id + "_";
+            if (!rest.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            string candTo = rest.Substring(prefix.Length);
+            if (!nodeIds.Contains(candTo)) continue;
+            if (bestFrom == null || id.Length > bestFrom.Length)
+            {
+                bestFrom = id;
+                bestTo = candTo;
+            }
+        }
+        if (bestFrom == null) return false;
+        fromId = bestFrom;
+        toId = bestTo;
+        return true;
+    }
+
+    private void RefreshNodeConnectionsLive(Canvas canvas, string nodeId)
+    {
+        if (canvas == null || string.IsNullOrEmpty(nodeId)) return;
+
+        var nodeMap = new System.Collections.Generic.Dictionary<string, FrameworkElement>();
+        var nodeIds = new System.Collections.Generic.HashSet<string>();
+        foreach (UIElement child in canvas.Children)
+        {
+            var fe = child as FrameworkElement;
+            if (fe == null || string.IsNullOrEmpty(fe.Name) || !fe.Name.StartsWith("Node_", StringComparison.Ordinal))
+                continue;
+            string id = fe.Name.Substring(5);
+            nodeMap[id] = fe;
+            nodeIds.Add(id);
+        }
+        if (!nodeIds.Contains(nodeId)) return;
+
+        foreach (UIElement child in canvas.Children)
+        {
+            var path = child as System.Windows.Shapes.Path;
+            if (path == null || string.IsNullOrEmpty(path.Name) || path.Visibility != Visibility.Visible)
+                continue;
+            if (path.Name.IndexOf("_Path_", StringComparison.Ordinal) < 0)
+                continue;
+            string fromId, toId;
+            if (!TryParseConnEndpoints(path.Name, nodeIds, out fromId, out toId))
+                continue;
+            if (fromId != nodeId && toId != nodeId)
+                continue;
+            FrameworkElement n1, n2;
+            if (!nodeMap.TryGetValue(fromId, out n1) || !nodeMap.TryGetValue(toId, out n2))
+                continue;
+
+            double startX = GetNodeCanvasX(n1) + GetNodeWidth(n1);
+            double startY = GetNodeCanvasY(n1) + NodePortY;
+            // IfPro 分支连线：Tag=ifproStartY:相对Y，起点高度跟情况出点对齐
+            string tag = path.Tag as string;
+            if (!string.IsNullOrEmpty(tag) && tag.StartsWith("ifproStartY:", StringComparison.Ordinal))
+            {
+                double relY;
+                if (double.TryParse(tag.Substring(12), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out relY))
+                    startY = GetNodeCanvasY(n1) + relY;
+            }
+            double endX = GetNodeCanvasX(n2);
+            double endY = GetNodeCanvasY(n2) + NodePortY;
+            // IfPro 历史几何画到入口中心；普通连线止于箭头根部
+            bool ifPro = !string.IsNullOrEmpty(tag) && tag.StartsWith("ifproStartY:", StringComparison.Ordinal);
+            double lineEndX = ifPro ? endX : (endX - ConnArrowInset);
+            double lineEndY = endY;
+            double dx = Math.Abs(lineEndX - startX) * 0.5;
+            if (dx < 40) dx = 40;
+            string geom;
+            if (ifPro && Math.Abs(startY - lineEndY) <= 2)
+                geom = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "M{0},{1} L{2},{3}", startX, startY, lineEndX, lineEndY);
+            else
+                geom = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "M{0},{1} C{2},{3} {4},{5} {6},{7}",
+                    startX, startY, startX + dx, startY, lineEndX - dx, lineEndY, lineEndX, lineEndY);
+            try { path.Data = Geometry.Parse(geom); } catch { }
+
+            string arrowName = path.Name.Replace("_Path_", "_Arrow_");
+            var arrow = FindControlByPath(arrowName) as System.Windows.Shapes.Path;
+            if (arrow == null)
+            {
+                foreach (UIElement ac in canvas.Children)
+                {
+                    var afe = ac as FrameworkElement;
+                    if (afe != null && afe.Name == arrowName) { arrow = afe as System.Windows.Shapes.Path; break; }
+                }
+            }
+            if (arrow != null)
+            {
+                Canvas.SetLeft(arrow, endX - ConnArrowInset - 1);
+                Canvas.SetTop(arrow, endY - ConnArrowHalfH);
+            }
+        }
+    }
+
     private void EnableCanvasDrag(FrameworkElement ctrl, string ctrlName, string mode)
     {
         if (mode == "crop")
@@ -6675,6 +6809,7 @@ public class AhkWpfEngine
         Point dragStart = new Point();
         double startLeft = 0, startTop = 0;
         DateTime lastSend = DateTime.MinValue;
+        string dragNodeId = ctrlName.StartsWith("Node_", StringComparison.Ordinal) ? ctrlName.Substring(5) : "";
 
         ctrl.MouseLeftButtonDown += (s, e) =>
         {
@@ -6716,8 +6851,14 @@ public class AhkWpfEngine
 
             Canvas.SetLeft(ctrl, newLeft);
             Canvas.SetTop(ctrl, newTop);
-            // Throttle event sends to every 50ms
-            if ((DateTime.Now - lastSend).TotalMilliseconds > 50)
+
+            // 连线跟手：在 UI 线程即时刷新，不走 AHK
+            var parentCanvas = ctrl.Parent as Canvas;
+            if (parentCanvas != null && dragNodeId != "")
+                RefreshNodeConnectionsLive(parentCanvas, dragNodeId);
+
+            // 逻辑坐标 / 多选 / 循环回环等仍通知 AHK（约 60fps）
+            if ((DateTime.Now - lastSend).TotalMilliseconds > 16)
             {
                 lastSend = DateTime.Now;
                 SendToAhk("EVENT|" + winId + "|" + ctrlName + "|DragMove|" +
@@ -6734,6 +6875,9 @@ public class AhkWpfEngine
             // Send final position
             double finalLeft = Canvas.GetLeft(ctrl);
             double finalTop = Canvas.GetTop(ctrl);
+            var parentCanvas = ctrl.Parent as Canvas;
+            if (parentCanvas != null && dragNodeId != "")
+                RefreshNodeConnectionsLive(parentCanvas, dragNodeId);
             SendToAhk("EVENT|" + winId + "|" + ctrlName + "|DragMove|" +
                 LengthPrefix(finalLeft.ToString("F0") + "," + finalTop.ToString("F0")) + "\n");
             DumpState(ctrlName, "DragEnd");
@@ -7505,13 +7649,19 @@ public class AhkWpfEngine
                 {
                     tempConnection = new System.Windows.Shapes.Path
                     {
-                        Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)),
                         StrokeThickness = 2.5,
                         Opacity = 0.8,
                         IsHitTestVisible = false
                     };
+                    // 跟主题「图形连线」色；资源缺失时回退原蓝色
+                    try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); }
+                    catch { tempConnection.Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)); }
                     System.Windows.Controls.Panel.SetZIndex(tempConnection, -1);
                     canvas.Children.Add(tempConnection);
+                }
+                else
+                {
+                    try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); } catch { }
                 }
                 tempConnection.Visibility = Visibility.Visible;
                 canvas.CaptureMouse();
