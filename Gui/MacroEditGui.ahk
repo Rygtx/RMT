@@ -61,6 +61,7 @@ class MacroEditGui {
         this.SubMacroLastIndex := 0
         this.DragSourceMap := Map()
         this._dragCancelled := false
+        this._lbtnHandler := ObjBindMethod(this, "_OnLButtonDown")
 
         this.InitCommandConfigs()
         this.InitSubGuiConfigs()
@@ -186,8 +187,9 @@ class MacroEditGui {
         ; 注册快捷键热键（窗口打开期间全局有效，关闭时注销）
         this._hkIds := WinHotkey.Register(["F5", "F6", "Delete"], ObjBindMethod(this, "_OnHotkey"))
 
-        ; 注册拖拽消息监听
-        OnMessage(0x0201, ObjBindMethod(this, "_OnLButtonDown"))
+        ; 注册拖拽消息监听（先注销再注册，避免重复打开时叠多个处理器）
+        OnMessage(0x0201, this._lbtnHandler, 0)
+        OnMessage(0x0201, this._lbtnHandler)
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
@@ -449,6 +451,7 @@ class MacroEditGui {
     OnGuiClose() {
         if (this._hkIds.Length > 0)
             WinHotkey.UnregisterAll(this._hkIds)
+        OnMessage(0x0201, this._lbtnHandler, 0)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
                 GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
@@ -1475,8 +1478,12 @@ class MacroEditGui {
         if (isFromLeft) {
             dragInfo := this.DragSourceMap[hwnd]
         } else {
-            sourceItem := this.TreeViewHitTest(this.MacroTreeViewCon, startX, startY)
+            hitFlags := 0
+            sourceItem := this.TreeViewHitTest(this.MacroTreeViewCon, startX, startY, &hitFlags)
             if (sourceItem == 0)
+                return
+            ; 点到展开/折叠按钮：不拦截，交给 TreeView 正常处理
+            if (hitFlags & 0x0010)  ; TVHT_ONITEMBUTTON
                 return
                 
             itemText := this.MacroTreeViewCon.GetText(sourceItem)
@@ -1490,18 +1497,18 @@ class MacroEditGui {
                 || isCondi) {
                 return
             }
+
+            ; 先真正选中点击项：本回调会阻塞到松手，若把过期的 WM_LBUTTONDOWN
+            ; 再交给 TreeView，单击选中会失效，表现为“点了 B 移开鼠标又回到 A”
+            this.CurItemID := sourceItem
+            this.MacroTreeViewCon.Modify(sourceItem, "Select")
             
             dragInfo := {name: itemText, gui: "", isMove: true, sourceItem: sourceItem}
         }
         
         dragStarted := false
-        
-        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
-        DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
-        
         lastTargetItem := -1
         lastMode := 0
-        
         plannedMode := 1
         plannedTarget := 0
         
@@ -1514,6 +1521,8 @@ class MacroEditGui {
                     dragStarted := true
                     ; 捕捉滑鼠到 TreeView，防止 WM_LBUTTONUP 流向編輯器造成焦點偷換
                     DllCall("SetCapture", "Ptr", hwndTV)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x111A, "Ptr", 0, "Ptr", 0)
+                    DllCall("SendMessage", "Ptr", hwndTV, "UInt", 0x110B, "Ptr", 8, "Ptr", 0)
                 }
             }
             if (dragStarted) {
@@ -1633,7 +1642,7 @@ class MacroEditGui {
             ; 攔截原始 WM_LBUTTONDOWN，防止按鈕的 Click 事件重複觸發
             return 1
         } else {
-            ; isFromTV：TreeView 內部指令移動
+            ; isFromTV：TreeView 內部指令移動；未拖动时已在按下时完成选中
             if (dragStarted && plannedMode != -1) {
                 MouseGetPos(&releaseX, &releaseY, &releaseWin, &releaseCtrlHwnd, 2)
                 if (releaseCtrlHwnd == hwndTV) {
@@ -1646,11 +1655,12 @@ class MacroEditGui {
                     this.MoveTreeViewItem(dragInfo.sourceItem, destParent, plannedTarget, plannedMode)
                 }
             }
-            ; isFromTV 不攔截原始訊息，讓 TreeView 保持正常選取行為
+            ; 消费消息，避免过期的 WM_LBUTTONDOWN 再交给 TreeView 破坏选中
+            return 1
         }
     }
 
-    TreeViewHitTest(TVCon, mouseX, mouseY) {
+    TreeViewHitTest(TVCon, mouseX, mouseY, &flags := 0) {
         hwnd := TVCon.Hwnd
         pt := Buffer(8)
         NumPut("Int", mouseX, pt, 0)
@@ -1665,6 +1675,7 @@ class MacroEditGui {
         NumPut("Int", clientY, tvhti, 4)
         
         hItem := DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x1111, "Ptr", 0, "Ptr", tvhti, "Ptr")
+        flags := NumGet(tvhti, 8, "UInt")
         return hItem
     }
 
