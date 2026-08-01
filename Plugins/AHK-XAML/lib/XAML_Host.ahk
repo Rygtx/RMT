@@ -2237,9 +2237,13 @@ XAML_TEMPLATE := '
             <SolidColorBrush x:Key="EditBg" Color="#FFFFFF" />
             <SolidColorBrush x:Key="EditStroke" Color="#CCCCCC" />
             <SolidColorBrush x:Key="EditText" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="EditHoverBg" Color="#E3F2FD" />
+            <SolidColorBrush x:Key="EditHoverStroke" Color="#0078D7" />
             <SolidColorBrush x:Key="ActionBg" Color="#0078D7" />
             <SolidColorBrush x:Key="ActionStroke" Color="#0078D7" />
             <SolidColorBrush x:Key="ActionText" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ActionHoverBg" Color="#106EBE" />
+            <SolidColorBrush x:Key="ActionHoverStroke" Color="#106EBE" />
             <SolidColorBrush x:Key="ProgressBar" Color="#0078D7" />
             <SolidColorBrush x:Key="Accent" Color="#0078D7" />
             <CornerRadius x:Key="WindowRadius">12</CornerRadius>

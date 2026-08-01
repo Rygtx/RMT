@@ -2,124 +2,254 @@
 #Include ..\Main\Util\MergeUtil.ahk
 
 class ConfigMergeGui {
+    static instances := Map()
+    static _opening := false
+
     __New() {
-        this.Gui := ""
+        this.ui := 0
+        this.closed := false
+        this._instanceKey := ""
+        this._btnStyle := ""
+        this._applyingUI := false
         this.TreeRoot := ""
         this.SourceType := "file"
         this.SourcePath := ""
         this.SourceName := ""
-        this.ListView := ""
-        this.PreviewText := ""
         this.ItemNodeMap := Map()
-        this.LastCheckSnapshot := Map()
         this.IsFromRmt := false
+        this._localSettings := []
+        this._srcCtrlW := 200
     }
 
+    ; 兼容旧入口 MyConfigMergeGui.ShowGui()
     ShowGui() {
-        if (this.Gui != "") {
-            this.Gui.Show()
-            return
-        }
-        this.AddGui()
+        ConfigMergeGui.ShowGui()
     }
 
-    AddGui() {
-        MyGui := Gui("+MinimizeBox", GetLang("配置合并导入"))
-        this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
-        MyGui.OnEvent("Close", (*) => this.OnClose())
-        MyGui.OnEvent("Escape", (*) => this.OnClose())
+    static ShowGui() {
+        key := "global"
+        if (ConfigMergeGui.instances.Has(key)) {
+            oldInst := ConfigMergeGui.instances[key]
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            if (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd)) {
+                try WinActivate("ahk_id " hwnd)
+                oldInst.RefreshLocalConfigList()
+                return
+            }
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
+            ConfigMergeGui.instances.Delete(key)
+        }
 
-        PosX := 15
-        PosY := 12
+        XAMLHost.EnsureDaemonHealthy()
+        if (ConfigMergeGui._opening)
+            return
+        ConfigMergeGui._opening := true
+        try {
+            inst := ConfigMergeGui()
+            inst._instanceKey := key
+            inst._BuildAndShow()
+            ConfigMergeGui.instances[key] := inst
+        } finally {
+            ConfigMergeGui._opening := false
+        }
+    }
 
-        MyGui.SetFont("S11 W600 Q2", MainSoftData.FontType)
-        MyGui.Add("GroupBox", Format("x{} y{} w690 h80", PosX, PosY), GetLang("源配置选择"))
+    _BuildAndShow() {
+        this.closed := false
+        title := GetLang("合并导入")
+        titleHeight := "36"
+        this._btnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        PosX += 15
-        PosY += 22
-        this.FileRadio := MyGui.Add("Radio", Format("x{} y{} w200", PosX, PosY), GetLang("从文件导入(.rmt)"))
-        this.FileRadio.Value := true
-        this.FileRadio.OnEvent("Click", (*) => this.OnSourceTypeChange("file"))
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main.Rows(titleHeight, "*")
 
-        PosX += 210
-        this.LocalRadio := MyGui.Add("Radio", Format("x{} y{} w160", PosX, PosY), GetLang("从本地配置导入"))
-        this.LocalRadio.OnEvent("Click", (*) => this.OnSourceTypeChange("local"))
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
 
-        PosX := 50
-        PosY += 24
-        this.SelectFileBtn := MyGui.Add("Button", Format("x{} y{} w100 h26", PosX, PosY), GetLang("选择文件..."))
-        this.SelectFileBtn.OnEvent("Click", (*) => this.OnSelectFile())
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.InjectResources(CloseBtnTemplate)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        PosX += 180
-        this.LocalConfigDDL := MyGui.Add("DropDownList", Format("x{} y{} w180 R5 Disabled", PosX, PosY), [])
-        this.LocalConfigDDL.OnEvent("Change", (*) => this.OnLocalConfigChange())
+        body := main.Add("Border").Grid_Row(1).Background("{DynamicResource BgColor}")
+        root := body.Add("Grid").Margin("14, 8, 14, 10")
+        root.Rows("Auto", "Auto", "*", "Auto", "Auto")
 
-        PosX := 20
-        PosY += 30
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), GetLang("已选择") ":")
-        PosX += 50
-        this.SelectedCountText := MyGui.Add("Text", Format("x{} y{} w50", PosX, PosY + 3), "0")
+        ; 源配置选择：两行，右侧控件右对齐且同宽
+        srcGroup := root.Add("GroupBox").Header(GetLang("源配置选择")).Grid_Row(0)
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource TextMain}")
+        srcInner := srcGroup.Add("StackPanel").Margin("12, 8, 12, 10")
 
-        PosX := 20
-        PosY += 28
-        headerArr := [GetLang("选择"), GetLang("宏名称"), GetLang("触发键/类型")]
+        fileRow := srcInner.Add("Grid").Margin("0,2,0,0")
+        fileRow.Cols("*", "Auto")
+        fileRow.Add("TextBlock").Text(GetLang("文件导入（.rmt）"))
+            .Foreground("{DynamicResource TextMain}").FontSize(13)
+            .VerticalAlignment("Center").Grid_Column(0)
+        this._AddBtn(fileRow, "SelectFileBtn", GetLang("选择文件"), this._srcCtrlW)
+            .Grid_Column(1).HorizontalAlignment("Right").Margin("0,0,50,0")
 
-        this.ListView := MyGui.Add("ListView", Format("x{} y{} w665 h460 Checked", PosX, PosY), headerArr)
-        this.ListView.ModifyCol(1, "AutoHdr Center")
-        this.ListView.ModifyCol(2, "AutoHdr 280")
-        this.ListView.ModifyCol(3, "AutoHdr Center 150")
-        this.ListView.OnEvent("Click", (*) => this.OnListViewClick())
-        this.ListView.OnEvent("ItemCheck", (*) => this.OnItemCheck())
+        localRow := srcInner.Add("Grid").Margin("0,10,0,0")
+        localRow.Cols("*", "Auto")
+        localRow.Add("TextBlock").Text(GetLang("配置导入"))
+            .Foreground("{DynamicResource TextMain}").FontSize(13)
+            .VerticalAlignment("Center").Grid_Column(0)
+        localRow.Add("ComboBox").Name("LocalConfigDDL")
+            .Width(this._srcCtrlW).Height(26).MinHeight(26)
+            .Grid_Column(1).HorizontalAlignment("Right").Margin("0,0,50,0")
 
-        PosX := 15
-        PosY += 465
-        MyGui.Add("Text", Format("x{} y{} w660", PosX, PosY + 3), GetLang("合并说明:合并的宏将按原模块结构创建新模块"))
+        ; 已选择
+        countRow := root.Add("StackPanel").Orientation("Horizontal").Grid_Row(1).Margin("2,10,0,6")
+        countRow.Add("TextBlock").Text(GetLang("已选择") ":")
+            .Foreground("{DynamicResource TextMain}").FontSize(13).VerticalAlignment("Center")
+        countRow.Add("TextBlock").Name("SelectedCountText").Text("0")
+            .Foreground("{DynamicResource TextSub}").FontSize(13).FontWeight("SemiBold")
+            .VerticalAlignment("Center").Margin("6,0,0,0")
 
-        PosX := 480
-        PosY += 35
-        this.CancelBtn := MyGui.Add("Button", Format("x{} y{} w100 h32", PosX, PosY), GetLang("取消"))
-        this.CancelBtn.OnEvent("Click", (*) => this.OnClose())
+        ; 列表区
+        listBorder := root.Add("Border").Grid_Row(2)
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}").CornerRadius("3")
+        listGrid := listBorder.Add("Grid")
+        listGrid.Rows("Auto", "*")
 
-        PosX -= 115
-        this.ExecuteBtn := MyGui.Add("Button", Format("x{} y{} w100 h32 Default", PosX, PosY), GetLang("开始合并导入"))
-        this.ExecuteBtn.OnEvent("Click", (*) => this.OnExecuteMerge())
+        header := listGrid.Add("Grid").Grid_Row(0).Height(30)
+            .Background("{DynamicResource TitleBarColor}")
+        header.Cols("22", "36", "*", "150", "50")
+        header.Add("TextBlock").Grid_Column(0)
+        header.Add("TextBlock").Text(GetLang("选择")).Grid_Column(1)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
+        header.Add("TextBlock").Text(GetLang("宏名称")).Grid_Column(2)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .VerticalAlignment("Center").Margin("4,0,0,0")
+        header.Add("TextBlock").Text(GetLang("触发键/类型")).Grid_Column(3)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .HorizontalAlignment("Center").VerticalAlignment("Center")
 
-        pos := GetCenterPosOnActiveMonitor(720, 678)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 720, 678))
+        scroll := listGrid.Add("ScrollViewer").Grid_Row(1)
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+        scroll.Add("StackPanel").Name("MergeListPanel").Margin("4, 4, 4, 4")
+
+        ; 说明
+        root.Add("TextBlock").Grid_Row(3).Margin("2,8,2,0")
+            .Text(GetLang("合并说明:合并的宏将按原模块结构创建新模块"))
+            .Foreground("{DynamicResource TextSub}").FontSize(12).TextWrapping("Wrap")
+
+        ; 底部按钮居中：开始合并导入、取消
+        btnRow := root.Add("StackPanel").Orientation("Horizontal").Grid_Row(4)
+            .HorizontalAlignment("Center").Margin("0,12,0,2")
+        this._AddBtn(btnRow, "ExecuteBtn", GetLang("开始合并导入"), 110).Margin("0,0,162,0")
+        this._AddBtn(btnRow, "CancelBtn", GetLang("取消"), 90)
+
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ShowInTaskbar="False" Width="620" Height="680" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius>' groupBoxStyle)
+
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("CancelBtn", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("ExecuteBtn", "Click", ObjBindMethod(this, "OnExecuteMerge"))
+        this.ui.OnEvent("SelectFileBtn", "Click", ObjBindMethod(this, "OnSelectFile"))
+        this.ui.Track("LocalConfigDDL")
+        this.ui.OnEvent("LocalConfigDDL", "SelectionChanged", ObjBindMethod(this, "OnLocalConfigChange"))
+
         this.RefreshLocalConfigList()
+        this.ui.Show()
+        loop 20 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                break
+            }
+            Sleep(50)
+        }
+    }
+
+    _AddBtn(parent, name, content, width) {
+        btn := parent.Add("Button").Name(name).Content(content)
+            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
+            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1")
+            .FontSize(12).Cursor("Hand").Width(width).Height(28)
+        btn.InjectResources(this._btnStyle)
+        return btn
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        this.closed := true
+        ConfigMergeGui._opening := false
+        if (this._instanceKey != "" && ConfigMergeGui.instances.Has(this._instanceKey))
+            ConfigMergeGui.instances.Delete(this._instanceKey)
+        this.ui := ""
+        MergeUtil.CleanupTemp()
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+            this.RefreshLocalConfigList()
+        } finally {
+            this.ui.Update("Window", "Opacity", "1")
+        }
+    }
+
+    OnCancelClick(state := unset, ctrl := unset, event := unset) {
+        if IsObject(this.ui)
+            this.ui.Update("Window", "Close", "")
+    }
+
+    Close() {
+        this.closed := true
+        if IsObject(this.ui) {
+            try this.ui.Update("Window", "Close", "")
+            this.ui := ""
+        }
+        MergeUtil.CleanupTemp()
+    }
+
+    OnClose() {
+        this.Close()
     }
 
     RefreshLocalConfigList() {
         settingList := StrSplit(MainSoftData.SettingArrStr, "π")
-        validSettings := []
+        this._localSettings := []
         for name in settingList {
-            if (name != MySoftData.CurSettingName)
-                validSettings.Push(name)
+            if (name != "" && name != MySoftData.CurSettingName)
+                this._localSettings.Push(name)
         }
-        this.LocalConfigDDL.Delete()
-        this.LocalConfigDDL.Add(validSettings)
-        if (validSettings.Length > 0) {
-            this.LocalConfigDDL.Text := validSettings[1]
+        if (!IsObject(this.ui))
+            return
+
+        this._applyingUI := true
+        try {
+            this.ui.Update("LocalConfigDDL", "ClearItems", "")
+            ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+            for name in this._localSettings {
+                this.ui.Update("LocalConfigDDL", "AddXamlItem",
+                    '<ComboBoxItem ' ns ' Content="' this._XmlEsc(name) '"/>')
+            }
+        } finally {
+            this._applyingUI := false
         }
     }
 
-    OnSourceTypeChange(type) {
-        this.SourceType := type
-        if (type == "file") {
-            this.SelectFileBtn.Enabled := true
-            this.LocalConfigDDL.Enabled := false
-            this.LocalConfigDDL.Value := ""
-        }
-        else {
-            this.SelectFileBtn.Enabled := false
-            this.LocalConfigDDL.Enabled := true
-            if (this.LocalConfigDDL.Text != "")
-                this.OnLocalConfigChange()
-        }
-    }
-
-    OnSelectFile() {
+    OnSelectFile(state := unset, ctrl := unset, event := unset) {
         selectedFile := FileSelect(1, , GetLang("选择要合并导入的 RMT 文件"), "RMT Files (*.rmt)")
         if (selectedFile == "")
             return
@@ -130,6 +260,7 @@ class ConfigMergeGui {
             return
         }
 
+        this.SourceType := "file"
         this.SourcePath := selectedFile
         this.SourceName := fileNameNoExt
         this.IsFromRmt := true
@@ -142,76 +273,160 @@ class ConfigMergeGui {
         }
     }
 
-    OnLocalConfigChange() {
-        configName := this.LocalConfigDDL.Text
+    OnLocalConfigChange(state := unset, ctrl := unset, event := unset) {
+        if (this._applyingUI)
+            return
+        configName := ""
+        if (IsSet(state) && IsObject(state) && state.Has("LocalConfigDDL"))
+            configName := state["LocalConfigDDL"]
         if (configName == "")
             return
 
+        this.SourceType := "local"
         this.SourceName := configName
         this.SourcePath := A_WorkingDir "\Setting\" configName
         this.IsFromRmt := false
-
         this.LoadSourceConfig(this.SourcePath)
     }
 
     LoadSourceConfig(settingDir) {
         this.TreeRoot := MergeUtil.ParseSourceConfig(settingDir)
+        this._InitExpandState(this.TreeRoot)
         this.PopulateListView()
     }
 
-    PopulateListView() {
-        this.ListView.Delete()
-        this.ItemNodeMap := Map()
-
-        if (!this.TreeRoot || !this.TreeRoot.Children)
+    _InitExpandState(root) {
+        if (!root || !root.Children)
             return
-
-        row := 0
-        for tabNode in this.TreeRoot.Children {
-            tabRow := ++row
-            tabChecked := MergeUtil.HasAnyCheckedItem(tabNode) ? "Check" : ""
-            this.ListView.Add(tabChecked, "", tabNode.DisplayName)
-            tabNode.ListViewRow := tabRow
-            tabNode.IsTabNode := true
-            this.ItemNodeMap[tabRow] := tabNode
-            isMenuTab := (tabNode.TabIndex == 3)
-
-            for moduleNode in tabNode.Children {
-                moduleRow := ++row
-                moduleChecked := MergeUtil.HasAnyCheckedItem(moduleNode) ? "Check" : ""
-                moduleIndent := "  "
-                this.ListView.Add(moduleChecked, "", moduleIndent moduleNode.DisplayName)
-                moduleNode.ListViewRow := moduleRow
-                moduleNode.IsModuleNode := true
-                this.ItemNodeMap[moduleRow] := moduleNode
-
-                if (!isMenuTab) {
-                    for itemNode in moduleNode.Children {
-                        itemRow := ++row
-                        checkedStr := itemNode.IsChecked ? "Check" : ""
-                        triggerDisplay := itemNode.TriggerKey != "" ? itemNode.TriggerKey : GetLang("无触发键")
-
-                        this.ListView.Add(checkedStr, "", "      " itemNode.DisplayName, triggerDisplay)
-                        this.ItemNodeMap[itemRow] := itemNode
-                        itemNode.ListViewRow := itemRow
-                    }
-                }
-            }
-
-            this.RefreshAllStates()
+        for tabNode in root.Children {
+            tabNode.IsExpanded := true
+            for moduleNode in tabNode.Children
+                moduleNode.IsExpanded := true
         }
     }
 
-    OnListViewClick() {
-    }
-
-    OnItemCheck() {
-        clickedRow := this.FindChangedRow()
-        if (!clickedRow)
+    PopulateListView() {
+        if (!IsObject(this.ui))
             return
 
-        node := this.ItemNodeMap[clickedRow]
-        newState := !node.IsChecked
+        ; 清理旧动态事件，避免重复绑定
+        toDel := []
+        for key, _ in this.ui.events {
+            if (InStr(key, "MergeChk_") == 1 || InStr(key, "MergeFold_") == 1)
+                toDel.Push(key)
+        }
+        for key in toDel
+            this.ui.events.Delete(key)
+
+        this.ui.Update("MergeListPanel", "ClearItems", "")
+        this.ItemNodeMap := Map()
+
+        if (!this.TreeRoot || !this.TreeRoot.Children) {
+            this.ui.Update("SelectedCountText", "Text", "0")
+            return
+        }
+
+        row := 0
+        for tabNode in this.TreeRoot.Children {
+            if (!tabNode.HasOwnProp("IsExpanded"))
+                tabNode.IsExpanded := true
+            tabRow := ++row
+            tabNode.ListViewRow := tabRow
+            tabNode.IsTabNode := true
+            this.ItemNodeMap[tabRow] := tabNode
+            this._AddListRow(tabRow, tabNode.DisplayName, "", MergeUtil.HasAnyCheckedItem(tabNode), 0, true, true, tabNode.IsExpanded)
+            isMenuTab := (tabNode.TabIndex == 3)
+            if (!tabNode.IsExpanded)
+                continue
+
+            for moduleNode in tabNode.Children {
+                if (!moduleNode.HasOwnProp("IsExpanded"))
+                    moduleNode.IsExpanded := true
+                moduleRow := ++row
+                moduleNode.ListViewRow := moduleRow
+                moduleNode.IsModuleNode := true
+                this.ItemNodeMap[moduleRow] := moduleNode
+                this._AddListRow(moduleRow, moduleNode.DisplayName, "", MergeUtil.HasAnyCheckedItem(moduleNode), 1, false, true, moduleNode.IsExpanded)
+
+                if (!isMenuTab && moduleNode.IsExpanded) {
+                    for itemNode in moduleNode.Children {
+                        itemRow := ++row
+                        triggerDisplay := itemNode.TriggerKey != "" ? itemNode.TriggerKey : GetLang("无触发键")
+                        this.ItemNodeMap[itemRow] := itemNode
+                        itemNode.ListViewRow := itemRow
+                        this._AddListRow(itemRow, itemNode.DisplayName, triggerDisplay, itemNode.IsChecked, 2, false, false, true)
+                    }
+                }
+            }
+        }
+
+        this.RefreshAllStates()
+    }
+
+    _AddListRow(rowId, nameText, triggerText, checked, indentLevel, isBold, showFold, expanded) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        chkName := "MergeChk_" rowId
+        foldName := "MergeFold_" rowId
+        indent := indentLevel * 14
+        weight := isBold ? "SemiBold" : "Normal"
+        checkedStr := checked ? "True" : "False"
+        foldGlyph := expanded ? "▼" : "▶"
+        foldVis := showFold ? "Visible" : "Hidden"
+
+        xaml := '<Grid ' ns ' Height="28" Margin="0,1,0,0">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="22"/>'
+            . '<ColumnDefinition Width="36"/>'
+            . '<ColumnDefinition Width="*"/>'
+            . '<ColumnDefinition Width="150"/>'
+            . '<ColumnDefinition Width="50"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<Button Name="' foldName '" Grid.Column="0" Content="' foldGlyph '" Visibility="' foldVis '"'
+            . ' Width="20" Height="20" Padding="0" FontSize="10" Cursor="Hand"'
+            . ' Background="Transparent" BorderThickness="0"'
+            . ' Foreground="{DynamicResource TextMain}"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center"'
+            . ' ToolTip="' this._XmlEsc(expanded ? GetLang("收起") : GetLang("展开")) '"/>'
+            . '<CheckBox Name="' chkName '" Grid.Column="1" IsChecked="' checkedStr '"'
+            . ' VerticalAlignment="Center" HorizontalAlignment="Center"'
+            . ' Foreground="{DynamicResource TextMain}"/>'
+            . '<TextBlock Grid.Column="2" Text="' this._XmlEsc(nameText) '"'
+            . ' Foreground="{DynamicResource TextMain}" FontSize="12" FontWeight="' weight '"'
+            . ' VerticalAlignment="Center" Margin="' indent ',0,0,0" TextTrimming="CharacterEllipsis"/>'
+            . '<TextBlock Grid.Column="3" Text="' this._XmlEsc(triggerText) '"'
+            . ' Foreground="{DynamicResource TextSub}" FontSize="12"'
+            . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '</Grid>'
+
+        this.ui.Update("MergeListPanel", "AddXamlItem", xaml)
+        this.ui.OnEvent(chkName, "Checked", ObjBindMethod(this, "OnRowCheck", rowId))
+        this.ui.OnEvent(chkName, "Unchecked", ObjBindMethod(this, "OnRowCheck", rowId))
+        this.ui.Update(chkName, "BindEvent", "Checked")
+        this.ui.Update(chkName, "BindEvent", "Unchecked")
+        if (showFold) {
+            this.ui.OnEvent(foldName, "Click", ObjBindMethod(this, "OnFoldClick", rowId))
+            this.ui.Update(foldName, "BindEvent", "Click")
+        }
+    }
+
+    OnFoldClick(rowId, state := unset, ctrl := unset, event := unset) {
+        if (!this.ItemNodeMap.Has(rowId))
+            return
+        node := this.ItemNodeMap[rowId]
+        if (node.Type != "Tab" && node.Type != "Module")
+            return
+        node.IsExpanded := !(node.HasOwnProp("IsExpanded") ? node.IsExpanded : true)
+        this.PopulateListView()
+    }
+
+    OnRowCheck(rowId, state, ctrl, event) {
+        if (this._applyingUI)
+            return
+        if (!this.ItemNodeMap.Has(rowId))
+            return
+
+        node := this.ItemNodeMap[rowId]
+        newState := (event == "Checked")
         node.IsChecked := newState
 
         if (node.Type == "Tab") {
@@ -227,42 +442,12 @@ class ConfigMergeGui {
         this.RefreshAllStates()
     }
 
-    FindChangedRow() {
-        for rowNum, node in this.ItemNodeMap {
-            currentChecked := (this.ListView.GetNext(rowNum - 1, "C") == rowNum)
-            lastChecked := this.LastCheckSnapshot.Has(rowNum) ? this.LastCheckSnapshot[rowNum] : node.IsChecked
-
-            if (currentChecked != lastChecked)
-                return rowNum
-        }
-        return 0
-    }
-
-    SaveCheckSnapshot() {
-        this.LastCheckSnapshot := Map()
-        loopCount := this.ListView.GetCount()
-        loop loopCount {
-            isChecked := (this.ListView.GetNext(A_Index - 1, "C") == A_Index)
-            this.LastCheckSnapshot.Set(A_Index, isChecked)
-        }
-    }
-
     RefreshAllStates() {
-        for rowNum, node in this.ItemNodeMap {
-            if (node.Type == "Item") {
-                if (node.IsChecked)
-                    this.ListView.Modify(rowNum, "Check")
-                else
-                    this.ListView.Modify(rowNum, "-Check")
-            }
-        }
-
         for rowNum, node in this.ItemNodeMap {
             if (node.Type == "Module" && node.IsModuleNode) {
                 allChecked := true
                 anyChecked := false
                 hasChildren := false
-
                 for child in node.Children {
                     hasChildren := true
                     if (child.IsChecked)
@@ -270,14 +455,8 @@ class ConfigMergeGui {
                     else
                         allChecked := false
                 }
-
-                if (hasChildren) {
+                if (hasChildren)
                     node.IsChecked := anyChecked
-                    if (allChecked && anyChecked)
-                        this.ListView.Modify(rowNum, "Check")
-                    else
-                        this.ListView.Modify(rowNum, "-Check")
-                }
             }
         }
 
@@ -286,7 +465,6 @@ class ConfigMergeGui {
                 allModulesChecked := true
                 anyModuleChecked := false
                 hasChildren := false
-
                 for moduleNode in node.Children {
                     hasChildren := true
                     moduleAllChecked := true
@@ -302,37 +480,52 @@ class ConfigMergeGui {
                     if (!moduleAllChecked || !moduleAnyChecked)
                         allModulesChecked := false
                 }
-
-                if (hasChildren) {
+                if (hasChildren)
                     node.IsChecked := anyModuleChecked
-                    if (allModulesChecked && anyModuleChecked)
-                        this.ListView.Modify(rowNum, "Check")
-                    else
-                        this.ListView.Modify(rowNum, "-Check")
-                }
             }
         }
 
-        count := 0
-        for rowNum, node in this.ItemNodeMap {
-            if (node.Type == "Item" && node.IsChecked)
-                count++
+        count := this._CountCheckedItems(this.TreeRoot)
+        this._applyingUI := true
+        try {
+            for rowNum, node in this.ItemNodeMap
+                this.ui.Update("MergeChk_" rowNum, "IsChecked", node.IsChecked ? "True" : "False")
+            this.ui.Update("SelectedCountText", "Text", count "")
+        } finally {
+            this._applyingUI := false
         }
-        this.SelectedCountText.Text := count ""
-        this.SaveCheckSnapshot()
     }
 
-    OnExecuteMerge() {
+    _CountCheckedItems(node) {
+        if (!node)
+            return 0
+        count := (node.Type == "Item" && node.IsChecked) ? 1 : 0
+        if (node.HasOwnProp("Children")) {
+            for child in node.Children
+                count += this._CountCheckedItems(child)
+        }
+        return count
+    }
+
+    _CollectCheckedItems(node, arr) {
+        if (!node)
+            return
+        if (node.Type == "Item" && node.IsChecked)
+            arr.Push(node)
+        if (node.HasOwnProp("Children")) {
+            for child in node.Children
+                this._CollectCheckedItems(child, arr)
+        }
+    }
+
+    OnExecuteMerge(state := unset, ctrl := unset, event := unset) {
         if (!this.TreeRoot) {
             MsgBox(GetLang("请先选择源配置"), GetLang("提示"), 0x40)
             return
         }
 
         checkedItems := []
-        for rowNum, node in this.ItemNodeMap {
-            if (node.Type == "Item" && node.IsChecked)
-                checkedItems.Push(node)
-        }
+        this._CollectCheckedItems(this.TreeRoot, checkedItems)
 
         if (checkedItems.Length == 0) {
             MsgBox(GetLang("请至少选择一个宏进行导入"), GetLang("提示"), 0x40)
@@ -350,12 +543,10 @@ class ConfigMergeGui {
             for serialInfo in conflictSerials {
                 tipStr .= "  - " serialInfo "`n"
             }
-
             MsgBox(tipStr, GetLang("资源冲突提示"), 0x0)
         }
 
         moduleCount := MergeUtil.GetModuleCountFromItems(checkedItems)
-
         resultMsg := Format("{}: {}`n{}: {}`n{}: {}",
             GetLang("来源配置"), this.SourceName,
             GetLang("导入模块数"), moduleCount,
@@ -373,12 +564,10 @@ class ConfigMergeGui {
             successMsg .= Format("{}: {}`n", GetLang("导入宏数"), checkedItems.Length)
             successMsg .= Format("{}: {}", GetLang("来源配置"), result.SourceName)
 
-            if (result.RenamedResources.Length > 0) {
+            if (result.RenamedResources.Length > 0)
                 successMsg .= "`n" Format("{}: {}", GetLang("重命名资源"), result.RenamedResources.Length)
-            }
-            if (result.CopiedImages.Length > 0) {
+            if (result.CopiedImages.Length > 0)
                 successMsg .= "`n" Format("{}: {}", GetLang("复制图片"), result.CopiedImages.Length)
-            }
 
             MsgBox(successMsg, GetLang("成功"), 0x0)
             this.OnClose()
@@ -388,13 +577,11 @@ class ConfigMergeGui {
         }
     }
 
-    OnClose() {
-        if (this.Gui != "") {
-            try {
-                this.Gui.Destroy()
-            }
-            this.Gui := ""
-        }
-        MergeUtil.CleanupTemp()
+    _XmlEsc(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
     }
 }

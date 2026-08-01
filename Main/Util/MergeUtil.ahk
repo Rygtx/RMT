@@ -101,10 +101,8 @@ class MergeUtil {
             node.TabIndex := tabIndex
             node.ItemIndex := A_Index
             node.TriggerKey := (A_Index <= tkArr.Length) ? tkArr[A_Index] : ""
-
-            displayKey := node.TriggerKey != "" ? node.TriggerKey : GetLang("无触发键")
-            displayRemark := node.Remark != "" ? node.Remark : ""
-            node.DisplayName := A_Index ". " displayRemark
+            node.Remark := (A_Index <= remarkArr.Length) ? remarkArr[A_Index] : ""
+            node.DisplayName := A_Index ". " node.Remark
 
             macroStr := IniRead(macroFile, "UserSettings", symbol "MacroArr" A_Index, "")
             macroStr := StrReplace(macroStr, "⫶", "`n")
@@ -129,11 +127,11 @@ class MergeUtil {
 
         moduleNodes := []
         indexSpanArr := foldInfo.IndexSpanArr
-        remarkArr := (ObjHasOwnProp(foldInfo, "RemarkArr") && IsObject(foldInfo.RemarkArr)) ? foldInfo.RemarkArr : ""
+        foldRemarkArr := (ObjHasOwnProp(foldInfo, "RemarkArr") && IsObject(foldInfo.RemarkArr)) ? foldInfo.RemarkArr : ""
 
         indexSpanLen := IsObject(indexSpanArr) ? indexSpanArr.Length : 0
-        remarkArrLen := IsObject(remarkArr) ? remarkArr.Length : 0
-        spanCount := (remarkArrLen > 0) ? Min(indexSpanLen, remarkArrLen) : indexSpanLen
+        foldRemarkArrLen := IsObject(foldRemarkArr) ? foldRemarkArr.Length : 0
+        spanCount := (foldRemarkArrLen > 0) ? Min(indexSpanLen, foldRemarkArrLen) : indexSpanLen
 
         if (spanCount <= 0) {
             defaultModule := MergeTreeNode()
@@ -153,7 +151,7 @@ class MergeUtil {
             if (spanStr == "")
                 continue
 
-            moduleName := (IsObject(remarkArr) && remarkArr.Has(foldIndex)) ? String(remarkArr[foldIndex]) : GetLang(
+            moduleName := (IsObject(foldRemarkArr) && foldRemarkArr.Has(foldIndex)) ? String(foldRemarkArr[foldIndex]) : GetLang(
                 "模块") foldIndex
 
             spanParts := StrSplit(spanStr, "-")

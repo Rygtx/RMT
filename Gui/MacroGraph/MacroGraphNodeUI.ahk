@@ -161,8 +161,6 @@ class MacroGraphNodeUIMixin {
             this._AddEditableComboRow(body, "InSaveRow_" id, GetLang("保存变量") "：", "InSave_" id, varList, saveName, showRes)
         }
         else if (d.type == GetLang("输出")) {
-            ; 内容区略收紧左右边距，使多行输出文本更贴边
-            body.Margin("6,6,6,8")
             outputTypeKey := d.HasOwnProp("outputType") ? d.outputType : "发送内容"
             isCharVar := (outputTypeKey == "字符变量")
             outputTypeNames := GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"])
@@ -171,11 +169,10 @@ class MacroGraphNodeUIMixin {
             varList := GetGuiVarArr()
             this._AddComboRow(body, "OutTypeRow_" id, GetLang("输出类型:"), "OutTypeCmb_" id, outputTypeNames, this._OutputTypeIndex(outputTypeKey), true)
             this._AddEditableComboRow(body, "OutVarRow_" id, GetLang("保存变量") "：", "OutVar_" id, varList, varName, isCharVar)
-            ; 节点宽 200、左右 margin 6 → 内容区 188，与下方单行控件同宽
+            ; 节点宽 200、Padding/Margin 0 → 与单行控件同宽
             this._AddMultilineFieldBlock(body, "OutTextBlock_" id, GetLang("输出内容："), "OutText_" id, textVal, true, "188")
         }
         else if (this._IsFormalNodeType(d.type)) {
-            body.Margin("10,6,10,8")
             this._FillFormalNodeBody(id, d, body)
         }
         else {
@@ -510,7 +507,7 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         if (asFragment)
             border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("28", "Auto")
@@ -526,7 +523,7 @@ class MacroGraphNodeUIMixin {
                 .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
                 .HorizontalAlignment("Right").VerticalAlignment("Center")
         }
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillBranchNodeBody(searchId, isTrue, body, brId)
         this._AddNodePorts(grid, brId)
         return border
@@ -877,14 +874,14 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         if (asFragment)
             border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        border.Name("Node_" bid).Background("{DynamicResource DropdownBg}").BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" bid).Background("{DynamicResource DropdownBg}").BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("{DynamicResource ActionBg}").CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("{DynamicResource ActionText}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillLoopBodyNodeBody(loopId, body, bid)
         ; 循环体不参与主流程，不用标准入/出端口；仅左侧两个回环交互点（与循环节点右侧两点对应）
         this._AddLoopBodyCyclePortEls(grid, bid)
@@ -1016,7 +1013,7 @@ class MacroGraphNodeUIMixin {
         nodeW := (d.type == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : 200)
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (d.type == GetLang("循环"))
             border.SetProp("MinHeight", "180")
         if (d.type == GetLang("如果Pro"))
@@ -1025,7 +1022,7 @@ class MacroGraphNodeUIMixin {
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
         this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillNodeBody(id, d, body)
 
         ; 端口：直接设置 _Props 确保属性正确
@@ -1087,7 +1084,7 @@ class MacroGraphNodeUIMixin {
         if (nodeW == "")
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
-        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (title == GetLang("循环"))
             node.SetProp("MinHeight", "180")
         if (title == GetLang("如果"))
@@ -1103,7 +1100,7 @@ class MacroGraphNodeUIMixin {
 
         this._BuildHeader(grid, id, title, headerColor)
 
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
+        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
 
         ; 端口：使用原始 XAML 字符串注入，确保属性正确
         ; 入点在标题栏下方左侧，出点在标题栏下方右侧

@@ -41,9 +41,13 @@ class AppThemeUtil {
         {Key: "Win_EditBg", Group: "通用窗口", Label: "编辑背景"},
         {Key: "Win_EditStroke", Group: "通用窗口", Label: "编辑描边"},
         {Key: "Win_EditText", Group: "通用窗口", Label: "编辑文本"},
+        {Key: "Win_EditHoverBg", Group: "通用窗口", Label: "编辑悬停背景"},
+        {Key: "Win_EditHoverStroke", Group: "通用窗口", Label: "编辑悬停描边"},
         {Key: "Win_ActionBg", Group: "通用窗口", Label: "操作背景"},
         {Key: "Win_ActionStroke", Group: "通用窗口", Label: "操作描边"},
         {Key: "Win_ActionText", Group: "通用窗口", Label: "操作文本"},
+        {Key: "Win_ActionHoverBg", Group: "通用窗口", Label: "操作悬停背景"},
+        {Key: "Win_ActionHoverStroke", Group: "通用窗口", Label: "操作悬停描边"},
         {Key: "Win_ProgressBar", Group: "通用窗口", Label: "进度条"},
         ; 节点编辑器画布：网格 / 连线 / 选中连线
         {Key: "Win_GraphLine", Group: "图形节点", Label: "背景线条"},
@@ -76,7 +80,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFFFFFFF", Win_GraphConnSel: "#FF0078D7", Win_LabelColor: "#FF1A1A1A",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFCCCCCC", Win_InputText: "#FF1A1A1A",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFCCCCCC", Win_EditText: "#FF1A1A1A",
+            Win_EditHoverBg: "#FFE3F2FD", Win_EditHoverStroke: "#FF0078D7",
             Win_ActionBg: "#FF0078D7", Win_ActionStroke: "#FF0078D7", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF106EBE", Win_ActionHoverStroke: "#FF106EBE",
             Win_ProgressBar: "#FF0078D7",
             Wheel_NormalText: "#CC1A365D", Wheel_NormalFill: "#FFF0F7FF", Wheel_NormalStroke: "#FF90CAF9",
             Wheel_HoverText: "#FF0078D7", Wheel_HoverFill: "#FFE3F2FD", Wheel_HoverStroke: "#FF0078D7",
@@ -90,7 +96,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFF8FAFC", Win_GraphConnSel: "#FF475569", Win_LabelColor: "#FF1E293B",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFCBD5E1", Win_InputText: "#FF1E293B",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF64748B", Win_EditText: "#FF334155",
+            Win_EditHoverBg: "#FFE2E8F0", Win_EditHoverStroke: "#FF64748B",
             Win_ActionBg: "#FF475569", Win_ActionStroke: "#FF475569", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF334155", Win_ActionHoverStroke: "#FF334155",
             Win_ProgressBar: "#FF64748B",
             Wheel_NormalText: "#CC4B5563", Wheel_NormalFill: "#FFF8FAFC", Wheel_NormalStroke: "#FFCBD5E1",
             Wheel_HoverText: "#FF334155", Wheel_HoverFill: "#FFE2E8F0", Wheel_HoverStroke: "#FF64748B",
@@ -104,7 +112,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFE8E8E8", Win_GraphConnSel: "#FFB0B0B0", Win_LabelColor: "#FFE0E0E0",
             Win_InputBg: "#FF2D2D2D", Win_InputStroke: "#FF6E6E6E", Win_InputText: "#FFE8E8E8",
             Win_EditBg: "#FF2D2D2D", Win_EditStroke: "#FF9E9E9E", Win_EditText: "#FFF0F0F0",
+            Win_EditHoverBg: "#FF3D3D3D", Win_EditHoverStroke: "#FFB0B0B0",
             Win_ActionBg: "#FF4A4A4A", Win_ActionStroke: "#FF6A6A6A", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF5A5A5A", Win_ActionHoverStroke: "#FFB0B0B0",
             Win_ProgressBar: "#FFB0B0B0",
             Wheel_NormalText: "#CCAAAAAA", Wheel_NormalFill: "#FF2D2D2D", Wheel_NormalStroke: "#FF555555",
             Wheel_HoverText: "#FFFFFFFF", Wheel_HoverFill: "#FF3D3D3D", Wheel_HoverStroke: "#FFB0B0B0",
@@ -118,7 +128,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFFFF8DC", Win_GraphConnSel: "#FFFF8C00", Win_LabelColor: "#FF5C3317",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFE8B86D", Win_InputText: "#FF5C3317",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFFF8C00", Win_EditText: "#FF8B4513",
+            Win_EditHoverBg: "#FFFFE4B5", Win_EditHoverStroke: "#FFFF8C00",
             Win_ActionBg: "#FFFF8C00", Win_ActionStroke: "#FFE67E00", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FFE67E00", Win_ActionHoverStroke: "#FFE67E00",
             Win_ProgressBar: "#FFFF8C00",
             Wheel_NormalText: "#CC8B4513", Wheel_NormalFill: "#FFFFF8DC", Wheel_NormalStroke: "#FFE8B86D",
             Wheel_HoverText: "#FFFF6347", Wheel_HoverFill: "#FFFFE4B5", Wheel_HoverStroke: "#FFFF6347",
@@ -132,7 +144,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFF0F8FF", Win_GraphConnSel: "#FF1E90FF", Win_LabelColor: "#FF1A365D",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FF90CAF9", Win_InputText: "#FF1A365D",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF1E90FF", Win_EditText: "#FF1E90FF",
+            Win_EditHoverBg: "#FFE0F0FF", Win_EditHoverStroke: "#FF1E90FF",
             Win_ActionBg: "#FF1E90FF", Win_ActionStroke: "#FF1E90FF", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF187BCD", Win_ActionHoverStroke: "#FF187BCD",
             Win_ProgressBar: "#FF1E90FF",
             Wheel_NormalText: "#CC2C5282", Wheel_NormalFill: "#FFF0F8FF", Wheel_NormalStroke: "#FF4682B4",
             Wheel_HoverText: "#FF1E90FF", Wheel_HoverFill: "#FFE0F0FF", Wheel_HoverStroke: "#FF1E90FF",
@@ -146,7 +160,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFFFF0F5", Win_GraphConnSel: "#FFDB2777", Win_LabelColor: "#FF9F1239",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFFFB6C1", Win_InputText: "#FF9F1239",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FFDB2777", Win_EditText: "#FFDB2777",
+            Win_EditHoverBg: "#FFFFE4EC", Win_EditHoverStroke: "#FFDB2777",
             Win_ActionBg: "#FFDB2777", Win_ActionStroke: "#FFDB2777", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FFBE185D", Win_ActionHoverStroke: "#FFBE185D",
             Win_ProgressBar: "#FFF472B6",
             Wheel_NormalText: "#CC9F1239", Wheel_NormalFill: "#FFFFF0F5", Wheel_NormalStroke: "#FFFFB6C1",
             Wheel_HoverText: "#FFDB2777", Wheel_HoverFill: "#FFFFE4EC", Wheel_HoverStroke: "#FFDB2777",
@@ -160,7 +176,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFF7FBEA", Win_GraphConnSel: "#FF65A30D", Win_LabelColor: "#FF365314",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFA3B18A", Win_InputText: "#FF365314",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF65A30D", Win_EditText: "#FF4D7C0F",
+            Win_EditHoverBg: "#FFECF4D3", Win_EditHoverStroke: "#FF65A30D",
             Win_ActionBg: "#FF65A30D", Win_ActionStroke: "#FF65A30D", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF4D7C0F", Win_ActionHoverStroke: "#FF4D7C0F",
             Win_ProgressBar: "#FF84CC16",
             Wheel_NormalText: "#CC3F6218", Wheel_NormalFill: "#FFF7FBEA", Wheel_NormalStroke: "#FFA3B18A",
             Wheel_HoverText: "#FF4D7C0F", Wheel_HoverFill: "#FFECF4D3", Wheel_HoverStroke: "#FF65A30D",
@@ -174,7 +192,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFF0FDFA", Win_GraphConnSel: "#FF0D9488", Win_LabelColor: "#FF134E4A",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FF99F6E4", Win_InputText: "#FF134E4A",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF14B8A6", Win_EditText: "#FF0F766E",
+            Win_EditHoverBg: "#FFCCFBF1", Win_EditHoverStroke: "#FF14B8A6",
             Win_ActionBg: "#FF0D9488", Win_ActionStroke: "#FF0D9488", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF0F766E", Win_ActionHoverStroke: "#FF0F766E",
             Win_ProgressBar: "#FF14B8A6",
             Wheel_NormalText: "#CC115E59", Wheel_NormalFill: "#FFF0FDFA", Wheel_NormalStroke: "#FF99F6E4",
             Wheel_HoverText: "#FF0F766E", Wheel_HoverFill: "#FFCCFBF1", Wheel_HoverStroke: "#FF14B8A6",
@@ -188,7 +208,9 @@ class AppThemeUtil {
             Win_GraphConn: "#FFFAF5FF", Win_GraphConnSel: "#FF7C3AED", Win_LabelColor: "#FF4C1D95",
             Win_InputBg: "#FFFFFFFF", Win_InputStroke: "#FFDDD6FE", Win_InputText: "#FF4C1D95",
             Win_EditBg: "#FFFFFFFF", Win_EditStroke: "#FF8B5CF6", Win_EditText: "#FF7C3AED",
+            Win_EditHoverBg: "#FFF3E8FF", Win_EditHoverStroke: "#FF8B5CF6",
             Win_ActionBg: "#FF7C3AED", Win_ActionStroke: "#FF7C3AED", Win_ActionText: "#FFFFFFFF",
+            Win_ActionHoverBg: "#FF6D28D9", Win_ActionHoverStroke: "#FF6D28D9",
             Win_ProgressBar: "#FFA78BFA",
             Wheel_NormalText: "#CC5B21B6", Wheel_NormalFill: "#FFFAF5FF", Wheel_NormalStroke: "#FFDDD6FE",
             Wheel_HoverText: "#FF7C3AED", Wheel_HoverFill: "#FFF3E8FF", Wheel_HoverStroke: "#FF8B5CF6",
@@ -453,9 +475,13 @@ class AppThemeUtil {
         editBg := AppThemeUtil.ResolveColor(colors, "Win_EditBg")
         editStroke := AppThemeUtil.ResolveColor(colors, "Win_EditStroke")
         editText := AppThemeUtil.ResolveColor(colors, "Win_EditText")
+        editHoverBg := AppThemeUtil.ResolveColor(colors, "Win_EditHoverBg")
+        editHoverStroke := AppThemeUtil.ResolveColor(colors, "Win_EditHoverStroke")
         actionBg := AppThemeUtil.ResolveColor(colors, "Win_ActionBg")
         actionStroke := AppThemeUtil.ResolveColor(colors, "Win_ActionStroke")
         actionText := AppThemeUtil.ResolveColor(colors, "Win_ActionText")
+        actionHoverBg := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverBg")
+        actionHoverStroke := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverStroke")
         progress := AppThemeUtil.ResolveColor(colors, "Win_ProgressBar")
 
         try ui.Update("Resource", "TitleBarColor", titleBg)
@@ -474,9 +500,13 @@ class AppThemeUtil {
         try ui.Update("Resource", "EditBg", editBg)
         try ui.Update("Resource", "EditStroke", editStroke)
         try ui.Update("Resource", "EditText", editText)
+        try ui.Update("Resource", "EditHoverBg", editHoverBg)
+        try ui.Update("Resource", "EditHoverStroke", editHoverStroke)
         try ui.Update("Resource", "ActionBg", actionBg)
         try ui.Update("Resource", "ActionStroke", actionStroke)
         try ui.Update("Resource", "ActionText", actionText)
+        try ui.Update("Resource", "ActionHoverBg", actionHoverBg)
+        try ui.Update("Resource", "ActionHoverStroke", actionHoverStroke)
         try ui.Update("Resource", "Accent", progress)
         try ui.Update("Resource", "ProgressBar", progress)
         ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清

@@ -136,7 +136,10 @@ class XColorPicker {
 
         sliders := sliderGrid.Add("StackPanel").Grid_Column(1).VerticalAlignment("Center").Margin("0,0,15,0")
 
-        hueBg := sliders.Add("Border").Height("10").CornerRadius("5").Margin("0,0,0,12").IsHitTestVisible("False").Add("Border.Background").Add("LinearGradientBrush").StartPoint("0,0").EndPoint("1,0")
+        ; 色相条：色带与滑块同层叠放，避免负 Margin 叠到下一行（原先会看起来像第二条色带有两个游标）
+        hueRow := sliders.Add("Grid").Height("22").Margin("0,0,0,12")
+        hueBg := hueRow.Add("Border").Height("10").CornerRadius("5").VerticalAlignment("Center").IsHitTestVisible("False")
+            .Add("Border.Background").Add("LinearGradientBrush").StartPoint("0,0").EndPoint("1,0")
         hueBg.Add("GradientStop").SetProp('Color', "#FFFF0000").Offset("0")
         hueBg.Add("GradientStop").SetProp('Color', "#FFFFFF00").Offset("0.16")
         hueBg.Add("GradientStop").SetProp('Color', "#FF00FF00").Offset("0.33")
@@ -144,23 +147,33 @@ class XColorPicker {
         hueBg.Add("GradientStop").SetProp('Color', "#FF0000FF").Offset("0.66")
         hueBg.Add("GradientStop").SetProp('Color', "#FFFF00FF").Offset("0.83")
         hueBg.Add("GradientStop").SetProp('Color', "#FFFF0000").Offset("1")
-        sliders.Add("Slider").Name("HueSlider").Minimum("0").Maximum("360").Value("0").Margin("0,-22,0,0")
+        hueRow.Add("Slider").Name("HueSlider").Minimum("0").Maximum("360").Value("0")
+            .VerticalAlignment("Center")
             .ThumbShape("Line").ThumbWidth(8).ThumbHeight(20).ThumbColor("#FFFFFF").ThumbBorderColor("#FF222222").ThumbBorderThickness(1.5).ThumbCornerRadius(1.5).ThumbShadow(true)
-            .TrackHeight(32).TrackColor("Transparent").TrackBg("Transparent")
+            .TrackHeight(22).TrackColor("Transparent").TrackBg("Transparent")
 
-         alphaBg := sliders.Add("Border").Height("10").CornerRadius("5").Background("Transparent").ClipToBounds("True").IsHitTestVisible("False")
-
-         ; Dynamic Fill overlay masked by a transparent-to-white gradient
-         alphaFill := alphaBg.Add("Rectangle").Name("AlphaFillRect").Fill("White")
-         mask := alphaFill.Add("Rectangle.OpacityMask").Add("LinearGradientBrush").StartPoint("0,0").EndPoint("1,0")
-         mask.Add("GradientStop").SetProp('Color', "Transparent").Offset("0")
-         mask.Add("GradientStop").SetProp('Color', "White").Offset("1")
-         
-         sliders.Add("Slider").Name("AlphaSlider").Minimum("0").Maximum("255").Value("255").Margin("0,-22,0,0")
+        ; 透明度条：当前色 + OpacityMask（左透明→右实色）；打开时由 UpdateFromRGB 刷新 Fill
+        alphaRow := sliders.Add("Grid").Height("22")
+        alphaBg := alphaRow.Add("Border").Height("10").CornerRadius("5").VerticalAlignment("Center")
+            .Background("Transparent").ClipToBounds("True").IsHitTestVisible("False")
+        alphaFill := alphaBg.Add("Rectangle").Name("AlphaFillRect").Fill(defaultColor)
+        mask := alphaFill.Add("Rectangle.OpacityMask").Add("LinearGradientBrush").StartPoint("0,0").EndPoint("1,0")
+        mask.Add("GradientStop").SetProp('Color', "Transparent").Offset("0")
+        mask.Add("GradientStop").SetProp('Color', "White").Offset("1")
+        alphaRow.Add("Slider").Name("AlphaSlider").Minimum("0").Maximum("255").Value("255")
+            .VerticalAlignment("Center")
             .ThumbShape("Line").ThumbWidth(8).ThumbHeight(20).ThumbColor("#FFFFFF").ThumbBorderColor("#FF222222").ThumbBorderThickness(1.5).ThumbCornerRadius(1.5).ThumbShadow(true)
-            .TrackHeight(32).TrackColor("Transparent").TrackBg("Transparent")
+            .TrackHeight(22).TrackColor("Transparent").TrackBg("Transparent")
 
         sliderGrid.Add("Border").Name("ColorPreview").Grid_Column(2).Width("36").Height("36").CornerRadius("18").Background(defaultColor).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+
+        ; 文案本地化（RMT 中走 GetLang；库单独演示时回退英文）
+        locCancel := "Cancel", locConfirm := "Confirm", locInfo := "Some information about this color"
+        try {
+            locCancel := GetLang("取消")
+            locConfirm := GetLang("确定")
+            locInfo := GetLang("当前颜色信息")
+        }
 
         ; Inputs Row
         inGrid := main.Add("Grid").Grid_Row(6).Margin("15,0,15,0")
@@ -173,7 +186,8 @@ class XColorPicker {
         spLbl.Add("TextBlock").Text("RGB").Foreground("{DynamicResource TextSub}").FontSize("10").Margin("0,0,4,0")
         spLbl.Add("TextBlock").Text(Chr(0xE70D)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").Foreground("{DynamicResource TextSub}").FontSize("8").VerticalAlignment("Center")
 
-        inGrid.Add("TextBox").Name("HexInput").Text(defaultColor).Width("85").Height("28").Padding("8,4").Grid_Row(2).Grid_Column(0)
+        inGrid.Add("TextBox").Name("HexInput").Text(defaultColor).Width("85").Height("28").Padding("0")
+            .HorizontalContentAlignment("Center").TextAlignment("Center").Grid_Row(2).Grid_Column(0)
 
         rgbSp := inGrid.Add("StackPanel").Grid_Row(2).Grid_Column(2).Orientation("Horizontal")
         rgbSp.Add("TextBlock").Text("R:").Foreground("{DynamicResource TextSub}").FontSize("11").VerticalAlignment("Center").Margin("0,0,4,0")
@@ -185,13 +199,13 @@ class XColorPicker {
         rgbSp.Add("TextBlock").Text("A:").Foreground("{DynamicResource TextSub}").FontSize("11").VerticalAlignment("Center").Margin("0,0,4,0")
         rgbSp.Add("TextBox").Name("AInput").Text("255").Width("35").Height("28").Padding("2,4").HorizontalContentAlignment("Center")
 
-        inGrid.Add("TextBlock").Text("Some information about this color").Foreground("{DynamicResource TextSub}").FontSize("11").Grid_Row(4).Grid_ColumnSpan(3).Margin("0,10,0,0")
+        inGrid.Add("TextBlock").Text(locInfo).Foreground("{DynamicResource TextSub}").FontSize("11").Grid_Row(4).Grid_ColumnSpan(3).Margin("0,10,0,0")
 
-        btnSp := main.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right").Grid_Row(8).Margin("0,0,15,15")
-        main.InjectResources('<Style x:Key="DialogBtn" TargetType="Button"><Setter Property="Background" Value="#10FFFFFF"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,6"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#20FFFFFF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style><Style x:Key="DialogPrimaryBtn" TargetType="Button"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,6"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>')
+        btnSp := main.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Grid_Row(8).Margin("0,0,0,15")
+        main.InjectResources('<Style x:Key="DialogBtn" TargetType="Button"><Setter Property="Background" Value="{DynamicResource EditBg}"/><Setter Property="Foreground" Value="{DynamicResource EditText}"/><Setter Property="BorderBrush" Value="{DynamicResource EditStroke}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,6"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>')
 
-        btnSp.Add("Button").Name("BtnCancel").Content("Cancel").Style("{StaticResource DialogBtn}").Width("100").Height("32").Cursor("Hand").Margin("0,0,10,0")
-        btnSp.Add("Button").Name("BtnConfirm").Content("Confirm").Style("{StaticResource DialogPrimaryBtn}").Width("100").Height("32").Cursor("Hand")
+        btnSp.Add("Button").Name("BtnConfirm").Content(locConfirm).Style("{StaticResource DialogBtn}").Width("100").Height("32").Cursor("Hand").Margin("0,0,12,0")
+        btnSp.Add("Button").Name("BtnCancel").Content(locCancel).Style("{StaticResource DialogBtn}").Width("100").Height("32").Cursor("Hand")
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", "30")
         ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", owner)
@@ -246,7 +260,16 @@ class XColorPicker {
     static OnLoad(ui, owner, themeName, iniPath, defaultColor, resultObj, state := "", ctrl := "", event := "") {
         if owner
             ui.Update("Window", "NativeOwner", owner)
-        if FileExist(iniPath) {
+        ; RMT：优先套用应用主题色；否则回退 AHK-XAML themes.ini
+        appliedAppTheme := false
+        try {
+            if (IsSet(MainSoftData) && IsObject(MainSoftData) && IsSet(ApplyXamlTheme)) {
+                appTheme := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+                ApplyXamlTheme(ui, appTheme)
+                appliedAppTheme := true
+            }
+        }
+        if (!appliedAppTheme && FileExist(iniPath)) {
             try {
                 themeData := IniRead(iniPath, themeName)
                 Loop Parse, themeData, "`n", "`r" {
@@ -386,9 +409,13 @@ class XColorPicker {
             y := (1.0 - v) * 180.0
             ui.Update("CanvasThumb", "Margin", String(x - 7) "," String(y - 7) ",0,0")
 
+            ; 同步透明度色带当前色（打开时走此路径，原先只在 UpdateFromHSV 更新导致一直发白）
+            ui.Update("AlphaFillRect", "Fill", Format("#FF{:02X}{:02X}{:02X}", r, g, b))
+
             hex := Format("#{:02X}{:02X}{:02X}{:02X}", a, r, g, b)
             ui.Update("HexInput", "Text", hex)
             ui.Update("ColorPreview", "Background", hex)
+            resultObj.Color := hex
         }
     }
 

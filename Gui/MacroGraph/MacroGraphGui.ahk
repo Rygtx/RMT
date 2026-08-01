@@ -203,9 +203,13 @@ class MacroGraphGui {
 
         ; 右上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
         ; 右下角：保存（颜色走通用窗口主题）
-        if (this.OnClosedAction == "")
-            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
-        root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
+        actionBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        if (this.OnClosedAction == "") {
+            toTreeBtn := root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
+            toTreeBtn.InjectResources(actionBtnStyle)
+        }
+        saveBtn := root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
+        saveBtn.InjectResources(actionBtnStyle)
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
         this._StaticSpreadExpandedSearches()

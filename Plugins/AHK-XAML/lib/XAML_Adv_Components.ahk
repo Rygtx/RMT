@@ -663,7 +663,7 @@ class XNodeGraph {
             this.ui.Update("Node_" nodeId, "BorderBrush", this.ConnColorSelected())
             this.ui.Update("Node_" nodeId, "BorderThickness", "3")
         } else {
-            this.ui.Update("Node_" nodeId, "BorderBrush", "{DynamicResource ControlBorder}")
+            this.ui.Update("Node_" nodeId, "BorderBrush", "{DynamicResource InputStroke}")
             this.ui.Update("Node_" nodeId, "BorderThickness", "1")
         }
     }
