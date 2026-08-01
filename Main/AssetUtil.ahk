@@ -482,6 +482,9 @@ LoadMainSetting() {
     MainSoftData.Lang := IniRead(IniFile, IniSection, "Lang", "无语言")
     MainSoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
     MainSoftData.JoyType := IniRead(IniFile, IniSection, "JoyType", "Xbox")
+    MainSoftData.PreferredMacroEditor := Integer(IniRead(IniFile, IniSection, "PreferredMacroEditor", 1))
+    if (MainSoftData.PreferredMacroEditor != 1 && MainSoftData.PreferredMacroEditor != 2)
+        MainSoftData.PreferredMacroEditor := 1
     ; CMD 默认：宽按 DPI 缩放，高 300，X = 屏幕宽 - 显示宽（物理像素 / -DPIScale）
     defCMDWidth := GetDefaultCMDTipWidth()
     MainSoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", defCMDWidth)
@@ -1220,6 +1223,72 @@ GetHotKeyCtrlType(key) {
     return CtrlType
 }
 
+; AHK 热键符号转可读显示：!p → Alt+P，^+a → Ctrl+Shift+A
+FormatHotkeyDisplay(key) {
+    key := Trim(String(key))
+    if (key == "")
+        return ""
+    ; 字串触发等非标准热键原样显示
+    if (SubStr(key, 1, 1) == ":")
+        return key
+    if (InStr(key, " & ")) {
+        parts := StrSplit(key, " & ")
+        out := ""
+        for idx, part in parts {
+            if (idx > 1)
+                out .= " + "
+            out .= FormatHotkeyDisplay(Trim(part))
+        }
+        return out
+    }
+
+    rest := key
+    mods := []
+    ; 左右修饰键需优先于单字符前缀匹配
+    prefixes := [
+        {p: "<^", n: "LCtrl"}, {p: ">^", n: "RCtrl"}, {p: "^", n: "Ctrl"},
+        {p: "<!", n: "LAlt"}, {p: ">!", n: "RAlt"}, {p: "!", n: "Alt"},
+        {p: "<+", n: "LShift"}, {p: ">+", n: "RShift"}, {p: "+", n: "Shift"},
+        {p: "<#", n: "LWin"}, {p: ">#", n: "RWin"}, {p: "#", n: "Win"}
+    ]
+    loop {
+        matched := false
+        for item in prefixes {
+            plen := StrLen(item.p)
+            if (SubStr(rest, 1, plen) == item.p) {
+                mods.Push(item.n)
+                rest := SubStr(rest, plen + 1)
+                matched := true
+                break
+            }
+        }
+        if (!matched)
+            break
+    }
+
+    if (SubStr(rest, 1, 1) == "~")
+        rest := SubStr(rest, 2)
+    if (SubStr(rest, 1, 1) == "*")
+        rest := SubStr(rest, 2)
+
+    mainKey := rest
+    if (StrLen(mainKey) == 1)
+        mainKey := StrUpper(mainKey)
+
+    result := ""
+    for modName in mods {
+        if (result != "")
+            result .= "+"
+        result .= modName
+    }
+    if (mainKey != "") {
+        if (result != "")
+            result .= "+"
+        result .= mainKey
+    }
+    return result
+}
+
 CheckContainText(source, text) {
     ; 返回布尔值：true 表示包含，false 表示不包含
     return RegExMatch(source, text)
@@ -1787,17 +1856,20 @@ CustomMsgBox(Text := "", Title := "", Buttons := "") {
     MyGui.OnEvent("Close", GuiClose)
     MyGui.OnEvent("Escape", GuiClose)
 
-    ; 添加提示文本
-    MyGui.Add("Text", "w300 Center", Text)
+    ; 添加提示文本（支持多行）
+    MyGui.Add("Text", "w360 Center", Text)
 
-    ; 动态创建按钮 - 统一 Y 坐标
+    ; 动态创建按钮 - 统一 Y 坐标；按文案略增宽，避免「强行切换」等被裁切
     ButtonWidth := 80
+    for btnText in ButtonArray
+        ButtonWidth := Max(ButtonWidth, StrLen(btnText) * 14 + 16)
     ButtonHeight := 30
     ButtonSpacing := 10
-    ButtonY := 40  ; 统一的 Y 坐标位置
+    ButtonY := 55
 
     TotalWidth := (ButtonWidth * ButtonCount) + (ButtonSpacing * (ButtonCount - 1))
-    StartX := (300 - TotalWidth) // 2  ; 居中显示
+    dialogW := Max(380, TotalWidth + 40)
+    StartX := (dialogW - TotalWidth) // 2
 
     loop ButtonCount {
         CurrentX := StartX + (ButtonWidth + ButtonSpacing) * (A_Index - 1)
@@ -1806,7 +1878,7 @@ CustomMsgBox(Text := "", Title := "", Buttons := "") {
     }
 
     ; 显示 GUI 并等待
-    MyGui.Show()
+    MyGui.Show("w" dialogW)
 
     ; 等待用户选择
     while Result == -1

@@ -246,9 +246,12 @@ class MacroEditGui {
         PosX += 85
         isHotKey := CheckIsNormalHotKey(MainSoftData.ToolRecordMacroHotKey)
         CtrlType := isHotKey ? "Hotkey" : "Text"
-        con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 130), MainSoftData.ToolRecordMacroHotKey
+        con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 100), MainSoftData.ToolRecordMacroHotKey
         )
         con.Enabled := false
+        PosX += 105
+        graphBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX, PosY - 5, 80, 26), GetLang("图形节点"))
+        graphBtn.OnEvent("Click", this.OnSwitchToGraphEditor.Bind(this))
 
         PosX := 210
         PosY += 25
@@ -407,6 +410,21 @@ class MacroEditGui {
         UIControls.RecordToggle := this.RecordMacroCon
         MainSoftData.MacroEditGui := this
         OnHotToolRecordMacro(true)
+    }
+
+    ; 切换到图形节点编辑器（先回写当前宏内容）
+    OnSwitchToGraphEditor(*) {
+        macroStr := this.GetMacroStr()
+        macroStr := GetLangMacro(macroStr, 2)
+        sureAction := this.SureBtnAction
+        if (sureAction != "")
+            sureAction(macroStr)
+        this.SureBtnAction := ""
+        this.OnGuiClose()
+
+        MyMacroGraphGui.OwnerHwnd := ""
+        MyMacroGraphGui.SureBtnAction := sureAction
+        MyMacroGraphGui.ShowGui(macroStr)
     }
 
     OnSaveBtnClick() {

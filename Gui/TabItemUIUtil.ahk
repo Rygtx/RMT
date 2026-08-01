@@ -550,13 +550,8 @@ OnItemMenuMacroSettingClick(tableItem, index, *) {
     MyMenuMacroSettingGui.ShowGui(tableItem.Index, index)
 }
 
-OnItemEditMacro(tableItem, index, *) {
-    macro := tableItem.MacroArr[index]
-
-    SureAction(sureMacro) {
-        tableItem.MacroArr[index] := sureMacro
-    }
-
+; 打开逻辑树（宏指令）编辑器
+OpenItemMacroTreeEditor(tableItem, index, macro, SureAction) {
     MySoftData.SpecialTableItem.ModeArr[1] := tableItem.ModeArr[index]
     if (MyMacroGui.Gui != "") {
         style := WinGetStyle(MyMacroGui.Gui.Hwnd)
@@ -576,17 +571,31 @@ OnItemEditMacro(tableItem, index, *) {
     MyMacroGui.ShowGui(macro, true)
 }
 
-;右键编辑按钮：打开节点化（蓝图式）宏编辑界面
-OnItemEditMacroGraph(tableItem, index, *) {
+; 打开图形节点编辑器
+OpenItemMacroGraphEditor(macro, SureAction) {
+    MyMacroGraphGui.OwnerHwnd := ""
+    MyMacroGraphGui.SureBtnAction := SureAction
+    MyMacroGraphGui.ShowGui(macro)
+}
+
+; 编辑按钮：空宏按「首选编辑器」；已有配置则看首条是否图形开始节点
+OnItemEditMacro(tableItem, index, *) {
     macro := tableItem.MacroArr[index]
 
     SureAction(sureMacro) {
         tableItem.MacroArr[index] := sureMacro
     }
 
-    MyMacroGraphGui.OwnerHwnd := ""
-    MyMacroGraphGui.SureBtnAction := SureAction
-    MyMacroGraphGui.ShowGui(macro)
+    useGraph := false
+    if (IsEmptyMacroStr(macro))
+        useGraph := (Integer(MainSoftData.PreferredMacroEditor) == 2)
+    else
+        useGraph := IsMacroFirstCmdGraphStart(macro)
+
+    if (useGraph)
+        OpenItemMacroGraphEditor(macro, SureAction)
+    else
+        OpenItemMacroTreeEditor(tableItem, index, macro, SureAction)
 }
 
 OnItemEditReplaceKey(tableItem, index, *) {
@@ -1088,8 +1097,6 @@ GetItemConObj(tableItem, itemIndex) {
     TabItemOnEvent(ItemConObj.TKBtnCon, "ContextMenu", OnItemCustomEditTriggerStr.bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.SettingCon, "Click", OnItemEditMacroSetting.bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.EditCon, "Click", EditMacroAction.bind(tableItem, itemIndex))
-    if (isMacro)
-        TabItemOnEvent(ItemConObj.EditCon, "ContextMenu", OnItemEditMacroGraph.bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.PreCon, "Click", OnItemMoveUp.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.NextCon, "Click", OnItemMoveDown.Bind(tableItem, itemIndex))
     TabItemOnEvent(ItemConObj.CopyCon, "Click", OnItemCopyMacroBtnClick.bind(tableItem, itemIndex))

@@ -261,6 +261,15 @@ OnClickModalSubGuiHelpBtn(*) {
     MsgBox(str, GetLang("模态子窗口说明"))
 }
 
+OnClickCheckForegroundHelpBtn(*) {
+    str1 := GetLang("开启后：宏运行时会检查该项配置的前台窗口；若当前前台窗口不匹配，则终止该宏。")
+    str2 := GetLang("关闭后：不校验前台窗口，宏按原逻辑继续执行。")
+    str3 := GetLang("提示：需在对应宏项中配置「前台」信息后才会生效；未配置前台信息的宏不受此选项影响。")
+
+    str := Format("{}`n{}`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("仅前台运行宏说明"))
+}
+
 OnClickAdminStartHelpBtn(*) {
     str1 := GetLang("开启后：软件会以管理员身份启动。部分功能（如后台键鼠、部分游戏按键模拟等）需要管理员权限才能生效。")
     str2 := GetLang("若同时开启开机自启，自启时也会以管理员身份启动。")

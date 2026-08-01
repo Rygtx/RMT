@@ -7,6 +7,7 @@ class EditHotkeyGui {
         this.KeyCon := ""
         this.OnlyTriggerKey := false
         this.TriggerStrBtnCon := ""
+        this.AfterSureAction := ""  ; 确认选择后回调 (可选)
     }
 
     ShowGui(ShowCon, KeyCon, OnlyTriggerKey) {
@@ -63,6 +64,12 @@ class EditHotkeyGui {
         this.KeyCon.Enabled := false
         this.KeyCon.Visible := true
         this.ShowCon.Visible := false
+        try this.ShowCon.Value := sureTriggerStr
+        if (this.AfterSureAction != "") {
+            cb := this.AfterSureAction
+            this.AfterSureAction := ""
+            cb(sureTriggerStr)
+        }
     }
 
     OnHotStrSureBtn(sureTriggerStr) {
@@ -70,6 +77,12 @@ class EditHotkeyGui {
         this.KeyCon.Enabled := false
         this.KeyCon.Visible := true
         this.ShowCon.Visible := false
+        try this.ShowCon.Value := sureTriggerStr
+        if (this.AfterSureAction != "") {
+            cb := this.AfterSureAction
+            this.AfterSureAction := ""
+            cb(sureTriggerStr)
+        }
     }
 }
 

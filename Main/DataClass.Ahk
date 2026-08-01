@@ -183,6 +183,10 @@ class MainConfig {
         ; ========== 手柄 ==========
         this.JoyType := "Xbox"          ; 手柄类型 (Xbox/PS5)
 
+        ; ========== 宏编辑器 ==========
+        ; 新建空宏时的首选编辑器：1=逻辑树，2=图形节点
+        this.PreferredMacroEditor := 1
+
         ; ========== 提示选项 ==========
         this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒
 

@@ -9,8 +9,9 @@
 ;       解析 CurCMD 实时获得（见 _Parse）。
 ;
 ; 交互：
-;   - 表格行"编辑"按钮右键进入（左键仍为旧的顺序编辑器）。
-;   - 右上角"保存"按钮：保存并关闭界面。
+;   - 表格行"编辑"：空宏按首选编辑器；首条为图形开始节点时进入本编辑器。
+;   - 左上角「逻辑树」：保存后切换到逻辑树编辑器（多链路需确认强行切换）。
+;   - 右下角「保存」：持久化图结构并回写 MacroArr（不关闭）。
 ;   - 画布空白处右键：弹出若梦兔全部指令菜单，点击生成对应节点。
 ;       · 间隔 / 按键：生成可内联编辑的完整节点。
 ;       · 其它指令：先生成临时节点（占位，后续完善）。
@@ -111,6 +112,7 @@ class MacroGraphGui {
         this.OnClosedAction := ""     ; 窗口关闭后回调（嵌套分支编辑器用于通知父图刷新）
         this._shotNodeId := ""        ; 正在执行截图取色的搜索节点ID（截图剪贴板回调用）
         this._searchClipAction := ObjBindMethod(this, "_SearchCheckClipboard") ; 截图剪贴板轮询回调（稳定引用，便于 SetTimer 开关）
+        this._suppressCloseApply := false ; 切换到逻辑树时跳过关闭时的 _Apply，避免覆盖已写回的线性宏
     }
 
     ; 指令图标的绝对路径（正斜杠，供 WPF Image.Source 使用）；不存在则返回空
@@ -194,8 +196,11 @@ class MacroGraphGui {
         this.graph := root.NodeGraph("RMTGraph")
         this._HookGraphIfProPaths()
 
-        ; 右上角保存按钮（覆盖在画布之上）
-        root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("#2E6E3E").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
+        ; 左上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
+        ; 右下角：保存
+        if (this.OnClosedAction == "")
+            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Left").VerticalAlignment("Top").Margin("16,12,0,0").Width("90").Height("32").Background("#3A5A8C").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
+        root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("#2E6E3E").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
         this._StaticSpreadExpandedSearches()
@@ -278,6 +283,8 @@ class MacroGraphGui {
         ; 右键（未拖动画布）时：更新菜单项状态后手动弹出右键菜单
         this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._OpenContextMenu())
         this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
+        if (this.OnClosedAction == "")
+            this.ui.OnEvent("MG_BtnToTree", "Click", (*) => this._OnSwitchToTree())
         this.ui.OnEvent("Window", "PreviewKeyDown", this._OnKeyDown.Bind(this))
         sid := this._sessionId
         this.ui.OnEvent("Window", "Closed", (*) => this.OnWindowClosed(sid))
@@ -319,10 +326,38 @@ class MacroGraphGui {
         }
     }
 
-    ; 保存：仅持久化图结构并回写线性宏（从第一个节点开始），不关闭编辑界面
+    ; 保存：仅持久化图结构并回写开始节点 SerialStr，不关闭编辑界面
     _OnSave() {
         this._SaveGraph()
         this._Apply()
+    }
+
+    ; 切换到逻辑树：单链路直接切换；多链路（不含搜索/如果真假分支）需确认强行切换
+    _OnSwitchToTree() {
+        this._SaveGraph()
+        if (HasGraphMultiBranch(this.startSerial)) {
+            tip := GetLang("多链路指令无法切换到逻辑树编辑器") "`n"
+                . GetLang("强行切换非第一链路的配置将丢失")
+            choice := CustomMsgBox(tip, GetLang("提示"), GetLang("取消") "|" GetLang("强行切换"))
+            if (choice != 2)
+                return
+        }
+
+        linear := GraphStartToLinearMacro(this.startSerial)
+        sureAction := this.SureBtnAction
+        if (sureAction != "")
+            sureAction(linear)
+
+        ; 关闭时跳过 _Apply，避免把已写回的线性宏再次覆盖成图形开始节点
+        ; （Closed 可能异步到达，标志在 OnWindowClosed 内清除）
+        this._suppressCloseApply := true
+        this.SureBtnAction := ""
+        this._CloseUI()
+
+        MyMacroGui.SureFocusCon := MainSoftData.BtnSave
+        MyMacroGui.SureBtnAction := sureAction
+        MyMacroGui.SaveBtnAction := OnSaveSetting
+        MyMacroGui.ShowGui(linear, true)
     }
 
     OnWindowClosed(sid := -1, *) {
@@ -330,8 +365,12 @@ class MacroGraphGui {
         if (sid != this._sessionId)
             return
         SetTimer(this._readyTimer, 0)
-        this._SaveGraph()
-        this._Apply()
+        skipApply := this._suppressCloseApply
+        this._suppressCloseApply := false
+        if (!skipApply) {
+            this._SaveGraph()
+            this._Apply()
+        }
         this.ui := ""
         this.graph := ""
         if (this.OnClosedAction != "") {

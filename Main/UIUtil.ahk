@@ -368,10 +368,15 @@ AddToolUI(index) {
     MySoftData.TableInfo[index].UnderPosY := posY
 }
 
-; 编辑快捷键后同步隐藏Text控件的值到 MainSoftData
+; 编辑快捷键：确认选择后再同步到 MainSoftData（以及显示控件）
 OnEditHotkeyAndSync(showCon, keyCon, OnlyTriggerKey, fieldName, *) {
+    SyncAfterSure(val) {
+        MainSoftData.%fieldName% := val
+        try showCon.Value := val
+        try keyCon.Value := val
+    }
+    MyEditHotkeyGui.AfterSureAction := SyncAfterSure
     OnOpenEditHotkeyGui(showCon, keyCon, OnlyTriggerKey)
-    MainSoftData.%fieldName% := keyCon.Value
 }
 
 ;设置
@@ -381,97 +386,8 @@ AddSettingUI(index) {
     posY := MainSoftData.TabPosY
     posX := MainSoftData.TabPosX
 
+    ; 快捷键改由功能选项「快捷键」XAML 界面编辑，设置页不再展示「快捷键修改」模块
     posY += 30
-    posX := MainSoftData.TabPosX
-    con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("快捷键修改"), tableItem)
-    tableItem.AllGroup.Push(con)
-
-    posY += 30
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("软件休眠："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.SuspendHotkey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MainSoftData.SuspendHotkey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), MainSoftData.SuspendHotkey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, true, "SuspendHotkey"))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("暂停宏："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.PauseHotkey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MainSoftData.PauseHotkey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), MainSoftData.PauseHotkey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "PauseHotkey"))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 605, posY), GetLang("终止宏："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.KillMacroHotkey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), MainSoftData.KillMacroHotkey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 680, posY), MainSoftData.KillMacroHotkey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "KillMacroHotkey"))
-
-    posY += 40
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令录制："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.ToolRecordMacroHotKey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MainSoftData.ToolRecordMacroHotKey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), MainSoftData.ToolRecordMacroHotKey,
-    tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "ToolRecordMacroHotKey"))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("文本提取："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.ToolTextFilterHotKey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MainSoftData.ToolTextFilterHotKey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), MainSoftData.ToolTextFilterHotKey,
-    tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "ToolTextFilterHotKey"))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 605, posY), GetLang("屏幕截图："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.ScreenShotHotKey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 680, posY - 4), MainSoftData.ScreenShotHotKey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 680, posY), MainSoftData.ScreenShotHotKey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 815, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "ScreenShotHotKey"))
-
-    posY += 40
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("自由贴："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.FreePasteHotKey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 100, posY - 4), MainSoftData.FreePasteHotKey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 100, posY), MainSoftData.FreePasteHotKey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 235, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "FreePasteHotKey"))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("鼠标信息："), tableItem)
-    CtrlType := GetHotKeyCtrlType(MainSoftData.ToolCheckHotkey)
-    showCon := AddTableControl(CtrlType, Format("x{} y{} w130", posX + 385, posY - 4), MainSoftData.ToolCheckHotkey,
-    tableItem)
-    showCon.Enabled := false
-    keyCon := AddTableControl("Text", Format("x{} y{} w130", posX + 385, posY), MainSoftData.ToolCheckHotkey, tableItem)
-    keyCon.Visible := false
-    con := AddTableControl("Button", Format("x{} y{} center w50", posX + 520, posY - 5), GetLang("编辑"), tableItem)
-    con.OnEvent("Click", OnEditHotkeyAndSync.Bind(showCon, keyCon, false, "ToolCheckHotkey"))
-
-    posY += 40
     posX := MainSoftData.TabPosX
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("数值选项"), tableItem)
     tableItem.AllGroup.Push(con)
@@ -543,6 +459,8 @@ AddSettingUI(index) {
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("仅前台运行宏"), tableItem)
     con.Value := MainSoftData.CheckForeground
     con.OnEvent("Click", (ctrl, info) => MainSoftData.CheckForeground := ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 755, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickCheckForegroundHelpBtn)
 
     posY += 40
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("无变量提醒"), tableItem)
@@ -563,7 +481,8 @@ AddSettingUI(index) {
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
-    ;语言/Lang： 如果外国人打开中文的话，或者中国人打开英语，方便都能找到调整的选项
+    ; 顺序：语言、首选编辑器、软件字体 / 截图方式、手柄类型、按下时按下
+    ; 语言/Lang：方便不同语言用户都能找到切换入口
     posY += 30
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：", tableItem)
     con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), [], tableItem)
@@ -572,56 +491,65 @@ AddSettingUI(index) {
     con.Text := MainSoftData.Lang
     con.OnEvent("Change", (ctrl, info) => MainSoftData.Lang := ctrl.Text)
 
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("软件字体："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w180", posX + 390, posY - 4), [], tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("首选编辑器") "：", tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), GetLangArr(["逻辑树", "图形节点"]), tableItem)
+    con.Value := MainSoftData.PreferredMacroEditor
+    con.OnEvent("Change", (ctrl, info) => MainSoftData.PreferredMacroEditor := Integer(ctrl.Value))
+
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("软件字体："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), [], tableItem)
     con.Delete()
     con.Add(MainSoftData.FontList)
     con.Text := MainSoftData.FontType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.FontType := ctrl.Text)
 
-    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("截图方式："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), GetLangArr(["微软截图",
+    posY += 40
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("截图方式："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), GetLangArr(["微软截图",
         "RMT截图", "SC截图"]), tableItem)
     con.Value := MainSoftData.ScreenShotType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.ScreenShotType := ctrl.Value)
-
-    posY += 40
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("按下时按下："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), GetLangArr(["自动松开", "忽略重复按下",
-        "允许重复按下"]), tableItem)
-    con.Value := MainSoftData.KeyDownDownType
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.KeyDownDownType := ctrl.Value)
-    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 231, posY - 5), "?", tableItem)
-    Con.OnEvent("Click", OnClickKeyDownDownHelpBtn)
 
     AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("手柄类型："), tableItem)
     con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), ["Xbox", "PS5"], tableItem)
     con.Text := MainSoftData.JoyType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.JoyType := ctrl.Text)
 
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("按下时按下："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), GetLangArr(["自动松开", "忽略重复按下",
+        "允许重复按下"]), tableItem)
+    con.Value := MainSoftData.KeyDownDownType
+    con.OnEvent("Change", (ctrl, info) => MainSoftData.KeyDownDownType := ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 831, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickKeyDownDownHelpBtn)
+
     posY += 40
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h110", posX + 10, posY), GetLang("功能选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
+    ; 顺序：主题、快捷键、指令录制 / 轮盘、界面浮窗、指令显示
     posY += 30
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("主题选项"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("主题"), tableItem)
     con.OnEvent("Click", (*) => ThemeSettingGui.ShowGui())
 
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("录制选项"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("快捷键"), tableItem)
+    con.OnEvent("Click", (*) => HotkeySettingGui.ShowGui())
+
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("指令录制"), tableItem)
     con.OnEvent("Click", OnClickToolRecordSettingBtn)
 
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("轮盘选项"), tableItem)
+    posY += 40
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("轮盘"), tableItem)
     con.OnEvent("Click", (*) => MenuWheelGlobalSettingGui.ShowGui())
 
-    posY += 40
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("界面浮窗"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("界面浮窗"), tableItem)
     con.OnEvent("Click", (*) => UIMacroPanelSettingGui.ShowGui())
 
-    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 315, posY), "", tableItem)
+    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "", tableItem)
     UIControls.CMDTip := con
     con.Value := MySoftData.CMDTip
     con.OnEvent("Click", (ctrl, info) => MySoftData.CMDTip := ctrl.Value)
-    con := AddTableControl("Button", Format("x{} y{}", posX + 315 + 15, posY - 5), GetLang("指令显示"), tableItem)
+    con := AddTableControl("Button", Format("x{} y{}", posX + 635 + 15, posY - 5), GetLang("指令显示"), tableItem)
     con.OnEvent("Click", (*) => CMDTipSettingGui.ShowGui())
 
     posY += 30

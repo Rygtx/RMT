@@ -195,3 +195,105 @@ OnTriggerGraphMacro(tableItem, startSerial, index) {
 ; 主进程占位；Worker 中由 WrokGlobalUtil 覆盖为 WorkSubmitGraphBranches
 SubmitGraphBranchesHandler(tableIndex, itemIndex, branchCount, nodeSerialArr, *) {
 }
+
+; ---------- 编辑器切换辅助（逻辑树 ↔ 节点图）----------
+
+; 是否为「图形开始节点」序列码
+IsGraphStartSerial(serialStr) {
+    if (serialStr == "")
+        return false
+    SplitSerialTextAndNumbers(serialStr, &t, &n)
+    return t == GetLangKey("图形开始节点") && n != ""
+}
+
+; 宏内容为空（新建未配置）
+IsEmptyMacroStr(macroStr) {
+    return Trim(macroStr) == ""
+}
+
+; 宏首条指令是否为图形开始节点（用于决定打开哪种编辑器）
+IsMacroFirstCmdGraphStart(macroStr) {
+    macroStr := Trim(macroStr)
+    if (macroStr == "")
+        return false
+    if (IsGraphStartSerial(macroStr))
+        return true
+    cmdArr := SplitMacro(macroStr)
+    if (cmdArr.Length < 1)
+        return false
+    return IsGraphStartSerial(cmdArr[1])
+}
+
+; 顶层图是否存在「多后继」分叉（NodeArr / NextNodeArr 长度>1，或存在 EmptyNode）。
+; 搜索/如果的真假分支存在 TrueMacro/FalseMacro 中，不计入此处。
+HasGraphMultiBranch(startSerial) {
+    if (!IsGraphStartSerial(startSerial))
+        return false
+    startData := GetMacroCMDData(startSerial)
+    if (!IsObject(startData))
+        return false
+    nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
+    if (nodeArr.Length > 1)
+        return true
+    emptyArr := (startData.HasOwnProp("EmptyNode") && IsObject(startData.EmptyNode)) ? startData.EmptyNode : []
+    if (emptyArr.Length > 0)
+        return true
+
+    ; 广度遍历：任一节点 NextNodeArr 多后继即视为多链路
+    queue := []
+    visited := Map()
+    for s in nodeArr {
+        if (s != "" && !visited.Has(s)) {
+            visited[s] := true
+            queue.Push(s)
+        }
+    }
+    qi := 1
+    while (qi <= queue.Length) {
+        cur := queue[qi++]
+        nd := GetMacroCMDData(cur)
+        if (!IsObject(nd))
+            continue
+        nexts := (nd.HasOwnProp("NextNodeArr") && IsObject(nd.NextNodeArr)) ? nd.NextNodeArr : []
+        if (nexts.Length > 1)
+            return true
+        for ns in nexts {
+            if (ns != "" && !visited.Has(ns)) {
+                visited[ns] := true
+                queue.Push(ns)
+            }
+        }
+    }
+    return false
+}
+
+; 将图形开始节点压成线性宏串：只沿第一链路（NodeArr[1] → 各 NextNodeArr[1]）
+; 多链路时非第一链路内容会丢失；搜索/如果指令本身仍保留其 TrueMacro/FalseMacro 引用
+GraphStartToLinearMacro(startSerial) {
+    result := []
+    if (!IsGraphStartSerial(startSerial)) {
+        for cmd in SplitMacro(startSerial) {
+            if (cmd != "")
+                result.Push(cmd)
+        }
+        return GetMacroStrByCmdArr(result)
+    }
+    startData := GetMacroCMDData(startSerial)
+    if (!IsObject(startData))
+        return ""
+    nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
+    cur := nodeArr.Length >= 1 ? nodeArr[1] : ""
+    visited := Map()
+    while (cur != "" && !visited.Has(cur)) {
+        visited[cur] := true
+        nd := GetMacroCMDData(cur)
+        if (!IsObject(nd))
+            break
+        cmd := nd.HasOwnProp("CurCMD") ? nd.CurCMD : ""
+        if (cmd != "")
+            result.Push(cmd)
+        nexts := (nd.HasOwnProp("NextNodeArr") && IsObject(nd.NextNodeArr)) ? nd.NextNodeArr : []
+        cur := nexts.Length >= 1 ? nexts[1] : ""
+    }
+    return GetMacroStrByCmdArr(result)
+}
