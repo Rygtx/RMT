@@ -543,36 +543,48 @@ class UIMacroGui {
         if (this.IsCreating)
             return
 
-        ; ====== 前置守卫：窗口跟随模式必须先通过前台激活检查 ======
         tableItem := MySoftData.TableInfo[4]
-        targetHwnd := 0
-        if (tableItem && tableItem.FoldInfo) {
+        ; 每次触发实时读取，避免编辑前台后仍用旧判断
+        frontInfo := ""
+        if (tableItem && tableItem.FoldInfo && foldIndex <= tableItem.FoldInfo.FrontInfoArr.Length)
             frontInfo := tableItem.FoldInfo.FrontInfoArr[foldIndex]
-            if (frontInfo != "") {
-                targetHwnd := this.ResolveTargetHwnd(frontInfo)
-                if (targetHwnd) {
-                    ; 目标窗口存在 → 必须在前台才允许操作面板
-                    activeHwnd := WinGetID("A")
-                    if (activeHwnd != targetHwnd)
-                        return
-                } else {
-                    ; 目标窗口不存在 → 不允许操作
-                    return
+
+        targetHwnd := 0
+        panelKey := foldIndex
+
+        ; ====== 前置守卫：有前台信息时，以鼠标所在窗口为准（不用焦点窗口） ======
+        ; 与按键宏 TriggerKeyData / TimingUtil 一致，走 MyMouseInfo.CheckIfMatch
+        if (frontInfo != "") {
+            if (MyMouseInfo.CheckIfMatch(frontInfo, true)) {
+                ; 鼠标在对应前台窗口上 → 允许开关该实例
+                targetHwnd := Integer(MyMouseInfo.WinId)
+                panelKey := foldIndex "|" targetHwnd
+            } else {
+                ; 鼠标在本模块浮窗上：仅当该浮窗绑定的目标仍匹配当前前台信息时允许
+                ; （方便在按钮上按触发键隐藏；目标已不符则视为非对应前台，无效）
+                mouseHwnd := MyMouseInfo.HasError ? 0 : Integer(MyMouseInfo.WinId)
+                matched := false
+                if (mouseHwnd) {
+                    for key, panelInfo in this.PanelMap {
+                        if (panelInfo.foldIndex != foldIndex || panelInfo.wpfHwnd != mouseHwnd)
+                            continue
+                        if (panelInfo.targetHwnd && this.IsHwndMatchFrontInfo(panelInfo.targetHwnd, frontInfo)) {
+                            targetHwnd := panelInfo.targetHwnd
+                            panelKey := key
+                            matched := true
+                        }
+                        break
+                    }
                 }
+                if (!matched)
+                    return
             }
         }
 
-        ; 面板键：有目标窗口则用 foldIndex|hwnd（与自动面板共享同一个实例）
-        panelKey := targetHwnd ? (foldIndex "|" targetHwnd) : foldIndex
-
         if (!this.PanelMap.Has(panelKey)) {
-            if (targetHwnd) {
+            if (targetHwnd)
                 this.CreateAutoPanel(foldIndex, panelKey, targetHwnd)
-                ; 手动快捷键触发需要激活面板
-                if (this.PanelMap.Has(panelKey)) {
-                    try WinActivate("ahk_id " this.PanelMap[panelKey].wpfHwnd)
-                }
-            } else
+            else
                 this.CreatePanel(foldIndex)
             return
         }
@@ -605,7 +617,8 @@ class UIMacroGui {
 
         if (panelInfo.visible) {
             panelInfo.userClosed := false ; 重新打開時清除手動關閉標記
-            DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 1)          ; SW_SHOW
+            ; SW_SHOWNA：显示但不抢焦点，保持鼠标下仍是目标窗，下次触发判断更稳定
+            DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 8)
             this.ApplyPanelPosition(panelInfo)
             ; 更新偏移量（窗口跟随模式）
             if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
@@ -620,6 +633,17 @@ class UIMacroGui {
             panelInfo.userClosed := true ; 標記為：使用者主動關閉
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 0)
         }
+    }
+
+    ; 销毁指定模块的全部面板（前台信息变更时清理旧目标实例）
+    DestroyFoldPanels(foldIndex) {
+        keys := []
+        for key, panelInfo in this.PanelMap {
+            if (panelInfo.foldIndex == foldIndex)
+                keys.Push(key)
+        }
+        for key in keys
+            this.DestroyPanel(key)
     }
 
     ; 销毁面板（严格对齐 floating_panel ClosePanel L515-523）
@@ -673,7 +697,7 @@ class UIMacroGui {
                 } else if (targetVisible && !panelInfo.visible && (panelInfo.HasProp("targetWasHidden") && panelInfo.targetWasHidden)) {
                     panelInfo.visible := true
                     panelInfo.targetWasHidden := false
-                    DllCall("user32\ShowWindow", "Ptr", panelInfo.wpfHwnd, "Int", 1) ; SW_SHOW
+                    DllCall("user32\ShowWindow", "Ptr", panelInfo.wpfHwnd, "Int", 8) ; SW_SHOWNA
                     this.ApplyPanelPosition(panelInfo)
                 }
             }

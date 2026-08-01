@@ -630,13 +630,28 @@ OnFoldRemarkChange(tableItem, con, *) {
 OnFoldFrontInfoChange(tableItem, con, *) {
     foldInfo := tableItem.FoldInfo
     foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
-    foldInfo.FrontInfoArr[foldIndex] := con.text
+    oldInfo := foldInfo.FrontInfoArr[foldIndex]
+    newInfo := con.Value
+    if (oldInfo == newInfo)
+        return
+    foldInfo.FrontInfoArr[foldIndex] := newInfo
+    ; 前台信息变更后清理该模块旧面板，避免仍按旧目标窗口开关
+    if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
+        MyUIMacroGui.DestroyFoldPanels(foldIndex)
 }
 
 OnFoldFrontInfoEdit(tableItem, FrontCon, con, *) {
     foldInfo := tableItem.FoldInfo
     foldIndex := tableItem.ConIndexMap[con].itemConInfo.FoldIndex
-    MyFrontInfoGui.SureAction := () => foldInfo.FrontInfoArr[foldIndex] := FrontCon.text
+    SureAction() {
+        ; FrontInfoGui.OnSure 已写入 FrontCon.Value；这里再同步一次到 FoldInfo
+        newInfo := FrontCon.Value
+        oldInfo := foldInfo.FrontInfoArr[foldIndex]
+        foldInfo.FrontInfoArr[foldIndex] := newInfo
+        if (oldInfo != newInfo && IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
+            MyUIMacroGui.DestroyFoldPanels(foldIndex)
+    }
+    MyFrontInfoGui.SureAction := SureAction
     MyFrontInfoGui.ShowGui(FrontCon, true)
 }
 
