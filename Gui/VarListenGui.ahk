@@ -1,140 +1,359 @@
 ﻿#Requires AutoHotkey v2.0
 #Include VarModifyGui.ahk
 
-class VarListenGui {
-    __new() {
-        this.Gui := ""
-        this.ModifyGui := VarModifyGui()
-        this.TopCon := ""
-        this.LVCon := ""
+; 兼容外部对 .Gui.Hwnd / .Show / .Hide / .GetPos 的调用
+class VarListenGuiFacade {
+    __New(owner) {
+        this._owner := owner
     }
 
-    ShowGui() {
-        if (this.Gui != "") {
-            this.Gui.Show()
+    Hwnd {
+        get => (IsObject(this._owner.ui) && this._owner.ui.HasProp("wpfHwnd")) ? this._owner.ui.wpfHwnd : 0
+    }
+
+    Show(opts := "") {
+        this._owner._ShowExisting(opts)
+    }
+
+    Hide() {
+        this._owner._HideWindow()
+    }
+
+    GetPos(&x := 0, &y := 0, &w := 0, &h := 0) {
+        hwnd := this.Hwnd
+        if (!hwnd) {
+            x := 0, y := 0, w := 0, h := 0
+            return
         }
-        else {
-            this.AddGui()
+        WinGetPos(&x, &y, &w, &h, "ahk_id " hwnd)
+    }
+}
+
+class VarListenGui {
+    static instances := Map()
+    static _opening := false
+
+    __new() {
+        this.ui := 0
+        this.Gui := ""
+        this.closed := true
+        this.ModifyGui := VarModifyGui()
+        this._topOn := false
+        this._applyingUI := false
+        this._rowKeys := []          ; 当前列表顺序对应的 key（数组前缀 ε）
+        this._btnStyle := ""
+        this._lastClickTick := 0
+        this._lastClickRow := 0
+        this._initX := ""            ; 物理像素；建窗前写入，避免先居中再跳位
+        this._initY := ""
+    }
+
+    ; x/y 为物理像素（与 ListenVarPos / 旧 AHK Gui 一致）；省略则居中
+    ShowGui(x := "", y := "") {
+        this._initX := (x != "" && IsNumber(x)) ? Integer(x) : ""
+        this._initY := (y != "" && IsNumber(y)) ? Integer(y) : ""
+
+        if (!this.closed && IsObject(this.ui) && XAMLHost.CanReuseWindow(this.ui.HasProp("wpfHwnd") ? this.ui.wpfHwnd : 0)) {
+            opts := ""
+            if (this._initX != "" && this._initY != "")
+                opts := Format("x{} y{}", this._initX, this._initY)
+            this._ShowExisting(opts)
+            this._topOn := !!MainSoftData.VarListenTop
+            this._ApplyTopMost()
+            this.Refresh()
+            return
         }
-        
-        this.TopCon.Value := MainSoftData.VarListenTop
-        this.OnTogTop()
+
+        XAMLHost.EnsureDaemonHealthy()
+        if (VarListenGui._opening)
+            return
+        VarListenGui._opening := true
+        try {
+            this._BuildAndShow()
+        } finally {
+            VarListenGui._opening := false
+        }
+
+        this._topOn := !!MainSoftData.VarListenTop
+        this._ApplyTopMost()
         IniWrite(true, IniFile, IniSection, "IsOpenListenVar")
         this.Refresh()
-        this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
-    Refresh() {
-        if (!IsObject(this.Gui))
-            return
+    _BuildAndShow() {
+        this.closed := false
+        title := GetLang("变量监视器")
+        titleHeight := "36"
+        this._btnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
 
-        style := WinGetStyle(this.Gui)
-        isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-        if (!isVisible)
-            return
+        ; 配置/WinGetPos 为物理像素，XAML 宽高为 DIP
+        winW := PhysToDip(Integer(MainSoftData.VarListenWidth))
+        winH := PhysToDip(Integer(MainSoftData.VarListenHeight))
+        minW := PhysToDip(400)
+        minH := PhysToDip(420)
+        if (winW < minW)
+            winW := minW
+        if (winH < minH)
+            winH := minH
 
-        this.LVCon.Opt("-Redraw")
-        count := this.LVCon.GetCount()
-        LVKeys := Map()
-        loop count {
-            row := count - A_Index + 1
-            key := LTrim(this.LVCon.GetText(row, 1), "ε")
-            value := this.LVCon.GetText(row, 3)
-            if (!MySoftData.VariableMap.Has(key) && !MySoftData.ArrayMap.Has(key))
-                this.LVCon.Delete(row)
-            else if (MySoftData.VariableMap.Has(key) && String(MySoftData.VariableMap[key]) != value)
-                this.LVCon.Delete(row)
-            else if (MySoftData.ArrayMap.Has(key) && GetArrayStr(MySoftData.ArrayMap[key]) != value)
-                this.LVCon.Delete(row)
-            else
-                LVKeys[key] := True
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main.Rows(titleHeight, "Auto", "*")
+
+        ; 标题栏
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.InjectResources(CloseBtnTemplate)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; 置顶
+        topRow := main.Add("StackPanel").Orientation("Horizontal").Grid_Row(1).Margin("14, 8, 14, 4")
+        topRow.Add("CheckBox").Name("TopCon").Content(GetLang("窗口置顶"))
+            .Foreground("{DynamicResource TextMain}").FontSize(13)
+
+        ; 列表
+        listBorder := main.Add("Border").Grid_Row(2).Margin("14, 4, 14, 12")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}").CornerRadius("3")
+        listGrid := listBorder.Add("Grid")
+        listGrid.Rows("Auto", "*")
+
+        header := listGrid.Add("Grid").Grid_Row(0).Height(28).Background("{DynamicResource TitleBarColor}")
+        header.Cols("120", "60", "*")
+        header.Add("TextBlock").Text(GetLang("变量名")).Grid_Column(0)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .VerticalAlignment("Center").Margin("8,0,0,0")
+        header.Add("TextBlock").Text(GetLang("类型")).Grid_Column(1)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .VerticalAlignment("Center").HorizontalAlignment("Center")
+        header.Add("TextBlock").Text(GetLang("值")).Grid_Column(2)
+            .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
+            .VerticalAlignment("Center").Margin("8,0,0,0")
+
+        scroll := listGrid.Add("ScrollViewer").Grid_Row(1)
+            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
+        scroll.Add("StackPanel").Name("VarListPanel").Margin("2, 2, 2, 2")
+
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"',
+            'Title="' title '" ShowInTaskbar="True" Width="' winW '" Height="' winH '" MinWidth="' minW '" MinHeight="' minH '" Opacity="0"')
+        ; 有保存坐标时建窗即定位，避免先 CenterScreen 再跳转闪烁
+        if (this._initX != "" && this._initY != "") {
+            this.ui.xaml := StrReplace(this.ui.xaml, 'WindowStartupLocation="CenterScreen"',
+                Format('Left="{}" Top="{}" WindowStartupLocation="Manual"', PhysToDip(this._initX), PhysToDip(this._initY)))
         }
+        this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%',
+            '<CornerRadius x:Key="PanelRadius">8</CornerRadius><SolidColorBrush x:Key="ListAltBg" Color="#40000000" />')
 
-        ; 3) 添加 Map 中有但 LV 没有的项
-        for key, value in MySoftData.VariableMap {
-            if !LVKeys.Has(key) {
-                this.LVCon.Add(, key, GetLang("值"), value)
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("Window", "SizeChanged", ObjBindMethod(this, "OnWindowSize"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCloseClick"))
+        this.ui.Track("TopCon")
+        this.ui.OnEvent("TopCon", "Checked", ObjBindMethod(this, "OnTogTop"))
+        this.ui.OnEvent("TopCon", "Unchecked", ObjBindMethod(this, "OnTogTop"))
+
+        this.Gui := VarListenGuiFacade(this)
+        this.ui.Show()
+
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                break
             }
+            Sleep(50)
         }
-
-        ;key前面加一个空格，确保排在后面
-        for key, value in MySoftData.ArrayMap {
-            if !LVKeys.Has(key) {
-                this.LVCon.Add(, "ε" key, GetLang("数组"), GetArrayStr(value))
-            }
-        }
-        this.LVCon.Opt("+Redraw")
     }
 
-    AddGui() {
-        MyGui := Gui(, GetLang("变量监视器"))
-        this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
-        MyGui.Opt("+Resize")
-
-        PosX := 10
-        PosY := 10
-        this.TopCon := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("窗口置顶"))
-        this.TopCon.OnEvent("Click", this.OnTogTop.Bind(this))
-
-        PosX := 10
-        PosY += 30
-        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w380 h370 -LV0x10 NoSort Sort", PosX, PosY), GetLangArr([
-            "变量名", "类型", "值"]))
-        ; 设置列宽（单位：px）
-        this.LVCon.ModifyCol(1, 100) ; 第一列宽度
-        this.LVCon.ModifyCol(2, 50) ; 第一列宽度
-        this.LVCon.ModifyCol(3, 205) ; 自动填充剩余宽度
-        this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
-
-        MyGui.OnEvent("Close", this.OnClose.Bind(this))
-        MyGui.OnEvent("Size", this.OnResize.Bind(this))
-        pos := GetCenterPosOnActiveMonitor(MainSoftData.VarListenWidth, MainSoftData.VarListenHeight)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, MainSoftData.VarListenWidth, MainSoftData.VarListenHeight))
-        MyGui.Opt("+MinSize400x420")
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+            this._applyingUI := true
+            try this.ui.Update("TopCon", "IsChecked", this._topOn ? "True" : "False")
+            finally this._applyingUI := false
+            this._ApplyTopMost()
+        } finally {
+            this.ui.Update("Window", "Opacity", "1")
+        }
     }
 
-    OnClose(*) {
+    OnWindowClosing(state, ctrl, event) {
+        this._OnClosed()
+    }
+
+    OnCloseClick(state := unset, ctrl := unset, event := unset) {
+        if IsObject(this.ui)
+            this.ui.Update("Window", "Close", "")
+    }
+
+    _OnClosed() {
+        this.closed := true
+        VarListenGui._opening := false
+        this.ui := ""
+        this.Gui := ""
+        this._rowKeys := []
         if (MainSoftData.MacroEditGui != "" && MainSoftData.MacroEditGui.Gui != "") {
-            style := WinGetStyle(MainSoftData.MacroEditGui.Gui)
-            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-            if (isVisible) {
-                MainSoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
+            try {
+                style := WinGetStyle(MainSoftData.MacroEditGui.Gui)
+                if (style & 0x10000000)
+                    MainSoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
             }
         }
         IniWrite(false, IniFile, IniSection, "IsOpenListenVar")
-    }
-
-    OnResize(guiObj, MinMax, Width, Height) {
-        ; 留一点边距
-        margin := 10
-        ; ListView 自适应
-        this.LVCon.Move(
-            margin,
-            40,
-            Width - margin * 2,
-            Height - 50
-        )
-
-        IniWrite(Width, IniFile, IniSection, "VarListenWidth")
-        IniWrite(Height, IniFile, IniSection, "VarListenHeight")
-    }
-
-    OnTogTop(*) {
-        state := this.topCon.Value
-        if (state) {
-            this.Gui.Opt("+AlwaysOnTop")
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
         }
-        else {
-            this.Gui.Opt("-AlwaysOnTop")
-        }
-        IniWrite(state, IniFile, IniSection, "VarListenTop")
     }
 
-    OnDoubleClick(LV, RowNumber, *) {
-        isArray := SubStr(this.LVCon.GetText(RowNumber, 1), 1, 1) == "ε"
-        varName := LTrim(this.LVCon.GetText(RowNumber, 1), "ε")
-        curValue := this.LVCon.GetText(RowNumber, 3)
+    OnWindowSize(state := unset, ctrl := unset, event := unset) {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        if (!hwnd)
+            return
+        WinGetPos(, , &w, &h, "ahk_id " hwnd)
+        if (w > 0 && h > 0) {
+            MainSoftData.VarListenWidth := w
+            MainSoftData.VarListenHeight := h
+            IniWrite(w, IniFile, IniSection, "VarListenWidth")
+            IniWrite(h, IniFile, IniSection, "VarListenHeight")
+        }
+    }
+
+    OnTogTop(state := unset, ctrl := unset, event := unset) {
+        if (this._applyingUI)
+            return
+        if (IsSet(event))
+            this._topOn := (event == "Checked")
+        else if (IsSet(state) && IsObject(state) && state.Has("TopCon"))
+            this._topOn := (state["TopCon"] = "True" || state["TopCon"] = 1)
+        this._ApplyTopMost()
+        IniWrite(this._topOn, IniFile, IniSection, "VarListenTop")
+        MainSoftData.VarListenTop := this._topOn
+    }
+
+    _ApplyTopMost() {
+        if (!IsObject(this.ui))
+            return
+        try this.ui.Update("Window", "Topmost", this._topOn ? "True" : "False")
+        hwnd := this.ui.HasProp("wpfHwnd") ? this.ui.wpfHwnd : 0
+        if (hwnd)
+            try WinSetAlwaysOnTop(this._topOn ? 1 : 0, "ahk_id " hwnd)
+    }
+
+    _ShowExisting(opts := "") {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        if (!hwnd)
+            return
+        if (opts != "") {
+            ; Show("x.. y..") 传入的是物理像素（与旧 AHK Gui / ListenVarPos 一致）
+            if RegExMatch(opts, "i)x\s*(-?\d+)", &mx)
+                try this.ui.Update("Window", "Left", String(PhysToDip(mx[1])))
+            if RegExMatch(opts, "i)y\s*(-?\d+)", &my)
+                try this.ui.Update("Window", "Top", String(PhysToDip(my[1])))
+        }
+        try WinShow("ahk_id " hwnd)
+        try WinActivate("ahk_id " hwnd)
+    }
+
+    _HideWindow() {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        if (hwnd)
+            try WinHide("ahk_id " hwnd)
+    }
+
+    _IsVisible() {
+        hwnd := (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+        if (!hwnd || !WinExist("ahk_id " hwnd))
+            return false
+        try {
+            style := WinGetStyle("ahk_id " hwnd)
+            return !!(style & 0x10000000)
+        }
+        return false
+    }
+
+    Refresh() {
+        if (!IsObject(this.ui) || this.closed || !this._IsVisible())
+            return
+
+        ; 清理旧行事件
+        toDel := []
+        for key, _ in this.ui.events {
+            if (InStr(key, "VarRow_") == 1)
+                toDel.Push(key)
+        }
+        for key in toDel
+            this.ui.events.Delete(key)
+
+        this.ui.Update("VarListPanel", "ClearItems", "")
+        this._rowKeys := []
+
+        for key, value in MySoftData.VariableMap {
+            this._rowKeys.Push(key)
+            this._AddRow(this._rowKeys.Length, key, GetLang("值"), String(value), false)
+        }
+        for key, value in MySoftData.ArrayMap {
+            this._rowKeys.Push("ε" key)
+            this._AddRow(this._rowKeys.Length, key, GetLang("数组"), GetArrayStr(value), true)
+        }
+    }
+
+    _AddRow(rowId, name, typeText, valueText, isArray) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        rowName := "VarRow_" rowId
+        ; 偶数行用主题 ListAltBg（标题色半透明），奇数行透明
+        bg := (Mod(rowId, 2) == 0) ? "{DynamicResource ListAltBg}" : "Transparent"
+        xaml := '<Grid ' ns ' Name="' rowName '" Height="28" Background="' bg '" Cursor="Hand" Margin="0,0,0,1">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="120"/>'
+            . '<ColumnDefinition Width="60"/>'
+            . '<ColumnDefinition Width="*"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<TextBlock Grid.Column="0" Text="' this._XmlEsc(name) '" Foreground="{DynamicResource TextMain}"'
+            . ' FontSize="12" VerticalAlignment="Center" Margin="8,0,4,0" TextTrimming="CharacterEllipsis"/>'
+            . '<TextBlock Grid.Column="1" Text="' this._XmlEsc(typeText) '" Foreground="{DynamicResource TextSub}"'
+            . ' FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
+            . '<TextBlock Grid.Column="2" Text="' this._XmlEsc(valueText) '" Foreground="{DynamicResource TextMain}"'
+            . ' FontSize="12" VerticalAlignment="Center" Margin="8,0,8,0" TextTrimming="CharacterEllipsis"/>'
+            . '</Grid>'
+
+        this.ui.Update("VarListPanel", "AddXamlItem", xaml)
+        ; Grid 无 MouseDoubleClick，用双击间隔识别
+        this.ui.OnEvent(rowName, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "OnRowClick", rowId))
+        this.ui.Update(rowName, "BindEvent", "PreviewMouseLeftButtonDown")
+    }
+
+    OnRowClick(rowId, state := unset, ctrl := unset, event := unset) {
+        if (A_TickCount - this._lastClickTick < 400 && this._lastClickRow == rowId) {
+            this._lastClickTick := 0
+            this._lastClickRow := 0
+            this.OnRowDoubleClick(rowId)
+            return
+        }
+        this._lastClickTick := A_TickCount
+        this._lastClickRow := rowId
+    }
+
+    OnRowDoubleClick(rowId, state := unset, ctrl := unset, event := unset) {
+        if (rowId < 1 || rowId > this._rowKeys.Length)
+            return
+        rawKey := this._rowKeys[rowId]
+        isArray := (SubStr(rawKey, 1, 1) == "ε")
+        varName := LTrim(rawKey, "ε")
+        curValue := ""
+        if (isArray && MySoftData.ArrayMap.Has(varName))
+            curValue := GetArrayStr(MySoftData.ArrayMap[varName])
+        else if (MySoftData.VariableMap.Has(varName))
+            curValue := String(MySoftData.VariableMap[varName])
+
         SureAction := this.OnModifySureAction.Bind(this, isArray)
         this.ModifyGui.ParentHwnd := this.Gui.Hwnd
         this.ModifyGui.SureAction := SureAction
@@ -154,5 +373,13 @@ class VarListenGui {
             else
                 SetGlobalVariable([Name], [Value], false)
         }
+    }
+
+    _XmlEsc(s) {
+        s := StrReplace(String(s), "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
     }
 }

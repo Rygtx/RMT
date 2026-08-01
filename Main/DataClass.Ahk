@@ -225,7 +225,7 @@ class MainConfig {
         this.CMDPosX := A_ScreenWidth - this.CMDWidth  ; 默认靠右
         this.CMDPosY := 0               ; CMD 窗口 Y 坐标
         this.CMDBGColor := "FFF8DC"     ; CMD 窗口背景色 (6位RGB，由主题同步)
-        this.CMDRunBGColor := "FF8C00"  ; CMD 运行中背景色 (由主题同步)
+        this.CMDRunBGColor := "90CAF9"  ; CMD 运行中背景色 (由主题同步)
         this.CMDTransparency := 50      ; CMD 背景透明度 (0=不透明，100=完全透明)
         this.CMDFontSize := "12"        ; CMD 字体大小
         this.CMDFontColor := "5C3317"   ; CMD 字体颜色 (由主题同步)

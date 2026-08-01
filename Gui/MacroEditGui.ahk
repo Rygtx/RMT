@@ -332,15 +332,15 @@ class MacroEditGui {
         MyMenuBar.Add(GetLang("调试"), ExeMenu)
         MyMenuBar.Add(GetLang("工具"), this.ToolMenu)
 
-        if (MyVarListenGui.Gui != "") {
-            style := WinGetStyle(MyVarListenGui.Gui)
+        if (MyVarListenGui.Gui != "" && MyVarListenGui.Gui.Hwnd) {
+            style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (isVisible)
                 this.ToolMenu.Check(GetLang("变量监视"))
         }
 
-        if (MyCMDTipGui.Gui != "") {
-            style := WinGetStyle(MyCMDTipGui.Gui)
+        if (MyCMDTipGui.Gui != "" && MyCMDTipGui.Gui.Hwnd) {
+            style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
             isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
             if (isVisible)
                 this.ToolMenu.Check(GetLang("指令显示"))
@@ -668,8 +668,8 @@ class MacroEditGui {
         switch cmdNextStr {
             case GetLang("变量监视"):
             {
-                if (MyVarListenGui.Gui != "") {
-                    style := WinGetStyle(MyVarListenGui.Gui)
+                if (MyVarListenGui.Gui != "" && MyVarListenGui.Gui.Hwnd) {
+                    style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
                     isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
                     if (isVisible) {
                         this.ToolMenu.Uncheck(GetLang("变量监视"))
@@ -682,8 +682,8 @@ class MacroEditGui {
             }
             case GetLang("指令显示"):
             {
-                if (MyCMDTipGui.Gui != "") {
-                    style := WinGetStyle(MyCMDTipGui.Gui)
+                if (MyCMDTipGui.Gui != "" && MyCMDTipGui.Gui.Hwnd) {
+                    style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
                     isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
                     if (isVisible) {
                         MySoftData.CMDTip := false

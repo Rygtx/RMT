@@ -117,8 +117,8 @@ RefreshListenVarGui(isForce := false) {
         isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
         isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
         if (isXValid && isYValid) {
-            MyVarListenGui.ShowGui()
-            MyVarListenGui.Gui.Show(Format("x{} y{}", WinPosArr[1], WinPosArr[2]))
+            ; 建窗前传入坐标，避免先默认位置再跳转
+            MyVarListenGui.ShowGui(WinPosArr[1], WinPosArr[2])
             return
         }
     }

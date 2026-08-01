@@ -6220,6 +6220,27 @@ public class AhkWpfEngine
                     tb.AppendText(parts[2]);
                     tb.ScrollToEnd();
                 }
+                else if (parts[1] == "ScrollToEnd")
+                {
+                    if (ctrl is System.Windows.Controls.TextBox)
+                        ((System.Windows.Controls.TextBox)ctrl).ScrollToEnd();
+                    else if (ctrl is System.Windows.Controls.ScrollViewer)
+                        ((System.Windows.Controls.ScrollViewer)ctrl).ScrollToEnd();
+                }
+                else if (parts[1] == "LineUp")
+                {
+                    if (ctrl is System.Windows.Controls.TextBox)
+                        ((System.Windows.Controls.TextBox)ctrl).LineUp();
+                    else if (ctrl is System.Windows.Controls.ScrollViewer)
+                        ((System.Windows.Controls.ScrollViewer)ctrl).LineUp();
+                }
+                else if (parts[1] == "LineDown")
+                {
+                    if (ctrl is System.Windows.Controls.TextBox)
+                        ((System.Windows.Controls.TextBox)ctrl).LineDown();
+                    else if (ctrl is System.Windows.Controls.ScrollViewer)
+                        ((System.Windows.Controls.ScrollViewer)ctrl).LineDown();
+                }
                 else if (parts[1] == "InsertText" && ctrl is System.Windows.Controls.TextBox)
                 {
                     var tb = (System.Windows.Controls.TextBox)ctrl;

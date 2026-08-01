@@ -89,7 +89,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FF0078D7",
             Panel_TitleBg: "#FF0078D7", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF0078D7", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#F2F5F9FC",
-            CMD_FontColor: "#FF1A1A1A", CMD_BGColor: "#FFF5F5F5", CMD_RunBGColor: "#FF0078D7"},
+            CMD_FontColor: "#FF1A1A1A", CMD_BGColor: "#FFF5F5F5", CMD_RunBGColor: "#FF90CAF9"},
         {Key: "FrostGray", Name: "霜灰",
             Win_TitleBg: "#FFE2E8F0", Win_TitleText: "#FF1E293B",
             Win_WindowBg: "#FFF8FAFC", Win_GroupStroke: "#FF94A3B8", Win_GraphLine: "#FF2E3540",
@@ -105,7 +105,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FF64748B",
             Panel_TitleBg: "#FF475569", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF334155", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#F2F1F5F9",
-            CMD_FontColor: "#FF1E293B", CMD_BGColor: "#FFF8FAFC", CMD_RunBGColor: "#FF64748B"},
+            CMD_FontColor: "#FF1E293B", CMD_BGColor: "#FFF8FAFC", CMD_RunBGColor: "#FFCBD5E1"},
         {Key: "DarkNight", Name: "暗夜",
             Win_TitleBg: "#FF111111", Win_TitleText: "#FFE8E8E8",
             Win_WindowBg: "#FF1E1E1E", Win_GroupStroke: "#FF666666", Win_GraphLine: "#FF2A2A2A",
@@ -121,7 +121,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FFD0D0D0",
             Panel_TitleBg: "#FF111111", Panel_TitleText: "#FFE0E0E0",
             Panel_BtnColor: "#FF3A3A3A", Panel_BtnText: "#FFE0E0E0", Panel_BgColor: "#E01A1A1A",
-            CMD_FontColor: "#FFE0E0E0", CMD_BGColor: "#FF1E1E1E", CMD_RunBGColor: "#FF5A5A5A"},
+            CMD_FontColor: "#FFE0E0E0", CMD_BGColor: "#FF1E1E1E", CMD_RunBGColor: "#FFBDBDBD"},
         {Key: "WarmSun", Name: "暖阳",
             Win_TitleBg: "#FFFFE4B5", Win_TitleText: "#FF5C3317",
             Win_WindowBg: "#FFFFF8DC", Win_GroupStroke: "#FFE8B86D", Win_GraphLine: "#FF3A3228",
@@ -137,7 +137,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FFFF6347",
             Panel_TitleBg: "#FF8B4513", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FFFF8C00", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0FFE4B5",
-            CMD_FontColor: "#FF5C3317", CMD_BGColor: "#FFFFF8DC", CMD_RunBGColor: "#FFFF8C00"},
+            CMD_FontColor: "#FF5C3317", CMD_BGColor: "#FFFFF8DC", CMD_RunBGColor: "#FFFFE0B2"},
         {Key: "Ocean", Name: "海洋",
             Win_TitleBg: "#FFD6EAF8", Win_TitleText: "#FF1A365D",
             Win_WindowBg: "#FFF0F8FF", Win_GroupStroke: "#FF7EB3E8", Win_GraphLine: "#FF283848",
@@ -153,7 +153,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FF1E90FF",
             Panel_TitleBg: "#FF2C5282", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF1E90FF", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0E0F0FF",
-            CMD_FontColor: "#FF1A365D", CMD_BGColor: "#FFF0F8FF", CMD_RunBGColor: "#FF1E90FF"},
+            CMD_FontColor: "#FF1A365D", CMD_BGColor: "#FFF0F8FF", CMD_RunBGColor: "#FFBBDEFB"},
         {Key: "PinkSakura", Name: "绯樱",
             Win_TitleBg: "#FFFFE4EC", Win_TitleText: "#FF9F1239",
             Win_WindowBg: "#FFFFF0F5", Win_GroupStroke: "#FFF9A8C4", Win_GraphLine: "#FF3A2830",
@@ -169,7 +169,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FFF472B6",
             Panel_TitleBg: "#FFDB2777", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FFE11D48", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0FFF0F5",
-            CMD_FontColor: "#FF9F1239", CMD_BGColor: "#FFFFF0F5", CMD_RunBGColor: "#FFF472B6"},
+            CMD_FontColor: "#FF9F1239", CMD_BGColor: "#FFFFF0F5", CMD_RunBGColor: "#FFF8BBD0"},
         {Key: "Matcha", Name: "抹茶",
             Win_TitleBg: "#FFECF4D3", Win_TitleText: "#FF365314",
             Win_WindowBg: "#FFF7FBEA", Win_GroupStroke: "#FF8FA076", Win_GraphLine: "#FF2E3828",
@@ -185,7 +185,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FF84CC16",
             Panel_TitleBg: "#FF4D7C0F", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF65A30D", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0F0F7E0",
-            CMD_FontColor: "#FF365314", CMD_BGColor: "#FFF7FBEA", CMD_RunBGColor: "#FF84CC16"},
+            CMD_FontColor: "#FF365314", CMD_BGColor: "#FFF7FBEA", CMD_RunBGColor: "#FFDCEDC8"},
         {Key: "Celadon", Name: "青瓷",
             Win_TitleBg: "#FFCCFBF1", Win_TitleText: "#FF134E4A",
             Win_WindowBg: "#FFF0FDFA", Win_GroupStroke: "#FF5EEAD4", Win_GraphLine: "#FF283836",
@@ -201,7 +201,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FF2DD4BF",
             Panel_TitleBg: "#FF0F766E", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF0D9488", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0E6FFFA",
-            CMD_FontColor: "#FF134E4A", CMD_BGColor: "#FFF0FDFA", CMD_RunBGColor: "#FF14B8A6"},
+            CMD_FontColor: "#FF134E4A", CMD_BGColor: "#FFF0FDFA", CMD_RunBGColor: "#FFB2DFDB"},
         {Key: "DuskPurple", Name: "暮紫",
             Win_TitleBg: "#FFF3E8FF", Win_TitleText: "#FF4C1D95",
             Win_WindowBg: "#FFFAF5FF", Win_GroupStroke: "#FFC4B5FD", Win_GraphLine: "#FF322840",
@@ -217,7 +217,7 @@ class AppThemeUtil {
             Wheel_SwipeLineColor: "#FFA78BFA",
             Panel_TitleBg: "#FF6D28D9", Panel_TitleText: "#FFFFFFFF",
             Panel_BtnColor: "#FF7C3AED", Panel_BtnText: "#FFFFFFFF", Panel_BgColor: "#C0F5F3FF",
-            CMD_FontColor: "#FF4C1D95", CMD_BGColor: "#FFFAF5FF", CMD_RunBGColor: "#FF8B5CF6"}
+            CMD_FontColor: "#FF4C1D95", CMD_BGColor: "#FFFAF5FF", CMD_RunBGColor: "#FFE1BEE7"}
     ]
 
     ; 程序默认主题（缺键 / 废弃预设 / Custom 底图均回退到此）
@@ -511,8 +511,16 @@ class AppThemeUtil {
         try ui.Update("Resource", "ProgressBar", progress)
         ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
         try ui.Update("Resource", "DropdownBg", inputBg)
+        ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
+        try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
         try ui.Update("DragArea", "Background", titleBg)
         try ui.Update("Window", "Background", windowBg)
+    }
+
+    ; 列表交替行背景：标题色半透明（不同主题呈现不同色调）
+    static MakeListAltBg(baseColor) {
+        c := AppThemeUtil.NormalizeArgb(baseColor)  ; #AARRGGBB
+        return "#40" SubStr(c, 4)                   ; ~25% 不透明度
     }
 
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）
@@ -528,6 +536,12 @@ class AppThemeUtil {
                         AppThemeUtil.ApplyWinThemeToXaml(inst.ui)
                 }
             }
+        }
+        ; 变量监视器（非 instances 模式）
+        try {
+            if (IsSet(MyVarListenGui) && IsObject(MyVarListenGui)
+                && !MyVarListenGui.closed && IsObject(MyVarListenGui.ui))
+                AppThemeUtil.ApplyWinThemeToXaml(MyVarListenGui.ui)
         }
     }
 }

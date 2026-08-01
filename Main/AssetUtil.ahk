@@ -407,6 +407,15 @@ GetDefaultCMDTipWidth() {
     return Round(225 * A_ScreenDPI / 96)
 }
 
+; AHK / Win32 屏幕坐标、宽高为物理像素；WPF Window.Left/Top/Width/Height 为 DIP
+PhysToDip(v) {
+    return Integer(Round(Integer(v) * 96 / A_ScreenDPI))
+}
+
+DipToPhys(v) {
+    return Integer(Round(Integer(v) * A_ScreenDPI / 96))
+}
+
 LoadMainSetting() {
     global MainSoftData, MySoftData
     global IniSection := "UserSettings"
