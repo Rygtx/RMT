@@ -526,7 +526,7 @@ AddSettingUI(index) {
     con.OnEvent("Change", (ctrl, info) => MainSoftData.SoftBGColor := ctrl.Value)
 
     posY += 40
-    con := AddTableControl("GroupBox", Format("x{} y{} w890 h180", posX + 10, posY), GetLang("开关选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h110", posX + 10, posY), GetLang("开关选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
     posY += 30
@@ -558,24 +558,6 @@ AddSettingUI(index) {
     con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"), tableItem)
     con.Value := MainSoftData.ShowSplitLine
     con.OnEvent("Click", (ctrl, info) => MainSoftData.ShowSplitLine := ctrl.Value)
-
-    posY += 40
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("录制选项"), tableItem)
-    con.OnEvent("Click", OnClickToolRecordSettingBtn)
-
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("轮盘选项"), tableItem)
-    con.OnEvent("Click", (*) => MenuWheelGlobalSettingGui.ShowGui())
-
-    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("界面浮窗"), tableItem)
-    con.OnEvent("Click", (*) => UIMacroPanelSettingGui.ShowGui())
-
-    posY += 40
-    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 25, posY), "", tableItem)
-    UIControls.CMDTip := con
-    con.Value := MySoftData.CMDTip
-    con.OnEvent("Click", (ctrl, info) => MySoftData.CMDTip := ctrl.Value)
-    con := AddTableControl("Button", Format("x{} y{}", posX + 25 + 15, posY - 5), GetLang("指令显示"), tableItem)
-    con.OnEvent("Click", (*) => OnEditCMDTipGui())
 
     posY += 40
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
@@ -616,6 +598,28 @@ AddSettingUI(index) {
     con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), ["Xbox", "PS5"], tableItem)
     con.Text := MainSoftData.JoyType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.JoyType := ctrl.Text)
+
+    posY += 40
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("功能选项"), tableItem)
+    tableItem.AllGroup.Push(con)
+
+    posY += 30
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 25, posY - 5, 100), GetLang("录制选项"), tableItem)
+    con.OnEvent("Click", OnClickToolRecordSettingBtn)
+
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 315, posY - 5, 100), GetLang("轮盘选项"), tableItem)
+    con.OnEvent("Click", (*) => MenuWheelGlobalSettingGui.ShowGui())
+
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 635, posY - 5, 100), GetLang("界面浮窗"), tableItem)
+    con.OnEvent("Click", (*) => UIMacroPanelSettingGui.ShowGui())
+
+    posY += 40
+    con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 25, posY), "", tableItem)
+    UIControls.CMDTip := con
+    con.Value := MySoftData.CMDTip
+    con.OnEvent("Click", (ctrl, info) => MySoftData.CMDTip := ctrl.Value)
+    con := AddTableControl("Button", Format("x{} y{}", posX + 25 + 15, posY - 5), GetLang("指令显示"), tableItem)
+    con.OnEvent("Click", (*) => OnEditCMDTipGui())
 
     posY += 30
     tableItem.UnderPosY := posY

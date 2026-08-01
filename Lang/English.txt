@@ -393,6 +393,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 开关=Switch
 开关      变量名=Switch      Var Name
 开关选项=Toggle Options
+功能选项=Feature Options
 开发不易，感谢你的每一份温暖！=Thanks for your support.
 开启变量监视=Enable Watch
 开启指令显示=Show Inst
