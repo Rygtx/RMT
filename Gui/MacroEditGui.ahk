@@ -249,8 +249,12 @@ class MacroEditGui {
         con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 100), MainSoftData.ToolRecordMacroHotKey
         )
         con.Enabled := false
-        PosX += 105
-        graphBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX, PosY - 5, 80, 26), GetLang("图形节点"))
+
+        ; 指令显示区：左 215、宽 710 → 右边框 925；图形节点按钮右对齐该边框
+        cmdViewLeft := 215
+        cmdViewW := 710
+        graphBtnW := 80
+        graphBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", cmdViewLeft + cmdViewW - graphBtnW, PosY - 5, graphBtnW, 26), GetLang("图形节点"))
         graphBtn.OnEvent("Click", this.OnSwitchToGraphEditor.Bind(this))
 
         PosX := 210
@@ -262,12 +266,12 @@ class MacroEditGui {
         collapseBtn.OnEvent("Click", (*) => this.CollapseAll())
 
         PosY += 20
-        this.MacroTreeViewCon := MyGui.Add("TreeView", Format("x{} y{} w{} h{}", PosX + 5, PosY, 710, 435),
+        this.MacroTreeViewCon := MyGui.Add("TreeView", Format("x{} y{} w{} h{}", cmdViewLeft, PosY, cmdViewW, 435),
         "")
         this.MacroTreeViewCon.OnEvent("ContextMenu", this.ShowContextMenu.Bind(this))  ; 右键菜单事件
         this.MacroTreeViewCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))  ; 双击编辑指令
 
-        this.MacroEditTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX + 5, PosY, 705, 435), "")
+        this.MacroEditTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", cmdViewLeft, PosY, cmdViewW, 435), "")
         this.MacroEditTextCon.Visible := false
 
         PosX := 215

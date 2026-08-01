@@ -10,7 +10,7 @@
 ;
 ; 交互：
 ;   - 表格行"编辑"：空宏按首选编辑器；首条为图形开始节点时进入本编辑器。
-;   - 左上角「逻辑树」：保存后切换到逻辑树编辑器（多链路需确认强行切换）。
+;   - 右上角「逻辑树」：保存后切换到逻辑树编辑器（多链路需确认强行切换）。
 ;   - 右下角「保存」：持久化图结构并回写 MacroArr（不关闭）。
 ;   - 画布空白处右键：弹出若梦兔全部指令菜单，点击生成对应节点。
 ;       · 间隔 / 按键：生成可内联编辑的完整节点。
@@ -196,10 +196,10 @@ class MacroGraphGui {
         this.graph := root.NodeGraph("RMTGraph")
         this._HookGraphIfProPaths()
 
-        ; 左上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
+        ; 右上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
         ; 右下角：保存
         if (this.OnClosedAction == "")
-            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Left").VerticalAlignment("Top").Margin("16,12,0,0").Width("90").Height("32").Background("#3A5A8C").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
+            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("#3A5A8C").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
         root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("#2E6E3E").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
