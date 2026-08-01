@@ -112,12 +112,11 @@ class MacroGraphNodeUIMixin {
             this._AddFieldRow(body, "SColorRow_" id, GetLang("搜索颜色："), "SColor_" id, d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF", st == 2, true, id, "")
             ; 文本（仅文本搜索可见）
             this._AddFieldRow(body, "STextRow_" id, GetLang("搜索文本："), "SText_" id, d.HasOwnProp("searchText") ? d.searchText : "", st == 3, true, id, "")
-            ; 图片名（只读显示）+ 相似度（仅图片搜索可见）
+            ; 图片名（只读显示；仅图片搜索可见）
             imgPath := d.HasOwnProp("searchImagePath") ? d.searchImagePath : ""
             imgName := imgPath != "" ? RegExReplace(imgPath, ".*\\", "") : GetLang("未设置")
             this._AddFieldRow(body, "SImgRow_" id, GetLang("搜索图片："), "SImg_" id, imgName, st == 1, false)
             ; 图片预览改为浮动在节点左侧（见 _BuildHeader / _AddFloatingImgPreview），此处不再内嵌
-            this._AddFieldRow(body, "SSimRow_" id, GetLang("相似度："), "SSim_" id, d.HasOwnProp("similar") ? d.similar : 90, st == 1, true, id, "", "Min:1,Max:100")
 
             ; 搜索范围坐标（可手动输入数值）
             this._AddFieldRow(body, "SStartXRow_" id, GetLang("起始坐标X："), "SStartX_" id, d.HasOwnProp("startPosX") ? d.startPosX : 0, true, true, id, "")
@@ -125,10 +124,10 @@ class MacroGraphNodeUIMixin {
             this._AddFieldRow(body, "SEndXRow_" id, GetLang("终止坐标X："), "SEndX_" id, d.HasOwnProp("endPosX") ? d.endPosX : A_ScreenWidth, true, true, id, "")
             this._AddFieldRow(body, "SEndYRow_" id, GetLang("终止坐标Y："), "SEndY_" id, d.HasOwnProp("endPosY") ? d.endPosY : A_ScreenHeight, true, true, id, "")
 
-            ; 鼠标动作下拉
+            ; 鼠标动作：仅下拉；宽度=标签80+输入96，右边与上方坐标输入框右对齐
             actionNames := [GetLang("无动作"), GetLang("移动至目标"), GetLang("移动至目标点击1次"), GetLang("移动至目标点击2次")]
             ma := (d.HasOwnProp("mouseAction") && d.mouseAction >= 1 && d.mouseAction <= 4) ? d.mouseAction : 2
-            this._AddComboRow(body, "SActRow_" id, GetLang("鼠标动作："), "SActCmb_" id, actionNames, ma - 1, true)
+            this._AddStackedComboRow(body, "SActRow_" id, "", "SActCmb_" id, actionNames, ma - 1, true, "176")
 
             ; 操作按钮（按类型显隐）：图片→截图/选择图片；颜色→定位取色器；所有类型→框选范围
             ops := body.Add("WrapPanel").Margin("0,6,0,0")
@@ -201,10 +200,11 @@ class MacroGraphNodeUIMixin {
         this._MakeTextBox(winRow, "SWin_" id, d.HasOwnProp("winInfo") ? d.winInfo : "", "196")
         winRow.Add("Button").Name("SWinEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0")
 
-        ; 颜色 / 文本 / 相似度（整行，按类型显隐）
+        ; 颜色 / 文本 / 图片（整行，按类型显隐）；文本/图片输入宽 276，右缘与起点Y 对齐
         this._AddFieldRow(body, "SColorRow_" id, GetLang("搜索颜色："), "SColor_" id, d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF", c.isColor, true, id, "", "", LW, "150")
-        this._AddFieldRow(body, "STextRow_" id, GetLang("搜索文本："), "SText_" id, d.HasOwnProp("searchText") ? d.searchText : "", c.isText, true, id, "", "", LW, "150")
-        this._AddFieldRow(body, "SSimRow_" id, GetLang("相似度："), "SSim_" id, d.HasOwnProp("similar") ? d.similar : 90, c.isImage, true, id, "", "Min:1,Max:100", LW, CW)
+        this._AddFieldRow(body, "STextRow_" id, GetLang("搜索文本："), "SText_" id, d.HasOwnProp("searchText") ? d.searchText : "", c.isText, true, id, "", "", LW, "276")
+        imgPath := d.HasOwnProp("searchImagePath") ? d.searchImagePath : ""
+        this._AddFieldRow(body, "SImgRow_" id, GetLang("搜索图片："), "SImg_" id, this._SearchImgDisplayText(imgPath), c.isImage, true, id, "", "", LW, "276", "Right")
 
         ; 搜索范围坐标（可编辑下拉，选变量或手输数值）：起点X|起点Y 一行，终点X|终点Y 一行
         rStart := body.Add("StackPanel").Orientation("Horizontal").Margin("0,5,0,0")
@@ -222,10 +222,10 @@ class MacroGraphNodeUIMixin {
         this._ProCellEdit(rCnt, "SCountRow_" id, GetLang("搜索次数："), "SCount_" id, [GetLang("无限")], cntText, true, LW, CW, false)
         this._ProCellField(rCnt, "SIntervalRow_" id, GetLang("每次间隔："), "SInterval_" id, d.HasOwnProp("searchInterval") ? d.searchInterval : 1000, isCount, id, LW, CW, true)
 
-        ; 鼠标动作（整行）
+        ; 鼠标动作：仅下拉；宽度=两列坐标行(70+96+14+70+96)，右边与上方终点Y输入框右对齐
         actionNames := [GetLang("无动作"), GetLang("移动至目标"), GetLang("移动至目标点击")]
         ma := (d.HasOwnProp("mouseAction") && d.mouseAction >= 1 && d.mouseAction <= 3) ? d.mouseAction : 2
-        this._AddComboRow(body, "SActRow_" id, GetLang("鼠标动作："), "SActCmb_" id, actionNames, ma - 1, true, true, LW, "150")
+        this._AddStackedComboRow(body, "SActRow_" id, "", "SActCmb_" id, actionNames, ma - 1, true, "346")
 
         ; 移动速度（动作非「无」且非窗口搜索）| 点击次数（动作为点击且非窗口搜索）同一行
         showSpeed := (ma != 1 && !c.isWin)
@@ -273,7 +273,7 @@ class MacroGraphNodeUIMixin {
         if (!visible)
             cell.Visibility("Collapsed")
         cell.Add("TextBlock").Text(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
-        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", textVal)
@@ -287,7 +287,7 @@ class MacroGraphNodeUIMixin {
         if (!visible)
             cell.Visibility("Collapsed")
         cell.Add("TextBlock").Text(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
-        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
+        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").SelectedIndex(selIndex)
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
@@ -317,7 +317,7 @@ class MacroGraphNodeUIMixin {
         chk := cell.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").Margin("0,0,4,0")
         if (on)
             chk.IsChecked("True")
-        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in varList
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", vn)
@@ -353,7 +353,8 @@ class MacroGraphNodeUIMixin {
         toggled := isResult ? (d.HasOwnProp("resultToggle") && (d.resultToggle == 1 || d.resultToggle == "1"))
             : (d.HasOwnProp("coordToggle") && (d.coordToggle == 1 || d.coordToggle == "1"))
 
-        card := body.Add("Border").Margin("0,8,0,0").Background("#1FFFFFFF").CornerRadius("5").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Padding("8,6")
+        ; 宽度与上方两列坐标行/鼠标动作下拉一致(346)，避免贴齐节点右缘
+        card := body.Add("Border").Margin("0,8,0,0").Width("346").HorizontalAlignment("Left").Background("#1FFFFFFF").CornerRadius("5").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Padding("8,6")
         sp := card.Add("StackPanel")
         chk := sp.Add("CheckBox").Name(togName).Content(title).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(12))
         if (toggled)
@@ -362,17 +363,17 @@ class MacroGraphNodeUIMixin {
         if (!toggled)
             fields.Visibility("Collapsed")
         if (isResult) {
-            ; 变量名（可编辑下拉），标签宽 70
+            ; 变量名下拉宽 240；真/假值行总宽同为 240，假值右缘与变量名下拉右对齐
             this._AddEditableComboRow(fields, "SResNameRow_" id, GetLang("变量名") "：", "SResName_" id, varList, "" (d.HasOwnProp("resultSaveName") ? d.resultSaveName : ""), true, "70", "240")
-            ; 真值 / 假值 在变量名下方，整体左缩进 70（与变量名输入框左对齐），文本左右居中
             tfRow := fields.Add("StackPanel").Orientation("Horizontal").Margin("70,5,0,0")
-            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("44").VerticalAlignment("Center")
-            this._MakeTextBox(tfRow, "SResTrue_" id, "" (d.HasOwnProp("trueValue") ? d.trueValue : 1), "80")
-            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("44").Margin("12,0,0,0").VerticalAlignment("Center")
-            this._MakeTextBox(tfRow, "SResFalse_" id, "" (d.HasOwnProp("falseValue") ? d.falseValue : 0), "80")
+            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("40").VerticalAlignment("Center")
+            this._MakeTextBox(tfRow, "SResTrue_" id, "" (d.HasOwnProp("trueValue") ? d.trueValue : 1), "52")
+            ; 40+52 + midGap + 40+52 = 240 → midGap=56
+            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("40").Margin("56,0,0,0").VerticalAlignment("Center")
+            this._MakeTextBox(tfRow, "SResFalse_" id, "" (d.HasOwnProp("falseValue") ? d.falseValue : 0), "52")
         }
         else {
-            ; 目标点 X/Y 变量名：可编辑下拉（ComboBox）
+            ; 目标点 X/Y 变量名：可编辑下拉（ComboBox）；总宽与结果保存变量名行一致
             this._AddEditableComboRow(fields, "SCoordXRow_" id, GetLang("坐标X变量名") "：", "SCoordX_" id, varList, "" (d.HasOwnProp("coordXName") ? d.coordXName : ""), true, "96", "214")
             this._AddEditableComboRow(fields, "SCoordYRow_" id, GetLang("坐标Y变量名") "：", "SCoordY_" id, varList, "" (d.HasOwnProp("coordYName") ? d.coordYName : ""), true, "96", "214")
         }
@@ -507,10 +508,10 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         if (asFragment)
             border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         grid := border.Add("Grid")
         grid.Rows("28", "Auto")
+        this._AddNodeSelRing(grid, brId)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
         hgrid := header.Add("Grid")
         hp := hgrid.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
@@ -578,6 +579,38 @@ class MacroGraphNodeUIMixin {
         SetTimer(() => g.ui.Update("Node_" brId, "EnableDrag", "grid=20"), -150)
     }
 
+    ; 节点阴影底板 + 选中外描边环。
+    ; 阴影必须放在内层：父级 Border 若带 DropShadowEffect，WPF 会把子元素裁进布局矩形，外描边不可见。
+    ; 选中环用负 Margin 画在节点外侧，不改 BorderThickness，避免压缩内容；由 SetNodeSelected 切换显隐。
+    _AddNodeSelRing(grid, nodeId) {
+        if (!grid.HasOwnProp("_Children") || !IsObject(grid._Children))
+            grid._Children := []
+        plate := XAMLElement("Border")
+        plate.Name("NodeShadow_" nodeId)
+        plate._Props["Grid.Row"] := "0"
+        plate._Props["Grid.RowSpan"] := "2"
+        plate._Props["Background"] := "{DynamicResource DropdownBg}"
+        plate._Props["CornerRadius"] := "6"
+        plate._Props["IsHitTestVisible"] := "False"
+        plate._Props["Panel.ZIndex"] := "-1"
+        plate.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        ring := XAMLElement("Border")
+        ring.Name("NodeSel_" nodeId)
+        ring._Props["Grid.Row"] := "0"
+        ring._Props["Grid.RowSpan"] := "2"
+        ring._Props["Margin"] := "-3"
+        ring._Props["BorderThickness"] := "3"
+        ring._Props["BorderBrush"] := "{DynamicResource GraphConnSel}"
+        ring._Props["Background"] := "Transparent"
+        ring._Props["CornerRadius"] := "8"
+        ring._Props["Visibility"] := "Collapsed"
+        ring._Props["IsHitTestVisible"] := "False"
+        ring._Props["Panel.ZIndex"] := "0"
+        ; 必须跟在 Grid.RowDefinitions 之后（WPF 禁止 Children 出现在 RowDefinitions 之前）
+        grid._Children.Push(plate)
+        grid._Children.Push(ring)
+    }
+
     ; 给一个节点 grid 追加 入/出 端口（与 _NewNodeShell 中端口样式一致）
     _AddNodePorts(grid, nodeId) {
         portInEl := XAMLElement("Ellipse")
@@ -609,11 +642,12 @@ class MacroGraphNodeUIMixin {
         ; 指令以小卡片堆叠呈现；放入命名 StackPanel，便于运行时 ClearItems+AddXamlItem 重建刷新
         panel := body.Add("StackPanel").Name("SBChipsPanel_" brId)
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
+        chipW := this._BranchChipWidth()
         if (cmds.Length == 0) {
             panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize(this._MGFontSize(11))
         } else {
             Loop shown {
-                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2")
+                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2").Width(chipW).HorizontalAlignment("Left")
                 chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
             }
         }
@@ -638,10 +672,15 @@ class MacroGraphNodeUIMixin {
         body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
+    ; 分支指令卡片宽度（节点 200、左边距 10 时略收窄，避免贴右边）
+    _BranchChipWidth() {
+        return "168"
+    }
+
     ; 单个指令小卡片的 XAML 片段（带命名空间，供运行时 AddXamlItem 注入）
     _BranchChipXaml(text) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
+        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2" Width="' this._BranchChipWidth() '" HorizontalAlignment="Left"><TextBlock Text="' this._XmlEsc(text) '" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
     }
 
     ; 运行时按当前展开态重建分支指令卡片（清空后重新注入）
@@ -874,10 +913,10 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         if (asFragment)
             border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        border.Name("Node_" bid).Background("{DynamicResource DropdownBg}").BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        border.Name("Node_" bid).Background("{DynamicResource DropdownBg}").BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
+        this._AddNodeSelRing(grid, bid)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("{DynamicResource ActionBg}").CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("{DynamicResource ActionText}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
@@ -1013,14 +1052,14 @@ class MacroGraphNodeUIMixin {
         nodeW := (d.type == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : 200)
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (d.type == GetLang("循环"))
             border.SetProp("MinHeight", "180")
         if (d.type == GetLang("如果Pro"))
             border.SetProp("MinHeight", "220")
-        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
+        this._AddNodeSelRing(grid, id)
         this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillNodeBody(id, d, body)
@@ -1084,17 +1123,17 @@ class MacroGraphNodeUIMixin {
         if (nodeW == "")
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
-        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (title == GetLang("循环"))
             node.SetProp("MinHeight", "180")
         if (title == GetLang("如果"))
             node.SetProp("MinHeight", "200")
         if (title == GetLang("如果Pro"))
             node.SetProp("MinHeight", "220")
-        node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
 
         grid := node.Add("Grid")
         grid.Rows("30", "Auto")
+        this._AddNodeSelRing(grid, id)
 
         this._nodeShellGrid := grid
 
@@ -1249,7 +1288,8 @@ class MacroGraphNodeUIMixin {
     }
 
     ; 一行 "标签 + 文本框"，visible 控制初始显隐，enabled 控制文本框是否可编辑
-    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible, enabled := true, nodeId := "", field := "", boxTag := "", labelW := "80", boxW := "96") {
+    ; textAlign：可选 Left/Center/Right，覆盖默认居中
+    _AddFieldRow(body, rowName, labelText, boxName, boxValue, visible, enabled := true, nodeId := "", field := "", boxTag := "", labelW := "80", boxW := "96", textAlign := "") {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
@@ -1258,9 +1298,18 @@ class MacroGraphNodeUIMixin {
         ; boxTag 形如 "Min:1,Max:100"：限制 label 拖动改值的取值区间（引擎读取 Tag）
         if (boxTag != "")
             box.SetProp("Tag", boxTag)
+        if (textAlign != "") {
+            box.SetProp("HorizontalContentAlignment", textAlign)
+            box.SetProp("TextAlignment", textAlign)
+        }
         if (!enabled)
             box.IsEnabled("False")
         return row
+    }
+
+    ; 节点内紧凑下拉：显示区左边距与 TextBox Padding(4,0) 一致，右边留给箭头
+    _MGComboPadding() {
+        return "4,0,22,0"
     }
 
     ; 一行 "标签 + 下拉框"，label 与下拉框同行显示，visible 控制初始显隐
@@ -1269,13 +1318,32 @@ class MacroGraphNodeUIMixin {
         if (!visible)
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200")
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200")
             .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         if (!enabled)
             cmb.IsEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         ; SelectedIndex 必须在 items 添加之后设置才能生效
+        cmb.SelectedIndex(selIndex)
+        return row
+    }
+
+    ; 下拉独占一行；labelText 非空时在上方显示标签
+    ; comboW 应等于上方「标签宽+输入宽」（如 80+96=176），右缘才能与坐标框对齐
+    _AddStackedComboRow(body, rowName, labelText, comboName, items, selIndex, visible := true, comboW := "180", enabled := true) {
+        row := body.Add("StackPanel").Name(rowName).Margin("0,5,0,0")
+        if (!visible)
+            row.Visibility("Collapsed")
+        if (labelText != "")
+            row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,0,0,4")
+        ; Min/MaxWidth 锁定外框宽度；Padding 与节点 TextBox 左边距一致，避免显示区左偏造成右缘视觉错位
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).MinWidth(comboW).MaxWidth(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").HorizontalAlignment("Left")
+        if (!enabled)
+            cmb.IsEnabled("False")
+        for it in items
+            cmb.Add("ComboBoxItem").Content(it)
         cmb.SelectedIndex(selIndex)
         return row
     }
@@ -1304,7 +1372,7 @@ class MacroGraphNodeUIMixin {
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         ; MaxDropDownHeight 限制下拉高度（约 10 项），超出时模板内 ScrollViewer 自动出现滚动条
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         ; ComboBox 上 .Text() 会被别名成 Content，需用 SetProp 直接写 Text 属性（编辑框文本，ToString 会自动转义）

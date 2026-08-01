@@ -491,19 +491,43 @@ class MacroGraphGui {
     _OnField(id, field, state, ctrl, event) {
         if (!this.cmdNodes.Has(id))
             return
+        ; KeyDown 只处理回车（Enter/Return）；其它按键忽略
+        if (IsObject(event) && event.HasProp("Key")) {
+            k := event.Key
+            if (k != "Return" && k != "Enter")
+                return
+        }
         nameMap := Map("time", "Time_", "time2", "Time2_", "hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
         key := nameMap[field] id
-        d := this._Parse(this.cmdNodes[id].CurCMD)
-        if (state.Has(key)) {
+        ; 优先 state；缺字段时用 Query 读当前控件（回车/失焦时 state 偶发不含该键）
+        val := ""
+        hasVal := false
+        if (IsObject(state) && state.Has(key)) {
             val := state[key]
-            ; 时间为可编辑下拉，忽略下拉初始化阶段的空值，避免覆盖已有时间
-            if ((field == "time" || field == "time2") && val == "")
+            hasVal := true
+        }
+        else if (this.ui != "") {
+            q := this.ui.Query(key)
+            if (q != "") {
+                val := q
+                hasVal := true
+            }
+        }
+        ; 无有效值时不要回写/刷新，否则会把输入框强制刷回模型旧值（如次数 2→1）
+        if (!hasVal)
+            return
+        ; 时间为可编辑下拉，忽略下拉初始化阶段的空值，避免覆盖已有时间
+        if ((field == "time" || field == "time2") && val == "")
+            return
+        ; 数值字段：忽略空串（输入中）；最小为 1
+        if (field == "hold" || field == "count" || field == "inter" || field == "speed") {
+            if (val == "")
                 return
-            ; 数值字段最小为 1
             if (IsNumber(val) && val + 0 < 1)
                 val := "1"
-            d.%field% := val
         }
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        d.%field% := val
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         if (field == "count")
             this._RefreshKeyVisibility(id)
@@ -521,13 +545,14 @@ class MacroGraphGui {
 
     ; 为所有内联编辑 TextBox 绑定回车事件和文本变化事件
     ; 注：间隔的 time/time2 已改为可编辑下拉(ComboBox)，由 SelectionChanged/LostFocus 处理，不在此绑定 TextChanged
+    ; 注：须绑 "KeyDown"（引擎按 KeyEventArgs 追加 :Return）；绑 "KeyDown:Return" 无法挂上 WPF 事件
     _BindTextBoxEnterEvents() {
         fields := ["hold", "count", "inter", "posx", "posy", "speed"]
         nameMap := Map("hold", "Hold_", "count", "Count_", "inter", "Inter_", "posx", "PosX_", "posy", "PosY_", "speed", "Speed_")
         for id in this.cmdNodes {
             for field in fields {
                 boxName := nameMap[field] id
-                this.ui.OnEvent(boxName, "KeyDown:Return", ObjBindMethod(this, "_OnField", id, field))
+                this.ui.OnEvent(boxName, "KeyDown", ObjBindMethod(this, "_OnField", id, field))
                 this.ui.OnEvent(boxName, "TextChanged", ObjBindMethod(this, "_OnField", id, field))
             }
         }
@@ -538,7 +563,9 @@ class MacroGraphGui {
         d := this._Parse(this.cmdNodes[id].CurCMD)
         if (d.type != GetLang("按键") || this.ui == "")
             return
-        isClick := d.ktype == GetLang("点击")
+        ; 显隐以当前下拉 SelectedIndex 为准，避免 CurCMD 尚未跟上时行仍残留显示
+        ktype := this._KeyTypeFromState("TypeCmb_" id, Map(), d.ktype)
+        isClick := ktype == GetLang("点击")
         showInter := isClick && IsNumber(d.count) && (d.count + 0) > 1
         ; 同步控件值，确保切换类型后控件内容与数据模型一致
         this.ui.Update("Hold_" id, "Text", d.hold)
@@ -695,8 +722,11 @@ class MacroGraphGui {
         this.ui.Update("SColor_" id, "Text", d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF")
         this.ui.Update("SText_" id, "Text", d.HasOwnProp("searchText") ? d.searchText : "")
         imgPath := d.HasOwnProp("searchImagePath") ? d.searchImagePath : ""
-        this.ui.Update("SImg_" id, "Text", imgPath != "" ? RegExReplace(imgPath, ".*\\", "") : GetLang("未设置"))
-        this.ui.Update("SSim_" id, "Text", d.HasOwnProp("similar") ? d.similar : 90)
+        ; 搜索Pro：完整路径（过长左侧 ...）；普通搜索仍只显示文件名
+        if (isPro)
+            this._SetSearchImgDisplay(id, imgPath)
+        else
+            this.ui.Update("SImg_" id, "Text", imgPath != "" ? RegExReplace(imgPath, ".*\\", "") : GetLang("未设置"))
         this.ui.Update("SStartX_" id, "Text", d.HasOwnProp("startPosX") ? d.startPosX : 0)
         this.ui.Update("SStartY_" id, "Text", d.HasOwnProp("startPosY") ? d.startPosY : 0)
         this.ui.Update("SEndX_" id, "Text", d.HasOwnProp("endPosX") ? d.endPosX : A_ScreenWidth)

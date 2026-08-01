@@ -190,7 +190,7 @@ class MacroGraphFormalMixin {
             sel := (tidx == activeTi) ? this._IndexInLangArr(items, at) : 0
             if (sel < 0)
                 sel := 0
-            cmb := slot.Add("ComboBox").Name("TxtArgsTypeCmb_" tidx "_" id).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200")
+            cmb := slot.Add("ComboBox").Name("TxtArgsTypeCmb_" tidx "_" id).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("4,0,22,0").MaxDropDownHeight("200")
                 .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             cmb.Visibility(tidx == activeTi ? "Visible" : "Collapsed")
             for it in items

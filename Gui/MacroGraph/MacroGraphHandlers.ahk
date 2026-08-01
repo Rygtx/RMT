@@ -11,13 +11,40 @@
 class MacroGraphHandlersMixin {
     ; ----------------------------------------------------------------- 内联编辑回调
 
+    ; 按键类型下拉项：0=按下 1=松开 2=点击（与 _TypeIndex / 节点构建顺序一致）
+    _KeyTypeFromIndex(idx) {
+        if (idx == 0)
+            return GetLang("按下")
+        if (idx == 1)
+            return GetLang("松开")
+        return GetLang("点击")
+    }
+
+    ; 从引擎当前选中项解析按键类型：SelectedIndex 优先（state 文本在多节点下可能为空）
+    _KeyTypeFromState(key, state, fallback := "") {
+        if (this.ui != "") {
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0 && Integer(idx) <= 2)
+                return this._KeyTypeFromIndex(Integer(idx))
+        }
+        if (IsObject(state) && state.Has(key) && state[key] != "") {
+            t := state[key]
+            if (t == GetLang("按下") || t == GetLang("松开") || t == GetLang("点击"))
+                return t
+            if (IsNumber(t) && Integer(t) >= 0 && Integer(t) <= 2)
+                return this._KeyTypeFromIndex(Integer(t))
+        }
+        if (fallback != "")
+            return fallback
+        return GetLang("点击")
+    }
+
     _OnKeyType(id, state, ctrl, event) {
         if (!this.cmdNodes.Has(id))
             return
         key := "TypeCmb_" id
         d := this._Parse(this.cmdNodes[id].CurCMD)
-        if (state.Has(key) && state[key] != "")
-            d.ktype := state[key]
+        d.ktype := this._KeyTypeFromState(key, state, d.ktype)
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         this._RefreshKeyVisibility(id)
         this._Apply()
@@ -213,27 +240,45 @@ class MacroGraphHandlersMixin {
         data := this._MMProData(id)
         if (data == "")
             return
+        ; KeyDown 只处理回车
+        if (IsObject(event) && event.HasProp("Key")) {
+            k := event.Key
+            if (k != "Return" && k != "Enter")
+                return
+        }
         nameMap := Map("PosVarX", "MPPosX_", "PosVarY", "MPPosY_", "Speed", "MPSpeed_", "Count", "MPCount_", "Interval", "MPInterval_")
         key := nameMap[field] id
-        if (state.Has(key)) {
+        val := ""
+        hasVal := false
+        if (IsObject(state) && state.Has(key)) {
             val := state[key]
-            if (field == "Speed" || field == "Count" || field == "Interval") {
-                ; 数值字段（速度/移动次数/每次间隔）：忽略空值，最小为 1
-                if (val == "")
-                    return
-                if (IsNumber(val) && val + 0 < 1)
-                    val := "1"
-                data.%field% := val
-            }
-            else {
-                ; 坐标支持「下拉变量名」或「手输数值」：统一以 Key 形式存储
-                ; 忽略下拉初始化阶段的空值，避免覆盖已有坐标
-                if (val == "")
-                    return
-                data.%field% := GetLangKey(val)
-            }
-            SaveMacroCMDData(data)
+            hasVal := true
         }
+        else if (this.ui != "") {
+            q := this.ui.Query(key)
+            if (q != "") {
+                val := q
+                hasVal := true
+            }
+        }
+        if (!hasVal)
+            return
+        if (field == "Speed" || field == "Count" || field == "Interval") {
+            ; 数值字段（速度/移动次数/每次间隔）：忽略空值，最小为 1
+            if (val == "")
+                return
+            if (IsNumber(val) && val + 0 < 1)
+                val := "1"
+            data.%field% := val
+        }
+        else {
+            ; 坐标支持「下拉变量名」或「手输数值」：统一以 Key 形式存储
+            ; 忽略下拉初始化阶段的空值，避免覆盖已有坐标
+            if (val == "")
+                return
+            data.%field% := GetLangKey(val)
+        }
+        SaveMacroCMDData(data)
         this._MMProApply()
     }
 
@@ -381,16 +426,11 @@ class MacroGraphHandlersMixin {
 
     ; 下拉文本 -> 搜索类型编号（1屏幕图片 2屏幕颜色 3屏幕文本 4窗口图片 5窗口颜色 6窗口文本）
     _SearchTypeFromText(text) {
-        if (text == GetLang("屏幕颜色"))
-            return 2
-        if (text == GetLang("屏幕文本"))
-            return 3
-        if (text == GetLang("窗口图片"))
-            return 4
-        if (text == GetLang("窗口颜色"))
-            return 5
-        if (text == GetLang("窗口文本"))
-            return 6
+        names := [GetLang("屏幕图片"), GetLang("屏幕颜色"), GetLang("屏幕文本"), GetLang("窗口图片"), GetLang("窗口颜色"), GetLang("窗口文本")]
+        loop names.Length {
+            if (text == names[A_Index] || GetLangKey(text) == GetLangKey(names[A_Index]))
+                return A_Index
+        }
         return 1
     }
 
@@ -421,23 +461,55 @@ class MacroGraphHandlersMixin {
         return { isImage: (st == 1 || st == 4), isColor: (st == 2 || st == 5), isText: (st == 3 || st == 6), isWin: (st >= 4) }
     }
 
+    ; 搜索类型编号上限（搜索 1-3，搜索Pro 1-6）
+    _SearchTypeMax(id) {
+        return this._IsNodePro(id) ? 6 : 3
+    }
+
+    ; 从事件 state / 下拉索引解析搜索类型：优先用 state（事件已带当前值），避免同步 Query 偶发空值
+    _SearchTypeFromState(id, key, state, fallback := 1) {
+        maxType := this._SearchTypeMax(id)
+        if (IsObject(state) && state.Has(key) && state[key] != "") {
+            st := this._SearchTypeFromText(state[key])
+            if (st >= 1 && st <= maxType)
+                return st
+            if (IsNumber(state[key])) {
+                n := Integer(state[key])
+                if (n >= 0 && n < maxType)
+                    return n + 1
+                if (n >= 1 && n <= maxType)
+                    return n
+            }
+        }
+        if (this.ui != "") {
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0) {
+                st := Integer(idx) + 1
+                if (st >= 1 && st <= maxType)
+                    return st
+            }
+        }
+        fb := Integer(fallback)
+        return (fb >= 1 && fb <= maxType) ? fb : 1
+    }
+
     ; 搜索类型变更：写回数据并切换类型相关行的显隐
     _OnSearchType(id, state, ctrl, event) {
         data := this._SearchData(id)
         if (data == "")
             return
         key := "STypeCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.SearchType := this._SearchTypeFromText(state[key])
+        data.SearchType := this._SearchTypeFromState(id, key, state, data.SearchType)
         SaveMacroCMDData(data)
-        this._RefreshSearchVisibility(id)
+        this._RefreshSearchVisibility(id, data)
         this._Apply()
     }
 
-    ; 按搜索类型切换 颜色/文本/图片+相似度 行的显隐（兼容 搜索 与 搜索Pro）
+    ; 按搜索类型切换 颜色/文本/图片 行的显隐（兼容 搜索 与 搜索Pro）
     ; 同时同步控件值，确保切换类型后内容与数据模型一致
-    _RefreshSearchVisibility(id) {
-        data := this._SearchData(id)
+    ; dataOpt：传入已写回的数据对象，避免刚 Save 删缓存后再读失败导致显隐不刷新
+    _RefreshSearchVisibility(id, dataOpt := "") {
+        data := IsObject(dataOpt) ? dataOpt : this._SearchData(id)
         if (data == "" || this.ui == "")
             return
         st := data.SearchType
@@ -447,12 +519,17 @@ class MacroGraphHandlersMixin {
             this.ui.Update("SColor_" id, "Text", data.SearchColor)
         if (ObjHasOwnProp(data, "SearchText"))
             this.ui.Update("SText_" id, "Text", data.SearchText)
-        if (ObjHasOwnProp(data, "Similar"))
-            this.ui.Update("SSim_" id, "Text", data.Similar)
+        if (c.isImage) {
+            imgPath := data.HasOwnProp("SearchImagePath") ? data.SearchImagePath : ""
+            ; 搜索Pro：完整路径（过长左侧 ...）；普通搜索仍只显示文件名
+            if (this._IsNodePro(id))
+                this._SetSearchImgDisplay(id, imgPath)
+            else
+                this.ui.Update("SImg_" id, "Text", (imgPath != "") ? RegExReplace(imgPath, ".*\\", "") : GetLang("未设置"))
+        }
         this.ui.Update("SColorRow_" id, "Visibility", c.isColor ? "Visible" : "Collapsed")
         this.ui.Update("STextRow_" id, "Visibility", c.isText ? "Visible" : "Collapsed")
         this.ui.Update("SImgRow_" id, "Visibility", c.isImage ? "Visible" : "Collapsed")
-        this.ui.Update("SSimRow_" id, "Visibility", c.isImage ? "Visible" : "Collapsed")
         ; 操作按钮按类型显隐
         this.ui.Update("SShot_" id, "Visibility", c.isImage ? "Visible" : "Collapsed")
         this.ui.Update("SPic_" id, "Visibility", c.isImage ? "Visible" : "Collapsed")
@@ -467,8 +544,10 @@ class MacroGraphHandlersMixin {
             this.ui.Update("SSpeedRow_" id, "Visibility", (act != 1 && !c.isWin) ? "Visible" : "Collapsed")
             this.ui.Update("SClickRow_" id, "Visibility", (act == 3 && !c.isWin) ? "Visible" : "Collapsed")
             ; 结果保存 / 目标点保存：开关控制内部字段显隐
-            this.ui.Update("SResFields_" id, "Visibility", (data.ResultToggle == 1 || data.ResultToggle == "1") ? "Visible" : "Collapsed")
-            this.ui.Update("SCoordFields_" id, "Visibility", (data.CoordToogle == 1 || data.CoordToogle == "1") ? "Visible" : "Collapsed")
+            resOn := (data.ResultToggle == 1 || data.ResultToggle == "1" || data.ResultToggle == true)
+            coordOn := (data.CoordToogle == 1 || data.CoordToogle == "1" || data.CoordToogle == true)
+            this.ui.Update("SResFields_" id, "Visibility", resOn ? "Visible" : "Collapsed")
+            this.ui.Update("SCoordFields_" id, "Visibility", coordOn ? "Visible" : "Collapsed")
         }
         ; 标题预览（缩略图/色块）
         this._RefreshSearchTitlePreview(id)
@@ -493,6 +572,91 @@ class MacroGraphHandlersMixin {
         this.ui.Update("SImgPrevRow_" id, "Visibility", showImg ? "Visible" : "Collapsed")
         if (showImg)
             this.ui.Update("SImgPrev_" id, "Source", StrReplace(imgPath, "\", "/"))
+    }
+
+    ; 估算文本显示宽度（半角 1、全角/非 ASCII 2），用于路径省略裁切
+    _TextDisplayUnits(s) {
+        n := 0, i := 1, len := StrLen(s)
+        while (i <= len) {
+            n += (Ord(SubStr(s, i, 1)) > 0x7F) ? 2 : 1
+            i++
+        }
+        return n
+    }
+
+    ; 搜索图片路径展示：空→未设置；过长左侧 ...，并始终保留完整文件名（避免右缘裁掉后缀）
+    ; 输入框宽 276、Padding/边框约占 10：半角约 7.5px → 预算约 35；偏保守保证整串（含扩展名）落在框内
+    _SearchImgDisplayText(path) {
+        if (path == "")
+            return GetLang("未设置")
+        maxUnits := 35
+        if (this._TextDisplayUnits(path) <= maxUnits)
+            return path
+        SplitPath(path, &fileName)
+        if (fileName == "")
+            fileName := path
+        ell := "..."
+        ; 文件名本身很长时优先保证文件名完整
+        if (this._TextDisplayUnits(ell fileName) >= maxUnits)
+            return ell fileName
+        budget := maxUnits - this._TextDisplayUnits(ell)
+        suffix := fileName
+        i := StrLen(path) - StrLen(fileName)
+        while (i >= 1) {
+            trial := SubStr(path, i, 1) suffix
+            if (this._TextDisplayUnits(trial) > budget)
+                break
+            suffix := trial
+            i--
+        }
+        return ell suffix
+    }
+
+    ; 写入搜索图片展示文本，并把光标滚到末尾（TextBox 超宽时默认从左侧裁切，否则右缘会丢掉扩展名）
+    _SetSearchImgDisplay(id, path) {
+        if (this.ui == "")
+            return
+        disp := this._SearchImgDisplayText(path)
+        key := "SImg_" id
+        this.ui.Update(key, "Text", disp)
+        this.ui.Update(key, "CaretIndex", String(StrLen(disp)))
+    }
+
+    ; 获得焦点：还原完整路径便于编辑（空路径清空「未设置」占位）
+    _OnSearchImgGotFocus(id, *) {
+        data := this._SearchData(id)
+        if (data == "" || this.ui == "")
+            return
+        path := data.HasOwnProp("SearchImagePath") ? data.SearchImagePath : ""
+        key := "SImg_" id
+        this.ui.Update(key, "Text", path)
+        ; 编辑长路径时先看到文件名一端
+        if (path != "")
+            this.ui.Update(key, "CaretIndex", String(StrLen(path)))
+    }
+
+    ; 失焦：写回路径，再切回左侧省略展示
+    _OnSearchImgLostFocus(id, state, ctrl, event) {
+        data := this._SearchData(id)
+        if (data == "")
+            return
+        key := "SImg_" id
+        val := ""
+        if (IsObject(state) && state.Has(key))
+            val := state[key]
+        else if (this.ui != "")
+            val := this.ui.Query(key)
+        if (val == GetLang("未设置"))
+            val := ""
+        cur := data.HasOwnProp("SearchImagePath") ? data.SearchImagePath : ""
+        ; 仍是省略展示串（未真正改路径）时不覆盖
+        if (val != cur && val == this._SearchImgDisplayText(cur))
+            val := cur
+        data.SearchImagePath := val
+        SaveMacroCMDData(data)
+        this._SetSearchImgDisplay(id, val)
+        this._RefreshSearchTitlePreview(id)
+        this._Apply()
     }
 
     ; 搜索字段（颜色/文本/相似度/起止坐标）变更：写回 SearchData
@@ -543,17 +707,44 @@ class MacroGraphHandlersMixin {
         this._Apply()
     }
 
+    ; 从事件 state / 下拉索引解析鼠标动作编号：优先 state，其次 Query
+    _SearchActionFromState(id, key, state, fallback := 1) {
+        isPro := this._IsNodePro(id)
+        maxAct := isPro ? 3 : 4
+        if (IsObject(state) && state.Has(key) && state[key] != "") {
+            act := this._SearchActionFromText(state[key])
+            if (act >= 1 && act <= maxAct)
+                return act
+            if (IsNumber(state[key])) {
+                n := Integer(state[key])
+                if (n >= 0 && n < maxAct)
+                    return n + 1
+                if (n >= 1 && n <= maxAct)
+                    return n
+            }
+        }
+        if (this.ui != "") {
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0) {
+                act := Integer(idx) + 1
+                if (act >= 1 && act <= maxAct)
+                    return act
+            }
+        }
+        fb := Integer(fallback)
+        return (fb >= 1 && fb <= maxAct) ? fb : 1
+    }
+
     ; 鼠标动作变更：写回 SearchData
     _OnSearchAction(id, state, ctrl, event) {
         data := this._SearchData(id)
         if (data == "")
             return
         key := "SActCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.MouseActionType := this._SearchActionFromText(state[key])
+        data.MouseActionType := this._SearchActionFromState(id, key, state, data.MouseActionType)
         SaveMacroCMDData(data)
         ; 搜索Pro：动作变更联动 移动速度/点击次数 的显隐
-        this._RefreshSearchVisibility(id)
+        this._RefreshSearchVisibility(id, data)
         this._Apply()
     }
 
@@ -604,21 +795,88 @@ class MacroGraphHandlersMixin {
     }
 
     ; 搜索次数变更：支持「无限」或数值；联动 每次间隔 显隐
+    ; 可编辑下拉默认采集优先 SelectedItem：选「无限」后再手输时选中项常残留，
+    ; 失焦/回车必须读 >Text；仅 SelectionChanged（明确点选）才按 SelectedIndex 认作无限。
     _OnSearchCount(id, state, ctrl, event) {
         data := this._SearchData(id)
         if (data == "")
             return
-        key := "SCount_" id
-        if (state.Has(key)) {
-            val := state[key]
-            if (val == GetLang("无限"))
-                data.SearchCount := -1
-            else if (val != "" && IsNumber(val) && val + 0 >= 1)
-                data.SearchCount := val + 0
-            SaveMacroCMDData(data)
+        ; KeyDown 只处理回车（手输后立即联动间隔显隐）
+        if (IsObject(event) && event.HasProp("Key")) {
+            k := event.Key
+            if (k != "Return" && k != "Enter")
+                return
         }
-        this._RefreshSearchVisibility(id)
+        key := "SCount_" id
+        val := ""
+        evName := IsObject(event) ? "" : event
+        textVal := ""
+        if (this.ui != "")
+            textVal := this.ui.Query(key ">Text")
+        if (evName == "SelectionChanged" && this.ui != "") {
+            ; 用户从下拉明确点选「无限」：此时 Text 可能仍是旧手输值，以选中项为准
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0)
+                val := GetLang("无限")
+        }
+        else if (evName == "DropDownClosed" && this.ui != "") {
+            ; 下拉关闭：选中项与显示文本同为「无限」才认作无限，避免残留 SelectedIndex 盖回手输值
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0 && (textVal == "" || textVal == GetLang("无限")))
+                val := GetLang("无限")
+            else
+                val := textVal
+        }
+        if (val == "") {
+            if (textVal != "")
+                val := textVal
+            else if (IsObject(state) && state.Has(key) && state[key] != "")
+                val := state[key]
+        }
+        if (val == "") {
+            this._RefreshSearchVisibility(id, data)
+            return
+        }
+        if (val == GetLang("无限")) {
+            data.SearchCount := -1
+            if (this.ui != "")
+                this.ui.Update(key, "Text", GetLang("无限"))
+        }
+        else if (IsNumber(val) && val + 0 >= 1) {
+            data.SearchCount := val + 0
+            if (this.ui != "") {
+                ; 清掉残留的「无限」选中项，再写手数，避免下次默认采集又读回无限
+                this.ui.Update(key, "SelectedIndex", "-1")
+                this.ui.Update(key, "Text", "" data.SearchCount)
+            }
+        }
+        else {
+            this._RefreshSearchVisibility(id, data)
+            return
+        }
+        SaveMacroCMDData(data)
+        this._RefreshSearchVisibility(id, data)
         this._Apply()
+    }
+
+    ; CheckBox 勾选状态：Checked/Unchecked 事件名最可靠，其次 state，最后 Query
+    _CheckBoxOn(idPrefix, id, state, event) {
+        if (IsSet(event)) {
+            if (event == "Checked")
+                return true
+            if (event == "Unchecked")
+                return false
+        }
+        key := idPrefix id
+        if (IsObject(state) && state.Has(key)) {
+            v := state[key]
+            return (v == "True" || v == true || v == 1 || v == "1")
+        }
+        if (this.ui != "") {
+            v := this.ui.Query(key)
+            return (v == "True" || v == true || v == 1 || v == "1")
+        }
+        return false
     }
 
     ; 结果保存开关：写回并显隐内部字段
@@ -626,15 +884,11 @@ class MacroGraphHandlersMixin {
         data := this._SearchData(id)
         if (data == "")
             return
-        key := "SResTog_" id
-        if (state.Has(key)) {
-            v := state[key]
-            data.ResultToggle := (v == "True" || v == 1 || v == "1") ? 1 : 0
-            if (data.ResultToggle == 1 && data.ResultSaveName != "")
-                MySoftData.GlobalVariMap[data.ResultSaveName] := true
-            SaveMacroCMDData(data)
-        }
-        this._RefreshSearchVisibility(id)
+        data.ResultToggle := this._CheckBoxOn("SResTog_", id, state, event) ? 1 : 0
+        if (data.ResultToggle == 1 && data.ResultSaveName != "")
+            MySoftData.GlobalVariMap[data.ResultSaveName] := true
+        SaveMacroCMDData(data)
+        this._RefreshSearchVisibility(id, data)
         this._Apply()
     }
 
@@ -643,19 +897,15 @@ class MacroGraphHandlersMixin {
         data := this._SearchData(id)
         if (data == "")
             return
-        key := "SCoordTog_" id
-        if (state.Has(key)) {
-            v := state[key]
-            data.CoordToogle := (v == "True" || v == 1 || v == "1") ? 1 : 0
-            if (data.CoordToogle == 1) {
-                if (data.CoordXName != "")
-                    MySoftData.GlobalVariMap[data.CoordXName] := true
-                if (data.CoordYName != "")
-                    MySoftData.GlobalVariMap[data.CoordYName] := true
-            }
-            SaveMacroCMDData(data)
+        data.CoordToogle := this._CheckBoxOn("SCoordTog_", id, state, event) ? 1 : 0
+        if (data.CoordToogle == 1) {
+            if (data.CoordXName != "")
+                MySoftData.GlobalVariMap[data.CoordXName] := true
+            if (data.CoordYName != "")
+                MySoftData.GlobalVariMap[data.CoordYName] := true
         }
-        this._RefreshSearchVisibility(id)
+        SaveMacroCMDData(data)
+        this._RefreshSearchVisibility(id, data)
         this._Apply()
     }
 

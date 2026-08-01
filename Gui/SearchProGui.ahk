@@ -174,7 +174,7 @@ class SearchProGui {
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索次数："))
         PosX += 80
         this.SearchCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.SearchCountCon.OnEvent("LoseFocus", this.OnChangeType.Bind(this))
+        this.SearchCountCon.OnEvent("LoseFocus", (*) => this.OnChangeType())
         PosX := 180
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
         this.CountTogArr.Push(con)
@@ -188,7 +188,7 @@ class SearchProGui {
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 160),
         GetLangArr(["无动作", "移动至目标", "移动至目标点击"]))
         this.MouseActionTypeCon.Value := 1
-        this.MouseActionTypeCon.OnEvent("Change", this.OnChangeType.Bind(this))
+        this.MouseActionTypeCon.OnEvent("Change", (*) => this.OnChangeType())
         PosY += 35
         PosX := 10
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度："))
@@ -234,7 +234,7 @@ class SearchProGui {
         PosY += 25
         PosX := 20
         this.ResultToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ResultToggleCon.OnEvent("Click", this.OnChangeType.Bind(this))
+        this.ResultToggleCon.OnEvent("Click", (*) => this.OnChangeType())
         this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 120), [])
         this.ResultTogArr.Push(this.ResultSaveNameCon)
         this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 155, PosY - 4, 70), 0)
@@ -360,7 +360,7 @@ class SearchProGui {
         PosY += 25
         PosX := 370
         this.CoordToogleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.CoordToogleCon.OnEvent("Click", this.OnChangeType.Bind(this))
+        this.CoordToogleCon.OnEvent("Click", (*) => this.OnChangeType())
         this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordXNameCon)
         this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 170, PosY - 3, 120), [])
@@ -381,10 +381,10 @@ class SearchProGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
-        if (!this.CheckIfDataValid())
-            return
+        ; 先回填控件（含结果/目标点勾选），再做完整性提示，避免校验失败时选框未勾上
+        dataOk := this.CheckIfDataValid()
         this.RefreshConfigDLArr()
-        this.SearchTypeCon.Value := this.Data.SearchType
+        this.SearchTypeCon.Value := Integer(ObjHasOwnProp(this.Data, "SearchType") ? this.Data.SearchType : 1)
         this.SimilarCon.Value := this.Data.Similar
         this.OCRTypeCon.Value := this.Data.OCRType
         this.WinInfoCon.Value := this.Data.WinInfo
@@ -421,13 +421,13 @@ class SearchProGui {
         this.ClickCountCon.Value := this.Data.ClickCount
         this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
-        this.ResultToggleCon.Value := this.Data.ResultToggle
+        this.ResultToggleCon.Value := this._ToggleInt(ObjHasOwnProp(this.Data, "ResultToggle") ? this.Data.ResultToggle : 0)
         this.ResultSaveNameCon.Delete()
         this.ResultSaveNameCon.Add(this.DLVariableArr)
         this.ResultSaveNameCon.Text := this.Data.ResultSaveName
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
-        this.CoordToogleCon.Value := this.Data.CoordToogle
+        this.CoordToogleCon.Value := this._ToggleInt(ObjHasOwnProp(this.Data, "CoordToogle") ? this.Data.CoordToogle : 0)
         this.CoordXNameCon.Delete()
         this.CoordXNameCon.Add(this.DLVariableArr)
         this.CoordXNameCon.Text := this.Data.CoordXName
@@ -442,6 +442,13 @@ class SearchProGui {
         SetDLConValue(this.MouseActionTypeCon, MouseDLArr, GetLang("无动作"))
         this.MouseActionTypeCon.Value := this.Data.MouseActionType
         this.OnChangeType()
+        if (!dataOk)
+            return
+    }
+
+    ; Checkbox.Value 需要 0/1；JSON 可能是 true/false 或 "1"
+    _ToggleInt(v) {
+        return (v == 1 || v == "1" || v == true || v == "True") ? 1 : 0
     }
 
     GetCommandStr() {
@@ -1007,7 +1014,7 @@ class SearchProGui {
         }
 
         this.SetConArrState(this.TextArr, false, isText)
-        this.MousePosCon.Focus()
+        try this.MousePosCon.Focus()
 
         this.SetConArrState(this.SimilarArr, false, !isText)
         this.SetConArrState(this.WinInfoArr, false, isWin)
@@ -1127,11 +1134,11 @@ class SearchProGui {
         data.Speed := this.SpeedCon.Value
         data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
         data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
-        data.ResultToggle := this.ResultToggleCon.Value
+        data.ResultToggle := this.ResultToggleCon.Value ? 1 : 0
         data.ResultSaveName := GetVarName(this.ResultSaveNameCon.Text)
         data.TrueValue := this.TrueValueCon.Value
         data.FalseValue := this.FalseValueCon.Value
-        data.CoordToogle := this.CoordToogleCon.Value
+        data.CoordToogle := this.CoordToogleCon.Value ? 1 : 0
         data.CoordXName := this.CoordXNameCon.Text
         data.CoordYName := this.CoordYNameCon.Text
 

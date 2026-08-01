@@ -1602,17 +1602,25 @@ class XAMLHost {
         baseEventName := eventName
         extraArg := ""
         if InStr(eventName, ":") {
-            parts := StrSplit(eventName, ":")
+            parts := StrSplit(eventName, ":", , 2)
             baseEventName := parts[1]
-            extraArg := parts[2]
+            extraArg := parts.Length >= 2 ? parts[2] : ""
         }
 
-        hasEvent := instance.events.Has(ctrlName) && instance.events[ctrlName].Has(baseEventName)
+        ; 同时匹配完整名（如 KeyDown:Return）与基名（KeyDown），兼容两种注册方式
+        matchNames := []
+        if (instance.events.Has(ctrlName)) {
+            if (instance.events[ctrlName].Has(eventName))
+                matchNames.Push(eventName)
+            if (baseEventName != eventName && instance.events[ctrlName].Has(baseEventName))
+                matchNames.Push(baseEventName)
+        }
+        hasEvent := matchNames.Length > 0
         if (!IsSet(XAML_ENABLE_LOGGING) || XAML_ENABLE_LOGGING) {
-            try FileAppend("OnCopyData dispatch check: " ctrlName "." baseEventName " hasEvent=" (hasEvent ? "true" : "false") " eventsCount=" (instance.events.Has(ctrlName) ? instance.events[ctrlName].Count : 0) "`n", XAMLHost.GetLogDir() "\AhkTrace.log", "UTF-8")
+            try FileAppend("OnCopyData dispatch check: " ctrlName "." eventName " hasEvent=" (hasEvent ? "true" : "false") " eventsCount=" (instance.events.Has(ctrlName) ? instance.events[ctrlName].Count : 0) "`n", XAMLHost.GetLogDir() "\AhkTrace.log", "UTF-8")
         }
 
-        if (instance.events.Has(ctrlName) && instance.events[ctrlName].Has(baseEventName)) {
+        if (hasEvent) {
             if (baseEventName == "SelectionBox" || baseEventName == "CtrlSelectionBox") {
                 str := ""
                 for k, v in stateMap
@@ -1620,15 +1628,17 @@ class XAMLHost {
                 if (!IsSet(XAML_ENABLE_LOGGING) || XAML_ENABLE_LOGGING)
                     try FileAppend("OnCopyData SelectionBox: " str "`n", A_ScriptDir "\debug.log")
             }
-            evtList := instance.events[ctrlName][baseEventName]
-            for evtObj in evtList {
-                cb := evtObj.Callback
+            for matchName in matchNames {
+                evtList := instance.events[ctrlName][matchName]
+                for evtObj in evtList {
+                    cb := evtObj.Callback
 
-                ; Handle optional event key args without breaking older 3-param callbacks
-                if (extraArg != "")
-                    SetTimer(cb.Bind(stateMap, ctrlName, { Key: extraArg }), -1, evtObj.Priority)
-                else
-                    SetTimer(cb.Bind(stateMap, ctrlName, baseEventName), -1, evtObj.Priority)
+                    ; Handle optional event key args without breaking older 3-param callbacks
+                    if (extraArg != "")
+                        SetTimer(cb.Bind(stateMap, ctrlName, { Key: extraArg }), -1, evtObj.Priority)
+                    else
+                        SetTimer(cb.Bind(stateMap, ctrlName, baseEventName), -1, evtObj.Priority)
+                }
             }
         }
         return 1

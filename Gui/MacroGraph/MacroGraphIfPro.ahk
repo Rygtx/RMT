@@ -540,10 +540,10 @@ class MacroGraphIfProMixin {
         border := XAMLElement("Border")
         if (asFragment)
             border.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation").SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        border.Name("Node_" brId).Background("{DynamicResource DropdownBg}").BorderBrush(borderColor).BorderThickness("1").CornerRadius("6").Width("200").Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         grid := border.Add("Grid")
         grid.Rows("28", "Auto")
+        this._AddNodeSelRing(grid, brId)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
@@ -559,11 +559,12 @@ class MacroGraphIfProMixin {
         expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
         panel := body.Add("StackPanel").Name("SBChipsPanel_" brId)
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
+        chipW := this._BranchChipWidth()
         if (cmds.Length == 0) {
             panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize(this._MGFontSize(11))
         } else {
             Loop shown {
-                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2")
+                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2").Width(chipW).HorizontalAlignment("Left")
                 chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
             }
         }

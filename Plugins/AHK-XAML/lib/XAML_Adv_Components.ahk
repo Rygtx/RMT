@@ -560,11 +560,28 @@ class XNodeGraph {
     AddNode(id, title, x, y, nodeType := "Process") {
         x += this.offsetX
         y += this.offsetY
-        node := this.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("200").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        node.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp('Color', "Black")
+        node := this.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width("200").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
 
         grid := node.Add("Grid")
         grid.Rows("30", "Auto")
+        ; 阴影内层 + 选中外描边环（与 MacroGraph _AddNodeSelRing 一致）
+        if (!grid.HasOwnProp("_Children") || !IsObject(grid._Children))
+            grid._Children := []
+        plate := XAMLElement("Border")
+        plate.Name("NodeShadow_" id)
+        plate._Props["Grid.Row"] := "0", plate._Props["Grid.RowSpan"] := "2"
+        plate._Props["Background"] := "{DynamicResource DropdownBg}", plate._Props["CornerRadius"] := "6"
+        plate._Props["IsHitTestVisible"] := "False", plate._Props["Panel.ZIndex"] := "-1"
+        plate.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
+        ring := XAMLElement("Border")
+        ring.Name("NodeSel_" id)
+        ring._Props["Grid.Row"] := "0", ring._Props["Grid.RowSpan"] := "2", ring._Props["Margin"] := "-3"
+        ring._Props["BorderThickness"] := "3", ring._Props["BorderBrush"] := "{DynamicResource GraphConnSel}"
+        ring._Props["Background"] := "Transparent", ring._Props["CornerRadius"] := "8"
+        ring._Props["Visibility"] := "Collapsed", ring._Props["IsHitTestVisible"] := "False", ring._Props["Panel.ZIndex"] := "0"
+        ; 必须跟在 Grid.RowDefinitions 之后（WPF 禁止 Children 出现在 RowDefinitions 之前）
+        grid._Children.Push(plate)
+        grid._Children.Push(ring)
 
         ; Color-coded header by type（Input/开始 跟主题标题栏）
         headerColor := nodeType == "Output" ? "#5A2E2E" : (nodeType == "Input" ? "{DynamicResource TitleBarColor}" : "#3E3E50")
@@ -655,16 +672,16 @@ class XNodeGraph {
         this.SetConnColor(pathId, selected ? this.ConnColorSelected() : this.ConnColorNormal())
     }
 
-    ; 节点选中描边（GraphConnSel，加粗便于辨认）
+    ; 节点选中外描边：切换 NodeSel_* 环（负 Margin 画在节点外侧），不改节点自身 BorderThickness，避免压缩内容
     SetNodeSelected(nodeId, selected) {
         if (this.ui == "")
             return
+        ring := "NodeSel_" nodeId
         if (selected) {
-            this.ui.Update("Node_" nodeId, "BorderBrush", this.ConnColorSelected())
-            this.ui.Update("Node_" nodeId, "BorderThickness", "3")
+            try this.ui.Update(ring, "BorderBrush", this.ConnColorSelected())
+            try this.ui.Update(ring, "Visibility", "Visible")
         } else {
-            this.ui.Update("Node_" nodeId, "BorderBrush", "{DynamicResource InputStroke}")
-            this.ui.Update("Node_" nodeId, "BorderThickness", "1")
+            try this.ui.Update(ring, "Visibility", "Collapsed")
         }
     }
 
@@ -882,7 +899,7 @@ class XNodeGraph {
             }
         }
 
-        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" Canvas.Left="' x '" Canvas.Top="' y '"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="' headerFg '" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="' (nodeType == "Input" ? headerFg : "#DDDDDD") '" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel>' portInXAML portOutXAML '</Grid></Border>'
+        xamlStr := '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Node_' newId '" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="6" Width="200" ClipToBounds="False" Canvas.Left="' x '" Canvas.Top="' y '"><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border x:Name="NodeShadow_' newId '" Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource DropdownBg}" CornerRadius="6" IsHitTestVisible="False" Panel.ZIndex="-1"><Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270" Color="Black"/></Border.Effect></Border><Border x:Name="NodeSel_' newId '" Grid.Row="0" Grid.RowSpan="2" Margin="-3" BorderThickness="3" BorderBrush="{DynamicResource GraphConnSel}" Background="Transparent" CornerRadius="8" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="0"/><Border Grid.Row="0" Background="' headerBg '" CornerRadius="5,5,0,0" Cursor="SizeAll"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="' nodeType ' ' idx '" Foreground="' headerFg '" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="10,0"/><TextBlock Grid.Column="1" Text="' nodeType '" Foreground="' (nodeType == "Input" ? headerFg : "#DDDDDD") '" FontSize="9" VerticalAlignment="Center" Margin="0,0,8,0"/></Grid></Border><StackPanel Grid.Row="1" Margin="10,6,10,8"><TextBlock Text="' label '" Foreground="{DynamicResource TextSub}" FontSize="10"/></StackPanel>' portInXAML portOutXAML '</Grid></Border>'
         this.ui.Update(this.id, "AddXamlItem", xamlStr)
 
         nodeObj := { Id: newId, Title: nodeType " " idx, X: x, Y: y, W: 200, H: 60, Type: nodeType }

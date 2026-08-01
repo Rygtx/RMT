@@ -1722,13 +1722,19 @@ SaveMacroCMDData(Data) {
     ; 优化：使用单次遍历拆分（替代RegExReplace）
     dummyNumbers := ""
     SplitSerialTextAndNumbers(Data.SerialStr, &cmd, &dummyNumbers)
-    DataFile := MySoftData.DataFileMap[cmd]
+    cmdKey := GetLangKey(cmd)
+    if (!MySoftData.DataFileMap.Has(cmdKey))
+        cmdKey := cmd
+    DataFile := MySoftData.DataFileMap[cmdKey]
 
     saveStr := JSON.stringify(Data, 0)
     IniWrite(saveStr, DataFile, IniSection, Data.SerialStr)
-    if (MySoftData.DataCacheMap.Has(Data.SerialStr)) {
+    ; 清掉原串与规范化键，避免中英文序列码双缓存导致读到旧对象（勾选未回显）
+    if (MySoftData.DataCacheMap.Has(Data.SerialStr))
         MySoftData.DataCacheMap.Delete(Data.SerialStr)
-    }
+    normalizedSerialStr := Format("{}{}", cmdKey, dummyNumbers)
+    if (normalizedSerialStr != Data.SerialStr && MySoftData.DataCacheMap.Has(normalizedSerialStr))
+        MySoftData.DataCacheMap.Delete(normalizedSerialStr)
 }
 
 GetReplaceVarText(tableItem, tableIndex, text) {

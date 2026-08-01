@@ -1212,7 +1212,8 @@ public class AhkWpfEngine
                     }
                     int.TryParse(limitStr, out limitFps);
                 }
-                string[] kv = evtStr.Split(':');
+                // 最多拆 2 段：控件名 / 事件名（事件名可含冒号）
+                string[] kv = evtStr.Split(new[] { ':' }, 2);
                 if (kv.Length == 2) BindEvent(kv[0], kv[1], limitFps, isQueue);
             }
         }
@@ -1836,7 +1837,8 @@ public class AhkWpfEngine
                     }
                     int.TryParse(limitStr, out limitFps);
                 }
-                string[] kv = evtStr.Split(':');
+                // 最多拆 2 段：控件名 / 事件名（事件名可含冒号）
+                string[] kv = evtStr.Split(new[] { ':' }, 2);
                 if (kv.Length == 2) BindEvent(kv[0], kv[1], limitFps, isQueue);
             }
         }
@@ -2263,6 +2265,35 @@ public class AhkWpfEngine
                         string val = LengthPrefix(e.NewValue.ToString());
                         SendToAhk("EVENT|" + winId + "|" + ctrlName + "|IsVisibleChanged|" + val + "\n");
                     };
+                }
+                return;
+            }
+
+            // KeyDown:Return / PreviewKeyDown:Delete 等：绑底层键盘事件，仅在目标键时上报
+            if (eventName.StartsWith("KeyDown:") || eventName.StartsWith("PreviewKeyDown:"))
+            {
+                int colon = eventName.IndexOf(':');
+                string baseEvt = eventName.Substring(0, colon);
+                string keyFilter = eventName.Substring(colon + 1);
+                if (ctrl is UIElement)
+                {
+                    UIElement ue = (UIElement)ctrl;
+                    if (baseEvt == "PreviewKeyDown")
+                    {
+                        ue.PreviewKeyDown += (s, e) =>
+                        {
+                            if (e.Key.ToString() == keyFilter || (keyFilter == "Return" && e.Key == System.Windows.Input.Key.Enter))
+                                DumpStateWithArgs(ctrlName, baseEvt, e);
+                        };
+                    }
+                    else
+                    {
+                        ue.KeyDown += (s, e) =>
+                        {
+                            if (e.Key.ToString() == keyFilter || (keyFilter == "Return" && e.Key == System.Windows.Input.Key.Enter))
+                                DumpStateWithArgs(ctrlName, baseEvt, e);
+                        };
+                    }
                 }
                 return;
             }
