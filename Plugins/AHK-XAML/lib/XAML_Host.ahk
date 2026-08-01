@@ -2228,6 +2228,7 @@ XAML_TEMPLATE := '
             <SolidColorBrush x:Key="SidebarColor" Color="#252526" />
             <SolidColorBrush x:Key="ControlBg" Color="#F0F0F0" />
             <SolidColorBrush x:Key="ControlBorder" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="GraphLine" Color="#FF333333" />
             <SolidColorBrush x:Key="InputBg" Color="#FFFFFF" />
             <SolidColorBrush x:Key="InputStroke" Color="#CCCCCC" />
             <SolidColorBrush x:Key="InputText" Color="#1A1A1A" />

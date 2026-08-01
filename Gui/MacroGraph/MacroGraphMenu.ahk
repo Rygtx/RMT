@@ -18,7 +18,7 @@ class MacroGraphMenuMixin {
         ; MousePoint 会让菜单向光标左侧弹、子菜单也往左（正是"出现在鼠标左下、二级菜单在左"的表现）。
         cmHost := canvas.Add("Border").Name("MG_CMHost").Width("0").Height("0").Visibility("Collapsed")
         cmEl := cmHost.Add("Border.ContextMenu")
-        cm := cmEl.Add("ContextMenu").Name("MG_CM").MinWidth("180").MaxHeight("600").Placement("MousePoint").FlowDirection("LeftToRight").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        cm := cmEl.Add("ContextMenu").Name("MG_CM").MinWidth("180").MaxHeight("600").Placement("MousePoint").FlowDirection("LeftToRight").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
 
         ; 注入局部资源：
         ;   ① 自定义 ContextMenu 模板（无阴影边框，与位置正确的 MG_DropCM 一致）——
@@ -51,7 +51,7 @@ class MacroGraphMenuMixin {
 
         ; ---- 出点连线到空白处用的指令弹出菜单（挂在隐藏 Border 上，与右键菜单独立） ----
         dropHost := canvas.Add("Border").Name("MG_DropHost").Width("0").Height("0").Visibility("Collapsed")
-        dm := dropHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MG_DropCM").MinWidth("180").MaxHeight("400").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+        dm := dropHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MG_DropCM").MinWidth("180").MaxHeight("400").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
         dm.InjectResources(this._ContextMenuScrollStyle())
         for i, name in this.CmdList {
             mi := dm.Add("MenuItem").Name("MG_Drop_" i).Header(name)
@@ -89,8 +89,8 @@ class MacroGraphMenuMixin {
             .         '</Grid>'
             .       '</Border>'
             .       '<ControlTemplate.Triggers>'
-            .         '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#0078D4"/><Setter Property="Foreground" Value="White"/></Trigger>'
-            .         '<Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Bd" Property="Background" Value="#0078D4"/><Setter Property="Foreground" Value="White"/></Trigger>'
+            .         '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="White"/></Trigger>'
+            .         '<Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="White"/></Trigger>'
             .         '<Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource TextSub}"/></Trigger>'
             .         '<Trigger Property="HasItems" Value="True"><Setter TargetName="ArrowPath" Property="Visibility" Value="Visible"/></Trigger>'
             .         '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="HasItems" Value="True"/></MultiTrigger.Conditions><Setter Property="IsSubmenuOpen" Value="True"/></MultiTrigger>'

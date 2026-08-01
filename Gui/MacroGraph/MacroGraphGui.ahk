@@ -28,6 +28,8 @@
 ; ============================================================================
 
 class MacroGraphGui {
+    ; 已打开的节点编辑器实例（主题变更时同步刷新）
+    static openInstances := Map()
 
     __New() {
         this.SureBtnAction := ""
@@ -187,20 +189,23 @@ class MacroGraphGui {
         win := XAML_Generator("Window")
         win.SetProp("xmlns", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
         win.SetProp("xmlns:x", "http://schemas.microsoft.com/winfx/2006/xaml")
-        win.Title(GetLang("节点编辑器")).Width(1100).Height(700).WindowStartupLocation("CenterScreen").WindowState("Maximized").Background("#1E1E1E")
+        ; 画布/窗口背景固定深色（不随浅色主题变白）
+        win.Title(GetLang("节点编辑器")).Width(1100).Height(700).WindowStartupLocation("CenterScreen").WindowState("Maximized").Background("#FF1E1E1E")
         iconPath := StrReplace(A_WorkingDir "\Images\Soft\rabit.ico", "\", "/")
         if (FileExist(iconPath))
             win.Icon(iconPath)
 
         root := win.Add("Grid")
         this.graph := root.NodeGraph("RMTGraph")
+        ; 画布底固定深色（与节点 DropdownBg 分离，避免浅色主题把整片画布刷白）
+        this.graph.bdr.Name("MG_GraphChrome").Background("#FF1E1E1E").BorderBrush("{DynamicResource ControlBorder}")
         this._HookGraphIfProPaths()
 
         ; 右上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
-        ; 右下角：保存
+        ; 右下角：保存（颜色走通用窗口主题）
         if (this.OnClosedAction == "")
-            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("#3A5A8C").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
-        root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("#2E6E3E").Foreground("White").BorderThickness("0").FontSize("14").Cursor("Hand")
+            root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
+        root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
         this._StaticSpreadExpandedSearches()
@@ -293,8 +298,32 @@ class MacroGraphGui {
         this._BindTextBoxEnterEvents()
 
         this.ui.Show()
+        MacroGraphGui.openInstances[this._sessionId] := this
+        this._ApplyTheme()
         this._oldUi := oldUi
         SetTimer(this._readyTimer, 50)
+    }
+
+    ; 套用 AppTheme：节点/网格/按钮跟主题；仅窗口与画布底固定深色
+    _ApplyTheme() {
+        if (!IsObject(this.ui))
+            return
+        themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+        try ApplyXamlTheme(this.ui, themeName)
+        darkBg := "#FF1E1E1E"
+        try this.ui.Update("Window", "Background", darkBg)
+        try this.ui.Update("Resource", "BgColor", darkBg)
+        try this.ui.Update("MG_GraphChrome", "Background", darkBg)
+        ; 网格线走主题「图形线条」(GraphLine)；节点体/标题/输入框走 DropdownBg、TitleBar*、Input* 等
+    }
+
+    static RefreshOpenThemes() {
+        for , inst in MacroGraphGui.openInstances {
+            try {
+                if (IsObject(inst) && IsObject(inst.ui))
+                    inst._ApplyTheme()
+            }
+        }
     }
 
     _NodeExists(id) {
@@ -305,6 +334,7 @@ class MacroGraphGui {
         if (this.ui == "" || !this.ui.wpfHwnd)
             return
         SetTimer(this._readyTimer, 0)
+        this._ApplyTheme()
         this.graph.EnableDrag(this.ui, true)
         this._ThickenConnections()    ; 加粗连线，增大命中区域便于单击选中
         for id in this.order {
@@ -361,6 +391,8 @@ class MacroGraphGui {
     }
 
     OnWindowClosed(sid := -1, *) {
+        if (MacroGraphGui.openInstances.Has(sid))
+            MacroGraphGui.openInstances.Delete(sid)
         ; 仅处理当前会话窗口的关闭；旧窗口迟到的异步关闭事件直接忽略，避免覆盖写空
         if (sid != this._sessionId)
             return

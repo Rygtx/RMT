@@ -182,7 +182,7 @@ class MacroGraphFormalMixin {
         row := body.Add("StackPanel").Name("TxtArgsTypeRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(GetLang("参数类型：")).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(GetLang("参数类型：")).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
         slot := row.Add("StackPanel").Name("TxtArgsTypeSlot_" id)
         activeTi := this._FormalTextOpsTypeIdx(tt)
         for tidx, tn in this._FormalTextOpsTypeNames() {
@@ -191,7 +191,7 @@ class MacroGraphFormalMixin {
             if (sel < 0)
                 sel := 0
             cmb := slot.Add("ComboBox").Name("TxtArgsTypeCmb_" tidx "_" id).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200")
-                .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+                .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             cmb.Visibility(tidx == activeTi ? "Visible" : "Collapsed")
             for it in items
                 cmb.Add("ComboBoxItem").Content(it)
@@ -320,7 +320,7 @@ class MacroGraphFormalMixin {
         showMinMax := on && ot == 2
         ; 每个变量独立卡片：分组清晰、表现更佳，开关/字段集中显示
         ; 逐级展开：仅勾选上一个变量后才显示下一个（visible 控制整张卡片显隐，降低展开高度）
-        card := body.Add("Border").Name(p "Card_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,6,0,0").Padding("6,2,6,6")
+        card := body.Add("Border").Name(p "Card_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4").Background("{DynamicResource InputBg}").Margin("0,6,0,0").Padding("6,2,6,6")
         if (!visible)
             card.Visibility("Collapsed")
         inner := card.Add("StackPanel")
@@ -429,7 +429,7 @@ class MacroGraphFormalMixin {
 
         ; 模板（屏幕/剪切板/窗口 都需要），含「编辑」按钮打开提取模板编辑器
         exStrRow := body.Add("StackPanel").Name("ExStrRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
-        exStrRow.Add("TextBlock").Text(GetLang("模板：")).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(LW).VerticalAlignment("Center")
+        exStrRow.Add("TextBlock").Text(GetLang("模板：")).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(LW).VerticalAlignment("Center")
         this._MakeTextBox(exStrRow, "ExStr_" id, es, "188")
         exStrRow.Add("Button").Name("ExStrEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0").Cursor("Hand")
 
@@ -480,8 +480,8 @@ class MacroGraphFormalMixin {
         exprRow := body.Add("StackPanel").Name(p "ExprRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!(visible && on))
             exprRow.Visibility("Collapsed")
-        exprRow.Add("TextBox").Name(p "Expr_" id).Text(this._XamlEscape(ex)).Width("140").Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
-        exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        exprRow.Add("TextBox").Name(p "Expr_" id).Text(this._XamlEscape(ex)).Width("140").Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("{DynamicResource InputText}")
+        exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
         ; 结果变量下拉
         this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("结果变量："), p "Target_" id, GetGuiVarArr(), un, visible && on, lw, cw)
     }
@@ -626,7 +626,7 @@ class MacroGraphFormalMixin {
         ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
         RunTargetRow := body.Add("StackPanel").Name("RunTargetRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         RunTargetRow.Add("TextBox").Name("RunTarget_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
 
         ; 窗口状态 ComboBox (Hide / / Max / Min)
@@ -637,7 +637,7 @@ class MacroGraphFormalMixin {
         stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!showStdIn)
             stdinRow.Visibility("Collapsed")
-        stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("White").VerticalContentAlignment("Center").Padding("0")
+        stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("{DynamicResource InputText}").VerticalContentAlignment("Center").Padding("0")
         stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(stdinVal).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
 
         encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
@@ -719,7 +719,7 @@ class MacroGraphFormalMixin {
         ; 路径行：输入框 + 文件按钮（无标签，与运行节点一致）
         fioPathRow := body.Add("StackPanel").Name("FIOPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         fioPathRow.Add("TextBox").Name("FIOPath_" id).Text(fp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        fioPathRow.Add("Button").Name("FIOPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("#3A3A4C").Foreground("White").BorderThickness("1").BorderBrush("#5A5A6C")
+        fioPathRow.Add("Button").Name("FIOPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
         ; 表名/序号（仅Excel时显示，默认值1）
         nameOrSerial := d.HasOwnProp("NameOrSerial") ? d.NameOrSerial : 1
         this._AddFieldRow(body, "FIOSheetRow_" id, GetLang("表名："), "FIOSheet_" id, nameOrSerial, IsExcel, true, "", "", "", lw, cw)
@@ -872,7 +872,7 @@ class MacroGraphFormalMixin {
         cc := d.HasOwnProp("clickCount") ? d.clickCount : 1
         ci := d.HasOwnProp("clickInterval") ? d.clickInterval : 100
         isClick := tt == 3
-        body.Add("TextBlock").Name("BgkKeys_" id).Text(keyStr).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
+        body.Add("TextBlock").Name("BgkKeys_" id).Text(keyStr).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
         frontRow := body.Add("StackPanel").Name("BgkFrontRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         this._MakeTextBox(frontRow, "BgkFront_" id, fs, "130")
         frontRow.Add("Button").Name("BgkFrontEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0").Cursor("Hand")
@@ -916,7 +916,7 @@ class MacroGraphFormalMixin {
         st := d.HasOwnProp("kcStateType") ? d.kcStateType : 1
         vn := d.HasOwnProp("kcVarName") ? d.kcVarName : ""
         keyStr := d.HasOwnProp("kcKeyStr") ? d.kcKeyStr : ""
-        body.Add("TextBlock").Name("KcKeys_" id).Text(keyStr).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
+        body.Add("TextBlock").Name("KcKeys_" id).Text(keyStr).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
         this._AddComboRow(body, "KcCheckRow_" id, GetLang("检测："), "KcCheckCmb_" id, checkTypes, ct - 1, true, true, lw, cw)
         this._AddComboRow(body, "KcStateRow_" id, GetLang("状态类型："), "KcStateCmb_" id, stateTypes, st - 1, true, true, lw, cw)
         this._AddEditableComboRow(body, "KcVarRow_" id, GetLang("变量："), "KcVar_" id, GetGuiVarArr(), vn, true, lw, cw)
@@ -986,7 +986,7 @@ class MacroGraphFormalMixin {
         cmpTypes := this._IfCmpTypes()
         showRow := showCard && on
         showVal := showRow && cmp != 7
-        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,5,0,0").Padding("6,2,6,6")
+        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4").Background("{DynamicResource InputBg}").Margin("0,5,0,0").Padding("6,2,6,6")
         if (!showCard)
             card.Visibility("Collapsed")
         inner := card.Add("StackPanel")
@@ -1127,7 +1127,7 @@ class MacroGraphFormalMixin {
         cmpTypes := this._LoopCmpTypes()
         showRow := showCard && on
         showVal := showRow && cmp != 7
-        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("4").Background("#2A2A38").Margin("0,5,0,0").Padding("6,2,6,6")
+        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4").Background("{DynamicResource InputBg}").Margin("0,5,0,0").Padding("6,2,6,6")
         if (!showCard)
             card.Visibility("Collapsed")
         inner := card.Add("StackPanel")

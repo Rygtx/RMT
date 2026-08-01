@@ -48,7 +48,7 @@ class MacroGraphNodeUIMixin {
             this._AddEditableComboRow(body, "Time2Row_" id, GetLang("时间："), "Time2_" id, varList, d.time2, isRandom)
         }
         else if (d.type == GetLang("按键")) {
-            body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
+            body.Add("TextBlock").Name("KeyName_" id).Text(d.key).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(13)).TextWrapping("Wrap")
 
             ; 按键类型下拉 —— 标签与下拉同行
             this._AddComboRow(body, "TypeRow_" id, GetLang("按键类型") "：", "TypeCmb_" id
@@ -180,7 +180,7 @@ class MacroGraphNodeUIMixin {
         }
         else {
             body.Add("TextBlock").Text(GetLang("临时节点")).Foreground("#FF9E9E").FontSize(this._MGFontSize(12))
-            body.Add("TextBlock").Text(d.raw).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
+            body.Add("TextBlock").Text(d.raw).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
         }
     }
 
@@ -200,7 +200,7 @@ class MacroGraphNodeUIMixin {
         winRow := body.Add("StackPanel").Name("SWinRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!c.isWin)
             winRow.Visibility("Collapsed")
-        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(LW).VerticalAlignment("Center")
+        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(LW).VerticalAlignment("Center")
         this._MakeTextBox(winRow, "SWin_" id, d.HasOwnProp("winInfo") ? d.winInfo : "", "196")
         winRow.Add("Button").Name("SWinEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0")
 
@@ -262,7 +262,7 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        cell.Add("TextBlock").Text(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
         box := this._MakeTextBox(cell, boxName, val, cw, id, "")
         if (tag != "")
             box.SetProp("Tag", tag)
@@ -275,8 +275,8 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
-        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        cell.Add("TextBlock").Text(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", textVal)
@@ -289,9 +289,9 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        cell.Add("TextBlock").Text(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
+        cell.Add("TextBlock").Text(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(lw).VerticalAlignment("Center")
         cmb := cell.Add("ComboBox").Name(comboName).Width(cw).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").SelectedIndex(selIndex)
-            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
     }
@@ -303,7 +303,7 @@ class MacroGraphNodeUIMixin {
             cell.Margin("14,0,0,0")
         if (!visible)
             cell.Visibility("Collapsed")
-        chk := cell.Add("CheckBox").Name(chkName).Content(label).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        chk := cell.Add("CheckBox").Name(chkName).Content(label).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (isChecked == 1 || isChecked == "1")
             chk.IsChecked("True")
     }
@@ -317,10 +317,10 @@ class MacroGraphNodeUIMixin {
         cell := rowSP.Add("StackPanel").Name(p "TogRow_" id).Orientation("Horizontal")
         if (rightCell)
             cell.Margin("14,0,0,0")
-        chk := cell.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").Margin("0,0,4,0")
+        chk := cell.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").Margin("0,0,4,0")
         if (on)
             chk.IsChecked("True")
-        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in varList
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", vn)
@@ -356,9 +356,9 @@ class MacroGraphNodeUIMixin {
         toggled := isResult ? (d.HasOwnProp("resultToggle") && (d.resultToggle == 1 || d.resultToggle == "1"))
             : (d.HasOwnProp("coordToggle") && (d.coordToggle == 1 || d.coordToggle == "1"))
 
-        card := body.Add("Border").Margin("0,8,0,0").Background("#1FFFFFFF").CornerRadius("5").BorderBrush("#3E3E50").BorderThickness("1").Padding("8,6")
+        card := body.Add("Border").Margin("0,8,0,0").Background("#1FFFFFFF").CornerRadius("5").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Padding("8,6")
         sp := card.Add("StackPanel")
-        chk := sp.Add("CheckBox").Name(togName).Content(title).Foreground("#FFD27F").FontWeight("Bold").FontSize(this._MGFontSize(12))
+        chk := sp.Add("CheckBox").Name(togName).Content(title).Foreground("{DynamicResource EditText}").FontWeight("Bold").FontSize(this._MGFontSize(12))
         if (toggled)
             chk.IsChecked("True")
         fields := sp.Add("StackPanel").Name(fieldsName).Margin("0,4,0,0")
@@ -369,9 +369,9 @@ class MacroGraphNodeUIMixin {
             this._AddEditableComboRow(fields, "SResNameRow_" id, GetLang("变量名") "：", "SResName_" id, varList, "" (d.HasOwnProp("resultSaveName") ? d.resultSaveName : ""), true, "70", "240")
             ; 真值 / 假值 在变量名下方，整体左缩进 70（与变量名输入框左对齐），文本左右居中
             tfRow := fields.Add("StackPanel").Orientation("Horizontal").Margin("70,5,0,0")
-            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width("44").VerticalAlignment("Center")
+            tfRow.Add("TextBlock").Text(GetLang("真值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("44").VerticalAlignment("Center")
             this._MakeTextBox(tfRow, "SResTrue_" id, "" (d.HasOwnProp("trueValue") ? d.trueValue : 1), "80")
-            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width("44").Margin("12,0,0,0").VerticalAlignment("Center")
+            tfRow.Add("TextBlock").Text(GetLang("假值") "：").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width("44").Margin("12,0,0,0").VerticalAlignment("Center")
             this._MakeTextBox(tfRow, "SResFalse_" id, "" (d.HasOwnProp("falseValue") ? d.falseValue : 0), "80")
         }
         else {
@@ -617,7 +617,7 @@ class MacroGraphNodeUIMixin {
         } else {
             Loop shown {
                 chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2")
-                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
+                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
             }
         }
         ; 展开/收起按钮：始终创建（便于运行时显隐），不超过预览条数时隐藏
@@ -644,7 +644,7 @@ class MacroGraphNodeUIMixin {
     ; 单个指令小卡片的 XAML 片段（带命名空间，供运行时 AddXamlItem 注入）
     _BranchChipXaml(text) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="#DDDDDD" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
+        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2"><TextBlock Text="' this._XmlEsc(text) '" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
     }
 
     ; 运行时按当前展开态重建分支指令卡片（清空后重新注入）
@@ -881,9 +881,9 @@ class MacroGraphNodeUIMixin {
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
-        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("#3949AB").CornerRadius("5,5,0,0")
+        header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("{DynamicResource ActionBg}").CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
-        hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("{DynamicResource ActionText}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("8,6,8,8")
         this._FillLoopBodyNodeBody(loopId, body, bid)
         ; 循环体不参与主流程，不用标准入/出端口；仅左侧两个回环交互点（与循环节点右侧两点对应）
@@ -1016,7 +1016,7 @@ class MacroGraphNodeUIMixin {
         nodeW := (d.type == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(d.type) ? this._FormalNodeWidth(d.type) : 200)
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
-        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (d.type == GetLang("循环"))
             border.SetProp("MinHeight", "180")
         if (d.type == GetLang("如果Pro"))
@@ -1024,7 +1024,7 @@ class MacroGraphNodeUIMixin {
         border.Add("Border.Effect").Add("DropShadowEffect").BlurRadius("8").ShadowDepth("2").Opacity("0.4").Direction("270").SetProp("Color", "Black")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
-        this._BuildHeader(grid, id, d.type, "#3E3E50")
+        this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,6,10,8")
         this._FillNodeBody(id, d, body)
 
@@ -1082,11 +1082,11 @@ class MacroGraphNodeUIMixin {
         p := this.pos.Has(id) ? this.pos[id] : { x: 200, y: 200 }
         x := p.x + g.offsetX
         y := p.y + g.offsetY
-        headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "#3E3E50")
+        headerColor := nodeType == "Input" ? "#2E5A2E" : (nodeType == "Output" ? "#5A2E2E" : "{DynamicResource TitleBarColor}")
         if (nodeW == "")
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
-        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+        node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
         if (title == GetLang("循环"))
             node.SetProp("MinHeight", "180")
         if (title == GetLang("如果"))
@@ -1175,20 +1175,20 @@ class MacroGraphNodeUIMixin {
         iconUri := this._IconForType(title)
         if (iconUri != "")
             hp.Add("Image").SetProp("Source", iconUri).Width("14").Height("14").Margin("0,0,5,0").VerticalAlignment("Center")
-        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("{DynamicResource TitleBarForeground}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (this._IsSearchTypeTitle(title)) {
             ; 标题预览：颜色搜索显示色块（图片预览改为浮动在节点左侧，见 _AddFloatingImgPreview）
             d := this._Parse(this.cmdNodes[id].CurCMD)
             st := (d.HasOwnProp("searchType") && d.searchType >= 1 && d.searchType <= 6) ? d.searchType : 1
             color := d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF"
-            swEl := hp.Add("Border").Name("STitleColor_" id).Width("18").Height("18").CornerRadius("3").Margin("6,0,0,0").BorderBrush("#FFFFFF").BorderThickness("1").VerticalAlignment("Center")
+            swEl := hp.Add("Border").Name("STitleColor_" id).Width("18").Height("18").CornerRadius("3").Margin("6,0,0,0").BorderBrush("{DynamicResource TitleBarForeground}").BorderThickness("1").VerticalAlignment("Center")
             if (this._SearchTypeClass(st).isColor && RegExMatch(color, "^[0-9A-Fa-f]{6}$"))
                 swEl.Background("#" color)
             else
                 swEl.Visibility("Collapsed")
             folded := this._NodeFolded(id)
             ; 折叠/展开用实心三角图标（较大）：折叠态 ▶（点击展开），展开态 ▼（点击收起）
-            btn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            btn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             btn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
             ; 图片搜索预览：浮动在节点左侧、入点下方，右上角贴近节点左边缘（不占用内容区）
             this._AddFloatingImgPreview(grid, id, d)
@@ -1196,24 +1196,24 @@ class MacroGraphNodeUIMixin {
         else if (title == GetLang("变量")) {
             ; 变量节点：标题栏展开/收起按钮。展开=完整卡片；收起=各启用变量「变量名 = 值」摘要
             folded := this._NodeFolded(id)
-            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
         else if (title == GetLang("运算")) {
             ; 运算节点：标题栏展开/收起按钮。展开=完整卡片；收起=各启用槽「目标 = 表达式」摘要
             folded := this._NodeFolded(id)
-            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
         else if (title == GetLang("循环")) {
             ; 循环节点：标题栏展开/收起按钮。展开=完整条件+外置循环体；收起=简化条件+内置循环体
             folded := this._NodeFolded(id)
-            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
         else if (title == GetLang("如果Pro")) {
             folded := this._NodeFolded(id)
-            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("White").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
         return header
@@ -1255,7 +1255,7 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         box := this._MakeTextBox(row, boxName, boxValue, boxW, nodeId, field)
         ; boxTag 形如 "Min:1,Max:100"：限制 label 拖动改值的取值区间（引擎读取 Tag）
         if (boxTag != "")
@@ -1270,9 +1270,9 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200")
-            .Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         if (!enabled)
             cmb.IsEnabled("False")
         for it in items
@@ -1287,9 +1287,9 @@ class MacroGraphNodeUIMixin {
         block := body.Add("StackPanel").Name(blockName).Margin("0,5,0,0")
         if (!visible)
             block.Visibility("Collapsed")
-        block.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Margin("0,0,0,4")
+        block.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Margin("0,0,0,4")
         tb := block.Add("TextBox").Name(boxName).Text(boxValue).Width(boxW).Height("54").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,2")
-            .Foreground("White").CaretBrush("White").Background("{DynamicResource ControlBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1")
+            .Foreground("{DynamicResource InputText}").CaretBrush("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         tb.SetProp("TextWrapping", "Wrap")
         tb.SetProp("AcceptsReturn", "True")
         tb.SetProp("VerticalScrollBarVisibility", "Auto")
@@ -1304,9 +1304,9 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        row.Add("TextBlock").Text(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
+        row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         ; MaxDropDownHeight 限制下拉高度（约 10 项），超出时模板内 ScrollViewer 自动出现滚动条
-        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("White").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := row.Add("ComboBox").Name(comboName).Width(comboW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("2,0").MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in items
             cmb.Add("ComboBoxItem").Content(it)
         ; ComboBox 上 .Text() 会被别名成 Content，需用 SetProp 直接写 Text 属性（编辑框文本，ToString 会自动转义）
@@ -1319,7 +1319,7 @@ class MacroGraphNodeUIMixin {
         row := body.Add("StackPanel").Name(rowName).Orientation("Horizontal").Margin("0,5,0,0")
         if (!visible)
             row.Visibility("Collapsed")
-        chk := row.Add("CheckBox").Name(chkName).Content(labelText).Foreground("#DDDDDD").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        chk := row.Add("CheckBox").Name(chkName).Content(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (isChecked == 1 || isChecked == "1")
             chk.IsChecked("True")
         if (!enabled)
@@ -1329,7 +1329,7 @@ class MacroGraphNodeUIMixin {
 
     ; 统一的小高度文本框（MinHeight=0 覆盖主题默认的 36，否则高度不生效）
     _MakeTextBox(parent, name, value, width, nodeId := "", field := "") {
-        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("4,0").VerticalContentAlignment("Center").HorizontalContentAlignment("Center").TextAlignment("Center").CaretBrush("White")
+        return parent.Add("TextBox").Name(name).Text(value).Width(width).Height("20").MinHeight("0").FontSize(this._MGFontSize(12)).Padding("4,0").VerticalContentAlignment("Center").HorizontalContentAlignment("Center").TextAlignment("Center").CaretBrush("{DynamicResource InputText}")
     }
 }
 

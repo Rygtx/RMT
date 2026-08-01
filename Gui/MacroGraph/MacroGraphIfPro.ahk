@@ -563,7 +563,7 @@ class MacroGraphIfProMixin {
         } else {
             Loop shown {
                 chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2")
-                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("#DDDDDD").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
+                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
             }
         }
         btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
@@ -1039,7 +1039,7 @@ class MacroGraphIfProMixin {
         vr := (slot <= data.VariableArr[caseIdx].Length) ? data.VariableArr[caseIdx][slot] : ("Var" slot)
         on := slot <= data.VariNameArr[caseIdx].Length
         cmpTypes := this._IfProCmpTypes()
-        card := inner.Add("Border").Name(p "Row_" id).BorderBrush("#3A3A4C").BorderThickness("1").CornerRadius("3").Background("#2A2A38").Margin("0,3,0,0").Padding("4,2,4,4")
+        card := inner.Add("Border").Name(p "Row_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("3").Background("{DynamicResource InputBg}").Margin("0,3,0,0").Padding("4,2,4,4")
         if (!showRow)
             card.Visibility("Collapsed")
         stk := card.Add("StackPanel")

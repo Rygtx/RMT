@@ -33,8 +33,10 @@ class MacroGraphHandlersMixin {
             d.time := state["Time_" id]
         if (state.Has("Time2_" id) && state["Time2_" id] != "")
             d.time2 := state["Time2_" id]
-        if (state.Has(key) && state[key] != "")
-            d.itype := this._IntervalTypeFromText(state[key])
+        ; 优先用 SelectedIndex（不依赖下拉项 Content 文本；多节点/主题下 state 文本可能为空）
+        d.itype := this._IntervalTypeFromState(key, state, d.itype)
+        if (d.itype == GetLang("随机") && d.time2 == "")
+            d.time2 := "1000"
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
         this._RefreshIntervalVisibility(id)
         this._Apply()
@@ -46,10 +48,10 @@ class MacroGraphHandlersMixin {
         if (d.type != GetLang("间隔") || this.ui == "")
             return
         isRandom := d.itype == GetLang("随机")
-        ; 同步时间控件值，确保切换类型后控件内容与数据模型一致
+        ; 先显隐再同步文本，避免对仍折叠的 Time2 写 Text 触发无效事件
+        this.ui.Update("Time2Row_" id, "Visibility", isRandom ? "Visible" : "Collapsed")
         this.ui.Update("Time_" id, "Text", d.time)
         this.ui.Update("Time2_" id, "Text", d.time2)
-        this.ui.Update("Time2Row_" id, "Visibility", isRandom ? "Visible" : "Collapsed")
     }
 
     ; 间隔类型 -> 下拉项索引
@@ -57,8 +59,26 @@ class MacroGraphHandlersMixin {
         return (itype == GetLang("随机")) ? 1 : 0
     }
 
+    ; 从引擎当前选中项解析间隔类型：SelectedIndex 优先，其次 state 文本，最后保留旧值
+    _IntervalTypeFromState(key, state, fallback := "") {
+        if (this.ui != "") {
+            idx := this.ui.Query(key ">SelectedIndex")
+            if (idx != "" && IsNumber(idx) && Integer(idx) >= 0)
+                return (Integer(idx) == 1) ? GetLang("随机") : GetLang("固定")
+        }
+        if (IsObject(state) && state.Has(key) && state[key] != "")
+            return this._IntervalTypeFromText(state[key])
+        if (fallback != "")
+            return fallback
+        return GetLang("固定")
+    }
+
     ; 下拉项文本 -> 间隔类型（与显示项使用同一 GetLang，确保中英文一致匹配）
     _IntervalTypeFromText(text) {
+        if (text == "1" || text == 1)
+            return GetLang("随机")
+        if (text == "0" || text == 0)
+            return GetLang("固定")
         return (text == GetLang("随机")) ? GetLang("随机") : GetLang("固定")
     }
 

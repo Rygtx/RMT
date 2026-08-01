@@ -427,6 +427,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 通用窗口=General Window
 窗口背景=Window BG
 组描边=Group Stroke
+图形线条=Graph Line
 标签颜色=Label Color
 输入框背景=Input BG
 输入框描边=Input Stroke

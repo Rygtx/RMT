@@ -2509,7 +2509,8 @@ public class AhkWpfEngine
             suffix = "CaretIndex";
         }
 
-        var c = win.FindName(cName);
+        // FindControlByPath：含 NameScope 回退与可视树查找，避免仅 win.FindName 漏掉画布内节点控件
+        var c = FindControlByPath(cName);
         if (c == null) return null;
 
         string val = "";
@@ -2739,7 +2740,12 @@ public class AhkWpfEngine
                 object tag = ((ComboBoxItem)cb.SelectedItem).Tag;
                 object content = ((ComboBoxItem)cb.SelectedItem).Content;
                 if (tag != null && tag.ToString() != "") val = tag.ToString();
-                else if (content is TextBlock) val = GetTextFromInlines((TextBlock)content);
+                else if (content is TextBlock)
+                {
+                    TextBlock tb = (TextBlock)content;
+                    val = GetTextFromInlines(tb);
+                    if (string.IsNullOrEmpty(val) && tb.Text != null) val = tb.Text;
+                }
                 else if (content != null) val = content.ToString();
                 else val = "";
             }

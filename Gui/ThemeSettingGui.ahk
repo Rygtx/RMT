@@ -318,8 +318,9 @@ class ThemeSettingGui {
             MyUIMacroGui.RefreshPanels()
         if (IsSet(MyCMDTipGui) && IsObject(MyCMDTipGui))
             MyCMDTipGui.ApplyThemeColors()
-        ; 已打开的设置窗同步「通用窗口」色
+        ; 已打开的设置窗 / 节点编辑器同步「通用窗口」色
         AppThemeUtil.RefreshOpenSettingWindows()
+        try MacroGraphGui.RefreshOpenThemes()
     }
 
     OnWindowClosing(state, ctrl, event) {
