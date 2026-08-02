@@ -304,7 +304,7 @@ class MacroGraphEventsMixin {
     }
 
     ; 窗口按键：Delete 删除选中项；Ctrl+C/V 复制粘贴节点
-    ; 桥接层 PreviewKeyDown 仅传入 {Key}，修饰键需用 GetKeyState 检测
+    ; 修饰键优先读事件里的 KeyModifiers（按键瞬间），避免 SetTimer 延迟后 GetKeyState 已松开
     _OnKeyDown(state, ctrl, info) {
         key := ""
         if (IsObject(info) && info.HasProp("Key"))
@@ -316,14 +316,123 @@ class MacroGraphEventsMixin {
         ; 忽略单独的修饰键
         if (key == "" || RegExMatch(key, "^(Left|Right)?(Ctrl|Shift|Alt|Win)$") || key == "System")
             return
-        ctrlDown := GetKeyState("Ctrl")
-        shiftDown := GetKeyState("Shift")
+        mods := (IsObject(state) && state.Has("KeyModifiers")) ? state["KeyModifiers"] : ""
+        ctrlDown := (mods != "" && InStr(mods, "Ctrl")) || GetKeyState("Ctrl")
+        shiftDown := (mods != "" && InStr(mods, "Shift")) || GetKeyState("Shift")
         if (key == "Delete" || key == "Back")
             this._DeleteSelected()
         else if (ctrlDown && !shiftDown && (key = "C" || key = "c"))
             this._CopySelected()
-        else if (ctrlDown && !shiftDown && (key = "V" || key = "v"))
-            this._PasteNodes()
+        else if (ctrlDown && !shiftDown && (key = "V" || key = "v")) {
+            ; Ctrl+V：先向引擎要鼠标画布坐标（异步 PasteAt），不用右键锚点
+            this._RequestPasteAtMouse(state)
+        }
+    }
+
+    ; Ctrl+V 入口：优先用按键事件已带的坐标立刻粘贴；否则 Screen/GetPasteMouse 异步取点
+    _RequestPasteAtMouse(state := "") {
+        g := this.graph
+        if (g == "" || this.ui == "" || !this.ui.wpfHwnd)
+            return
+        origin := this._PickPasteOriginFromState(state, true)
+        if (IsObject(origin)) {
+            this._pasteLockUntil := A_TickCount + 300
+            this._pasteOriginOverride := origin
+            this._PasteNodes(false)
+            return
+        }
+        ; 空 state：屏幕光标换算 → 异步 PasteAt；防双发
+        this._pasteAwaitTick := A_TickCount
+        this._pasteLockUntil := 0
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&sx, &sy)
+        try this.ui.Update(g.id, "ScreenToCanvas", sx "," sy)
+        ; 引擎未响应时兜底（仍不用 lastRightClick）
+        SetTimer(this._PasteNodesAtMouseFallback.Bind(this), -150)
+    }
+
+    _PasteNodesAtMouseFallback(*) {
+        if (!this.HasOwnProp("_pasteAwaitTick") || !this._pasteAwaitTick)
+            return
+        ; PasteAt 已处理则清除
+        if (A_TickCount - this._pasteAwaitTick > 500)
+            this._pasteAwaitTick := 0
+        if (!this._pasteAwaitTick)
+            return
+        this._pasteAwaitTick := 0
+        this._PasteNodesAtMouse("")
+    }
+
+    ; 从 state 选粘贴逻辑坐标；requireLive=true 时不用选中+40/固定300
+    _PickPasteOriginFromState(state, requireLive := false) {
+        g := this.graph
+        if (g == "")
+            return ""
+        cand := Map()
+        if (IsObject(state)) {
+            if (state.Has("PreviewKeyDown:V"))
+                cand["1_PreviewKeyDown:V"] := state["PreviewKeyDown:V"]
+            if (state.Has("PreviewKeyDown"))
+                cand["2_PreviewKeyDown"] := state["PreviewKeyDown"]
+            if (state.Has("PasteAt"))
+                cand["3_PasteAt"] := state["PasteAt"]
+            kLive := g.id ">CanvasMouseLive"
+            if (state.Has(kLive))
+                cand["4_state_" kLive] := state[kLive]
+            if (state.Has("CanvasMouseLive"))
+                cand["5_state_CanvasMouseLive"] := state["CanvasMouseLive"]
+        }
+        for name, raw in cand {
+            p := this._ParseCanvasPoint(raw, g)
+            if (IsObject(p))
+                return p
+        }
+        if (requireLive)
+            return ""
+        if (g.selectedNodes.Count > 0) {
+            for id in g.selectedNodes {
+                if (this.pos.Has(id))
+                    return { x: this.pos[id].x + 40, y: this.pos[id].y + 40 }
+            }
+        }
+        return { x: 300, y: 300 }
+    }
+
+    ; 同步兜底粘贴（异步失败时）：Query / 选中旁，不用右键
+    _PasteNodesAtMouse(state := "") {
+        g := this.graph
+        if (g == "")
+            return
+        origin := this._PickPasteOriginFromState(state, true)
+        if (!IsObject(origin) && this.ui != "" && this.ui.wpfHwnd) {
+            try {
+                live := this.ui.Query(g.id ">CanvasMouseLive")
+                origin := this._ParseCanvasPoint(live, g)
+            } catch {
+            }
+        }
+        if (!IsObject(origin))
+            origin := this._PickPasteOriginFromState("", false)
+        this._pasteOriginOverride := origin
+        this._PasteNodes(false)
+    }
+
+    ; 引擎 PasteAt：画布坐标（ScreenToCanvas / 按键载荷）
+    _OnPasteAt(state, *) {
+        g := this.graph
+        if (g == "")
+            return
+        if (this.HasOwnProp("_pasteLockUntil") && this._pasteLockUntil && A_TickCount < this._pasteLockUntil)
+            return
+        this._pasteAwaitTick := 0
+        this._pasteLockUntil := A_TickCount + 300
+        origin := this._PickPasteOriginFromState(state, true)
+        if (!IsObject(origin)) {
+            this._PasteNodesAtMouse(state)
+            return
+        }
+        this._pasteOriginOverride := origin
+        this._PasteNodes(false)
     }
 }
 

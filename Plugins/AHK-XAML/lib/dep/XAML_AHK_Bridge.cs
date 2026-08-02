@@ -102,6 +102,8 @@ public class AhkWpfEngine
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")]
     public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out POINT lpPoint);
 
     public static bool EnableLogging = true;
     private static string _logDir = null;
@@ -228,6 +230,8 @@ public class AhkWpfEngine
     System.Collections.Generic.Dictionary<string, object> _controlCache = new System.Collections.Generic.Dictionary<string, object>();
     bool LightweightEvents = false; // When true, events only send the triggering control's value (use ui.Query() for others)
     System.Collections.Generic.Dictionary<string, string> canvasModes = new System.Collections.Generic.Dictionary<string, string>();
+    // 画布本地坐标下的最近光标位置（PreviewMouseMove 更新；供粘贴锚点 / CanvasMouseLive 查询）
+    System.Collections.Generic.Dictionary<string, Point> canvasMouseCache = new System.Collections.Generic.Dictionary<string, Point>();
     System.Collections.Generic.Dictionary<string, string> _docViewModes = new System.Collections.Generic.Dictionary<string, string>();
     System.Collections.Generic.Dictionary<string, string> _spellCheckLangs = new System.Collections.Generic.Dictionary<string, string>();
     System.Windows.Shapes.Rectangle selectionBox = null;
@@ -2753,6 +2757,33 @@ public class AhkWpfEngine
                         catch { }
                     }
                     break;
+                case "CanvasMouseLive":
+                case "CanvasMouse":
+                    // 画布本地坐标下的当前光标位置（含 RenderTransform），供 Ctrl+V 粘贴锚点等使用
+                    if (c is Canvas)
+                    {
+                        try
+                        {
+                            var canvas = (Canvas)c;
+                            Point pos;
+                            try { pos = System.Windows.Input.Mouse.GetPosition(canvas); }
+                            catch { pos = new Point(double.NaN, double.NaN); }
+                            if (double.IsNaN(pos.X) || double.IsNaN(pos.Y))
+                            {
+                                if (canvas.Name != null && canvasMouseCache.ContainsKey(canvas.Name))
+                                    pos = canvasMouseCache[canvas.Name];
+                            }
+                            else if (canvas.Name != null)
+                                canvasMouseCache[canvas.Name] = pos;
+                            if (!double.IsNaN(pos.X) && !double.IsNaN(pos.Y))
+                            {
+                                val = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                                    + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                        }
+                        catch { }
+                    }
+                    break;
                 case "Handle":
                     val = new System.Windows.Interop.WindowInteropHelper(win).Handle.ToString();
                     break;
@@ -2890,11 +2921,177 @@ public class AhkWpfEngine
 
     private DateTime lastSendMouseMove = DateTime.MinValue;
 
+    private void AppendCanvasMouseLiveToState(StringBuilder sb)
+    {
+        if (sb == null) return;
+        // 先刷新所有已跟踪画布的实时光标，再写入状态（Ctrl+V 粘贴锚点用）
+        var names = new System.Collections.Generic.List<string>(canvasMouseCache.Keys);
+        // 始终尝试 RMT 画布（即使尚未移过鼠标、缓存为空）
+        if (!names.Contains("RMTGraph") && FindControlByPath("RMTGraph") is Canvas)
+            names.Insert(0, "RMTGraph");
+        if (names.Count == 0 && win != null)
+        {
+            WalkVisualTree(win, (DependencyObject d) =>
+            {
+                var cv = d as Canvas;
+                if (cv != null && cv.Tag != null && cv.Tag.ToString() == "ZoomPanEnabled" && !string.IsNullOrEmpty(cv.Name))
+                    names.Add(cv.Name);
+            });
+        }
+        foreach (string canvasName in names)
+        {
+            if (string.IsNullOrEmpty(canvasName)) continue;
+            Point pos;
+            var canvas = FindControlByPath(canvasName) as Canvas;
+            if (canvas != null)
+            {
+                try { pos = System.Windows.Input.Mouse.GetPosition(canvas); }
+                catch
+                {
+                    if (!canvasMouseCache.TryGetValue(canvasName, out pos)) continue;
+                }
+                canvasMouseCache[canvasName] = pos;
+            }
+            else if (!canvasMouseCache.TryGetValue(canvasName, out pos))
+                continue;
+            string coords = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            sb.Append(canvasName + ">CanvasMouseLive=" + LengthPrefix(coords) + "\n");
+            sb.Append("CanvasMouseLive=" + LengthPrefix(coords) + "\n");
+        }
+    }
+
+    private Canvas FindZoomPanCanvas()
+    {
+        // 优先 RMT 图形画布
+        var rmt = FindControlByPath("RMTGraph") as Canvas;
+        if (rmt != null) return rmt;
+        foreach (var kv in canvasMouseCache)
+        {
+            var cv = FindControlByPath(kv.Key) as Canvas;
+            if (cv != null) return cv;
+        }
+        Canvas found = null;
+        if (win != null)
+        {
+            WalkVisualTree(win, (DependencyObject d) =>
+            {
+                if (found != null) return;
+                var cv = d as Canvas;
+                if (cv == null || string.IsNullOrEmpty(cv.Name)) return;
+                if (cv.Tag != null && cv.Tag.ToString() == "ZoomPanEnabled")
+                    found = cv;
+                else if (found == null && cv.Name == "RMTGraph")
+                    found = cv;
+            });
+        }
+        return found;
+    }
+
+    private void SendPasteAtFromCanvas(Canvas canvas, Point? screenPoint = null)
+    {
+        if (canvas == null) return;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        Point pos;
+        if (screenPoint.HasValue)
+        {
+            // AHK MouseGetPos(Screen) → PointFromScreen（含 RenderTransform）
+            try { pos = canvas.PointFromScreen(screenPoint.Value); }
+            catch { pos = System.Windows.Input.Mouse.GetPosition(canvas); }
+        }
+        else
+        {
+            // 与 MoveConnectionDrag 同源；异常时用屏幕光标兜底
+            pos = System.Windows.Input.Mouse.GetPosition(canvas);
+            if (double.IsNaN(pos.X) || double.IsNaN(pos.Y) || (pos.X == 0 && pos.Y == 0 && !canvas.IsMouseOver))
+            {
+                try
+                {
+                    POINT sp;
+                    if (GetCursorPos(out sp))
+                        pos = canvas.PointFromScreen(new System.Windows.Point((double)sp.x, (double)sp.y));
+                }
+                catch { }
+            }
+        }
+        if (!string.IsNullOrEmpty(canvas.Name))
+            canvasMouseCache[canvas.Name] = pos;
+        string coords = pos.X.ToString(inv) + "," + pos.Y.ToString(inv);
+        string name = !string.IsNullOrEmpty(canvas.Name) ? canvas.Name : "Canvas";
+        // 必须异步：AHK 经 Update 同步进来时，若再同步 SendMessage 回 AHK 会死锁
+        SendToAhkAsync("EVENT|" + winId + "|" + name + "|PasteAt|" + LengthPrefix(coords) + "\n");
+    }
+
     private void DumpStateWithArgs(string cName, string eName, object e)
     {
         if (e is System.Windows.Input.KeyEventArgs)
         {
-            eName += ":" + ((System.Windows.Input.KeyEventArgs)e).Key.ToString();
+            var ke = (System.Windows.Input.KeyEventArgs)e;
+            // Ctrl 组合时 Key 偶发为 System，改读 SystemKey
+            var key = (ke.Key == System.Windows.Input.Key.System) ? ke.SystemKey : ke.Key;
+            eName += ":" + key.ToString();
+
+            var mods = System.Windows.Input.Keyboard.Modifiers;
+            bool ctrlOnly = (mods & System.Windows.Input.ModifierKeys.Control) != 0
+                && (mods & System.Windows.Input.ModifierKeys.Shift) == 0
+                && (mods & System.Windows.Input.ModifierKeys.Alt) == 0;
+
+            // Ctrl+V：事件主载荷直接带画布坐标，不塞进 CollectState 长报文
+            string eventPayload = "";
+            if (key == System.Windows.Input.Key.V && ctrlOnly)
+            {
+                Canvas pasteCanvas = FindZoomPanCanvas();
+                if (pasteCanvas != null)
+                {
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    Point pos = System.Windows.Input.Mouse.GetPosition(pasteCanvas);
+                    try
+                    {
+                        POINT sp;
+                        if (GetCursorPos(out sp))
+                            pos = pasteCanvas.PointFromScreen(new System.Windows.Point((double)sp.x, (double)sp.y));
+                    }
+                    catch { }
+                    if (!string.IsNullOrEmpty(pasteCanvas.Name))
+                        canvasMouseCache[pasteCanvas.Name] = pos;
+                    eventPayload = LengthPrefix(
+                        pos.X.ToString(inv) + "," + pos.Y.ToString(inv));
+                }
+            }
+
+            var sbKey = new StringBuilder("EVENT|" + winId + "|" + cName + "|" + eName);
+            if (eventPayload != "")
+                sbKey.Append("|").Append(eventPayload);
+            sbKey.Append("\n");
+
+            // 修饰键写入 state，避免 AHK SetTimer 延迟后 GetKeyState 已松开
+            string modStr = "";
+            if ((mods & System.Windows.Input.ModifierKeys.Control) != 0) modStr += "Ctrl,";
+            if ((mods & System.Windows.Input.ModifierKeys.Shift) != 0) modStr += "Shift,";
+            if ((mods & System.Windows.Input.ModifierKeys.Alt) != 0) modStr += "Alt,";
+            if (modStr.Length > 0)
+                sbKey.Append("KeyModifiers=" + LengthPrefix(modStr.TrimEnd(',')) + "\n");
+
+            if (key == System.Windows.Input.Key.V && ctrlOnly)
+            {
+                // 粘贴只需短报文 + 坐标；再写一份 CanvasMouseLive 作兼容
+                AppendCanvasMouseLiveToState(sbKey);
+                if (eventPayload != "")
+                    sbKey.Append("PasteAt=" + eventPayload + "\n");
+            }
+            else if (LightweightEvents)
+            {
+                string triggerVal = GetControlValue(cName);
+                if (triggerVal != null)
+                    sbKey.Append(cName + "=" + LengthPrefix(triggerVal) + "\n");
+            }
+            else
+            {
+                AppendCanvasMouseLiveToState(sbKey);
+                sbKey.Append(CollectState());
+            }
+            SendToAhkAsync(sbKey.ToString());
+            return;
         }
 #if ENABLE_WEBVIEW
         else if (e is Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs) {
@@ -6269,6 +6466,26 @@ public class AhkWpfEngine
                 {
                     EnableCanvasZoomPan((Canvas)ctrl);
                 }
+                else if (parts[1] == "GetPasteMouse" && ctrl is Canvas)
+                {
+                    // AHK Ctrl+V 请求：与拖线同源 Mouse.GetPosition，回发 PasteAt
+                    SendPasteAtFromCanvas((Canvas)ctrl);
+                }
+                else if (parts[1] == "ScreenToCanvas" && ctrl is Canvas && parts.Length >= 3)
+                {
+                    // AHK: MouseGetPos Screen → "sx,sy" → 画布坐标 → PasteAt
+                    try
+                    {
+                        var sp = parts[2].Split(',');
+                        if (sp.Length >= 2)
+                        {
+                            double sx = double.Parse(sp[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            double sy = double.Parse(sp[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            SendPasteAtFromCanvas((Canvas)ctrl, new Point(sx, sy));
+                        }
+                    }
+                    catch { }
+                }
                 else if (parts[1] == "ZoomAll" && ctrl is Canvas)
                 {
                     ZoomAllCanvas((Canvas)ctrl);
@@ -7314,7 +7531,25 @@ public class AhkWpfEngine
             // 连线跟手：在 UI 线程即时刷新，不走 AHK
             var parentCanvas = ctrl.Parent as Canvas;
             if (parentCanvas != null && dragNodeId != "")
+            {
+                double preL = newLeft, preT = newTop;
+                double nw = ctrl.ActualWidth > 1 ? ctrl.ActualWidth : 200;
+                double nh = ctrl.ActualHeight > 1 ? ctrl.ActualHeight : 60;
+                ExpandCanvasAroundPoint(parentCanvas, newLeft, newTop);
+                newLeft = Canvas.GetLeft(ctrl);
+                newTop = Canvas.GetTop(ctrl);
+                if (double.IsNaN(newLeft)) newLeft = 0;
+                if (double.IsNaN(newTop)) newTop = 0;
+                ExpandCanvasAroundPoint(parentCanvas, newLeft + nw, newTop + nh);
+                newLeft = Canvas.GetLeft(ctrl);
+                newTop = Canvas.GetTop(ctrl);
+                if (double.IsNaN(newLeft)) newLeft = 0;
+                if (double.IsNaN(newTop)) newTop = 0;
+                // 左/上扩展后世界整体平移：校正拖拽起点，避免下一帧写回旧坐标系
+                if (newLeft != preL) startLeft += (newLeft - preL);
+                if (newTop != preT) startTop += (newTop - preT);
                 RefreshNodeConnectionsLive(parentCanvas, dragNodeId);
+            }
 
             // 逻辑坐标 / 多选 / 循环回环等仍通知 AHK（约 60fps）
             if ((DateTime.Now - lastSend).TotalMilliseconds > 16)
@@ -7336,7 +7571,13 @@ public class AhkWpfEngine
             double finalTop = Canvas.GetTop(ctrl);
             var parentCanvas = ctrl.Parent as Canvas;
             if (parentCanvas != null && dragNodeId != "")
+            {
+                if (!double.IsNaN(finalLeft) && !double.IsNaN(finalTop))
+                    ExpandCanvasAroundPoint(parentCanvas, finalLeft, finalTop);
+                finalLeft = Canvas.GetLeft(ctrl);
+                finalTop = Canvas.GetTop(ctrl);
                 RefreshNodeConnectionsLive(parentCanvas, dragNodeId);
+            }
             SendToAhk("EVENT|" + winId + "|" + ctrlName + "|DragMove|" +
                 LengthPrefix(finalLeft.ToString("F0") + "," + finalTop.ToString("F0")) + "\n");
             DumpState(ctrlName, "DragEnd");
@@ -7970,6 +8211,218 @@ public class AhkWpfEngine
         }
     }
 
+    // 视口盖不住画布时按块扩展世界（右/下直接加宽高；左/上加宽高并平移子元素，保持逻辑坐标稳定）
+    private void EnsureCanvasCoversViewport(Canvas canvas,
+        System.Windows.Media.ScaleTransform scaleTransform,
+        System.Windows.Media.TranslateTransform translateTransform,
+        FrameworkElement parent,
+        out double dTx, out double dTy)
+    {
+        dTx = 0; dTy = 0;
+        if (canvas == null || scaleTransform == null || translateTransform == null || parent == null)
+            return;
+        double pw = parent.ActualWidth;
+        double ph = parent.ActualHeight;
+        if (pw <= 1 || ph <= 1) return;
+
+        const double chunk = 4000.0;
+        const double edgePad = 80.0;
+        double s = scaleTransform.ScaleX;
+        if (s < 0.01) s = 0.01;
+
+        double dOx = 0, dOy = 0;
+        bool changed = false;
+        int guard = 0;
+        while (guard++ < 32)
+        {
+            Thickness m = canvas.Margin;
+            double tx = translateTransform.X;
+            double ty = translateTransform.Y;
+            double left = m.Left + tx;
+            double top = m.Top + ty;
+            double right = m.Left + canvas.Width * s + tx;
+            double bottom = m.Top + canvas.Height * s + ty;
+            bool grew = false;
+
+            if (right < pw + edgePad)
+            {
+                canvas.Width += chunk;
+                grew = true;
+            }
+            if (bottom < ph + edgePad)
+            {
+                canvas.Height += chunk;
+                grew = true;
+            }
+            if (left > -edgePad)
+            {
+                ShiftCanvasWorld(canvas, chunk, 0);
+                m.Left -= chunk;
+                canvas.Margin = m;
+                translateTransform.X -= chunk * s;
+                dTx -= chunk * s;
+                dOx += chunk;
+                grew = true;
+            }
+            if (top > -edgePad)
+            {
+                ShiftCanvasWorld(canvas, 0, chunk);
+                m = canvas.Margin;
+                m.Top -= chunk;
+                canvas.Margin = m;
+                translateTransform.Y -= chunk * s;
+                dTy -= chunk * s;
+                dOy += chunk;
+                grew = true;
+            }
+            if (!grew) break;
+            changed = true;
+        }
+
+        if (!changed) return;
+
+        SyncCanvasGridBg(canvas);
+        string payload = dOx.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + dOy.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + canvas.Width.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + canvas.Height.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|CanvasExpanded|" + LengthPrefix(payload) + "\n");
+    }
+
+    private void ExpandCanvasAroundPoint(Canvas canvas, double canvasX, double canvasY)
+    {
+        if (canvas == null) return;
+        const double chunk = 4000.0;
+        const double pad = 400.0;
+        double dOx = 0, dOy = 0;
+        bool changed = false;
+        if (canvasX < pad)
+        {
+            double need = pad - canvasX;
+            int n = (int)Math.Ceiling(need / chunk);
+            if (n < 1) n = 1;
+            double add = n * chunk;
+            ShiftCanvasWorld(canvas, add, 0);
+            Thickness m = canvas.Margin;
+            m.Left -= add;
+            canvas.Margin = m;
+            canvas.Width += add;
+            canvasX += add; // 点随世界右移
+            dOx += add;
+            changed = true;
+            // 保持视口稳定
+            var tg = canvas.RenderTransform as System.Windows.Media.TransformGroup;
+            if (tg != null && tg.Children.Count >= 2)
+            {
+                var st = tg.Children[0] as System.Windows.Media.ScaleTransform;
+                var tt = tg.Children[1] as System.Windows.Media.TranslateTransform;
+                if (st != null && tt != null)
+                    tt.X -= add * st.ScaleX;
+            }
+        }
+        if (canvasY < pad)
+        {
+            double need = pad - canvasY;
+            int n = (int)Math.Ceiling(need / chunk);
+            if (n < 1) n = 1;
+            double add = n * chunk;
+            ShiftCanvasWorld(canvas, 0, add);
+            Thickness m = canvas.Margin;
+            m.Top -= add;
+            canvas.Margin = m;
+            canvas.Height += add;
+            canvasY += add;
+            dOy += add;
+            changed = true;
+            var tg = canvas.RenderTransform as System.Windows.Media.TransformGroup;
+            if (tg != null && tg.Children.Count >= 2)
+            {
+                var st = tg.Children[0] as System.Windows.Media.ScaleTransform;
+                var tt = tg.Children[1] as System.Windows.Media.TranslateTransform;
+                if (st != null && tt != null)
+                    tt.Y -= add * st.ScaleY;
+            }
+        }
+        if (canvasX > canvas.Width - pad)
+        {
+            double need = canvasX - (canvas.Width - pad);
+            int n = (int)Math.Ceiling(need / chunk);
+            if (n < 1) n = 1;
+            canvas.Width += n * chunk;
+            changed = true;
+        }
+        if (canvasY > canvas.Height - pad)
+        {
+            double need = canvasY - (canvas.Height - pad);
+            int n = (int)Math.Ceiling(need / chunk);
+            if (n < 1) n = 1;
+            canvas.Height += n * chunk;
+            changed = true;
+        }
+        if (!changed) return;
+        SyncCanvasGridBg(canvas);
+        string payload = dOx.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + dOy.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + canvas.Width.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+            + canvas.Height.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|CanvasExpanded|" + LengthPrefix(payload) + "\n");
+    }
+
+    private static void SyncCanvasGridBg(Canvas canvas)
+    {
+        foreach (UIElement child in canvas.Children)
+        {
+            var fe = child as FrameworkElement;
+            if (fe == null || fe.Name == null || !fe.Name.EndsWith("_GridBg")) continue;
+            fe.Width = canvas.Width;
+            fe.Height = canvas.Height;
+            break;
+        }
+    }
+
+    private static void ShiftCanvasWorld(Canvas canvas, double dx, double dy)
+    {
+        if (dx == 0 && dy == 0) return;
+        foreach (UIElement child in canvas.Children)
+        {
+            var fe = child as FrameworkElement;
+            if (fe == null) continue;
+            string name = fe.Name ?? "";
+            // 网格铺满画布原点，不随世界左/上扩展平移
+            if (name.EndsWith("_GridBg")) continue;
+
+            double cl = Canvas.GetLeft(child);
+            double ct = Canvas.GetTop(child);
+            if (!double.IsNaN(cl)) Canvas.SetLeft(child, cl + dx);
+            if (!double.IsNaN(ct)) Canvas.SetTop(child, ct + dy);
+
+            // 连线 Path 用绝对几何；箭头 Data 是本地三角形，只靠 Canvas 坐标
+            var path = fe as System.Windows.Shapes.Path;
+            if (path != null && path.Data != null && name.Contains("_Path_"))
+            {
+                try
+                {
+                    var clone = path.Data.Clone();
+                    var existing = clone.Transform;
+                    var tt = existing as System.Windows.Media.TranslateTransform;
+                    if (existing == null || existing == System.Windows.Media.Transform.Identity)
+                        clone.Transform = new System.Windows.Media.TranslateTransform(dx, dy);
+                    else if (tt != null)
+                        clone.Transform = new System.Windows.Media.TranslateTransform(tt.X + dx, tt.Y + dy);
+                    else
+                    {
+                        var group = new System.Windows.Media.TransformGroup();
+                        group.Children.Add(existing);
+                        group.Children.Add(new System.Windows.Media.TranslateTransform(dx, dy));
+                        clone.Transform = group;
+                    }
+                    path.Data = clone;
+                }
+                catch { }
+            }
+        }
+    }
+
     private void EnableCanvasZoomPan(Canvas canvas)
     {
         if (canvas.Tag != null && canvas.Tag.ToString() == "ZoomPanEnabled") return;
@@ -7990,6 +8443,30 @@ public class AhkWpfEngine
 
         var parent = canvas.Parent as FrameworkElement;
 
+        // 外层 Border 无演示菜单时，露底右键也不应冒泡出系统/残留菜单
+        if (parent != null)
+        {
+            parent.ContextMenu = null;
+            parent.PreviewMouseRightButtonDown += (s, e) =>
+            {
+                // 命中在画布上时由画布自己处理；仅露底区域吞掉默认菜单
+                if (e.OriginalSource == parent || e.Source == parent)
+                    e.Handled = true;
+            };
+        }
+
+        // 持续记录光标（含移过子节点时）；Ctrl+V 粘贴锚点依赖此缓存
+        if (!string.IsNullOrEmpty(canvas.Name))
+        {
+            try { canvasMouseCache[canvas.Name] = System.Windows.Input.Mouse.GetPosition(canvas); }
+            catch { canvasMouseCache[canvas.Name] = new Point(canvas.Width * 0.5, canvas.Height * 0.5); }
+        }
+        canvas.PreviewMouseMove += (s, e) =>
+        {
+            if (string.IsNullOrEmpty(canvas.Name)) return;
+            canvasMouseCache[canvas.Name] = e.GetPosition(canvas);
+        };
+
         canvas.PreviewMouseWheel += (s, e) =>
         {
             //System.IO.File.AppendAllText("ahk_pan_debug.log", "PreviewMouseWheel fired! Delta: " + e.Delta + "\n");
@@ -8005,6 +8482,8 @@ public class AhkWpfEngine
 
             scaleTransform.ScaleX = newScale;
             scaleTransform.ScaleY = newScale;
+            double ignoreTx, ignoreTy;
+            EnsureCanvasCoversViewport(canvas, scaleTransform, translateTransform, parent, out ignoreTx, out ignoreTy);
             e.Handled = true;
         };
 
@@ -8302,6 +8781,11 @@ public class AhkWpfEngine
                 if (Math.Abs(pos.X - panStart.X) > 2 || Math.Abs(pos.Y - panStart.Y) > 2) panMoved = true;
                 translateTransform.X = panStartTX + (pos.X - panStart.X);
                 translateTransform.Y = panStartTY + (pos.Y - panStart.Y);
+                double dTx, dTy;
+                EnsureCanvasCoversViewport(canvas, scaleTransform, translateTransform, parent, out dTx, out dTy);
+                // 左/上扩展会改 translate 以稳住视口，需同步 pan 起点，避免下一帧被覆盖
+                if (dTx != 0) panStartTX += dTx;
+                if (dTy != 0) panStartTY += dTy;
                 //System.IO.File.AppendAllText("ahk_pan_debug.log", "Canvas Moved! New TX: " + translateTransform.X + " TY: " + translateTransform.Y + " parent: " + (parent != null ? parent.Name : "null") + "\n");
                 e.Handled = true;
             }

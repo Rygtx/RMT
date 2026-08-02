@@ -539,22 +539,28 @@ class XNodeGraph {
         this.nodes := []
         this.connections := []
         this.selectedNodes := Map()
+        ; RMT 图形编辑器用自定义 MG_CM；外层 Border 的演示菜单会在画布滑出视口时误弹出
+        this.defaultMenu := (this.id != "RMTGraph")
 
         this.bdr := parentXAML.Add("Border").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("8").ClipToBounds("True")
 
         this.bdr.InjectResources('<DrawingBrush x:Key="GridPattern" Viewport="0,0,100,100" ViewportUnits="Absolute" TileMode="Tile"><DrawingBrush.Drawing><DrawingGroup><GeometryDrawing Brush="#01000000"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,100,100"/></GeometryDrawing.Geometry></GeometryDrawing><GeometryDrawing Geometry="M0,20 L100,20 M0,40 L100,40 M0,60 L100,60 M0,80 L100,80 M20,0 L20,100 M40,0 L40,100 M60,0 L60,100 M80,0 L80,100"><GeometryDrawing.Pen><Pen Brush="{DynamicResource GraphLine}" Thickness="0.3"/></GeometryDrawing.Pen></GeometryDrawing><GeometryDrawing Geometry="M0,100 L100,100 M100,0 L100,100"><GeometryDrawing.Pen><Pen Brush="{DynamicResource GraphLine}" Thickness="1.5"/></GeometryDrawing.Pen></GeometryDrawing></DrawingGroup></DrawingBrush.Drawing></DrawingBrush>')
 
-        cm := this.bdr.Add("FrameworkElement.ContextMenu").Add("ContextMenu").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
-        cm.Add("MenuItem").Name(this.id "_BtnNewNode").Header("Add Process Node")
-        cm.Add("MenuItem").Name(this.id "_BtnNewInput").Header("Add Input Node")
-        cm.Add("MenuItem").Name(this.id "_BtnNewOutput").Header("Add Output Node")
-        cm.Add("MenuItem").Name(this.id "_BtnNewMultiProcess").Header("Add Multi-Port Process Node")
+        if (this.defaultMenu) {
+            cm := this.bdr.Add("FrameworkElement.ContextMenu").Add("ContextMenu").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource ControlBorder}").BorderThickness(1).Foreground("{DynamicResource TextMain}")
+            cm.Add("MenuItem").Name(this.id "_BtnNewNode").Header("Add Process Node")
+            cm.Add("MenuItem").Name(this.id "_BtnNewInput").Header("Add Input Node")
+            cm.Add("MenuItem").Name(this.id "_BtnNewOutput").Header("Add Output Node")
+            cm.Add("MenuItem").Name(this.id "_BtnNewMultiProcess").Header("Add Multi-Port Process Node")
+        }
 
         this.offsetX := 10000
         this.offsetY := 10000
-        this.canvas := this.bdr.Add("Canvas").Name(this.id).Background("Transparent").Width("20000").Height("20000").Margin("-" this.offsetX ",-" this.offsetY ",0,0")
-        ; 网格垫底（ZIndex 低于连线），避免背景线盖住节点连线
-        this.canvas.Add("Rectangle").Fill("{DynamicResource GridPattern}").Width("20000").Height("20000").IsHitTestVisible("False").SetProp("Panel.ZIndex", "-10")
+        this.canvasW := 20000
+        this.canvasH := 20000
+        this.canvas := this.bdr.Add("Canvas").Name(this.id).Background("Transparent").Width(String(this.canvasW)).Height(String(this.canvasH)).Margin("-" this.offsetX ",-" this.offsetY ",0,0")
+        ; 网格垫底（ZIndex 低于连线），避免背景线盖住节点连线；命名供运行时扩展尺寸
+        this.canvas.Add("Rectangle").Name(this.id "_GridBg").Fill("{DynamicResource GridPattern}").Width(String(this.canvasW)).Height(String(this.canvasH)).IsHitTestVisible("False").SetProp("Panel.ZIndex", "-10")
     }
 
     AddNode(id, title, x, y, nodeType := "Process") {
@@ -810,10 +816,12 @@ class XNodeGraph {
 
     Bind(ui) {
         this.ui := ui
-        ui.OnEvent(this.id "_BtnNewNode", "Click", ObjBindMethod(this, "OnNewNode", "Process"))
-        ui.OnEvent(this.id "_BtnNewInput", "Click", ObjBindMethod(this, "OnNewNode", "Input"))
-        ui.OnEvent(this.id "_BtnNewOutput", "Click", ObjBindMethod(this, "OnNewNode", "Output"))
-        ui.OnEvent(this.id "_BtnNewMultiProcess", "Click", ObjBindMethod(this, "OnNewNode", "MultiProcess"))
+        if (this.defaultMenu) {
+            ui.OnEvent(this.id "_BtnNewNode", "Click", ObjBindMethod(this, "OnNewNode", "Process"))
+            ui.OnEvent(this.id "_BtnNewInput", "Click", ObjBindMethod(this, "OnNewNode", "Input"))
+            ui.OnEvent(this.id "_BtnNewOutput", "Click", ObjBindMethod(this, "OnNewNode", "Output"))
+            ui.OnEvent(this.id "_BtnNewMultiProcess", "Click", ObjBindMethod(this, "OnNewNode", "MultiProcess"))
+        }
 
         ; Enable C#-side drag on each node border, listen for DragMove events
         for node in this.nodes {
@@ -831,10 +839,32 @@ class XNodeGraph {
         ui.OnEvent(this.id, "PathClicked", ObjBindMethod(this, "OnCanvasPathClicked"))
         ui.OnEvent(this.id, "SelectionBoxConn", ObjBindMethod(this, "OnSelectionBoxConn"))
         ui.OnEvent(this.id, "ContextMenuOpened", ObjBindMethod(this, "OnContextMenuOpened"))
+        ui.OnEvent(this.id, "CanvasExpanded", ObjBindMethod(this, "OnCanvasExpanded"))
 
         ; Initial draw of connections
         for conn in this.connections
             this.UpdatePath(conn.From, conn.To, conn.PathId)
+    }
+
+    ; C# 近边界扩展画布后同步：逻辑坐标不变，仅更新 offset 与节点画布坐标
+    OnCanvasExpanded(state, ctrl, event) {
+        if !state.Has("CanvasExpanded")
+            return
+        parts := StrSplit(state["CanvasExpanded"], ",")
+        if (parts.Length < 4)
+            return
+        dOx := Number(parts[1])
+        dOy := Number(parts[2])
+        this.canvasW := Number(parts[3])
+        this.canvasH := Number(parts[4])
+        if (dOx != 0 || dOy != 0) {
+            this.offsetX += dOx
+            this.offsetY += dOy
+            for node in this.nodes {
+                node.X += dOx
+                node.Y += dOy
+            }
+        }
     }
 
     ; Called after UI is ready to enable drag on each node.

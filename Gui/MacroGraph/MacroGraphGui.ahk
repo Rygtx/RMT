@@ -243,8 +243,7 @@ class MacroGraphGui {
             this.graph.AddConnection(link.from, link.to)
         }
 
-        ; 右键菜单（_BuildContextMenu 内部会把 ContextMenu 属性元素移到画布子元素最前，
-        ; 保证属性元素先于内容，避免 WPF 报 Canvas Children 重复设置）
+        ; 右键菜单挂在画布内 MG_CM（RMTGraph 已禁用外层 Border 演示菜单，避免滑出边界露底误弹）
         this._BuildContextMenu()
 
         ; ---- 宿主 ----
@@ -277,11 +276,13 @@ class MacroGraphGui {
         for i, name in this.CmdList
             this.ui.OnEvent("MG_Drop_" i, "Click", this.OnAddCmd.Bind(this, name))
         this.ui.OnEvent("MG_Copy", "Click", (*) => this._CopySelected())
-        this.ui.OnEvent("MG_Paste", "Click", (*) => this._PasteNodes())
+        this.ui.OnEvent("MG_Paste", "Click", (*) => this._PasteNodes(true))
         this.ui.OnEvent("MG_Delete", "Click", (*) => this._DeleteSelected())
         this.ui.OnEvent("MG_Edit", "Click", (*) => this._EditSelected())
         ; 右键（未拖动画布）时：更新菜单项状态后手动弹出右键菜单
         this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._OpenContextMenu())
+        ; Ctrl+V：引擎用 Mouse.GetPosition(canvas)（与拖线同源）发 PasteAt，不走右键锚点
+        this.ui.OnEvent(this.graph.id, "PasteAt", this._OnPasteAt.Bind(this))
         this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
         if (this.OnClosedAction == "")
             this.ui.OnEvent("MG_BtnToTree", "Click", (*) => this._OnSwitchToTree())

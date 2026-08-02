@@ -191,7 +191,8 @@ class MacroGraphEditMixin {
     }
 
     ; 粘贴剪贴板中的节点
-    _PasteNodes() {
+    ; fromMenu=true：右键菜单粘贴，锚点用上次右键位置；false：Ctrl+V，锚点用当前鼠标位置
+    _PasteNodes(fromMenu := false) {
         if (this.graph == "" || this.ui == "" || !this.ui.wpfHwnd)
             return
         if (!this.HasOwnProp("_clipboard") || !this._clipboard || !this._clipboard.nodes)
@@ -199,7 +200,7 @@ class MacroGraphEditMixin {
         this._CaptureLinks()
         this._SyncPositionsFromGraph()
         g := this.graph
-        origin := this._GetPasteOrigin()
+        origin := this._GetPasteOrigin(fromMenu)
         ox := origin.x, oy := origin.y
         ; 创建 id 映射（旧 id -> 新 id）
         idMap := Map()
@@ -261,20 +262,25 @@ class MacroGraphEditMixin {
         this._Apply()
     }
 
-    ; 粘贴锚点：优先取鼠标「当前实时位置」（CanvasMouseLive，跟随光标而非上次点击/移动缓存），
-    ; 其次回退到缓存的画布鼠标位置，再回退到上次右键位置
-    _GetPasteOrigin() {
+    ; 粘贴锚点：
+    ; - Ctrl+V（fromMenu=false）：只用 _pasteOriginOverride（来自 PasteAt / Mouse.GetPosition），绝不用 lastRightClick
+    ; - 右键菜单粘贴（fromMenu=true）：上次右键位置
+    _GetPasteOrigin(fromMenu := false) {
         g := this.graph
-        if (this.ui != "" && this.ui.wpfHwnd && g != "") {
-            ; 实时光标位置（粘贴跟随当前鼠标，而不是上次点击位置）
-            ; 注：桥接层 MQUERY 用 '>' 分隔「控件名>属性」，不能用下划线，否则 FindName 失败返回空。
-            origin := this._ParseCanvasPoint(this.ui.Query(g.id ">CanvasMouseLive"), g)
-            if (origin != "")
+        if (!fromMenu) {
+            if (this.HasOwnProp("_pasteOriginOverride") && IsObject(this._pasteOriginOverride)) {
+                origin := this._pasteOriginOverride
+                this._pasteOriginOverride := ""
                 return origin
-            ; 回退：MouseMove 缓存的画布坐标
-            origin := this._ParseCanvasPoint(this.ui.Query(g.id ">CanvasMouse"), g)
-            if (origin != "")
-                return origin
+            }
+            ; Ctrl+V 不应落到这里；兜底放在选中节点旁，仍不用右键坐标
+            if (g != "" && g.selectedNodes.Count > 0) {
+                for id in g.selectedNodes {
+                    if (this.pos.Has(id))
+                        return { x: this.pos[id].x + 40, y: this.pos[id].y + 40 }
+                }
+            }
+            return { x: 300, y: 300 }
         }
         if (g != "" && g.HasProp("lastRightClickX"))
             return { x: g.lastRightClickX - g.offsetX, y: g.lastRightClickY - g.offsetY }

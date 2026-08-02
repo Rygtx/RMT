@@ -369,6 +369,43 @@ class XAMLHost {
         }
     }
 
+    ; 取 daemon 进程映像路径（用于拒绝误连 Release 旧引擎）
+    static GetDaemonExePath() {
+        if (!XAMLHost.daemonHwnd)
+            return ""
+        pid := 0
+        DllCall("user32\GetWindowThreadProcessId", "Ptr", XAMLHost.daemonHwnd, "UInt*", &pid)
+        if (!pid)
+            return ""
+        hProc := DllCall("kernel32\OpenProcess", "UInt", 0x1000, "Int", 0, "UInt", pid, "Ptr")
+        if (!hProc)
+            return ""
+        try {
+            size := 520
+            buf := Buffer(size * 2, 0)
+            sz := size
+            if DllCall("kernel32\QueryFullProcessImageNameW", "Ptr", hProc, "UInt", 0, "Ptr", buf.Ptr, "UInt*", &sz)
+                return StrGet(buf, "UTF-16")
+        } finally {
+            DllCall("kernel32\CloseHandle", "Ptr", hProc)
+        }
+        return ""
+    }
+
+    ; 若当前 daemon 不是期望的 dll，杀掉以便重新拉起
+    static EnsureDaemonMatches(expectedExe) {
+        XAMLHost.EnsureDaemonHealthy()
+        if (!XAMLHost.daemonHwnd || expectedExe == "")
+            return
+        actual := XAMLHost.GetDaemonExePath()
+        if (actual == "")
+            return
+        if (StrLower(actual) != StrLower(expectedExe)) {
+            XAMLHost.Diag("EnsureDaemonMatches mismatch actual=" actual " expected=" expectedExe " -> Kill")
+            XAMLHost.KillDaemon()
+        }
+    }
+
     static Prewarm(exePath := "") {
         ; global XAML_ENGINE_BUILD_LOCATION, XAML_WEBVIEW_USER_DATA_DIR
         wvDataDir := (IsSet(XAML_WEBVIEW_USER_DATA_DIR) && XAML_WEBVIEW_USER_DATA_DIR != "") ? XAML_WEBVIEW_USER_DATA_DIR : A_Temp "\AhkWpf\WebView2Data"
@@ -1178,11 +1215,6 @@ class XAMLHost {
         EnvSet("AHK_XAML_WEBVIEW_DIR", wvDataDir)
         baseDllName := XAMLHost.GetEngineDllName()
         targetExe := (this.exePath != "") ? this.exePath : A_Temp "\AhkWpf\" baseDllName
-        ; 引擎已退出或卡死时必须清掉并重启，否则后续所有 XAML 窗口无法再创建
-        XAMLHost.EnsureDaemonHealthy()
-        if XAMLHost.daemonHwnd
-            return targetExe
-
         if !DirExist(A_Temp "\AhkWpf")
             DirCreate(A_Temp "\AhkWpf")
         if FileExist(this.errLog) {
@@ -1207,9 +1239,12 @@ class XAMLHost {
                 targetExe := A_Temp "\AhkWpf\" baseDllName
             }
 
+            ; 先重编译（必要时杀掉任意 ahk-xaml），再校验 daemon 路径，避免误连桌面 Release 旧引擎
             if (forceCompile && FileExist(sourceCs)) {
                 compileTarget := (buildLoc == "temp") ? targetExe : sharedExe
-                if (!FileExist(compileTarget) || FileGetTime(sourceCs) > FileGetTime(compileTarget) || configTime > FileGetTime(compileTarget)) {
+                needCompile := !FileExist(compileTarget) || FileGetTime(sourceCs) > FileGetTime(compileTarget) || configTime > FileGetTime(compileTarget)
+                if (needCompile) {
+                    XAMLHost.KillDaemon()
                     try {
                         while ProcessExist(baseDllName) {
                             ProcessClose(baseDllName)
@@ -1253,6 +1288,12 @@ class XAMLHost {
                 FileInstall("dep\ahk-xaml.dll", targetExe, 1)
             ;@Ahk2Exe-IgnoreEnd
         }
+
+        ; 引擎已退出/卡死/路径不对时必须清掉并重启
+        XAMLHost.EnsureDaemonHealthy()
+        XAMLHost.EnsureDaemonMatches(targetExe)
+        if XAMLHost.daemonHwnd
+            return targetExe
 
         if FileExist(this.errLog) {
             try FileDelete(this.errLog)
