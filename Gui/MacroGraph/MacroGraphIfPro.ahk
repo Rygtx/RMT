@@ -720,6 +720,8 @@ class MacroGraphIfProMixin {
             this.BranchGraphGui := MacroGraphGui()
         cur := this._IfProBranchMacro(parentId, idx)
         this.BranchGraphGui.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
+        this.BranchGraphGui.ShowToTreeBtn := false
+        this.BranchGraphGui.OnSwitchToTreeAction := ""
         this.BranchGraphGui.SureBtnAction := (startSerial) => this._OnProBranchEditorSure(parentId, idx, startSerial)
         this.BranchGraphGui.OnClosedAction := (*) => this._RefreshProBranchBody(parentId, idx)
         this.BranchGraphGui.ShowGui(cur)

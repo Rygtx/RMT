@@ -42,6 +42,7 @@ class MacroEditGui {
         this.RecordToggleCon := ""
         this.EditModeCon := ""
         this.SubMacroEditGui := ""
+        this.SubMacroGraphGui := ""
         this.CompareProEditItemGui := ""
         this.OwnerHwnd := ""
 
@@ -656,12 +657,105 @@ class MacroEditGui {
             return
         }
 
-        ; 清理→和⭐前缀
-        cleanText := StrReplace(StrReplace(itemText, "⭐", ""), "→", "")
+        ; 清理→前缀（⭐/🚫 由 GetCmdOnlyText / GetCmdStr 处理）
+        cleanText := StrReplace(itemText, "→", "")
         paramsArr := StrSplit(cleanText, "_")
         cmd := GetCmdOnlyText(paramsArr[1])
+        ; 图形开始节点：用节点编辑器打开，不走普通指令 SubGui
+        if (this._IsGraphStartCmd(cmd)) {
+            this._OpenGraphNodeEditor(GetCmdStr(paramsArr[1]), GetCmdSymbol(paramsArr[1]))
+            return
+        }
+        if (!this.SubGuiMap.Has(cmd))
+            return
         subGui := this.SubGuiMap[cmd]
         this.OnOpenSubGui(subGui, 2)
+    }
+
+    ; 是否为「图形开始节点」序列码（逻辑树中的图入口指令）
+    _IsGraphStartCmd(cmd) {
+        key := GetLangKey(cmd)
+        return key == "图形开始节点" || cmd == GetLang("图形开始节点")
+    }
+
+    ; 双击/编辑：打开嵌套节点编辑器，编辑该图形开始节点子图
+    _OpenGraphNodeEditor(cmdStr, symbol := "") {
+        itemId := this.CurItemID
+        parentId := this.MacroTreeViewCon.GetParent(itemId)
+        serial := GetLangMacro(cmdStr, 2)
+        if (this.SubMacroGraphGui == "")
+            this.SubMacroGraphGui := MacroGraphGui()
+        this.SubMacroGraphGui.OwnerHwnd := (MainSoftData.IsModalSubGui && this.Gui != "") ? this.Gui.Hwnd : ""
+        this.SubMacroGraphGui.ShowToTreeBtn := true
+        this.SubMacroGraphGui.OnClosedAction := ""
+        this.SubMacroGraphGui.SureBtnAction := (startSerial) => this._OnGraphNodeEditorSure(itemId, startSerial, symbol)
+        ; 「逻辑树」：把该子图转成线性宏写回当前逻辑树（循环体等），不打开顶层编辑器
+        this.SubMacroGraphGui.OnSwitchToTreeAction := (linear) => this._OnGraphNodeSwitchToTree(parentId, itemId, linear)
+        this.SubMacroGraphGui.ShowGui(serial)
+    }
+
+    ; 嵌套节点编辑器点「逻辑树」：子图转线性后写回所属分支并刷新树
+    _OnGraphNodeSwitchToTree(parentId, itemId, linear) {
+        displayLinear := GetLangMacro(linear, 1)
+        if (displayLinear == "")
+            displayLinear := " "
+        if (parentId != 0) {
+            try this.MacroTreeViewCon.GetText(parentId)
+            catch
+                return
+            this.OnSubNodeEdit(parentId, displayLinear)
+            return
+        }
+        ; 根级图形开始节点：用线性宏替换该节点
+        try this.MacroTreeViewCon.GetText(itemId)
+        catch
+            return
+        this.CurItemID := itemId
+        cmds := SplitMacro(displayLinear)
+        if (cmds.Length == 0) {
+            this.OnDeleteCmd()
+            return
+        }
+        this.OnModifyCmd(cmds[1])
+        loop cmds.Length - 1 {
+            this.OnNextInsertCmd(cmds[A_Index + 1])
+            ; OnNextInsertCmd 后 CurItemID 仍指向原节点；插在其后需推进选中
+            nextId := this.MacroTreeViewCon.GetNext(this.CurItemID)
+            if (nextId)
+                this.CurItemID := nextId
+        }
+    }
+
+    _OnGraphNodeEditorSure(itemId, startSerial, symbol := "") {
+        ; 先清空回调，避免窗口 Closed 重复触发 _Apply 时二次改树
+        if (this.SubMacroGraphGui != "")
+            this.SubMacroGraphGui.SureBtnAction := ""
+        if (itemId == "" || itemId == 0)
+            return
+        displayStr := symbol . GetLangMacro(startSerial, 1)
+        ; 节点可能已被上次回写 RefreshTree 重建；失效则跳过
+        try curText := this.MacroTreeViewCon.GetText(itemId)
+        catch
+            return
+        ; 图内容已由 _SaveGraph 落盘；显示序列码未变则不必改树
+        if (GetCmdStr(curText) == GetCmdStr(displayStr))
+            return
+        this.CurItemID := itemId
+        ParentID := this.MacroTreeViewCon.GetParent(itemId)
+        if (ParentID == 0) {
+            this.OnModifyCmd(displayStr)
+            return
+        }
+        ; 位于真/假/循环体/条件下：改子节点后按分支宏整体回写
+        this.MacroTreeViewCon.Modify(itemId, , displayStr)
+        macroStr := this.GetTreeMacroStr(ParentID)
+        RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
+        if (RealItemID == 0)
+            return
+        try this.MacroTreeViewCon.GetText(RealItemID)
+        catch
+            return
+        this.OnSubNodeEdit(ParentID, macroStr)
     }
 
     MenuHandler(cmdNextStr, *) {
@@ -789,6 +883,12 @@ class MacroEditGui {
             {
                 paramsArr := StrSplit(cleanItemText, "_")
                 cmd := GetCmdOnlyText(paramsArr[1])
+                if (this._IsGraphStartCmd(cmd)) {
+                    this._OpenGraphNodeEditor(GetCmdStr(paramsArr[1]), GetCmdSymbol(paramsArr[1]))
+                    return
+                }
+                if (!this.SubGuiMap.Has(cmd))
+                    return
                 subGui := this.SubGuiMap[cmd]
                 this.OnOpenSubGui(subGui, 2)
             }

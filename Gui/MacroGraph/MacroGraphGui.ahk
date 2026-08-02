@@ -11,7 +11,7 @@
 ; 交互：
 ;   - 表格行"编辑"：空宏按首选编辑器；首条为图形开始节点时进入本编辑器。
 ;   - 右上角「逻辑树」：保存后切换到逻辑树编辑器（多链路需确认强行切换）。
-;   - 右下角「保存」：持久化图结构并回写 MacroArr（不关闭）。
+;   - 关闭窗口时持久化图结构并回写 MacroArr（内存）；真正落盘需主界面「应用并保存」。
 ;   - 画布空白处右键：弹出若梦兔全部指令菜单，点击生成对应节点。
 ;       · 间隔 / 按键：生成可内联编辑的完整节点。
 ;       · 其它指令：先生成临时节点（占位，后续完善）。
@@ -112,6 +112,8 @@ class MacroGraphGui {
         this._ifProPortMargin := Map()  ; 如果Pro 各情况出点 Margin.Top（与连线路径对齐）
         this._nodeShellGrid := ""       ; _NewNodeShell 最近构建的 Grid（IfPro 出点挂载用）
         this.OnClosedAction := ""     ; 窗口关闭后回调（嵌套分支编辑器用于通知父图刷新）
+        this.ShowToTreeBtn := true    ; 右上角「逻辑树」按钮；分支子图编辑器置 false
+        this.OnSwitchToTreeAction := "" ; 自定义「切换逻辑树」；空则走顶层 MyMacroGui 流程
         this._shotNodeId := ""        ; 正在执行截图取色的搜索节点ID（截图剪贴板回调用）
         this._searchClipAction := ObjBindMethod(this, "_SearchCheckClipboard") ; 截图剪贴板轮询回调（稳定引用，便于 SetTimer 开关）
         this._suppressCloseApply := false ; 切换到逻辑树时跳过关闭时的 _Apply，避免覆盖已写回的线性宏
@@ -201,14 +203,11 @@ class MacroGraphGui {
         this.graph.bdr.Name("MG_GraphChrome").Background("#FF1E1E1E").BorderBrush("{DynamicResource ControlBorder}")
         this._HookGraphIfProPaths()
 
-        ; 右上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
-        ; 右下角：保存（颜色走通用窗口主题）
-        if (this.OnClosedAction == "") {
+        ; 右上角：逻辑树（分支子图可不显示）；内容链接存储，关闭时自动保存，无需保存按钮
+        if (this.ShowToTreeBtn) {
             toTreeBtn := root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
             this._ApplyActionBtnStyle(toTreeBtn)
         }
-        saveBtn := root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
-        this._ApplyActionBtnStyle(saveBtn)
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
         this._StaticSpreadExpandedSearches()
@@ -283,8 +282,7 @@ class MacroGraphGui {
         this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._OpenContextMenu())
         ; Ctrl+V：引擎用 Mouse.GetPosition(canvas)（与拖线同源）发 PasteAt，不走右键锚点
         this.ui.OnEvent(this.graph.id, "PasteAt", this._OnPasteAt.Bind(this))
-        this.ui.OnEvent("MG_BtnSave", "Click", (*) => this._OnSave())
-        if (this.OnClosedAction == "")
+        if (this.ShowToTreeBtn)
             this.ui.OnEvent("MG_BtnToTree", "Click", (*) => this._OnSwitchToTree())
         this.ui.OnEvent("Window", "PreviewKeyDown", this._OnKeyDown.Bind(this))
         sid := this._sessionId
@@ -352,12 +350,6 @@ class MacroGraphGui {
         }
     }
 
-    ; 保存：仅持久化图结构并回写开始节点 SerialStr，不关闭编辑界面
-    _OnSave() {
-        this._SaveGraph()
-        this._Apply()
-    }
-
     ; 切换到逻辑树：单链路直接切换；多链路（不含搜索/如果真假分支）需确认强行切换
     _OnSwitchToTree() {
         this._SaveGraph()
@@ -370,16 +362,22 @@ class MacroGraphGui {
         }
 
         linear := GraphStartToLinearMacro(this.startSerial)
-        sureAction := this.SureBtnAction
-        if (sureAction != "")
-            sureAction(linear)
-
         ; 关闭时跳过 _Apply，避免把已写回的线性宏再次覆盖成图形开始节点
-        ; （Closed 可能异步到达，标志在 OnWindowClosed 内清除）
         this._suppressCloseApply := true
+        treeAction := this.OnSwitchToTreeAction
+        this.OnSwitchToTreeAction := ""
+        sureAction := this.SureBtnAction
         this.SureBtnAction := ""
         this._CloseUI()
 
+        ; 嵌套场景（如逻辑树里双击循环体内图形开始节点）：由调用方回写并刷新，不打开顶层编辑器
+        if (treeAction != "") {
+            treeAction(linear)
+            return
+        }
+
+        if (sureAction != "")
+            sureAction(linear)
         MyMacroGui.SureFocusCon := MainSoftData.BtnSave
         MyMacroGui.SureBtnAction := sureAction
         MyMacroGui.SaveBtnAction := OnSaveSetting

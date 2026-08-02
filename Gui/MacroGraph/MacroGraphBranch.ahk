@@ -179,6 +179,8 @@ class MacroGraphBranchMixin {
             this.BranchGraphGui := MacroGraphGui()
         cur := ObjHasOwnProp(data, "LoopBody") ? data.LoopBody : ""
         this.BranchGraphGui.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
+        this.BranchGraphGui.ShowToTreeBtn := false
+        this.BranchGraphGui.OnSwitchToTreeAction := ""
         this.BranchGraphGui.SureBtnAction := (startSerial) => this._OnLoopBodyEditorSure(loopId, startSerial)
         this.BranchGraphGui.OnClosedAction := (*) => this._RefreshLoopBodyNode(loopId)
         this.BranchGraphGui.ShowGui(cur)
@@ -373,6 +375,8 @@ class MacroGraphBranchMixin {
             this.BranchGraphGui := MacroGraphGui()
         cur := isTrue ? (ObjHasOwnProp(data, "TrueMacro") ? data.TrueMacro : "") : (ObjHasOwnProp(data, "FalseMacro") ? data.FalseMacro : "")
         this.BranchGraphGui.OwnerHwnd := (this.ui != "" && this.ui.wpfHwnd) ? this.ui.wpfHwnd : ""
+        this.BranchGraphGui.ShowToTreeBtn := false
+        this.BranchGraphGui.OnSwitchToTreeAction := ""
         this.BranchGraphGui.SureBtnAction := (startSerial) => this._OnBranchEditorSure(searchId, isTrue, startSerial)
         ; 嵌套编辑器关闭后：就地刷新该分支节点的指令清单（不重建父窗口，避免闪烁/重复窗口）
         this.BranchGraphGui.OnClosedAction := (*) => this._RefreshBranchBody(searchId, isTrue)
