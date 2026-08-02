@@ -232,8 +232,26 @@ public class AhkWpfEngine
     System.Collections.Generic.Dictionary<string, string> _spellCheckLangs = new System.Collections.Generic.Dictionary<string, string>();
     System.Windows.Shapes.Rectangle selectionBox = null;
     Point selectionStart;
+    // ---- 端口拖线状态机（Idle → Dragging → PendingMenu → Idle）----
+    // 所有入口（开始/移动/松手/丢捕获/点节点/点空白/菜单关/AHK 清理）必须走下面几个方法，避免逻辑分散导致幽灵线。
+    const int ConnDragIdle = 0;
+    const int ConnDragDragging = 1;
+    const int ConnDragPendingMenu = 2;
+    int connectionDragPhase = 0;
     System.Windows.Shapes.Path tempConnection = null;
+    System.Windows.Shapes.Path tempConnectionArrow = null;
     FrameworkElement connectionSourcePort = null;
+    Canvas connectionDragCanvas = null;
+    Point connectionDragStart = new Point();
+    Point connectionLastPos = new Point();
+    bool connectionDragCompleting = false;       // MouseUp 内主动 ReleaseCapture 时抑制 LostMouseCapture 重入
+    bool suppressTempClearOnMenuClosed = false;  // AHK 重开指令菜单时勿误清临时线
+    // 兼容旧字段名（部分代码路径仍读 pending）
+    bool tempConnectionPendingDrop
+    {
+        get { return connectionDragPhase == ConnDragPendingMenu; }
+        set { if (!value && connectionDragPhase == ConnDragPendingMenu) connectionDragPhase = ConnDragIdle; else if (value) connectionDragPhase = ConnDragPendingMenu; }
+    }
 
     private Point GetCanvasPosition(UIElement element, Canvas canvas)
     {
@@ -3722,6 +3740,18 @@ public class AhkWpfEngine
         }
         else
         {
+            // 不依赖控件查找：AHK 可用任意控件名（推荐画布 id / Window）收起临时拖线
+            if (parts.Length >= 2 && parts[1] == "HideTempConnection")
+            {
+                CancelConnectionDrag(connectionDragCanvas, true);
+                return;
+            }
+            // AHK 准备重开指令菜单：短暂抑制 Closed 清线
+            if (parts.Length >= 2 && parts[1] == "SuppressTempClear")
+            {
+                suppressTempClearOnMenuClosed = (parts.Length < 3 || parts[2] != "0");
+                return;
+            }
             object ctrl = parts[0] == "Window" ? win : FindControlByPath(parts[0]);
             if (ctrl == null && parts[0] != "Window")
             {
@@ -6190,6 +6220,30 @@ public class AhkWpfEngine
                         };
                         cmm.Opened += oh[0];
                     }
+                    // 拖线指令菜单：关闭时清掉 Pending 临时连线（AHK 重开时可 SuppressTempClear）
+                    if (parts[0] == "MG_DropCM")
+                    {
+                        if (open)
+                        {
+                            System.Windows.RoutedEventHandler[] ch = new System.Windows.RoutedEventHandler[1];
+                            ch[0] = (cs, ce) =>
+                            {
+                                try { cmm.Closed -= ch[0]; } catch { }
+                                if (suppressTempClearOnMenuClosed)
+                                    return;
+                                if (connectionDragPhase == ConnDragPendingMenu)
+                                    CancelConnectionDrag(connectionDragCanvas, true);
+                            };
+                            try { cmm.Closed -= ch[0]; } catch { }
+                            cmm.Closed += ch[0];
+                            // 打开成功后解除抑制（若先关后开，Closed 已在抑制期跳过）
+                            suppressTempClearOnMenuClosed = false;
+                        }
+                        else if (suppressTempClearOnMenuClosed)
+                        {
+                            // 仅关闭以重开：不挂清理
+                        }
+                    }
                     cmm.IsOpen = open;
                 }
                 else if (parts[1] == "SetCanvasMode" && ctrl is Canvas)
@@ -6413,6 +6467,14 @@ public class AhkWpfEngine
                         else if (pt == "Geometry") val = System.Windows.Media.Geometry.Parse(parts[2]);
                         else val = Convert.ChangeType(parts[2], prop.PropertyType);
                         prop.SetValue(ctrl, val, null);
+                        // AHK 收起临时拖线时同步复位拖线状态机
+                        if (parts[1] == "Visibility" && ctrl == tempConnection && val is Visibility
+                            && (Visibility)val == Visibility.Collapsed)
+                        {
+                            connectionSourcePort = null;
+                            connectionDragCanvas = null;
+                            connectionDragPhase = ConnDragIdle;
+                        }
                     }
                 }
             }
@@ -6841,6 +6903,334 @@ public class AhkWpfEngine
         }
     }
 
+    // 从命中源向上找 Port_*（椭圆内部命中时 OriginalSource 可能无 Name）
+    private FrameworkElement FindPortElement(DependencyObject src)
+    {
+        while (src != null)
+        {
+            var fe = src as FrameworkElement;
+            if (fe != null && fe.Name != null && fe.Name.StartsWith("Port_"))
+                return fe;
+            src = System.Windows.Media.VisualTreeHelper.GetParent(src);
+        }
+        return null;
+    }
+
+    private void RemoveOrphanTempPaths(Canvas canvas, string baseName)
+    {
+        if (canvas == null) return;
+        string cn = baseName + "_TempConn";
+        string an = baseName + "_TempArrow";
+        for (int i = canvas.Children.Count - 1; i >= 0; i--)
+        {
+            var fe = canvas.Children[i] as FrameworkElement;
+            if (fe == null || fe.Name == null) continue;
+            if (fe.Name != cn && fe.Name != an) continue;
+            if (fe == tempConnection || fe == tempConnectionArrow) continue;
+            try { canvas.Children.RemoveAt(i); } catch { }
+        }
+    }
+
+    private void DetachTempPath(System.Windows.Shapes.Path path)
+    {
+        if (path == null) return;
+        try
+        {
+            var parent = path.Parent as Canvas;
+            if (parent != null) parent.Children.Remove(path);
+        }
+        catch { }
+    }
+
+    // 拖线临时连线：保证挂在当前画布上；样式与正式节点连线一致（粗线 + 三角箭头）
+    private void EnsureTempConnection(Canvas canvas)
+    {
+        if (canvas == null) return;
+        string baseName = string.IsNullOrEmpty(canvas.Name) ? "Canvas" : canvas.Name;
+        RemoveOrphanTempPaths(canvas, baseName);
+
+        // 引用还在但不在当前画布上（重建/换画布）→ 丢弃重建，避免「看不见跟随线」
+        if (tempConnection != null && !object.ReferenceEquals(tempConnection.Parent, canvas))
+        {
+            DetachTempPath(tempConnection);
+            try { if (win != null && tempConnection.Name != null) win.UnregisterName(tempConnection.Name); } catch { }
+            tempConnection = null;
+        }
+        if (tempConnectionArrow != null && !object.ReferenceEquals(tempConnectionArrow.Parent, canvas))
+        {
+            DetachTempPath(tempConnectionArrow);
+            try { if (win != null && tempConnectionArrow.Name != null) win.UnregisterName(tempConnectionArrow.Name); } catch { }
+            tempConnectionArrow = null;
+        }
+
+        if (tempConnection == null)
+        {
+            tempConnection = new System.Windows.Shapes.Path
+            {
+                Name = baseName + "_TempConn",
+                StrokeThickness = 6,
+                Opacity = 0.9,
+                IsHitTestVisible = false
+            };
+            try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); }
+            catch { tempConnection.Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)); }
+            System.Windows.Controls.Panel.SetZIndex(tempConnection, 50);
+            canvas.Children.Add(tempConnection);
+            try { if (win != null) win.RegisterName(tempConnection.Name, tempConnection); } catch { }
+            try { _controlCache[tempConnection.Name] = tempConnection; } catch { }
+        }
+        else
+        {
+            tempConnection.StrokeThickness = 6;
+            tempConnection.Opacity = 0.9;
+        }
+        if (tempConnectionArrow == null)
+        {
+            tempConnectionArrow = new System.Windows.Shapes.Path
+            {
+                Name = baseName + "_TempArrow",
+                Data = System.Windows.Media.Geometry.Parse("M0,0 L11,6.5 L0,13 Z"),
+                Opacity = 0.95,
+                IsHitTestVisible = false
+            };
+            try { tempConnectionArrow.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "GraphConn"); }
+            catch { tempConnectionArrow.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)); }
+            System.Windows.Controls.Panel.SetZIndex(tempConnectionArrow, 51);
+            canvas.Children.Add(tempConnectionArrow);
+            try { if (win != null) win.RegisterName(tempConnectionArrow.Name, tempConnectionArrow); } catch { }
+            try { _controlCache[tempConnectionArrow.Name] = tempConnectionArrow; } catch { }
+        }
+    }
+
+    private void UpdateTempConnectionVisual(Canvas canvas, Point endPos)
+    {
+        if (canvas == null || connectionSourcePort == null)
+            return;
+        EnsureTempConnection(canvas);
+        if (tempConnection == null)
+            return;
+        connectionLastPos = endPos;
+        Point portPos = GetCanvasPosition(connectionSourcePort, canvas);
+        double startX = portPos.X + connectionSourcePort.Width / 2;
+        double startY = portPos.Y + connectionSourcePort.Height / 2;
+        if (double.IsNaN(startX)) startX = 0;
+        if (double.IsNaN(startY)) startY = 0;
+
+        double tipX = endPos.X;
+        double tipY = endPos.Y;
+        bool fromOut = connectionSourcePort.Name != null && connectionSourcePort.Name.StartsWith("Port_Out");
+        double lineEndX = fromOut ? (tipX - ConnArrowInset) : (tipX + ConnArrowInset);
+        double lineEndY = tipY;
+
+        double dx = Math.Max(40, Math.Abs(lineEndX - startX) * 0.5);
+        double c1X = fromOut ? (startX + dx) : (startX - dx);
+        double c2X = fromOut ? (lineEndX - dx) : (lineEndX + dx);
+
+        string geom = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "M{0},{1} C{2},{3} {4},{5} {6},{7}",
+            startX, startY, c1X, startY, c2X, lineEndY, lineEndX, lineEndY);
+        try { tempConnection.Data = System.Windows.Media.Geometry.Parse(geom); } catch { }
+        tempConnection.Visibility = Visibility.Visible;
+
+        if (tempConnectionArrow != null)
+        {
+            try
+            {
+                tempConnectionArrow.Data = System.Windows.Media.Geometry.Parse(
+                    fromOut ? "M0,0 L11,6.5 L0,13 Z" : "M11,0 L0,6.5 L11,13 Z");
+            }
+            catch { }
+            double ax = fromOut ? (tipX - ConnArrowInset - 1) : tipX;
+            double ay = tipY - ConnArrowHalfH;
+            Canvas.SetLeft(tempConnectionArrow, ax);
+            Canvas.SetTop(tempConnectionArrow, ay);
+            tempConnectionArrow.Visibility = Visibility.Visible;
+        }
+    }
+
+    // 统一收起临时线（不改 phase；由 Cancel/Complete 控制 phase）
+    private void CollapseTempConnectionVisual()
+    {
+        if (tempConnection != null)
+            tempConnection.Visibility = Visibility.Collapsed;
+        if (tempConnectionArrow != null)
+            tempConnectionArrow.Visibility = Visibility.Collapsed;
+    }
+
+    // force=true：强制收起。拖线中（Dragging）非 force 不收起，防止误 Collapsed 导致 MouseUp 跳过。
+    private void HideTempConnection(bool force = false)
+    {
+        if (!force && connectionDragPhase == ConnDragDragging)
+            return;
+        CancelConnectionDrag(null, false);
+    }
+
+    // 统一取消/复位：释放捕获、清源、收起线、phase→Idle
+    private void ResetConnectionDrag(Canvas canvas)
+    {
+        CancelConnectionDrag(canvas, true);
+    }
+
+    private void CancelConnectionDrag(Canvas canvas, bool releaseCapture)
+    {
+        Canvas c = canvas ?? connectionDragCanvas;
+        if (releaseCapture)
+        {
+            try
+            {
+                connectionDragCompleting = true;
+                if (c != null && c.IsMouseCaptured) c.ReleaseMouseCapture();
+            }
+            catch { }
+            finally { connectionDragCompleting = false; }
+        }
+        connectionSourcePort = null;
+        connectionDragCanvas = null;
+        connectionDragPhase = ConnDragIdle;
+        CollapseTempConnectionVisual();
+    }
+
+    // 开始从端口拖线
+    private void BeginConnectionDrag(Canvas canvas, FrameworkElement port, Point startPos)
+    {
+        if (canvas == null || port == null) return;
+        if (connectionDragPhase != ConnDragIdle)
+            CancelConnectionDrag(canvas, true);
+        connectionDragCanvas = canvas;
+        connectionSourcePort = port;
+        connectionDragPhase = ConnDragDragging;
+        connectionDragStart = startPos;
+        connectionLastPos = startPos;
+        EnsureTempConnection(canvas);
+        try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); } catch { }
+        try { if (tempConnectionArrow != null) tempConnectionArrow.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "GraphConn"); } catch { }
+        UpdateTempConnectionVisual(canvas, startPos);
+        try { canvas.CaptureMouse(); } catch { }
+    }
+
+    // 拖线中跟随鼠标
+    private void MoveConnectionDrag(Canvas canvas, Point pos)
+    {
+        if (connectionDragPhase != ConnDragDragging || connectionSourcePort == null)
+            return;
+        UpdateTempConnectionVisual(canvas ?? connectionDragCanvas, pos);
+    }
+
+    // 松手：吸附端口则正式连线；空白则 PendingMenu 并通知 AHK 弹指令菜单
+    private void CompleteConnectionDrag(Canvas canvas, Point dropPos)
+    {
+        if (connectionDragPhase != ConnDragDragging || connectionSourcePort == null)
+            return;
+        Canvas c = canvas ?? connectionDragCanvas;
+        FrameworkElement srcPort = connectionSourcePort;
+        connectionLastPos = dropPos;
+
+        connectionDragCompleting = true;
+        try { if (c != null && c.IsMouseCaptured) c.ReleaseMouseCapture(); } catch { }
+        connectionDragCompleting = false;
+
+        double dragDx = dropPos.X - connectionDragStart.X;
+        double dragDy = dropPos.Y - connectionDragStart.Y;
+        // 几乎未拖动（单击端口）：取消
+        if (dragDx * dragDx + dragDy * dragDy < 64)
+        {
+            CancelConnectionDrag(c, false);
+            return;
+        }
+
+        FrameworkElement closestPort = null;
+        double minDistance = 2500;
+
+        if (c != null)
+        {
+            FrameworkElement targetNode = null;
+            foreach (UIElement child in c.Children)
+            {
+                var fe = child as FrameworkElement;
+                if (fe == null || fe.Name == null || !fe.Name.StartsWith("Node_")) continue;
+                double nx = Canvas.GetLeft(fe);
+                double ny = Canvas.GetTop(fe);
+                if (double.IsNaN(nx) || double.IsNaN(ny)) continue;
+                if (dropPos.X >= nx && dropPos.X <= nx + fe.ActualWidth &&
+                    dropPos.Y >= ny && dropPos.Y <= ny + fe.ActualHeight)
+                {
+                    targetNode = fe;
+                    break;
+                }
+            }
+            if (targetNode != null)
+            {
+                string nodeId = targetNode.Name.Substring(5);
+                string expectedPortName = srcPort.Name.StartsWith("Port_Out") ? "Port_In_" + nodeId : "Port_Out_" + nodeId;
+                var port = targetNode.FindName(expectedPortName) as FrameworkElement;
+                if (port == null)
+                {
+                    var ports = FindDescendantsByNamePrefix(targetNode, expectedPortName);
+                    if (ports.Count > 0) port = ports[0];
+                }
+                closestPort = port;
+            }
+            if (closestPort == null)
+            {
+                var allPorts = FindDescendantsByNamePrefix(c, "Port_");
+                foreach (var fe in allPorts)
+                {
+                    if (fe == srcPort) continue;
+                    Point pp = GetCanvasPosition(fe, c);
+                    double px = pp.X + fe.Width / 2;
+                    double py = pp.Y + fe.Height / 2;
+                    double distSq = (dropPos.X - px) * (dropPos.X - px) + (dropPos.Y - py) * (dropPos.Y - py);
+                    if (distSq < minDistance)
+                    {
+                        minDistance = distSq;
+                        closestPort = fe;
+                    }
+                }
+            }
+        }
+
+        if (closestPort != null)
+        {
+            CancelConnectionDrag(c, false);
+            SendToAhk("EVENT|" + winId + "|" + (c != null ? c.Name : "Canvas") + "|ConnectPorts|" +
+                LengthPrefix(srcPort.Name + "," + closestPort.Name) + "\n");
+            return;
+        }
+
+        // 空白处：保留临时线，进入待选指令态；延后通知 AHK，避开 MouseUp/Capture 竞争导致菜单秒关
+        connectionSourcePort = srcPort;
+        connectionDragCanvas = c;
+        connectionDragPhase = ConnDragPendingMenu;
+        UpdateTempConnectionVisual(c, dropPos);
+        connectionSourcePort = null; // Pending 不持有源端口，避免干扰下一次拖线
+        string dropInfo = srcPort.Name + "," +
+            dropPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," +
+            dropPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string canvasName = c != null ? c.Name : "Canvas";
+        try
+        {
+            if (win != null)
+            {
+                win.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (connectionDragPhase != ConnDragPendingMenu) return;
+                    SendToAhk("EVENT|" + winId + "|" + canvasName + "|ConnectionDropped|" +
+                        LengthPrefix(dropInfo) + "\n");
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            else
+            {
+                SendToAhk("EVENT|" + winId + "|" + canvasName + "|ConnectionDropped|" +
+                    LengthPrefix(dropInfo) + "\n");
+            }
+        }
+        catch
+        {
+            SendToAhk("EVENT|" + winId + "|" + canvasName + "|ConnectionDropped|" +
+                LengthPrefix(dropInfo) + "\n");
+        }
+    }
+
     private void EnableCanvasDrag(FrameworkElement ctrl, string ctrlName, string mode)
     {
         if (mode == "crop")
@@ -6865,11 +7255,9 @@ public class AhkWpfEngine
 
         ctrl.MouseLeftButtonDown += (s, e) =>
         {
-            var src = e.OriginalSource as FrameworkElement;
-            if (src != null && src.Name != null && src.Name.StartsWith("Port_"))
-            {
+            // 端口命中交给画布拖线状态机，节点不抢捕获
+            if (FindPortElement(e.OriginalSource as DependencyObject) != null)
                 return;
-            }
             isDragging = true;
             dragStart = e.GetPosition((UIElement)ctrl.Parent);
             startLeft = Canvas.GetLeft(ctrl);
@@ -6877,6 +7265,10 @@ public class AhkWpfEngine
             if (double.IsNaN(startLeft)) startLeft = 0;
             if (double.IsNaN(startTop)) startTop = 0;
             System.Windows.Controls.Panel.SetZIndex(ctrl, 999);
+
+            // 点选节点：任意非 Idle 拖线态一律复位（含「线已藏但 phase 未清」）
+            if (connectionDragPhase != ConnDragIdle)
+                CancelConnectionDrag(ctrl.Parent as Canvas, true);
 
             bool isCtrl = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control);
             string evName = isCtrl ? "CtrlSelectNode" : "SelectNode";
@@ -7615,6 +8007,61 @@ public class AhkWpfEngine
         string lastConnSelectionSet = "";
         bool pathClickPending = false;
 
+        // Label 拖拽改变数值：对【所有节点】的"标签 + 数值输入框"行生效。
+        // 采用事件委托（从命中元素向上找 TextBlock），自动适配动态新增的节点，无需逐个挂接。
+        // 仅当同行输入框的当前内容是数值时才允许拖拽，避免破坏变量/文本字段。
+        bool isLabelDragging = false;
+        System.Windows.Controls.Control dragTargetCtrl = null;   // TextBox 或可编辑 ComboBox
+        double dragStartX = 0;
+        double dragStartValue = 0;
+
+        System.Func<System.Windows.Controls.Control, string> getCtrlText = (c) =>
+        {
+            var t = c as System.Windows.Controls.TextBox; if (t != null) return t.Text;
+            var cb = c as System.Windows.Controls.ComboBox; if (cb != null) return cb.Text;
+            return null;
+        };
+        System.Action<System.Windows.Controls.Control, string> setCtrlText = (c, v) =>
+        {
+            var t = c as System.Windows.Controls.TextBox; if (t != null) { t.Text = v; return; }
+            var cb = c as System.Windows.Controls.ComboBox; if (cb != null) { cb.Text = v; return; }
+        };
+
+        // 同一 StackPanel 内存在数值内容的 TextBox / 可编辑 ComboBox 则返回它，否则 null
+        System.Func<System.Windows.Controls.TextBlock, System.Windows.Controls.Control> findNumericPeerBox = (tb) =>
+        {
+            if (tb == null) return null;
+            var sp = tb.Parent as System.Windows.Controls.StackPanel;
+            if (sp == null) return null;
+            System.Windows.Controls.Control box = null;
+            foreach (var spChild in sp.Children)
+            {
+                var t = spChild as System.Windows.Controls.TextBox;
+                if (t != null) { box = t; break; }
+                var cb = spChild as System.Windows.Controls.ComboBox;
+                if (cb != null && cb.IsEditable) { box = cb; break; }
+            }
+            if (box == null) return null;
+            if (!box.IsEnabled) return null;
+            double tmp;
+            if (!double.TryParse(getCtrlText(box), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tmp))
+                return null;
+            return box;
+        };
+
+        // 点击文字时 OriginalSource 可能是内部 Run/文本节点，向上找最近的 TextBlock
+        System.Func<object, System.Windows.Controls.TextBlock> asLabel = (src) =>
+        {
+            var d = src as DependencyObject;
+            while (d != null)
+            {
+                var tb = d as System.Windows.Controls.TextBlock;
+                if (tb != null) return tb;
+                d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+            }
+            return null;
+        };
+
         canvas.PreviewMouseDown += (s, e) =>
         {
             if (e.ChangedButton == System.Windows.Input.MouseButton.Middle)
@@ -7679,8 +8126,7 @@ public class AhkWpfEngine
             }
         };
 
-        // Safety: if mouse capture is lost unexpectedly during a pan (e.g. focus stolen,
-        // Alt+Tab), reset the pan state so the canvas doesn't get stuck panning.
+        // 捕获丢失：平移复位；拖线中则按最后坐标完成（避免 MouseUp 落在其他控件导致幽灵线）
         canvas.LostMouseCapture += (s, e) =>
         {
             if (isPanning)
@@ -7689,34 +8135,38 @@ public class AhkWpfEngine
                 panIsRight = false;
                 canvas.Cursor = System.Windows.Input.Cursors.Arrow;
             }
+            if (connectionDragCompleting)
+                return;
+            if (connectionDragPhase == ConnDragDragging && connectionSourcePort != null)
+            {
+                Point pos = connectionLastPos;
+                try { pos = System.Windows.Input.Mouse.GetPosition(canvas); } catch { }
+                CompleteConnectionDrag(canvas, pos);
+            }
         };
 
         canvas.PreviewMouseLeftButtonDown += (s, e) =>
         {
-            var el = e.OriginalSource as FrameworkElement;
-            if (el != null && el.Name != null && el.Name.StartsWith("Port_"))
+            // 优先处理标签拖拽改值，Handled 后抑制节点拖动/框选
+            var labelBox = findNumericPeerBox(asLabel(e.OriginalSource));
+            if (labelBox != null)
             {
-                connectionSourcePort = el;
-                if (tempConnection == null)
-                {
-                    tempConnection = new System.Windows.Shapes.Path
-                    {
-                        StrokeThickness = 2.5,
-                        Opacity = 0.8,
-                        IsHitTestVisible = false
-                    };
-                    // 跟主题「图形连线」色；资源缺失时回退原蓝色
-                    try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); }
-                    catch { tempConnection.Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 160, 255)); }
-                    System.Windows.Controls.Panel.SetZIndex(tempConnection, -1);
-                    canvas.Children.Add(tempConnection);
-                }
-                else
-                {
-                    try { tempConnection.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "GraphConn"); } catch { }
-                }
-                tempConnection.Visibility = Visibility.Visible;
+                double val;
+                if (!double.TryParse(getCtrlText(labelBox), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out val))
+                    val = 0;
+                isLabelDragging = true;
+                dragTargetCtrl = labelBox;
+                dragStartX = e.GetPosition(canvas).X;
+                dragStartValue = val;
                 canvas.CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+
+            var portEl = FindPortElement(e.OriginalSource as DependencyObject);
+            if (portEl != null)
+            {
+                BeginConnectionDrag(canvas, portEl, e.GetPosition(canvas));
                 e.Handled = true;
                 return;
             }
@@ -7724,6 +8174,7 @@ public class AhkWpfEngine
             // Clicking directly on a connection path selects it. Handled centrally here
             // (tunneling) so it works for both build-time and runtime-added connections,
             // regardless of whether a per-path WPF handler was attached.
+            var el = e.OriginalSource as FrameworkElement;
             if (el is System.Windows.Shapes.Path && el.Name != null && el.Name.Contains("_Path_") && el.Visibility == Visibility.Visible)
             {
                 canvas.Focus();
@@ -7736,11 +8187,8 @@ public class AhkWpfEngine
         // Mode logic: Left click on empty space (Canvas) triggers Pan or Select
         canvas.MouseLeftButtonDown += (s, e) =>
         {
-            var el = e.OriginalSource as FrameworkElement;
-            if (el != null && el.Name != null && el.Name.StartsWith("Port_"))
-            {
+            if (FindPortElement(e.OriginalSource as DependencyObject) != null)
                 return;
-            }
 
             // If the user clicked on a node or anything else, let it handle its own drag
             if (e.OriginalSource != canvas) return;
@@ -7894,29 +8342,9 @@ public class AhkWpfEngine
                 }
                 e.Handled = true;
             }
-            else if (connectionSourcePort != null && tempConnection != null && tempConnection.Visibility == Visibility.Visible)
+            else if (connectionDragPhase == ConnDragDragging)
             {
-                var pos = e.GetPosition(canvas);
-                Point portPos = GetCanvasPosition(connectionSourcePort, canvas);
-                double startX = portPos.X + connectionSourcePort.Width / 2;
-                double startY = portPos.Y + connectionSourcePort.Height / 2;
-                if (double.IsNaN(startX)) startX = 0;
-                if (double.IsNaN(startY)) startY = 0;
-                double endX = pos.X;
-                double endY = pos.Y;
-
-                // Allow dragging from out port to in port
-                double dx = Math.Max(40, Math.Abs(endX - startX) * 0.5);
-                double c1X = startX + dx;
-                double c2X = endX - dx;
-                if (connectionSourcePort.Name.StartsWith("Port_In"))
-                {
-                    c1X = startX - dx;
-                    c2X = endX + dx;
-                }
-
-                string geom = string.Format(System.Globalization.CultureInfo.InvariantCulture, "M{0},{1} C{2},{3} {4},{5} {6},{7}", startX, startY, c1X, startY, c2X, endY, endX, endY);
-                try { tempConnection.Data = System.Windows.Media.Geometry.Parse(geom); } catch { }
+                MoveConnectionDrag(canvas, e.GetPosition(canvas));
                 e.Handled = true;
             }
             else if (isKnifing && tempKnife != null && tempKnife.Visibility == Visibility.Visible)
@@ -7990,82 +8418,9 @@ public class AhkWpfEngine
                 System.Windows.Input.Keyboard.Focus(canvas);
                 e.Handled = true;
             }
-            else if (connectionSourcePort != null && tempConnection != null && tempConnection.Visibility == Visibility.Visible)
+            else if (connectionDragPhase == ConnDragDragging)
             {
-                tempConnection.Visibility = Visibility.Collapsed;
-                canvas.ReleaseMouseCapture();
-                Point dropPos = e.GetPosition(canvas);
-
-                // Magnetic search for closest port
-                FrameworkElement closestPort = null;
-                double minDistance = 2500; // 50^2 for generous port snapping
-
-                // First pass: check if dropped directly inside a Node body
-                FrameworkElement targetNode = null;
-                foreach (UIElement child in canvas.Children)
-                {
-                    var fe = child as FrameworkElement;
-                    if (fe != null && fe.Name != null && fe.Name.StartsWith("Node_"))
-                    {
-                        double nx = Canvas.GetLeft(fe);
-                        double ny = Canvas.GetTop(fe);
-                        if (double.IsNaN(nx) || double.IsNaN(ny)) continue;
-                        if (dropPos.X >= nx && dropPos.X <= nx + fe.ActualWidth &&
-                            dropPos.Y >= ny && dropPos.Y <= ny + fe.ActualHeight)
-                        {
-                            targetNode = fe;
-                            break;
-                        }
-                    }
-                }
-
-                if (targetNode != null)
-                {
-                    string nodeId = targetNode.Name.Substring(5);
-                    string expectedPortName = connectionSourcePort.Name.StartsWith("Port_Out") ? "Port_In_" + nodeId : "Port_Out_" + nodeId;
-                    var port = targetNode.FindName(expectedPortName) as FrameworkElement;
-                    if (port == null)
-                    {
-                        var ports = FindDescendantsByNamePrefix(targetNode, expectedPortName);
-                        if (ports.Count > 0) port = ports[0];
-                    }
-                    closestPort = port;
-                }
-
-                // Second pass: if no direct node hit, do proximity search for ports (recursive)
-                if (closestPort == null)
-                {
-                    var allPorts = FindDescendantsByNamePrefix(canvas, "Port_");
-                    foreach (var fe in allPorts)
-                    {
-                        if (fe == connectionSourcePort) continue;
-                        Point pp = GetCanvasPosition(fe, canvas);
-                        double px = pp.X + fe.Width / 2;
-                        double py = pp.Y + fe.Height / 2;
-
-                        double distSq = (dropPos.X - px) * (dropPos.X - px) + (dropPos.Y - py) * (dropPos.Y - py);
-                        if (distSq < minDistance)
-                        {
-                            minDistance = distSq;
-                            closestPort = fe;
-                        }
-                    }
-                }
-
-                if (closestPort != null)
-                {
-                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ConnectPorts|" +
-                        LengthPrefix(connectionSourcePort.Name + "," + closestPort.Name) + "\n");
-                }
-                else
-                {
-                    string dropInfo = connectionSourcePort.Name + "," +
-                        dropPos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," +
-                        dropPos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ConnectionDropped|" +
-                        LengthPrefix(dropInfo) + "\n");
-                }
-                connectionSourcePort = null;
+                CompleteConnectionDrag(canvas, e.GetPosition(canvas));
                 e.Handled = true;
             }
             else if (isKnifing && tempKnife != null && tempKnife.Visibility == Visibility.Visible)
@@ -8077,9 +8432,54 @@ public class AhkWpfEngine
             }
             else
             {
-                // Clicked empty space
+                // 点空白：清掉 Pending 幽灵线，并通知取消选中
+                if (connectionDragPhase != ConnDragIdle)
+                    CancelConnectionDrag(canvas, true);
                 SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ClearSelection|\n");
             }
+        };
+
+        canvas.PreviewMouseMove += (s, e) =>
+        {
+            if (!isLabelDragging || dragTargetCtrl == null)
+            {
+                // 悬停在数值标签上时给出左右拖拽光标提示
+                if (!isLabelDragging)
+                {
+                    var tb = asLabel(e.OriginalSource);
+                    if (tb != null && tb.Cursor == null && findNumericPeerBox(tb) != null)
+                        tb.Cursor = System.Windows.Input.Cursors.SizeWE;
+                }
+                return;
+            }
+            double dx = e.GetPosition(canvas).X - dragStartX;
+            double step = Math.Max(1, Math.Abs(dragStartValue) * 0.02);
+            // 默认下限 0、无上限；可由目标控件 Tag 中的 "Min:x" / "Max:y" 覆盖
+            double minV = 0, maxV = double.MaxValue;
+            string dragTag = (dragTargetCtrl.Tag as string) ?? "";
+            var mMin = System.Text.RegularExpressions.Regex.Match(dragTag, @"Min:(-?\d+(?:\.\d+)?)");
+            if (mMin.Success) double.TryParse(mMin.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out minV);
+            var mMax = System.Text.RegularExpressions.Regex.Match(dragTag, @"Max:(-?\d+(?:\.\d+)?)");
+            if (mMax.Success) double.TryParse(mMax.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out maxV);
+            double newVal = dragStartValue + dx * step;
+            if (newVal < minV) newVal = minV;
+            if (newVal > maxV) newVal = maxV;
+            if (dragStartValue == Math.Floor(dragStartValue))
+                setCtrlText(dragTargetCtrl, ((int)Math.Round(newVal)).ToString());
+            else
+                setCtrlText(dragTargetCtrl, newVal.ToString("F0", System.Globalization.CultureInfo.InvariantCulture));
+            e.Handled = true;
+        };
+
+        canvas.PreviewMouseLeftButtonUp += (s, e) =>
+        {
+            if (!isLabelDragging) return;
+            isLabelDragging = false;
+            canvas.ReleaseMouseCapture();
+            // 仅结束拖拽、保留输入框当前显示值；不写回 AHK。
+            // 持久化由图形编辑器在「打开节点编辑器前 / 点击保存」时统一 Flush。
+            dragTargetCtrl = null;
+            e.Handled = true;
         };
     }
 

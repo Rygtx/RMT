@@ -11,6 +11,44 @@
 class MacroGraphHandlersMixin {
     ; ----------------------------------------------------------------- 内联编辑回调
 
+    ; ComboBox 当前 SelectedIndex；无效返回 -1（state 文本在多节点下常为空，优先用索引）
+    _ComboSelectedIndex(key) {
+        if (this.ui == "")
+            return -1
+        idx := this.ui.Query(key ">SelectedIndex")
+        if (idx != "" && IsNumber(idx) && Integer(idx) >= 0)
+            return Integer(idx)
+        return -1
+    }
+
+    ; 读 Combo 显示文本：state → Query → SelectedIndex 映射 items
+    _ComboText(key, state := unset, items := unset) {
+        if (IsSet(state) && IsObject(state) && state.Has(key) && state[key] != "")
+            return state[key]
+        if (this.ui != "") {
+            q := this.ui.Query(key)
+            if (q != "")
+                return q
+            if (IsSet(items) && IsObject(items)) {
+                idx := this._ComboSelectedIndex(key)
+                if (idx >= 0 && idx < items.Length)
+                    return items[idx + 1]
+            }
+        }
+        return ""
+    }
+
+    ; 将 Combo 当前值补进 state，供仍读 state 文本的 Formal handler 复用
+    _EnsureComboInState(state, key, items) {
+        if (!IsObject(state))
+            return
+        if (state.Has(key) && state[key] != "")
+            return
+        txt := this._ComboText(key, state, items)
+        if (txt != "")
+            state[key] := txt
+    }
+
     ; 按键类型下拉项：0=按下 1=松开 2=点击（与 _TypeIndex / 节点构建顺序一致）
     _KeyTypeFromIndex(idx) {
         if (idx == 0)
@@ -109,14 +147,24 @@ class MacroGraphHandlersMixin {
         return (text == GetLang("随机")) ? GetLang("随机") : GetLang("固定")
     }
 
+    ; 从引擎当前选中项解析移动方式：SelectedIndex 优先
+    _MoveModeFromState(key, state, fallback := "0") {
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx <= 2)
+            return String(idx)
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._MoveModeFromText(txt)
+        return fallback != "" ? String(fallback) : "0"
+    }
+
     ; 移动方式下拉变更：映射为模式编号(0/1/2)；游戏视角(2)强制速度100
     _OnMoveMode(id, state, ctrl, event) {
         if (!this.cmdNodes.Has(id))
             return
         key := "ModeCmb_" id
         d := this._Parse(this.cmdNodes[id].CurCMD)
-        if (state.Has(key) && state[key] != "")
-            d.mode := this._MoveModeFromText(state[key])
+        d.mode := this._MoveModeFromState(key, state, d.mode)
         if (d.mode == "2")
             d.speed := "100"
         this.cmdNodes[id].CurCMD := this._BuildCmd(d)
@@ -282,14 +330,25 @@ class MacroGraphHandlersMixin {
         this._MMProApply()
     }
 
+    ; 从引擎当前选中项解析鼠标动作编号(1/2/3)：SelectedIndex 优先
+    _MMProActionFromState(key, state, fallback := 1) {
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx <= 2)
+            return idx + 1
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._MMProActionFromText(txt)
+        fb := Integer(fallback)
+        return (fb >= 1 && fb <= 3) ? fb : 1
+    }
+
     ; 鼠标动作下拉变更
     _OnMMProAction(id, state, ctrl, event) {
         data := this._MMProData(id)
         if (data == "")
             return
         key := "MPActionCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.ActionType := this._MMProActionFromText(state[key])
+        data.ActionType := this._MMProActionFromState(key, state, data.ActionType)
         SaveMacroCMDData(data)
         this._MMProApply()
     }
@@ -300,8 +359,7 @@ class MacroGraphHandlersMixin {
         if (data == "")
             return
         key := "MPModeCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.MouseMoveMode := Integer(this._MoveModeFromText(state[key]))
+        data.MouseMoveMode := Integer(this._MoveModeFromState(key, state, data.MouseMoveMode))
         if (data.MouseMoveMode == 2) {
             data.ActionType := 1
             data.Speed := 100
@@ -318,19 +376,23 @@ class MacroGraphHandlersMixin {
         if (data == "")
             return
         key := "MPHuman_" id
-        if (state.Has(key)) {
+        v := ""
+        if (IsObject(state) && state.Has(key))
             v := state[key]
-            data.IsHumanMouse := (v == "True" || v == 1 || v == "1") ? 1 : 0
-            if (data.IsHumanMouse == 1) {
-                ; 拟真轨迹与游戏视角互斥：游戏视角时切回相对移动
-                if (data.MouseMoveMode == 2) {
-                    data.MouseMoveMode := 1
-                    this.ui.Update("MPModeCmb_" id, "SelectedIndex", this._MoveModeIndex(1))
-                }
-                data.ActionType := 1
+        else if (this.ui != "")
+            v := this.ui.Query(key)
+        if (v == "")
+            return
+        data.IsHumanMouse := (v == "True" || v == 1 || v == "1") ? 1 : 0
+        if (data.IsHumanMouse == 1) {
+            ; 拟真轨迹与游戏视角互斥：游戏视角时切回相对移动
+            if (data.MouseMoveMode == 2) {
+                data.MouseMoveMode := 1
+                this.ui.Update("MPModeCmb_" id, "SelectedIndex", this._MoveModeIndex(1))
             }
-            SaveMacroCMDData(data)
+            data.ActionType := 1
         }
+        SaveMacroCMDData(data)
         this._RefreshMMProVisibility(id)
         this._MMProApply()
     }
@@ -1090,6 +1152,17 @@ class MacroGraphHandlersMixin {
         return "弹窗"
     }
 
+    _InputTypeFromState(key, state, fallback := "弹窗") {
+        keys := ["弹窗", "状态", "继续", "继续&取消"]
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx < keys.Length)
+            return keys[idx + 1]
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._InputTypeFromText(txt)
+        return fallback != "" ? fallback : "弹窗"
+    }
+
     _InputPauseTypeIndex(typeKey) {
         typeNames := GetLangArr(["暂停当前宏", "暂停所有宏"])
         target := GetLang(typeKey)
@@ -1106,6 +1179,17 @@ class MacroGraphHandlersMixin {
                 return key
         }
         return "暂停当前宏"
+    }
+
+    _InputPauseTypeFromState(key, state, fallback := "暂停当前宏") {
+        keys := ["暂停当前宏", "暂停所有宏"]
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx < keys.Length)
+            return keys[idx + 1]
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._InputPauseTypeFromText(txt)
+        return fallback != "" ? fallback : "暂停当前宏"
     }
 
     _InputCancelTypeIndex(typeKey) {
@@ -1126,6 +1210,17 @@ class MacroGraphHandlersMixin {
         return "终止当前宏"
     }
 
+    _InputCancelTypeFromState(key, state, fallback := "终止当前宏") {
+        keys := ["终止当前宏", "终止所有宏"]
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx < keys.Length)
+            return keys[idx + 1]
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._InputCancelTypeFromText(txt)
+        return fallback != "" ? fallback : "终止当前宏"
+    }
+
     _OutputTypeIndex(outputTypeKey) {
         typeNames := GetLangArr(["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"])
         target := GetLang(outputTypeKey)
@@ -1144,13 +1239,23 @@ class MacroGraphHandlersMixin {
         return "发送内容"
     }
 
+    _OutputTypeFromState(key, state, fallback := "发送内容") {
+        keys := ["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"]
+        idx := this._ComboSelectedIndex(key)
+        if (idx >= 0 && idx < keys.Length)
+            return keys[idx + 1]
+        txt := this._ComboText(key, state)
+        if (txt != "")
+            return this._OutputTypeFromText(txt)
+        return fallback != "" ? fallback : "发送内容"
+    }
+
     _OnInputType(id, state, ctrl, event) {
         data := this._InputData(id)
         if (data == "")
             return
         key := "InTypeCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.Type := this._InputTypeFromText(state[key])
+        data.Type := this._InputTypeFromState(key, state, data.Type)
         SaveMacroCMDData(data)
         this._RefreshInputVisibility(id)
         this._Apply()
@@ -1161,8 +1266,7 @@ class MacroGraphHandlersMixin {
         if (data == "")
             return
         key := "InPauseCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.PauseType := this._InputPauseTypeFromText(state[key])
+        data.PauseType := this._InputPauseTypeFromState(key, state, data.PauseType)
         SaveMacroCMDData(data)
         this._Apply()
     }
@@ -1172,8 +1276,7 @@ class MacroGraphHandlersMixin {
         if (data == "")
             return
         key := "InCancelCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.CancelType := this._InputCancelTypeFromText(state[key])
+        data.CancelType := this._InputCancelTypeFromState(key, state, data.CancelType)
         SaveMacroCMDData(data)
         this._Apply()
     }
@@ -1184,15 +1287,17 @@ class MacroGraphHandlersMixin {
             return
         if (field == "SaveName") {
             key := "InSave_" id
-            if (state.Has(key)) {
+            val := ""
+            if (IsObject(state) && state.Has(key))
                 val := state[key]
-                if (val == "")
-                    return
-                data.SaveName := GetVarName(val)
-                if (data.Type == "弹窗" || data.Type == "状态")
-                    MySoftData.GlobalVariMap[data.SaveName] := true
-                SaveMacroCMDData(data)
-            }
+            else if (this.ui != "")
+                val := this.ui.Query(key)
+            if (val == "")
+                return
+            data.SaveName := GetVarName(val)
+            if (data.Type == "弹窗" || data.Type == "状态")
+                MySoftData.GlobalVariMap[data.SaveName] := true
+            SaveMacroCMDData(data)
         }
         this._Apply()
     }
@@ -1232,8 +1337,7 @@ class MacroGraphHandlersMixin {
         if (data == "")
             return
         key := "OutTypeCmb_" id
-        if (state.Has(key) && state[key] != "")
-            data.OutputType := this._OutputTypeFromText(state[key])
+        data.OutputType := this._OutputTypeFromState(key, state, data.OutputType)
         SaveMacroCMDData(data)
         this._RefreshOutputVisibility(id)
         this._Apply()
@@ -1245,19 +1349,25 @@ class MacroGraphHandlersMixin {
             return
         if (field == "Text") {
             key := "OutText_" id
-            if (state.Has(key))
-                data.Text := GetLangStr(state[key], 2)
+            val := ""
+            if (IsObject(state) && state.Has(key))
+                val := state[key]
+            else if (this.ui != "")
+                val := this.ui.Query(key)
+            data.Text := GetLangStr(val, 2)
         }
         else if (field == "VariableName") {
             key := "OutVar_" id
-            if (state.Has(key)) {
+            val := ""
+            if (IsObject(state) && state.Has(key))
                 val := state[key]
-                if (val == "")
-                    return
-                data.VariableName := GetVarName(val)
-                if (data.OutputType == "字符变量")
-                    MySoftData.GlobalVariMap[data.VariableName] := true
-            }
+            else if (this.ui != "")
+                val := this.ui.Query(key)
+            if (val == "")
+                return
+            data.VariableName := GetVarName(val)
+            if (data.OutputType == "字符变量")
+                MySoftData.GlobalVariMap[data.VariableName] := true
         }
         SaveMacroCMDData(data)
         this._Apply()
@@ -1288,6 +1398,405 @@ class MacroGraphHandlersMixin {
         if (d.HasOwnProp("text"))
             this.ui.Update("OutText_" id, "Text", GetLangStr(d.text, 1))
         this._RefreshOutputVisibility(id)
+    }
+
+    ; ----------------------------------------------------------------- 内联界面 → 数据 Flush
+    ; 标签拖拽/输入框改值后不即时写回；在打开节点编辑器前、点击「保存」时统一刷入。
+    ; targetId 非空只刷该节点；空则刷全部指令节点（含内联子节点）。不触发 _Apply。
+
+    _FlushInlineFieldsFromUI(targetId := "") {
+        if (this.ui == "")
+            return
+        if (targetId != "") {
+            if (this.cmdNodes.Has(targetId))
+                this._FlushOneNodeInline(targetId, Map())
+            return
+        }
+        state := this.ui.Query("*")
+        if (!IsObject(state))
+            state := Map()
+        for id in this.order
+            this._FlushOneNodeInline(id, state)
+        if (this.HasOwnProp("_ilOwner")) {
+            for id, _ in this._ilOwner
+                this._FlushOneNodeInline(id, state)
+        }
+    }
+
+    ; 从 UI/state 取控件值；优先 >Text（可编辑下拉标签拖拽只改 Text，SelectedItem 可能仍是旧值）
+    ; 空串视为无效（不覆盖），"0" 有效
+    _InlineVal(state, key, &val) {
+        val := ""
+        if (this.ui != "") {
+            t := this.ui.Query(key ">Text")
+            if (t != "") {
+                val := t
+                return true
+            }
+            q := this.ui.Query(key)
+            if (q != "") {
+                val := q
+                return true
+            }
+        }
+        if (IsObject(state) && state.Has(key) && state[key] != "") {
+            val := state[key]
+            return true
+        }
+        return false
+    }
+
+    _FlushOneNodeInline(id, state) {
+        if (!this.cmdNodes.Has(id))
+            return
+        d := this._Parse(this.cmdNodes[id].CurCMD)
+        if (d.type == GetLang("间隔"))
+            this._FlushIntervalInline(id, d, state)
+        else if (d.type == GetLang("按键"))
+            this._FlushKeyInline(id, d, state)
+        else if (d.type == GetLang("移动"))
+            this._FlushMoveInline(id, d, state)
+        else if (d.type == GetLang("移动Pro"))
+            this._FlushMMProInline(id, state)
+        else if (d.type == GetLang("搜索") || d.type == GetLang("搜索Pro"))
+            this._FlushSearchInline(id, state)
+        else if (d.type == GetLang("输入"))
+            this._FlushInputInline(id, state)
+        else if (d.type == GetLang("输出"))
+            this._FlushOutputInline(id, state)
+        else if (this._IsFormalNodeType(d.type))
+            this._FlushFormalInline(id, d, state)
+    }
+
+    ; Formal：复用现有写回 handler，_flushSilent 抑制 _Apply；>Text 覆盖可编辑下拉（标签拖拽）
+    _FlushFormalInline(id, d, state) {
+        if (!IsObject(state))
+            state := Map()
+        if (this.ui != "") {
+            live := this.ui.Query("*")
+            if (IsObject(live)) {
+                for k, v in live
+                    state[k] := v
+            }
+            keys := []
+            for k, _ in state
+                keys.Push(k)
+            for k in keys {
+                t := this.ui.Query(k ">Text")
+                if (t != "")
+                    state[k] := t
+            }
+        }
+        prev := this.HasOwnProp("_flushSilent") ? this._flushSilent : false
+        this._flushSilent := true
+        try {
+            t := d.type
+            if (t == GetLang("宏操作"))
+                this._OnFormalSubMacro(id, state, "", "Flush")
+            else if (t == GetLang("变量"))
+                this._OnFormalVariable(id, state, "", "Flush")
+            else if (t == GetLang("变量提取"))
+                this._OnFormalExVariable(id, state, "", "Flush")
+            else if (t == GetLang("运算"))
+                this._OnFormalOperation(id, state, "", "Flush")
+            else if (t == GetLang("运行"))
+                this._OnFormalRun(id, state, "", "Flush")
+            else if (t == GetLang("文件读写"))
+                this._OnFIOField(id, state, "", "Flush")
+            else if (t == GetLang("文本处理"))
+                this._OnFormalTextOps(id, state, "", "Flush")
+            else if (t == GetLang("数组")) {
+                this._OnFormalArray(id, state, "", "Flush")
+                this._OnArrField(id, state, "", "Flush")
+            } else if (t == GetLang("RMT指令"))
+                this._OnRmtField(id, state, "", "Flush")
+            else if (t == GetLang("后台鼠标"))
+                this._OnFormalBGMouse(id, state, "", "Flush")
+            else if (t == GetLang("后台按键"))
+                this._OnFormalBGKey(id, state, "", "Flush")
+            else if (t == GetLang("窗口管理"))
+                this._OnFormalWindowManage(id, state, "", "Flush")
+            else if (t == GetLang("按键检测"))
+                this._OnFormalKeyCheck(id, state, "", "Flush")
+            else if (t == GetLang("抓图"))
+                this._OnFormalScreenShot(id, state, "", "Flush")
+            else if (t == GetLang("循环"))
+                this._OnFormalLoop(id, state, "", "Flush")
+            else if (t == GetLang("如果"))
+                this._OnFormalIf(id, state, "", "Flush")
+            else if (t == GetLang("如果Pro"))
+                this._OnFormalIfPro(id, state, "", "Flush")
+        } finally {
+            this._flushSilent := prev
+        }
+    }
+
+    _FlushIntervalInline(id, d, state) {
+        dirty := false
+        if (this._InlineVal(state, "Time_" id, &val)) {
+            d.time := val
+            dirty := true
+        }
+        if (this._InlineVal(state, "Time2_" id, &val)) {
+            d.time2 := val
+            dirty := true
+        }
+        idx := this._ComboSelectedIndex("ITypeCmb_" id)
+        if (idx >= 0) {
+            d.itype := (idx == 1) ? GetLang("随机") : GetLang("固定")
+            dirty := true
+        } else if (this._InlineVal(state, "ITypeCmb_" id, &itypeTxt)) {
+            d.itype := this._IntervalTypeFromText(itypeTxt)
+            dirty := true
+        }
+        if (dirty)
+            this.cmdNodes[id].CurCMD := this._BuildCmd(d)
+    }
+
+    _FlushKeyInline(id, d, state) {
+        dirty := false
+        for field, prefix in Map("hold", "Hold_", "count", "Count_", "inter", "Inter_") {
+            if (!this._InlineVal(state, prefix id, &val))
+                continue
+            if (IsNumber(val) && val + 0 < 1)
+                val := "1"
+            d.%field% := val
+            dirty := true
+        }
+        idx := this._ComboSelectedIndex("TypeCmb_" id)
+        if (idx >= 0 && idx <= 2) {
+            d.ktype := this._KeyTypeFromIndex(idx)
+            dirty := true
+        } else if (this._InlineVal(state, "TypeCmb_" id, &ktypeTxt)) {
+            d.ktype := this._KeyTypeFromState("TypeCmb_" id, Map("TypeCmb_" id, ktypeTxt), d.ktype)
+            dirty := true
+        }
+        if (dirty)
+            this.cmdNodes[id].CurCMD := this._BuildCmd(d)
+    }
+
+    _FlushMoveInline(id, d, state) {
+        dirty := false
+        for field, prefix in Map("posx", "PosX_", "posy", "PosY_", "speed", "Speed_") {
+            if (!this._InlineVal(state, prefix id, &val))
+                continue
+            if (field == "speed" && IsNumber(val) && val + 0 < 1)
+                val := "1"
+            d.%field% := val
+            dirty := true
+        }
+        idx := this._ComboSelectedIndex("ModeCmb_" id)
+        if (idx >= 0 && idx <= 2) {
+            d.mode := String(idx)
+            dirty := true
+        } else if (this._InlineVal(state, "ModeCmb_" id, &modeTxt)) {
+            d.mode := this._MoveModeFromText(modeTxt)
+            dirty := true
+        }
+        if (dirty)
+            this.cmdNodes[id].CurCMD := this._BuildCmd(d)
+    }
+
+    _FlushMMProInline(id, state) {
+        data := this._MMProData(id)
+        if (data == "")
+            return
+        dirty := false
+        for field, prefix in Map("PosVarX", "MPPosX_", "PosVarY", "MPPosY_") {
+            if (!this._InlineVal(state, prefix id, &val))
+                continue
+            data.%field% := GetLangKey(val)
+            dirty := true
+        }
+        for field, prefix in Map("Speed", "MPSpeed_", "Count", "MPCount_", "Interval", "MPInterval_") {
+            if (!this._InlineVal(state, prefix id, &val))
+                continue
+            if (IsNumber(val) && val + 0 < 1)
+                val := "1"
+            data.%field% := val
+            dirty := true
+        }
+        aidx := this._ComboSelectedIndex("MPActionCmb_" id)
+        if (aidx >= 0 && aidx <= 2) {
+            data.ActionType := aidx + 1
+            dirty := true
+        } else if (this._InlineVal(state, "MPActionCmb_" id, &actTxt)) {
+            data.ActionType := this._MMProActionFromText(actTxt)
+            dirty := true
+        }
+        midx := this._ComboSelectedIndex("MPModeCmb_" id)
+        if (midx >= 0 && midx <= 2) {
+            data.MouseMoveMode := midx
+            dirty := true
+        } else if (this._InlineVal(state, "MPModeCmb_" id, &modeTxt)) {
+            data.MouseMoveMode := Integer(this._MoveModeFromText(modeTxt))
+            dirty := true
+        }
+        hv := ""
+        if (IsObject(state) && state.Has("MPHuman_" id))
+            hv := state["MPHuman_" id]
+        else if (this.ui != "")
+            hv := this.ui.Query("MPHuman_" id)
+        if (hv != "") {
+            data.IsHumanMouse := (hv == "True" || hv == 1 || hv == "1") ? 1 : 0
+            dirty := true
+        }
+        if (dirty)
+            SaveMacroCMDData(data)
+    }
+
+    _FlushInputInline(id, state) {
+        data := this._InputData(id)
+        if (data == "")
+            return
+        dirty := false
+        keys := ["弹窗", "状态", "继续", "继续&取消"]
+        idx := this._ComboSelectedIndex("InTypeCmb_" id)
+        if (idx >= 0 && idx < keys.Length) {
+            data.Type := keys[idx + 1]
+            dirty := true
+        }
+        pkeys := ["暂停当前宏", "暂停所有宏"]
+        pidx := this._ComboSelectedIndex("InPauseCmb_" id)
+        if (pidx >= 0 && pidx < pkeys.Length) {
+            data.PauseType := pkeys[pidx + 1]
+            dirty := true
+        }
+        ckeys := ["终止当前宏", "终止所有宏"]
+        cidx := this._ComboSelectedIndex("InCancelCmb_" id)
+        if (cidx >= 0 && cidx < ckeys.Length) {
+            data.CancelType := ckeys[cidx + 1]
+            dirty := true
+        }
+        if (this._InlineVal(state, "InSave_" id, &val)) {
+            data.SaveName := GetVarName(val)
+            dirty := true
+        }
+        if (dirty)
+            SaveMacroCMDData(data)
+    }
+
+    _FlushOutputInline(id, state) {
+        data := this._OutputData(id)
+        if (data == "")
+            return
+        dirty := false
+        keys := ["发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"]
+        idx := this._ComboSelectedIndex("OutTypeCmb_" id)
+        if (idx >= 0 && idx < keys.Length) {
+            data.OutputType := keys[idx + 1]
+            dirty := true
+        }
+        if (this._InlineVal(state, "OutText_" id, &val)) {
+            data.Text := GetLangStr(val, 2)
+            dirty := true
+        }
+        if (this._InlineVal(state, "OutVar_" id, &val)) {
+            data.VariableName := GetVarName(val)
+            dirty := true
+        }
+        if (dirty)
+            SaveMacroCMDData(data)
+    }
+
+    _FlushSearchInline(id, state) {
+        data := this._SearchData(id)
+        if (data == "")
+            return
+        dirty := false
+        isPro := this._IsNodePro(id)
+        stIdx := this._ComboSelectedIndex("STypeCmb_" id)
+        if (stIdx >= 0) {
+            st := stIdx + 1
+            maxType := this._SearchTypeMax(id)
+            if (st >= 1 && st <= maxType) {
+                data.SearchType := st
+                dirty := true
+            }
+        }
+        actIdx := this._ComboSelectedIndex("SActCmb_" id)
+        if (actIdx >= 0) {
+            act := actIdx + 1
+            maxAct := isPro ? 3 : 4
+            if (act >= 1 && act <= maxAct) {
+                data.MouseActionType := act
+                dirty := true
+            }
+        }
+        for field, prefix in Map("SearchColor", "SColor_", "SearchText", "SText_", "Similar", "SSim_"
+            , "StartPosX", "SStartX_", "StartPosY", "SStartY_", "EndPosX", "SEndX_", "EndPosY", "SEndY_") {
+            if (!this._InlineVal(state, prefix id, &val))
+                continue
+            if (field == "Similar") {
+                if (!IsNumber(val))
+                    continue
+                v := val + 0
+                if (v < 1)
+                    v := 1
+                else if (v > 100)
+                    v := 100
+                data.Similar := v
+                dirty := true
+                continue
+            }
+            if (field == "SearchColor" || field == "SearchText") {
+                data.%field% := val
+                dirty := true
+                continue
+            }
+            ; 坐标
+            if (isPro) {
+                data.%field% := val
+                dirty := true
+            } else if (IsNumber(val)) {
+                data.%field% := val + 0
+                dirty := true
+            }
+        }
+        if (isPro) {
+            for field, prefix in Map("WinInfo", "SWin_", "SearchInterval", "SInterval_", "ClickCount", "SClick_"
+                , "Speed", "SSpeed_", "ResultSaveName", "SResName_", "TrueValue", "SResTrue_", "FalseValue", "SResFalse_"
+                , "CoordXName", "SCoordX_", "CoordYName", "SCoordY_") {
+                if (!this._InlineVal(state, prefix id, &val))
+                    continue
+                if (field == "ResultSaveName") {
+                    data.ResultSaveName := GetVarName(val)
+                    dirty := true
+                } else if (field == "SearchInterval" || field == "ClickCount" || field == "Speed") {
+                    if (IsNumber(val) && val + 0 < 1)
+                        val := 1
+                    data.%field% := val
+                    dirty := true
+                } else {
+                    data.%field% := val
+                    dirty := true
+                }
+            }
+            ; 搜索次数（可编辑下拉）：优先 Text
+            if (this.ui != "") {
+                textVal := this.ui.Query("SCount_" id ">Text")
+                if (textVal == "")
+                    this._InlineVal(state, "SCount_" id, &textVal)
+                if (textVal != "") {
+                    if (textVal == GetLang("无限") || textVal == "-1")
+                        data.SearchCount := -1
+                    else if (IsNumber(textVal))
+                        data.SearchCount := Integer(textVal)
+                    dirty := true
+                }
+            }
+            if (this._InlineVal(state, "SImg_" id, &imgVal)) {
+                if (imgVal == GetLang("未设置"))
+                    imgVal := ""
+                cur := data.HasOwnProp("SearchImagePath") ? data.SearchImagePath : ""
+                if (imgVal != cur && imgVal == this._SearchImgDisplayText(cur))
+                    imgVal := cur
+                data.SearchImagePath := imgVal
+                dirty := true
+            }
+        }
+        if (dirty)
+            SaveMacroCMDData(data)
     }
 }
 

@@ -289,31 +289,74 @@ class MacroGraphConnectionsMixin {
         return false
     }
 
-    ; 出点拖拽连线到空白处松开：记录源端口和位置，直接弹出指令菜单（不再经过右键菜单子菜单）
+    ; -----------------------------------------------------------------
+    ; 出点拖线 → 空白松手 → 指令菜单（与引擎 ConnDrag 状态机配套，入口集中于此）
+    ; -----------------------------------------------------------------
+
+    ; 引擎 ConnectionDropped：记录待连源与落点，延迟弹出指令菜单
     _OnConnectionDropped(state, *) {
         if (!state.Has("ConnectionDropped"))
             return
         parts := StrSplit(state["ConnectionDropped"], ",")
-        if (parts.Length >= 3) {
-            this._pendingConnectionFrom := RegExReplace(parts[1], "^Port_(Out|In)2?_", "")
-            this.graph.lastRightClickX := Number(parts[2])
-            this.graph.lastRightClickY := Number(parts[3])
-        }
-        ; 连线拖放到空白处：先确保菜单关闭（重置 transitional 状态），再延迟弹出
-        ; 延迟 120ms 避开 WPF mouse capture release 与 ContextMenu 内部状态竞争
-        this.ui.Update("MG_DropCM", "IsOpen", "False")
-        SetTimer(() => this._OpenDropMenu(), -120)
+        if (parts.Length < 3)
+            return
+        this._ConnDropArm(RegExReplace(parts[1], "^Port_(Out|In)2?_", ""), Number(parts[2]), Number(parts[3]))
+        ; 引擎已用 Dispatcher.Background 投递本事件；再短延时避开 ContextMenu 与 MouseUp 竞争
+        SetTimer(() => this._ConnDropShowMenu(), -80)
     }
 
-    ; 弹出拖线指令菜单（Closed 事件一次性绑定，避免重复注册累积处理器）
-    _OpenDropMenu() {
+    ; 武装待连状态（OnAddCmd / 菜单关闭共用）
+    _ConnDropArm(fromId, x, y) {
+        this._pendingConnectionFrom := fromId
+        if (this.graph != "") {
+            this.graph.lastRightClickX := x
+            this.graph.lastRightClickY := y
+        }
+    }
+
+    ; 取消待连 + 收起引擎临时线（唯一清理入口）
+    _ConnDropCancel() {
+        this._pendingConnectionFrom := ""
+        this._HideTempDropConnection()
+    }
+
+    ; 隐藏出点拖线留下的临时连线/箭头
+    _HideTempDropConnection() {
         if (this.ui == "")
             return
+        try this.ui.Update("Window", "HideTempConnection", "1")
+    }
+
+    ; 弹出拖线指令菜单（Closed 只绑一次）
+    _ConnDropShowMenu() {
+        if (this.ui == "")
+            return
+        ; 待连已被取消（例如期间点了节点）则不再弹
+        if (!this.HasOwnProp("_pendingConnectionFrom") || this._pendingConnectionFrom == "")
+            return
         if (!this.HasOwnProp("_dropMenuClosedBound") || !this._dropMenuClosedBound) {
-            this.ui.OnEvent("MG_DropCM", "Closed", (*) => (this._pendingConnectionFrom := ""))
+            this.ui.OnEvent("MG_DropCM", "Closed", (*) => this._OnDropMenuClosed())
             this._dropMenuClosedBound := true
         }
+        ; 若菜单已开：先抑制引擎 Closed 清线，关后再开
+        try this.ui.Update("Window", "SuppressTempClear", "1")
+        this._dropMenuSuppressClosed := true
+        try this.ui.Update("MG_DropCM", "IsOpen", "False")
+        this._dropMenuSuppressClosed := false
         this.ui.Update("MG_DropCM", "IsOpen", "True")
+        try this.ui.Update("Window", "SuppressTempClear", "0")
+    }
+
+    ; 兼容旧名
+    _OpenDropMenu() {
+        this._ConnDropShowMenu()
+    }
+
+    ; 菜单关闭（点空白取消）：清待连；选指令后 OnAddCmd 也会清
+    _OnDropMenuClosed(*) {
+        if (this.HasOwnProp("_dropMenuSuppressClosed") && this._dropMenuSuppressClosed)
+            return
+        this._ConnDropCancel()
     }
 
     ; 把所有连线加粗，增大命中区域以便单击选中

@@ -15,8 +15,8 @@ class MacroGraphFormalHandlersMixin {
 
     _FormalSubCallIsInsert(id, ct, state := unset) {
         callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
-        if (IsSet(state) && state.Has("SubCallCmb_" id) && state["SubCallCmb_" id] != "") {
-            val := state["SubCallCmb_" id]
+        val := this._ComboText("SubCallCmb_" id, IsSet(state) ? state : unset, callTypes)
+        if (val != "") {
             idx := this._IndexInLangArr(callTypes, val)
             if (idx < 0)
                 idx := this._IndexInLangArr(callTypes, GetLang(GetLangKey(val)))
@@ -59,8 +59,15 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
         callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
+        this._EnsureComboInState(state, "SubTypeCmb_" id, macroTypes)
+        this._EnsureComboInState(state, "SubCallCmb_" id, callTypes)
+        sidx := this._ComboSelectedIndex("SubIdxCmb_" id)
+        if (sidx >= 0)
+            state["SubIdxCmb_" id] := String(sidx + 1)
         if (state.Has("SubTypeCmb_" id) && state["SubTypeCmb_" id] != "")
             data.MacroType := this._FormalLangKeyFromCombo(macroTypes, state["SubTypeCmb_" id])
         if (state.Has("SubCallCmb_" id) && state["SubCallCmb_" id] != "")
@@ -75,6 +82,13 @@ class MacroGraphFormalHandlersMixin {
         }
         if (state.Has("SubIns_" id) && state["SubIns_" id] != "")
             data.InsertCount := GetLangKey(state["SubIns_" id])
+        else if (this.ui != "") {
+            ins := this.ui.Query("SubIns_" id ">Text")
+            if (ins == "")
+                ins := this.ui.Query("SubIns_" id)
+            if (ins != "")
+                data.InsertCount := GetLangKey(ins)
+        }
         SaveMacroCMDData(data)
         this._RefreshFormalSubMacroVisibility(id, state)
         this._Apply()
@@ -86,11 +100,16 @@ class MacroGraphFormalHandlersMixin {
         ot := d.HasOwnProp("operaType" slot) ? d["operaType" slot] : 1
         ; 默认值须与内联构建(_FillVariableSlot)一致：缺省时变量1为开，其余为关，否则会出现勾选了却收起字段
         on := this._FormalVarSlotOn(d.HasOwnProp("toggle" slot) ? d["toggle" slot] : (slot == 1 ? 1 : 0))
-        if (IsSet(state)) {
+        if (IsSet(state) && IsObject(state)) {
             if (state.Has(p "Tog_" id))
                 on := this._FormalChecked(state, p "Tog_" id)
+            this._EnsureComboInState(state, p "OpCmb_" id, opTypes)
             if (state.Has(p "OpCmb_" id) && state[p "OpCmb_" id] != "")
                 ot := this._IndexInLangArr(opTypes, state[p "OpCmb_" id]) + 1
+        } else {
+            opTxt := this._ComboText(p "OpCmb_" id, unset, opTypes)
+            if (opTxt != "")
+                ot := this._IndexInLangArr(opTypes, opTxt) + 1
         }
         return { on: on, ot: ot }
     }
@@ -99,11 +118,26 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         opTypes := this._FormalVarOpTypes()
         data.IsIgnoreExist := this._FormalChecked(state, "VarIgn_" id) ? 1 : 0
+        ; CheckBox 未进 state 时从界面补读
+        if (!state.Has("VarIgn_" id) && this.ui != "") {
+            q := this.ui.Query("VarIgn_" id)
+            if (q != "")
+                state["VarIgn_" id] := q
+            data.IsIgnoreExist := this._FormalChecked(state, "VarIgn_" id) ? 1 : 0
+        }
         loop 4 {
             slot := A_Index
             p := "VarS" slot
+            if (!state.Has(p "Tog_" id) && this.ui != "") {
+                q := this.ui.Query(p "Tog_" id)
+                if (q != "")
+                    state[p "Tog_" id] := q
+            }
+            this._EnsureComboInState(state, p "OpCmb_" id, opTypes)
             data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
             if (state.Has(p "OpCmb_" id) && state[p "OpCmb_" id] != "")
                 data.OperaTypeArr[slot] := this._IndexInLangArr(opTypes, state[p "OpCmb_" id]) + 1
@@ -111,6 +145,8 @@ class MacroGraphFormalHandlersMixin {
                 data.VariableArr[slot] := GetVarName(state[p "Name_" id])
             ot := data.OperaTypeArr[slot]
             if (ot == 4) {
+                sysItems := GetSystemVarArr()
+                this._EnsureComboInState(state, p "SysCmb_" id, sysItems)
                 if (state.Has(p "SysCmb_" id) && state[p "SysCmb_" id] != "")
                     data.CopyVariableArr[slot] := GetLangKey(state[p "SysCmb_" id])
             } else if (ot == 3) {
@@ -134,8 +170,12 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         extTypes := GetLangArr(["屏幕", "剪切板", "窗口"])
         ocrTypes := GetLangArr(["中文", "英文"])
+        this._EnsureComboInState(state, "ExTypeCmb_" id, extTypes)
+        this._EnsureComboInState(state, "ExOcrCmb_" id, ocrTypes)
         data.IsIgnoreExist := this._FormalChecked(state, "ExIgn_" id) ? 1 : 0
         if (state.Has("ExTypeCmb_" id) && state["ExTypeCmb_" id] != "")
             data.ExtractType := this._IndexInLangArr(extTypes, state["ExTypeCmb_" id]) + 1
@@ -223,16 +263,25 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
+        modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
+        options := ["Hide", "", "Min", "Max"]
+        encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
+        this._EnsureComboInState(state, "RunModeCmb_" id, modes)
+        this._EnsureComboInState(state, "RunEncInCmb_" id, encArr)
+        this._EnsureComboInState(state, "RunEncOutCmb_" id, encArr)
+        ; 窗口选项含空串项，文本匹配不可靠：优先 SelectedIndex（与构建时 SelectedIndex=option 一致）
+        oidx := this._ComboSelectedIndex("RunOptionCmb_" id)
+        if (oidx >= 0 && oidx <= 3)
+            data.option := oidx
+        else if (state.Has("RunOptionCmb_" id) && state["RunOptionCmb_" id] != "")
+            data.option := this._IndexInLangArr(options, state["RunOptionCmb_" id])
         if (state.Has("RunTarget_" id)) {
             data.Target := state["RunTarget_" id]
         }
         if (state.Has("RunModeCmb_" id) && state["RunModeCmb_" id] != "") {
-            modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
             data.Mode := this._IndexInLangArr(modes, state["RunModeCmb_" id]) + 1
-        }
-        if (state.Has("RunOptionCmb_" id) && state["RunOptionCmb_" id] != "") {
-            options := ["Hide", "", "Min", "Max"]
-            data.option := this._IndexInLangArr(options, state["RunOptionCmb_" id])
         }
 
         ; Remove properties based on Mode
@@ -296,12 +345,18 @@ class MacroGraphFormalHandlersMixin {
 
     ; 实时读取文件读写节点当前界面上「类型/模式/保存名」的真实值（直接向 WPF 进程查询，不用事件快照、不读数据缓存）。
     _FIOReadLive(id) {
-        res := (this.ui != "") ? this.ui.Query("FIOTypeCmb_" id, "FIOModeCmb_" id, "FIOSave_" id) : ""
-        if (!IsObject(res))
-            res := Map()
-        ot := res.Has("FIOTypeCmb_" id) ? GetLangKey(res["FIOTypeCmb_" id]) : ""
-        om := res.Has("FIOModeCmb_" id) ? GetLangKey(res["FIOModeCmb_" id]) : ""
-        sn := res.Has("FIOSave_" id) ? res["FIOSave_" id] : ""
+        operTypes := GetLangArr(["读取Excel", "写入Excel", "读取文本文件", "写入文本文件"])
+        otTxt := this._ComboText("FIOTypeCmb_" id, unset, operTypes)
+        ot := otTxt != "" ? GetLangKey(otTxt) : ""
+        modeItems := ot != "" ? this._FormalFileIOOperModes(ot) : []
+        omTxt := this._ComboText("FIOModeCmb_" id, unset, modeItems)
+        om := omTxt != "" ? GetLangKey(omTxt) : ""
+        sn := ""
+        if (this.ui != "") {
+            sn := this.ui.Query("FIOSave_" id ">Text")
+            if (sn == "")
+                sn := this.ui.Query("FIOSave_" id)
+        }
         return { ot: ot, om: om, sn: sn }
     }
 
@@ -357,11 +412,12 @@ class MacroGraphFormalHandlersMixin {
 
     ; 实时读取 RMT 指令节点当前界面上「类别/指令」的真实值（直接向 WPF 进程查询，不用事件快照、不读数据缓存）。
     _RmtReadLive(id) {
-        res := (this.ui != "") ? this.ui.Query("RmtCatCmb_" id, "RmtOpCmb_" id) : ""
-        if (!IsObject(res))
-            res := Map()
-        cat := res.Has("RmtCatCmb_" id) ? GetLangKey(res["RmtCatCmb_" id]) : ""
-        op := res.Has("RmtOpCmb_" id) ? GetLangKey(res["RmtOpCmb_" id]) : ""
+        categories := this._RmtCategories()
+        catTxt := this._ComboText("RmtCatCmb_" id, unset, categories)
+        cat := catTxt != "" ? GetLangKey(catTxt) : ""
+        ops := this._RmtCategoryOps(catTxt != "" ? catTxt : GetLang("全部"))
+        opTxt := this._ComboText("RmtOpCmb_" id, unset, ops)
+        op := opTxt != "" ? GetLangKey(opTxt) : ""
         return { cat: cat, op: op }
     }
 
@@ -474,7 +530,12 @@ class MacroGraphFormalHandlersMixin {
     ; 普通字段变更（RMT 菜单序号）
     _OnRmtField(id, state, ctrl, event) {
         d := this._FormalDFromId(id)
-        if (state.Has("RmtMenuCmb_" id) && state["RmtMenuCmb_" id] != "")
+        if (!IsObject(state))
+            state := Map()
+        midx := this._ComboSelectedIndex("RmtMenuCmb_" id)
+        if (midx >= 0)
+            d.rmtMenuIdx := midx + 1
+        else if (state.Has("RmtMenuCmb_" id) && state["RmtMenuCmb_" id] != "")
             d.rmtMenuIdx := this._FormalParseListIndex(state["RmtMenuCmb_" id])
         live := this._RmtReadLive(id)
         if (live.cat != "")
@@ -491,6 +552,10 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
+        encodings := GetLangArr(["UTF-8", "UTF-16", "GBK", "ANSI"])
+        this._EnsureComboInState(state, "FIOEncCmb_" id, encodings)
         if (state.Has("FIOPath_" id))
             data.FilePath := state["FIOPath_" id]
         if (state.Has("FIOSheet_" id) && state["FIOSheet_" id] != "")
@@ -574,10 +639,16 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
 
         ; 必须用 ctrl 区分触发源：state 快照含全部已追踪控件，不能靠 Has 判断
         if (ctrl == "TxtTypeCmb_" id) {
-            tt := GetLangKey(state[ctrl])
+            typeNames := this._FormalTextOpsTypeNames()
+            ttTxt := this._ComboText(ctrl, state, typeNames)
+            if (ttTxt == "")
+                return
+            tt := GetLangKey(ttTxt)
             if (data.Type == tt)
                 return
             data.Type := tt
@@ -592,9 +663,12 @@ class MacroGraphFormalHandlersMixin {
         }
 
         if (RegExMatch(ctrl, "^TxtArgsTypeCmb_\d+_" id "$")) {
-            if (!state.Has(ctrl) || state[ctrl] == "")
+            tt := data.HasOwnProp("Type") ? data.Type : "文本分割"
+            argsItems := this._FormalTextOpsArgsTypes(tt)
+            atTxt := this._ComboText(ctrl, state, argsItems)
+            if (atTxt == "")
                 return
-            data.ArgsType := GetLangKey(state[ctrl])
+            data.ArgsType := GetLangKey(atTxt)
             this._RefreshFormalTextOpsVisibility(id, data.Type, data.ArgsType)
             SaveMacroCMDData(data)
             this._Apply()
@@ -679,12 +753,15 @@ class MacroGraphFormalHandlersMixin {
 
     ; 实时读取数组节点当前界面上「操作类型/参数类型/保存类型」的真实值（直接向 WPF 查询，不用快照/缓存）。
     _ArrReadLive(id) {
-        res := (this.ui != "") ? this.ui.Query("ArrTypeCmb_" id, "ArrArgsTypeCmb_" id, "ArrSaveTypeCmb_" id) : ""
-        if (!IsObject(res))
-            res := Map()
-        at := res.Has("ArrTypeCmb_" id) ? GetLangKey(res["ArrTypeCmb_" id]) : ""
-        agt := res.Has("ArrArgsTypeCmb_" id) ? GetLangKey(res["ArrArgsTypeCmb_" id]) : ""
-        st := res.Has("ArrSaveTypeCmb_" id) ? GetLangKey(res["ArrSaveTypeCmb_" id]) : ""
+        typeNames := GetLangArr(["创建", "克隆", "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"])
+        argsTypes := GetLangArr(["变量或值", "数组"])
+        saveTypes := GetLangArr(["变量", "数组"])
+        atTxt := this._ComboText("ArrTypeCmb_" id, unset, typeNames)
+        agtTxt := this._ComboText("ArrArgsTypeCmb_" id, unset, argsTypes)
+        stTxt := this._ComboText("ArrSaveTypeCmb_" id, unset, saveTypes)
+        at := atTxt != "" ? GetLangKey(atTxt) : ""
+        agt := agtTxt != "" ? GetLangKey(agtTxt) : ""
+        st := stTxt != "" ? GetLangKey(stTxt) : ""
         return { at: at, agt: agt, st: st }
     }
 
@@ -779,8 +856,12 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         opTypes := GetLangArr(["点击", "双击", "按下", "松开"])
         mouseTypes := GetLangArr(["左键", "中键", "右键", "滚轮"])
+        this._EnsureComboInState(state, "BgmOpCmb_" id, opTypes)
+        this._EnsureComboInState(state, "BgmMouseCmb_" id, mouseTypes)
         if (state.Has("BgmTitle_" id))
             data.TargetTitle := state["BgmTitle_" id]
         if (state.Has("BgmOpCmb_" id) && state["BgmOpCmb_" id] != "")
@@ -827,7 +908,10 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         types := GetLangArr(["按下", "松开", "点击"])
+        this._EnsureComboInState(state, "BgkTypeCmb_" id, types)
         if (state.Has("BgkTypeCmb_" id) && state["BgkTypeCmb_" id] != "")
             data.Type := this._IndexInLangArr(types, state["BgkTypeCmb_" id]) + 1
         if (state.Has("BgkFront_" id))
@@ -869,10 +953,13 @@ class MacroGraphFormalHandlersMixin {
     _OnFormalWindowManage(id, state, ctrl, event) {
         actions := GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
             "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度"])
+        if (!IsObject(state))
+            state := Map()
         if (ctrl == "WmActCmb_" id) {
-            if (!state.Has(ctrl) || state[ctrl] == "")
+            atTxt := this._ComboText(ctrl, state, actions)
+            if (atTxt == "")
                 return
-            at := this._FormalLangKeyFromCombo(actions, state[ctrl])
+            at := this._FormalLangKeyFromCombo(actions, atTxt)
             data := this._FormalIniData(id)
             if (data == "")
                 return
@@ -943,8 +1030,12 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         checkTypes := GetLangArr(["同时按下", "有一个按下"])
         stateTypes := GetLangArr(["物理状态", "逻辑状态"])
+        this._EnsureComboInState(state, "KcCheckCmb_" id, checkTypes)
+        this._EnsureComboInState(state, "KcStateCmb_" id, stateTypes)
         if (state.Has("KcCheckCmb_" id) && state["KcCheckCmb_" id] != "")
             data.CheckType := this._IndexInLangArr(checkTypes, state["KcCheckCmb_" id]) + 1
         if (state.Has("KcStateCmb_" id) && state["KcStateCmb_" id] != "")
@@ -957,13 +1048,16 @@ class MacroGraphFormalHandlersMixin {
 
     _OnFormalScreenShot(id, state, ctrl, event) {
         typeNames := GetLangArr(["屏幕抓图", "窗口抓图"])
+        if (!IsObject(state))
+            state := Map()
         if (ctrl == "SsTypeCmb_" id) {
-            if (!state.Has(ctrl) || state[ctrl] == "")
+            ttTxt := this._ComboText(ctrl, state, typeNames)
+            if (ttTxt == "")
                 return
             data := this._FormalIniData(id)
             if (data == "")
                 return
-            data.ScreenShotType := this._IndexInLangArr(typeNames, state[ctrl]) + 1
+            data.ScreenShotType := this._IndexInLangArr(typeNames, ttTxt) + 1
             SaveMacroCMDData(data)
             this._RefreshFormalScreenShotVisibility(id, data.ScreenShotType)
             this._Apply()
@@ -1233,12 +1327,15 @@ class MacroGraphFormalHandlersMixin {
         data := this._IfProData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         logicTypes := this._IfProLogicTypes()
         cmpTypes := this._IfProCmpTypes()
         cc := this._IfProCaseCountFromData(data)
         loop cc {
             ci := A_Index
             p := "IfProC" ci
+            this._EnsureComboInState(state, p "LogicCmb_" id, logicTypes)
             if (state.Has(p "LogicCmb_" id) && state[p "LogicCmb_" id] != "")
                 data.LogicTypeArr[ci] := this._IndexInLangArr(logicTypes, state[p "LogicCmb_" id]) + 1
             names := []
@@ -1247,6 +1344,12 @@ class MacroGraphFormalHandlersMixin {
             loop 4 {
                 slot := A_Index
                 ps := p "S" slot
+                if (!state.Has(ps "Tog_" id) && this.ui != "") {
+                    q := this.ui.Query(ps "Tog_" id)
+                    if (q != "")
+                        state[ps "Tog_" id] := q
+                }
+                this._EnsureComboInState(state, ps "Cmp_" id, cmpTypes)
                 if (!this._FormalChecked(state, ps "Tog_" id))
                     continue
                 nm := state.Has(ps "Name_" id) ? GetLangKey(state[ps "Name_" id]) : ("Var" slot)
@@ -1343,10 +1446,18 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         logicTypes := this._IfLogicTypes()
         cmpTypes := this._IfCmpTypes()
+        this._EnsureComboInState(state, "IfLogicCmb_" id, logicTypes)
         if (state.Has("IfLogicCmb_" id) && state["IfLogicCmb_" id] != "")
             data.LogicalType := this._IndexInLangArr(logicTypes, state["IfLogicCmb_" id]) + 1
+        if (!state.Has("IfSaveTog_" id) && this.ui != "") {
+            q := this.ui.Query("IfSaveTog_" id)
+            if (q != "")
+                state["IfSaveTog_" id] := q
+        }
         data.SaveToggle := this._FormalChecked(state, "IfSaveTog_" id) ? 1 : 0
         if (state.Has("IfSaveName_" id) && state["IfSaveName_" id] != "")
             data.SaveName := GetVarName(state["IfSaveName_" id])
@@ -1357,6 +1468,12 @@ class MacroGraphFormalHandlersMixin {
         loop 4 {
             slot := A_Index
             p := "IfC" slot
+            if (!state.Has(p "Tog_" id) && this.ui != "") {
+                q := this.ui.Query(p "Tog_" id)
+                if (q != "")
+                    state[p "Tog_" id] := q
+            }
+            this._EnsureComboInState(state, p "Cmp_" id, cmpTypes)
             data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
             if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
                 data.NameArr[slot] := GetLangKey(state[p "Name_" id])
@@ -1400,9 +1517,12 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(parentId)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         brId := this._BranchId(parentId, isTrue)
         key := "BrFlowCmb_" brId
         flowTypes := this._IfFlowTypes()
+        this._EnsureComboInState(state, key, flowTypes)
         if (state.Has(key) && state[key] != "") {
             val := GetLangKey(state[key])
             if (isTrue)
@@ -1419,9 +1539,21 @@ class MacroGraphFormalHandlersMixin {
         data := this._FormalIniData(id)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         condiTypes := this._LoopCondiTypes()
         logicTypes := this._LoopLogicTypes()
         cmpTypes := this._LoopCmpTypes()
+        this._EnsureComboInState(state, "LoopCondiCmb_" id, condiTypes)
+        this._EnsureComboInState(state, "LoopLogicCmb_" id, logicTypes)
+        ; 循环次数：可编辑下拉，优先 Text
+        if (this.ui != "") {
+            cntTxt := this.ui.Query("LoopCount_" id ">Text")
+            if (cntTxt == "")
+                cntTxt := this.ui.Query("LoopCount_" id)
+            if (cntTxt != "")
+                state["LoopCount_" id] := cntTxt
+        }
         if (state.Has("LoopCount_" id) && state["LoopCount_" id] != "")
             data.LoopCount := (state["LoopCount_" id] == GetLang("无限")) ? -1 : state["LoopCount_" id]
         if (state.Has("LoopCondiCmb_" id) && state["LoopCondiCmb_" id] != "")
@@ -1431,6 +1563,12 @@ class MacroGraphFormalHandlersMixin {
         loop 4 {
             slot := A_Index
             p := "LoopC" slot
+            if (!state.Has(p "Tog_" id) && this.ui != "") {
+                q := this.ui.Query(p "Tog_" id)
+                if (q != "")
+                    state[p "Tog_" id] := q
+            }
+            this._EnsureComboInState(state, p "Cmp_" id, cmpTypes)
             data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
             if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
                 data.NameArr[slot] := GetLangKey(state[p "Name_" id])
@@ -1452,15 +1590,17 @@ class MacroGraphFormalHandlersMixin {
         condiType := d.HasOwnProp("condiType") ? d.condiType : 1
         showCondi := condiType != 1
         this._FormalSetVis(id, "LoopLogicRow_" id, showCondi)
+        ; 展开且无条件时垫高以容纳回环下端口；有条件/收起态不垫
+        this._FormalSetVis(id, "LoopPortPad_" id, !showCondi && !this._NodeFolded(id))
         prevOn := true
         loop 4 {
             slot := A_Index
             p := "LoopC" slot
             tog := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
-            chainVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅勾选上一条件后才显示本卡片
+            chainVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅勾选上一条件后才显示本条件块
             cardVis := showCondi && chainVis
             cmp := d.HasOwnProp("loopCmp" slot) ? d["loopCmp" slot] : 1
-            this._FormalSetVis(id, p "TogRow_" id, cardVis)   ; 整张条件卡片随条件类型 + 逐级展开显隐
+            this._FormalSetVis(id, p "TogRow_" id, cardVis)   ; 整块条件（含分隔线）随条件类型 + 逐级展开显隐
             this._FormalSetVis(id, p "NameRow_" id, cardVis && tog)
             this._FormalSetVis(id, p "CmpRow_" id, cardVis && tog)
             this._FormalSetVis(id, p "VarRow_" id, cardVis && tog && cmp != 7)

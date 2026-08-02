@@ -41,6 +41,7 @@ class MacroGraphEventsMixin {
         if (this._IsIfNodeId(searchId)) {
             this._TrackCtrl("BrFlowCmb_" brId, runtime)
             this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
+            this._BindCtrl("BrFlowCmb_" brId, "DropDownClosed", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
             ; 内联展开/折叠按钮：把分支子图指令内联为真实可编辑节点
             this._BindCtrl("ILExpand_" brId, "Click", this._OnBranchInlineToggle.Bind(this, searchId, isTrue), runtime)
         }
@@ -70,6 +71,7 @@ class MacroGraphEventsMixin {
             this._TrackCtrl("Time_" id, runtime)
             this._TrackCtrl("Time2_" id, runtime)
             this._BindCtrl("ITypeCmb_" id, "SelectionChanged", this._OnIntervalType.Bind(this, id), runtime)
+            this._BindCtrl("ITypeCmb_" id, "DropDownClosed", this._OnIntervalType.Bind(this, id), runtime)
             this._BindCtrl("Time_" id, "LostFocus", this._OnField.Bind(this, id, "time"), runtime)
             this._BindCtrl("Time_" id, "SelectionChanged", this._OnField.Bind(this, id, "time"), runtime)
             this._BindCtrl("Time2_" id, "LostFocus", this._OnField.Bind(this, id, "time2"), runtime)
@@ -99,6 +101,7 @@ class MacroGraphEventsMixin {
             this._BindCtrl("PosY_" id, "LostFocus", this._OnField.Bind(this, id, "posy"), runtime)
             this._BindCtrl("Speed_" id, "LostFocus", this._OnField.Bind(this, id, "speed"), runtime)
             this._BindCtrl("ModeCmb_" id, "SelectionChanged", this._OnMoveMode.Bind(this, id), runtime)
+            this._BindCtrl("ModeCmb_" id, "DropDownClosed", this._OnMoveMode.Bind(this, id), runtime)
         }
         else if (d.type == GetLang("移动Pro")) {
             this._TrackCtrl("MPPosX_" id, runtime)
@@ -116,7 +119,9 @@ class MacroGraphEventsMixin {
             this._BindCtrl("MPSpeed_" id, "LostFocus", this._OnMMProField.Bind(this, id, "Speed"), runtime)
             this._BindCtrl("MPSpeed_" id, "KeyDown", this._OnMMProField.Bind(this, id, "Speed"), runtime)
             this._BindCtrl("MPActionCmb_" id, "SelectionChanged", this._OnMMProAction.Bind(this, id), runtime)
+            this._BindCtrl("MPActionCmb_" id, "DropDownClosed", this._OnMMProAction.Bind(this, id), runtime)
             this._BindCtrl("MPModeCmb_" id, "SelectionChanged", this._OnMMProMode.Bind(this, id), runtime)
+            this._BindCtrl("MPModeCmb_" id, "DropDownClosed", this._OnMMProMode.Bind(this, id), runtime)
             this._BindCtrl("MPHuman_" id, "Click", this._OnMMProHuman.Bind(this, id), runtime)
             this._BindCtrl("MPCount_" id, "LostFocus", this._OnMMProField.Bind(this, id, "Count"), runtime)
             this._BindCtrl("MPCount_" id, "KeyDown", this._OnMMProField.Bind(this, id, "Count"), runtime)
@@ -198,8 +203,11 @@ class MacroGraphEventsMixin {
             this._TrackCtrl("InCancelCmb_" id, runtime)
             this._TrackCtrl("InSave_" id, runtime)
             this._BindCtrl("InTypeCmb_" id, "SelectionChanged", this._OnInputType.Bind(this, id), runtime)
+            this._BindCtrl("InTypeCmb_" id, "DropDownClosed", this._OnInputType.Bind(this, id), runtime)
             this._BindCtrl("InPauseCmb_" id, "SelectionChanged", this._OnInputPauseType.Bind(this, id), runtime)
+            this._BindCtrl("InPauseCmb_" id, "DropDownClosed", this._OnInputPauseType.Bind(this, id), runtime)
             this._BindCtrl("InCancelCmb_" id, "SelectionChanged", this._OnInputCancelType.Bind(this, id), runtime)
+            this._BindCtrl("InCancelCmb_" id, "DropDownClosed", this._OnInputCancelType.Bind(this, id), runtime)
             this._BindCtrl("InSave_" id, "LostFocus", this._OnInputField.Bind(this, id, "SaveName"), runtime)
             this._BindCtrl("InSave_" id, "SelectionChanged", this._OnInputField.Bind(this, id, "SaveName"), runtime)
         }
@@ -208,6 +216,7 @@ class MacroGraphEventsMixin {
             this._TrackCtrl("OutText_" id, runtime)
             this._TrackCtrl("OutVar_" id, runtime)
             this._BindCtrl("OutTypeCmb_" id, "SelectionChanged", this._OnOutputType.Bind(this, id), runtime)
+            this._BindCtrl("OutTypeCmb_" id, "DropDownClosed", this._OnOutputType.Bind(this, id), runtime)
             this._BindCtrl("OutText_" id, "LostFocus", this._OnOutputField.Bind(this, id, "Text"), runtime)
             this._BindCtrl("OutVar_" id, "LostFocus", this._OnOutputField.Bind(this, id, "VariableName"), runtime)
             this._BindCtrl("OutVar_" id, "SelectionChanged", this._OnOutputField.Bind(this, id, "VariableName"), runtime)

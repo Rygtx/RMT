@@ -62,8 +62,8 @@ class MacroGraphBranchMixin {
     }
 
     ; 切换循环节点折叠态：
-    ;   展开(Folded=0)：完整条件卡片 + 外置循环体节点（回环连线）；
-    ;   收起(Folded=1)：简化条件摘要 + 内置循环体卡片（chips），隐藏外置体与回环连线。
+    ;   展开(Folded=0)：次数/条件下拉保持 + 外置循环体节点（回环连线）；
+    ;   收起(Folded=1)：次数/条件下拉不变，改为内置循环体列表，隐藏外置体与回环连线。
     ; 运行时显隐 + 连线启停，避免整窗重建闪烁。
     _OnToggleLoopFold(id, *) {
         if (this.ui == "" || !this.cmdNodes.Has(id))
@@ -73,16 +73,17 @@ class MacroGraphBranchMixin {
         node.Folded := willFold
         try SaveMacroCMDData(node)
         if (willFold) {
-            this._RefreshLoopSummary(id)       ; 收起前用当前数据刷新摘要
             this._FoldLoopRuntime(id)          ; 隐藏外置循环体 + 停用回环连线
         } else {
             this._UnfoldLoopRuntime(id)        ; 显示/注入外置循环体 + 启用回环连线
         }
-        this.ui.Update("LoopSumBox_" id, "Visibility", willFold ? "Visible" : "Collapsed")
-        this.ui.Update("LoopFullBox_" id, "Visibility", willFold ? "Collapsed" : "Visible")
+        ; 次数/条件等控件始终在 LoopFullBox，折叠时不切换成摘要文字
         this.ui.Update("LoopInlineBody_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+        d := this._FormalDFromId(id)
+        showCondi := (d.HasOwnProp("condiType") ? d.condiType : 1) != 1
+        this._FormalSetVis(id, "LoopPortPad_" id, !willFold && !showCondi)
         if (willFold)
-            this._RefreshLoopChips(id)         ; 内置循环体卡片随收起显示，刷新内容
+            this._RefreshLoopChips(id)         ; 内置循环体列表随收起显示，刷新内容
         this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
         this._CaptureLinks()
@@ -127,21 +128,8 @@ class MacroGraphBranchMixin {
         this._SpreadForExpand(loopId)          ; 展开：后继子树右移腾出外置循环体空间
     }
 
-    ; 就地刷新循环节点收起态摘要（次数 + 条件简化信息），从当前数据取值，无需重建
+    ; 旧收起摘要已废弃：折叠时次数/条件仍用同一套下拉，保留空实现以免调用方报错
     _RefreshLoopSummary(id) {
-        if (this.ui == "")
-            return
-        info := this._LoopSummaryInfo(id)
-        this.ui.Update("LoopSumCount_" id, "Text", GetLang("循环次数") "：" info.count)
-        this.ui.Update("LoopSumCondi_" id, "Text", GetLang("循环条件") "：" info.condiName)
-        this.ui.Update("LoopSumLogic_" id, "Text", GetLang("逻辑关系") "：" info.logicName)
-        this.ui.Update("LoopSumLogic_" id, "Visibility", info.showLogic ? "Visible" : "Collapsed")
-        data := this._SearchData(id)
-        loop 4 {
-            ci := this._LoopCondiSummaryRow(data, A_Index)
-            this.ui.Update("LoopSumCondiTxt_" A_Index "_" id, "Text", ci.text)
-            this.ui.Update("LoopSumCondiRow_" A_Index "_" id, "Visibility", ci.on ? "Visible" : "Collapsed")
-        }
     }
 
     ; 外置循环体节点单击：计时判定双击 → 打开嵌套节点编辑器编辑循环体子图
@@ -312,28 +300,28 @@ class MacroGraphBranchMixin {
         SaveMacroCMDData(data)
     }
 
-    ; 展开循环节点的外置循环体随父节点横向平移 dx（保持相对位置）
-    _ShiftLoopBodyNode(loopId, dx) {
-        if (dx == 0 || !this._IsExpandedLoop(loopId))
+    ; 展开循环节点的外置循环体随父节点平移（保持相对位置）
+    _ShiftLoopBodyNode(loopId, dx, dy := 0) {
+        if ((dx == 0 && dy == 0) || !this._IsExpandedLoop(loopId))
             return
         g := this.graph
         if (g == "")
             return
         bid := this._LoopBodyId(loopId)
         if (this.pos.Has(bid) && g.GetNode(bid))
-            this._ShiftNodeX(bid, dx)
+            this._ShiftNode(bid, dx, dy)
         for conn in g.connections {
             if (conn.From == loopId || conn.To == loopId || this._IsLoopBodyId(conn.From) || this._IsLoopBodyId(conn.To))
                 g.UpdatePath(conn.From, conn.To, conn.PathId)
         }
     }
 
-    ; 展开搜索节点的分支节点随父节点横向平移 dx（保持用户摆放的相对位置，不重置为默认偏移）
-    _ShiftBranchNodes(searchId, dx) {
-        if (dx == 0)
+    ; 展开搜索节点的分支节点随父节点平移（保持用户摆放的相对位置，不重置为默认偏移）
+    _ShiftBranchNodes(searchId, dx, dy := 0) {
+        if (dx == 0 && dy == 0)
             return
         if (this._IsIfProNodeId(searchId)) {
-            this._ShiftProBranchNodes(searchId, dx)
+            this._ShiftProBranchNodes(searchId, dx, dy)
             return
         }
         if (!this._HasVisibleBranches(searchId))
@@ -344,7 +332,7 @@ class MacroGraphBranchMixin {
         for isTrue in [true, false] {
             brId := this._BranchId(searchId, isTrue)
             if (this.pos.Has(brId) && g.GetNode(brId))
-                this._ShiftNodeX(brId, dx)
+                this._ShiftNode(brId, dx, dy)
         }
         for conn in g.connections {
             if (conn.From == searchId || this._IsBranchId(conn.From) || this._IsBranchId(conn.To))
@@ -352,8 +340,12 @@ class MacroGraphBranchMixin {
         }
     }
 
-    ; 展开时后继与搜索节点的最小横向间距（需越过分支节点：节点宽 + 100 偏移 + 分支宽 200 + 60 余量）
+    ; 展开时后继与父节点的最小横向间距：
+    ;   · 搜索/如果/如果Pro：越过分支区（父宽 + 100 + 分支宽 200 + 余量）
+    ;   · 循环：越过外置循环体（父宽 + 60 间距 + 循环体宽 200 + 余量）
     _ExpandMinGap(searchId) {
+        if (this._IsLoopNodeId(searchId))
+            return this._LoopNodeWidth(searchId) + 60 + 200 + 80
         return this._BranchParentWidth(searchId) + 360
     }
 
@@ -426,21 +418,29 @@ class MacroGraphBranchMixin {
         return out
     }
 
-    ; 横向平移单个节点（更新逻辑坐标、引擎坐标与界面位置）
-    _ShiftNodeX(id, dx) {
+    ; 平移单个节点（更新逻辑坐标、引擎坐标与界面位置）
+    _ShiftNode(id, dx, dy := 0) {
+        if (dx == 0 && dy == 0)
+            return
         g := this.graph
         if (this.pos.Has(id))
-            this.pos[id] := { x: this.pos[id].x + dx, y: this.pos[id].y }
+            this.pos[id] := { x: this.pos[id].x + dx, y: this.pos[id].y + dy }
         n := g.GetNode(id)
         if (n) {
             n.X := n.X + dx
+            n.Y := n.Y + dy
             g.ui.Update("Node_" id, "SetPosition", String(n.X) "," String(n.Y))
         }
     }
 
-    ; 把搜索节点的整条后继子树横向平移 dx；展开搜索的主节点平移时，其分支节点同步平移相同距离
-    _ShiftDescendantsX(searchId, dx) {
-        if (dx == 0)
+    ; 兼容旧调用：仅横向平移
+    _ShiftNodeX(id, dx) {
+        this._ShiftNode(id, dx, 0)
+    }
+
+    ; 把搜索节点的整条后继子树平移；展开搜索的主节点平移时，其分支/循环体同步平移
+    _ShiftDescendants(searchId, dx, dy := 0) {
+        if (dx == 0 && dy == 0)
             return
         g := this.graph
         if (g == "")
@@ -449,14 +449,19 @@ class MacroGraphBranchMixin {
         for id in desc {
             if (this._IsBranchId(id) || this._IsProBranchId(id) || this._IsLoopBodyId(id))
                 continue
-            this._ShiftNodeX(id, dx)
+            this._ShiftNode(id, dx, dy)
             if (this._HasVisibleBranches(id))
-                this._ShiftBranchNodes(id, dx)
+                this._ShiftBranchNodes(id, dx, dy)
             if (this._IsExpandedLoop(id))
-                this._ShiftLoopBodyNode(id, dx)
+                this._ShiftLoopBodyNode(id, dx, dy)
         }
         for conn in g.connections
             g.UpdatePath(conn.From, conn.To, conn.PathId)
+    }
+
+    ; 兼容旧调用：仅横向平移后继子树
+    _ShiftDescendantsX(searchId, dx) {
+        this._ShiftDescendants(searchId, dx, 0)
     }
 
     ; 渲染前（引擎未就绪，只改 this.pos 逻辑坐标）静态平移后继子树。
@@ -490,38 +495,52 @@ class MacroGraphBranchMixin {
         }
     }
 
-    ; 展开：把后继子树平移以腾出分支空间（位置式，不累加位移，收/展往返不漂移）：
-    ;   · 有记忆的后继偏移(SuccDX≥最小间距)：精确对齐到该偏移（双向，精确还原用户摆放）；
-    ;   · 无记忆：仅在后继过近时右移到最小间距，已较远的后继不往回拉（避免意外位移）。
+    ; 展开：先记忆当前收起态后继位置，再把后继子树对齐到展开记忆(SuccDX/DY)：
+    ;   · 有记忆的后继偏移(SuccDX≥最小间距)：精确对齐（含 Y）；
+    ;   · 无记忆：仅在后继过近时右移到最小间距，已较远的后继不往回拉。
     _SpreadForExpand(searchId) {
-        nearest := this._NearestSuccessorX(searchId)
-        if (nearest == "")
+        succId := this._NearestSuccessorId(searchId)
+        if (succId == "" || !this.pos.Has(succId))
             return
-        curDX := nearest - this._NodeX(searchId)
+        this._RememberFoldSuccOffset(searchId)
+        curDX := this.pos[succId].x - this._NodeX(searchId)
+        curDY := this.pos[succId].y - this._NodeY(searchId)
         minGap := this._ExpandMinGap(searchId)
-        saved := this._SavedSuccOffsetX(searchId)
-        if (saved != "" && saved >= minGap) {
-            dx := saved - curDX
+        savedX := this._SavedSuccOffsetX(searchId)
+        savedY := this._SavedLayoutOffset(searchId, "SuccDY")
+        if (savedX != "" && savedX >= minGap) {
+            dx := savedX - curDX
         } else {
-            if (curDX >= minGap)
+            if (curDX >= minGap && savedY == "")
                 return
-            dx := minGap - curDX
+            dx := (curDX >= minGap) ? 0 : (minGap - curDX)
         }
-        if (dx != 0)
-            this._ShiftDescendantsX(searchId, dx)
+        dy := (savedY != "") ? (savedY - curDY) : 0
+        if (dx != 0 || dy != 0)
+            this._ShiftDescendants(searchId, dx, dy)
+    }
+
+    ; 取节点上保存的布局数值字段；未保存/非法返回 ""
+    _SavedLayoutOffset(searchId, prop) {
+        if (!this.cmdNodes.Has(searchId))
+            return ""
+        node := this.cmdNodes[searchId]
+        if (!node.HasOwnProp(prop))
+            return ""
+        v := node.%prop%
+        if (v == "" || !IsNumber(v))
+            return ""
+        return v + 0
     }
 
     ; 取节点上保存的「最近后继相对 X 偏移」(SuccDX)；未保存/非法返回 ""
     _SavedSuccOffsetX(searchId) {
-        if (!this.cmdNodes.Has(searchId))
-            return ""
-        node := this.cmdNodes[searchId]
-        if (!node.HasOwnProp("SuccDX"))
-            return ""
-        dx := node.SuccDX
-        if (dx == "" || !IsNumber(dx))
-            return ""
-        return dx + 0
+        return this._SavedLayoutOffset(searchId, "SuccDX")
+    }
+
+    ; 取收起态记忆的后继相对 X 偏移 (FoldSuccDX)
+    _SavedFoldSuccOffsetX(searchId) {
+        return this._SavedLayoutOffset(searchId, "FoldSuccDX")
     }
 
     ; 展开时「最近后继」相对搜索节点的目标 X 偏移：
@@ -535,7 +554,7 @@ class MacroGraphBranchMixin {
         return minGap
     }
 
-    ; 收起前把当前(展开态)最近后继的相对偏移记忆到 SuccDX/SuccDY，供下次展开精确还原用户摆放的位置。
+    ; 收起前把当前(展开态)最近后继的相对偏移记忆到 SuccDX/SuccDY，供下次展开精确还原。
     ; 仅当当前偏移确属展开态(>= 最小间距)时记录，避免把收起态的小间距误存为展开偏移。
     _RememberSuccOffset(searchId) {
         if (!this.cmdNodes.Has(searchId))
@@ -552,17 +571,41 @@ class MacroGraphBranchMixin {
         SaveMacroCMDData(node)
     }
 
-    ; 收起：先记忆当前(展开态)后继偏移(供下次展开还原)，再把后继子树平移，
-    ; 使「最近后继」精确落在收起目标偏移 _CollapseGap 处（位置式，与展开对称，收/展往返一致）。
+    ; 展开前把当前(收起态)最近后继的相对偏移记忆到 FoldSuccDX/DY，供下次收起精确还原。
+    _RememberFoldSuccOffset(searchId) {
+        if (!this.cmdNodes.Has(searchId))
+            return
+        succId := this._NearestSuccessorId(searchId)
+        if (succId == "" || !this.pos.Has(succId))
+            return
+        node := this.cmdNodes[searchId]
+        node.FoldSuccDX := this.pos[succId].x - this._NodeX(searchId)
+        node.FoldSuccDY := this.pos[succId].y - this._NodeY(searchId)
+        SaveMacroCMDData(node)
+    }
+
+    ; 收起：先记忆当前(展开态)后继偏移，再把后继子树对齐到收起记忆(FoldSuccDX/DY)；
+    ; 无收起记忆时回退到默认 _CollapseGap（仅 X）。
     _SpreadForCollapse(searchId) {
-        nearest := this._NearestSuccessorX(searchId)
-        if (nearest == "")
+        succId := this._NearestSuccessorId(searchId)
+        if (succId == "" || !this.pos.Has(succId))
             return
         this._RememberSuccOffset(searchId)
-        curDX := nearest - this._NodeX(searchId)
-        dx := this._CollapseGap(searchId) - curDX
-        if (dx != 0)
-            this._ShiftDescendantsX(searchId, dx)
+        curDX := this.pos[succId].x - this._NodeX(searchId)
+        curDY := this.pos[succId].y - this._NodeY(searchId)
+        savedX := this._SavedFoldSuccOffsetX(searchId)
+        savedY := this._SavedLayoutOffset(searchId, "FoldSuccDY")
+        targetDX := (savedX != "") ? savedX : this._CollapseGap(searchId)
+        ; 收起间距不应大于展开最小间距（否则分支区仍被撑开）
+        maxFold := this._ExpandMinGap(searchId) - 40
+        if (maxFold > 0 && targetDX > maxFold)
+            targetDX := maxFold
+        if (targetDX < 80)
+            targetDX := this._CollapseGap(searchId)
+        dx := targetDX - curDX
+        dy := (savedY != "") ? (savedY - curDY) : 0
+        if (dx != 0 || dy != 0)
+            this._ShiftDescendants(searchId, dx, dy)
     }
 }
 

@@ -1024,6 +1024,8 @@ class MacroGraphNode{
         this.ExpandShift := ""                     ;展开时为腾出分支空间对后继子树施加的横向位移（用于收起时精确还原）
         this.SuccDX := ""                          ;展开时「最近后继(下一个)节点」相对本节点的X偏移（收起→展开时按此精确还原后继位置）
         this.SuccDY := ""                          ;展开时「最近后继(下一个)节点」相对本节点的Y偏移
+        this.FoldSuccDX := ""                      ;收起时「最近后继」相对本节点的X偏移（展开→收起时按此还原）
+        this.FoldSuccDY := ""                      ;收起时「最近后继」相对本节点的Y偏移
         this.ProBranchOff := ""                   ;如果Pro：各分支相对偏移 "dx,dy;dx,dy;..."（与分支索引一一对应）
     }
 }

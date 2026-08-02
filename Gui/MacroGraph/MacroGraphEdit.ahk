@@ -13,6 +13,11 @@ class MacroGraphEditMixin {
     _DeleteSelected() {
         if (this.graph == "")
             return
+        ; 拖线幽灵线不是正式连线：Delete 时只清除它，避免误删被顺带选中的节点
+        if (this.HasOwnProp("_pendingConnectionFrom") && this._pendingConnectionFrom != "") {
+            this._ConnDropCancel()
+            return
+        }
         ; 记录被删搜索节点（其强制绑定的真/假分支节点需随之清理）
         searchIds := []
         loopIds := []

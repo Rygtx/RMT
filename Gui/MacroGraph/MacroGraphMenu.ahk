@@ -233,7 +233,7 @@ class MacroGraphMenuMixin {
 
         ; 取出本次（若有）的待连线源端口
         pendingFrom := (this.HasOwnProp("_pendingConnectionFrom") && this._pendingConnectionFrom != "") ? this._pendingConnectionFrom : ""
-        this._pendingConnectionFrom := ""
+        this._pendingConnectionFrom := ""   ; 先摘掉，避免菜单 Closed 再清一次时误伤
         fromIsBranch := this._IsBranchId(pendingFrom)
         logicalFrom := this._LogicalNodeId(pendingFrom)
 
@@ -268,6 +268,8 @@ class MacroGraphMenuMixin {
                 this._ActivateConnection(pendingFrom, id)
                 this._NormalizeBranchConnections()
             }
+            ; 正式连线已指向新节点后再收起临时连线，避免中间闪断
+            this._HideTempDropConnection()
         }
         this._ThickenConnections()
         this._RebindPathClicks()

@@ -543,8 +543,8 @@ class MacroGraphGui {
         this._Apply()
     }
 
-    ; 为所有内联编辑 TextBox 绑定回车事件和文本变化事件
-    ; 注：间隔的 time/time2 已改为可编辑下拉(ComboBox)，由 SelectionChanged/LostFocus 处理，不在此绑定 TextChanged
+    ; 为所有内联编辑 TextBox 绑定回车写回（失焦由 _RegisterMyNodeEvents 的 LostFocus 处理）
+    ; 不绑 TextChanged：输入过程不必每次写回；标签拖拽改值在打开编辑器/点保存时 Flush
     ; 注：须绑 "KeyDown"（引擎按 KeyEventArgs 追加 :Return）；绑 "KeyDown:Return" 无法挂上 WPF 事件
     _BindTextBoxEnterEvents() {
         fields := ["hold", "count", "inter", "posx", "posy", "speed"]
@@ -553,7 +553,6 @@ class MacroGraphGui {
             for field in fields {
                 boxName := nameMap[field] id
                 this.ui.OnEvent(boxName, "KeyDown", ObjBindMethod(this, "_OnField", id, field))
-                this.ui.OnEvent(boxName, "TextChanged", ObjBindMethod(this, "_OnField", id, field))
             }
         }
     }
@@ -594,6 +593,8 @@ class MacroGraphGui {
     OpenNodeEditor(id) {
         if (!this.cmdNodes.Has(id))
             return
+        ; 打开完整编辑器前：把节点内联控件（含标签拖拽改过的值）写回数据模型
+        this._FlushInlineFieldsFromUI(id)
         d := this._Parse(this.cmdNodes[id].CurCMD)
         editor := ""
         if (d.type == GetLang("间隔"))
@@ -759,7 +760,10 @@ class MacroGraphGui {
     ; ----------------------------------------------------------------- 生成/回写
 
     ; 回写：图形宏以「开始节点(MacroGraphStartNode) 的 SerialStr」作为入口引用写回 MacroArr
+    ; _flushSilent：打开编辑器前 Flush Formal 时跳过，避免批量回写主宏
     _Apply() {
+        if (this.HasOwnProp("_flushSilent") && this._flushSilent)
+            return
         if (this.SureBtnAction == "")
             return
         this._SerializeAllInlineBranches()   ; 内联展开的分支：把当前编辑就地回写 TrueMacro/FalseMacro

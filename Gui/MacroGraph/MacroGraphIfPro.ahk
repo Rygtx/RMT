@@ -557,16 +557,13 @@ class MacroGraphIfProMixin {
         startSerial := this._IfProBranchMacro(parentId, idx)
         cmds := this._BranchGraphCmds(startSerial)
         expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
-        panel := body.Add("StackPanel").Name("SBChipsPanel_" brId)
+        panel := body.Add("StackPanel").Name("SBChipsPanel_" brId).Margin("-10,0,0,0")
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
-        chipW := this._BranchChipWidth()
         if (cmds.Length == 0) {
-            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize(this._MGFontSize(11))
+            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).Margin("10,0,0,0")
         } else {
-            Loop shown {
-                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2").Width(chipW).HorizontalAlignment("Left")
-                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
-            }
+            Loop shown
+                this._AddCmdChip(panel, "· " cmds[A_Index], A_Index)
         }
         btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
         if (cmds.Length <= this._BranchPreviewCount())
@@ -665,6 +662,7 @@ class MacroGraphIfProMixin {
         this._BindCtrl("SBExpand_" brId, "Click", this._OnProBranchToggleExpand.Bind(this, parentId, idx), runtime)
         this._TrackCtrl("BrFlowCmb_" brId, runtime)
         this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnProBranchFlowControl.Bind(this, parentId, idx), runtime)
+        this._BindCtrl("BrFlowCmb_" brId, "DropDownClosed", this._OnProBranchFlowControl.Bind(this, parentId, idx), runtime)
     }
 
     _OnProBranchClick(parentId, idx, *) {
@@ -732,9 +730,12 @@ class MacroGraphIfProMixin {
         data := this._IfProData(parentId)
         if (data == "")
             return
+        if (!IsObject(state))
+            state := Map()
         brId := this._ProBranchId(parentId, idx)
         key := "BrFlowCmb_" brId
         flowTypes := this._IfFlowTypes()
+        this._EnsureComboInState(state, key, flowTypes)
         if (!state.Has(key) || state[key] == "")
             return
         val := GetLangKey(state[key])
@@ -801,8 +802,8 @@ class MacroGraphIfProMixin {
             this._ifProPortMargin.Delete(parentId)
     }
 
-    _ShiftProBranchNodes(parentId, dx) {
-        if (dx == 0 || !this._IsExpandedIfPro(parentId))
+    _ShiftProBranchNodes(parentId, dx, dy := 0) {
+        if ((dx == 0 && dy == 0) || !this._IsExpandedIfPro(parentId))
             return
         g := this.graph
         if (g == "")
@@ -811,7 +812,7 @@ class MacroGraphIfProMixin {
         loop count {
             brId := this._ProBranchId(parentId, A_Index - 1)
             if (this.pos.Has(brId) && g.GetNode(brId))
-                this._ShiftNodeX(brId, dx)
+                this._ShiftNode(brId, dx, dy)
         }
         for conn in g.connections {
             if (conn.From == parentId || this._IsProBranchId(conn.From) || this._IsProBranchId(conn.To))

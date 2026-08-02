@@ -435,9 +435,19 @@ class MacroGraphNodeUIMixin {
         return this._IsSearchNodeId(id) && !this._NodeFolded(id)
     }
 
-    ; 需要显示真/假/多分支节点的父节点（展开搜索 / 如果 / 如果Pro）
+    ; 如果节点且未折叠
+    _IsExpandedIf(id) {
+        return this._IsIfNodeId(id) && !this._NodeFolded(id)
+    }
+
+    ; 可折叠并影响后继布局的父节点（搜索/如果/如果Pro/循环）
+    _IsFoldableLayoutParent(id) {
+        return this._IsSearchNodeId(id) || this._IsIfNodeId(id) || this._IsIfProNodeId(id) || this._IsLoopNodeId(id)
+    }
+
+    ; 需要显示真/假/多分支节点的父节点（展开搜索 / 展开如果 / 展开如果Pro）
     _HasVisibleBranches(id) {
-        return this._IsExpandedSearch(id) || this._IsIfNodeId(id) || this._IsExpandedIfPro(id)
+        return this._IsExpandedSearch(id) || this._IsExpandedIf(id) || this._IsExpandedIfPro(id)
     }
 
     ; 分支父节点宽度
@@ -446,6 +456,8 @@ class MacroGraphNodeUIMixin {
             return this._IfProNodeWidth()
         if (this._IsIfNodeId(parentId))
             return 200
+        if (this._IsLoopNodeId(parentId))
+            return this._LoopNodeWidth(parentId)
         return this._SearchNodeWidth(parentId)
     }
 
@@ -635,23 +647,44 @@ class MacroGraphNodeUIMixin {
         return 5
     }
 
-    ; 填充分支节点内容：默认前 5 条指令（指令小卡片），超出则提供展开/收起；并提示双击进入编辑器
+    ; 指令列表斑马纹背景（跟主题；奇数 ControlBg / 偶数 InputBg），无圆角
+    ; 节点体多为 DropdownBg(=InputBg)，奇数行用 ControlBg 才能看出第一条底色
+    _CmdChipAltBg(idx) {
+        return (Mod(idx, 2) == 1) ? "{DynamicResource ControlBg}" : "{DynamicResource InputBg}"
+    }
+
+    ; 指令列表空态 XAML
+    _CmdChipEmptyXaml() {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        return '<TextBlock ' ns ' Text="（' this._XmlEsc(GetLang("空")) '）" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '"/>'
+    }
+
+    ; 单条指令行 XAML（供运行时 AddXamlItem；循环体/分支共用；背景无外边距，贴齐通栏）
+    _CmdChipXaml(text, idx) {
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
+        return '<Border ' ns ' Background="' this._CmdChipAltBg(idx) '" Margin="0" Padding="6,3" BorderThickness="0"><TextBlock Text="' this._XmlEsc(text) '" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
+    }
+
+    ; 静态构建：向 panel 追加一条指令行（背景无上下左右外边距）
+    _AddCmdChip(panel, text, idx) {
+        chip := panel.Add("Border").Background(this._CmdChipAltBg(idx)).Margin("0").Padding("6,3").BorderThickness("0")
+        chip.Add("TextBlock").Text(text).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
+        return chip
+    }
+
+    ; 填充分支节点内容：默认前 5 条指令，超出则提供展开/收起；并提示双击进入编辑器
     _FillBranchNodeBody(searchId, isTrue, body, brId) {
         cmds := this._BranchGraphCmds(this._BranchStartSerial(searchId, isTrue))
         expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
-        ; 指令以小卡片堆叠呈现；放入命名 StackPanel，便于运行时 ClearItems+AddXamlItem 重建刷新
-        panel := body.Add("StackPanel").Name("SBChipsPanel_" brId)
+        ; 负左边距抵消节点 body 的左 10，指令背景左右贴齐
+        panel := body.Add("StackPanel").Name("SBChipsPanel_" brId).Margin("-10,0,0,0")
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
-        chipW := this._BranchChipWidth()
         if (cmds.Length == 0) {
-            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("#888888").FontSize(this._MGFontSize(11))
+            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).Margin("10,0,0,0")
         } else {
-            Loop shown {
-                chip := panel.Add("Border").Background("#33000000").CornerRadius("3").Margin("0,2,0,0").Padding("5,2").Width(chipW).HorizontalAlignment("Left")
-                chip.Add("TextBlock").Text(cmds[A_Index]).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).TextWrapping("Wrap")
-            }
+            Loop shown
+                this._AddCmdChip(panel, "· " cmds[A_Index], A_Index)
         }
-        ; 展开/收起按钮：始终创建（便于运行时显隐），不超过预览条数时隐藏
         btn := body.Add("Button").Name("SBExpand_" brId).Content(expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")")).FontSize(this._MGFontSize(10)).Height("20").Margin("0,4,0,0").Padding("6,0").HorizontalAlignment("Left")
         if (cmds.Length <= this._BranchPreviewCount())
             btn.Visibility("Collapsed")
@@ -672,28 +705,25 @@ class MacroGraphNodeUIMixin {
         body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
-    ; 分支指令卡片宽度（节点 200、左边距 10 时略收窄，避免贴右边）
+    ; 兼容旧名：分支指令行宽度（现改为通栏斑马纹，不再限宽）
     _BranchChipWidth() {
         return "168"
     }
 
-    ; 单个指令小卡片的 XAML 片段（带命名空间，供运行时 AddXamlItem 注入）
-    _BranchChipXaml(text) {
-        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-        return '<Border ' ns ' Background="#33000000" CornerRadius="3" Margin="0,2,0,0" Padding="5,2" Width="' this._BranchChipWidth() '" HorizontalAlignment="Left"><TextBlock Text="' this._XmlEsc(text) '" Foreground="{DynamicResource TextMain}" FontSize="' this._MGFontSize(11) '" TextWrapping="Wrap"/></Border>'
+    _BranchChipXaml(text, idx := 1) {
+        return this._CmdChipXaml(text, idx)
     }
 
     ; 运行时按当前展开态重建分支指令卡片（清空后重新注入）
     _RebuildBranchChips(brId, cmds, expanded) {
         this.ui.Update("SBChipsPanel_" brId, "ClearItems", "")
         if (cmds.Length == 0) {
-            ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
-            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", '<TextBlock ' ns ' Text="（' this._XmlEsc(GetLang("空")) '）" Foreground="#888888" FontSize="' this._MGFontSize(11) '"/>')
+            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", this._CmdChipEmptyXaml())
             return
         }
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
         Loop shown
-            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", this._BranchChipXaml(cmds[A_Index]))
+            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", this._CmdChipXaml("· " cmds[A_Index], A_Index))
     }
 
     ; 运行时刷新分支节点内容（搜索编辑器/分支编辑器改动后调用，无需重建窗口）
@@ -802,17 +832,23 @@ class MacroGraphNodeUIMixin {
     }
 
     ; 循环体外置节点相对循环节点的逻辑坐标。
-    ; 优先使用节点上保存的相对偏移(LoopBodyDX/DY)，未保存时回退默认（落在循环节点右下方）。
+    ; 优先使用节点上保存的相对偏移(LoopBodyDX/DY)，未保存时回退默认（落在循环节点右侧）。
+    ; 默认 dx/dy 均为网格步长 20 的整数倍，循环体吸附后仍与回环端口水平对齐。
     _LoopBodyPos(loopId) {
         sp := this.pos.Has(loopId) ? this.pos[loopId] : { x: 200, y: 200 }
+        dyAlign := this._LoopCyEnterY() - this._LoopBodyEnterY()   ; 90-30=60
+        dxDefault := this._LoopNodeWidth(loopId) + 60              ; 200+60=260
         rel := this._SavedLoopBodyOffset(loopId)
-        if (rel != "")
-            return { x: sp.x + rel.dx, y: sp.y + rel.dy }
-        ; 默认：节点水平间距 50px；纵向偏移 60(网格 20 的整数倍，吸附后仍保持)。
-        ; 此偏移下循环右侧两点与循环体左侧两点中心 Y 相等(回环路径为水平直线)：
-        ;   循环上点中心=循环Y+90 / 循环体上点(入点位)中心=循环体Y+30=循环Y+90；
-        ;   循环下点中心=循环Y+146 / 循环体下点中心=循环体Y+86=循环Y+146。
-        return { x: sp.x + this._LoopNodeWidth(loopId) + 50, y: sp.y + 60 }
+        if (rel != "") {
+            dx := rel.dx, dy := rel.dy
+            ; 旧默认偏移（非 20 网格对齐）迁移到当前默认，避免连线歪斜
+            if (dy == 34 || dy == 44 || dy == 28 || dy == 38)
+                dy := dyAlign
+            if (dx == this._LoopNodeWidth(loopId) + 50)
+                dx := dxDefault
+            return { x: sp.x + dx, y: sp.y + dy }
+        }
+        return { x: sp.x + dxDefault, y: sp.y + dyAlign }
     }
 
     ; 取循环节点上保存的循环体相对偏移 { dx, dy }；未保存返回 ""
@@ -828,10 +864,12 @@ class MacroGraphNodeUIMixin {
         return { dx: dx + 0, dy: dy + 0 }
     }
 
-    ; 回环交互点中心 Y 偏移（相对节点顶边，与 _LoopBodyPos 默认 dy=60 配套，吸附后仍水平对齐）。
-    _LoopCyEnterY() => 90      ; 循环右侧上点（进入循环体），margin top 54
-    _LoopCyReturnY() => 146    ; 循环右侧下点（循环体返回），margin top 110
-    _LoopBodyEnterY() => 30    ; 循环体左侧上点（通用入点），margin top -6
+    ; 回环交互点中心 Y 偏移（相对节点顶边）。
+    ; 中心 Y = 标题栏 30 + Margin.Top + 半径 6；两点间距与循环体左侧一致(56)。
+    ; 进入点 Y=90 → 相对循环体 dy=60，恰好 3 格(grid=20)，吸附后连线保持水平。
+    _LoopCyEnterY() => 90      ; 循环右侧上点，margin top 54
+    _LoopCyReturnY() => 146    ; 循环右侧下点，margin top 110
+    _LoopBodyEnterY() => 30    ; 循环体左侧上点，margin top -6
     _LoopBodyReturnY() => 86   ; 循环体左侧下点，margin top 50
 
     ; 给循环节点 grid 追加右侧两个回环交互点（出点不变、入点不变；额外的进入/返回点）。
@@ -841,6 +879,7 @@ class MacroGraphNodeUIMixin {
         oEl.Name("LoopCyO_" id)
         oEl._Props["Width"] := "12", oEl._Props["Height"] := "12"
         oEl._Props["Fill"] := "#5C6BC0", oEl._Props["Stroke"] := "#1A237E", oEl._Props["StrokeThickness"] := "1"
+        ; 间距与循环体左侧两点一致(56px)，保证默认并排时上下连线均水平
         oEl._Props["Grid.Row"] := "1", oEl._Props["VerticalAlignment"] := "Top", oEl._Props["HorizontalAlignment"] := "Right", oEl._Props["Margin"] := "0,54,-6,0"
         oEl._Props["Panel.ZIndex"] := "10", oEl._Props["Visibility"] := vis, oEl._Props["ToolTip"] := GetLang("进入循环体")
         grid._Children.Push(oEl)
@@ -927,11 +966,10 @@ class MacroGraphNodeUIMixin {
         return border
     }
 
-    ; 填充循环体外置节点内容：指令小卡片(预览 5 条 + 展开/收起按钮，同搜索分支节点) + 双击提示
+    ; 填充循环体外置节点内容：指令列表(预览 5 条 + 展开/收起，样式与分支统一)
     _FillLoopBodyNodeBody(loopId, body, bid) {
         cmds := this._LoopBodyCmds(this._FormalDFromId(loopId))
         this._FillLoopChips(body, "LoopExtChips_" bid, "LoopExtExpand_" bid, bid, cmds)
-        body.Add("TextBlock").Text(GetLang("双击编辑循环体")).Foreground("#9FA8DA").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
     ; 回环路径元素（Path，画布级，非引擎连线）：构建供静态加入画布。
@@ -1053,14 +1091,14 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        if (d.type == GetLang("循环"))
-            border.SetProp("MinHeight", "180")
+        ; 循环不设 MinHeight（会底部异色/重叠空块）；回环端口靠 LoopPortPad 透明垫高
         if (d.type == GetLang("如果Pro"))
             border.SetProp("MinHeight", "220")
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
         this._AddNodeSelRing(grid, id)
         this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
+        ; 循环与间隔等节点同用标准正文边距，下拉框对齐 Formal 标准宽(80/96)
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillNodeBody(id, d, body)
 
@@ -1124,8 +1162,7 @@ class MacroGraphNodeUIMixin {
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        if (title == GetLang("循环"))
-            node.SetProp("MinHeight", "180")
+        ; 循环不设 MinHeight（底部异色/重叠空块）；如果/如果Pro 保留最小高度保证分支端口落点
         if (title == GetLang("如果"))
             node.SetProp("MinHeight", "200")
         if (title == GetLang("如果Pro"))
@@ -1248,6 +1285,12 @@ class MacroGraphNodeUIMixin {
             fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
             fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
         }
+        else if (title == GetLang("如果")) {
+            ; 如果节点：与搜索一样可折叠真/假分支；收起后直连后续
+            folded := this._NodeFolded(id)
+            fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
+            fbtn.SetProp("ToolTip", folded ? GetLang("展开") : GetLang("收起"))
+        }
         else if (title == GetLang("如果Pro")) {
             folded := this._NodeFolded(id)
             fbtn := hgrid.Add("Button").Name("SFold_" id).Grid_Column(1).Content(folded ? "▶" : "▼").FontSize(this._MGFontSize(14)).FontWeight("Bold").Foreground("{DynamicResource TitleBarForeground}").Width("26").Height("22").Padding("0").Margin("0,0,6,0").VerticalAlignment("Center").Background("Transparent").BorderThickness("0").Cursor("Hand")
@@ -1295,7 +1338,7 @@ class MacroGraphNodeUIMixin {
             row.Visibility("Collapsed")
         row.Add("TextBlock").Text(labelText).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).Width(labelW).VerticalAlignment("Center")
         box := this._MakeTextBox(row, boxName, boxValue, boxW, nodeId, field)
-        ; boxTag 形如 "Min:1,Max:100"：限制 label 拖动改值的取值区间（引擎读取 Tag）
+        ; boxTag 形如 "Min:0,Max:100"：限制 label 拖动改值的取值区间（引擎读取 Tag；未指定时默认 Min=0）
         if (boxTag != "")
             box.SetProp("Tag", boxTag)
         if (textAlign != "") {

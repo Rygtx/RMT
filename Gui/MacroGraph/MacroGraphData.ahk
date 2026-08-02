@@ -120,7 +120,7 @@ class MacroGraphDataMixin {
                 cp.Y := nd.HasOwnProp("Y") ? nd.Y : 0
                 cp.Folded := nd.HasOwnProp("Folded") ? nd.Folded : 0
                 ; 展开态布局信息一并深拷贝，保持分支位置稳定
-                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "ProBranchOff"] {
+                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff"] {
                     if (nd.HasOwnProp(layoutProp))
                         cp.%layoutProp% := nd.%layoutProp%
                 }
@@ -542,6 +542,8 @@ class MacroGraphDataMixin {
             return
         if (this.startSerial == "")
             this.startSerial := GetCMDSerialStr("图形开始节点")
+        ; 保存前：把画布内联控件当前值写回各节点数据（标签拖拽等平时不即时落盘）
+        this._FlushInlineFieldsFromUI()
         this._CaptureLinks()
         this._SyncPositionsFromGraph()
 
@@ -614,13 +616,16 @@ class MacroGraphDataMixin {
         SaveMacroCMDData(startNode)         ; 存入 GraphStartNodeFile.ini（key=startSerial）
     }
 
-    ; 把展开搜索节点的分支相对位置、最近后继相对偏移(SuccDX/DY)写入其 MacroGraphNode（供重载/收展时还原）。
-    ; 折叠态：分支不存在，保留既有的分支偏移与后继偏移记忆（勿覆盖），仅清空已弃用的 ExpandShift。
+    ; 把可折叠父节点布局写入 MacroGraphNode（搜索/如果/如果Pro/循环）：
+    ;   · 展开态：分支/循环体偏移 + SuccDX/DY；保留 FoldSuccDX/DY 勿覆盖
+    ;   · 折叠态：FoldSuccDX/DY；保留 SuccDX/DY 与分支偏移勿覆盖
     _StoreBranchLayout(searchId, node, searchPos) {
         if (this._IsExpandedIfPro(searchId)) {
             this._StoreProBranchLayout(searchId, node, searchPos)
             node.ExpandShift := ""
+            this._StoreSuccOffset(node, searchId, searchPos)
         } else if (this._HasVisibleBranches(searchId) && !this._IsIfProNodeId(searchId)) {
+            ; 展开的搜索 / 如果：真假分支 + 后继相对位置
             for isTrue in [true, false] {
                 brId := this._BranchId(searchId, isTrue)
                 if (!this.pos.Has(brId))
@@ -635,19 +640,35 @@ class MacroGraphDataMixin {
                 }
             }
             node.ExpandShift := ""
-            ; 记录「最近后继(下一个)节点」相对搜索节点的偏移，供收起→展开时精确还原后继位置
+            this._StoreSuccOffset(node, searchId, searchPos)
+        } else if (this._IsExpandedLoop(searchId)) {
+            ; 展开循环：后继相对位置（外置循环体由 _StoreLoopBodyLayout 另存）
+            node.ExpandShift := ""
+            this._StoreSuccOffset(node, searchId, searchPos)
+        } else if (this._IsFoldableLayoutParent(searchId) && this._NodeFolded(searchId)) {
+            ; 折叠态：记录收起时后继相对位置；保留 SuccDX/DY 与分支/循环体偏移
+            node.ExpandShift := ""
             succId := this._NearestSuccessorId(searchId)
             if (succId != "" && this.pos.Has(succId)) {
                 sp := this.pos[succId]
-                node.SuccDX := sp.x - searchPos.x
-                node.SuccDY := sp.y - searchPos.y
-            } else {
-                node.SuccDX := ""
-                node.SuccDY := ""
+                node.FoldSuccDX := sp.x - searchPos.x
+                node.FoldSuccDY := sp.y - searchPos.y
             }
         } else {
-            ; 折叠态：分支不存在、后继处于收起态小间距；保留既有 SuccDX/SuccDY(展开布局记忆)与分支偏移，勿覆盖
             node.ExpandShift := ""
+        }
+    }
+
+    ; 写入展开态最近后继相对偏移 SuccDX/DY（无后继则清空）
+    _StoreSuccOffset(node, parentId, parentPos) {
+        succId := this._NearestSuccessorId(parentId)
+        if (succId != "" && this.pos.Has(succId)) {
+            sp := this.pos[succId]
+            node.SuccDX := sp.x - parentPos.x
+            node.SuccDY := sp.y - parentPos.y
+        } else {
+            node.SuccDX := ""
+            node.SuccDY := ""
         }
     }
 
@@ -702,7 +723,7 @@ class MacroGraphDataMixin {
             node.CurCMD := (IsObject(nodeData) && nodeData.HasOwnProp("CurCMD")) ? nodeData.CurCMD : ""
             node.Folded := (IsObject(nodeData) && nodeData.HasOwnProp("Folded")) ? nodeData.Folded : 0
             ; 还原展开态布局信息（分支相对偏移 + 展开位移 + 后继相对位置）；缺失则保持默认 ""
-            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "ProBranchOff"] {
+            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff"] {
                 if (IsObject(nodeData) && nodeData.HasOwnProp(layoutProp))
                     node.%layoutProp% := nodeData.%layoutProp%
             }
