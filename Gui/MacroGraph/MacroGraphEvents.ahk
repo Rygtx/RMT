@@ -261,10 +261,16 @@ class MacroGraphEventsMixin {
                 this._UpdateLoopCyclePaths(id, Number(parts[1]), Number(parts[2]))
             if (this._IsExpandedIfPro(id))
                 this._ScheduleIfProPathUpdate(id, Number(parts[1]), Number(parts[2]))
+            else if (this._IsExpandedSearch(id) || this._IsExpandedIf(id))
+                this._SchedulePairBranchPathUpdate(id, Number(parts[1]), Number(parts[2]))
             else if (this._IsProBranchId(id)) {
                 pi := this._ProBranchInfo(id)
                 if (pi != "")
                     this._ScheduleIfProPathUpdate(pi.parentId)
+            } else if (this._IsBranchId(id)) {
+                bi := this._BranchInfo(id)
+                if (bi != "" && bi.proIdx < 0)
+                    this._SchedulePairBranchPathUpdate(bi.searchId)
             }
             ; 框选拖动：检查所有选中的节点，如果有展开的循环节点也在选中中，更新其路径
             ; （selectedNodes 在 this.graph 中，由 XAML_Adv_Components 管理）

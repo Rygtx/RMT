@@ -84,7 +84,7 @@ class WindowManageGui {
         PosY += 40
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("操作类型："))
         PosX += 80
-        this.ActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w130 R10", PosX, PosY - 3), this.ActionTypeArr)
+        this.ActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w130 R13", PosX, PosY - 3), this.ActionTypeArr)
         this.ActionTypeCon.OnEvent("Change", this.OnActionChange.Bind(this))
 
         PosX := 10

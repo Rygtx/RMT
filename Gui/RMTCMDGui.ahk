@@ -15,7 +15,11 @@ class RMTCMDGui {
                 GetLang("自由贴")
             ],
             GetLang("输入控制"), [
+                GetLang("启用鼠标"),
+                GetLang("启用键盘"),
                 GetLang("启用键鼠"),
+                GetLang("禁用鼠标"),
+                GetLang("禁用键盘"),
                 GetLang("禁用键鼠")
             ],
             GetLang("宏控制"), [
@@ -189,20 +193,26 @@ class RMTCMDGui {
     }
 
     CheckIfValid() {
-        if (this.CmdTypeCon.Text == GetLang("禁用键鼠")) {
-            tipStr := (
-                Format("{}`n{}`n{}`n{}`n{}", GetLang("此操作将 立即禁用键盘和鼠标输入，您将无法通过键鼠操作计算机！"), GetLang("重要须知："), GetLang(
-                    "- 以管理员身份运行本软件，否则该指令无效。"), GetLang("- 务必后续执行 *启用键鼠*，否则输入设备将保持禁用状态！"), GetLang("是否确认禁用？"))
-            )
-            if (MsgBox(tipStr, GetLang("禁用键鼠（需管理员权限）"), "4") == "No")
+        cmd := this.CmdTypeCon.Text
+        if (cmd == GetLang("禁用键鼠") || cmd == GetLang("禁用鼠标") || cmd == GetLang("禁用键盘")) {
+            if (cmd == GetLang("禁用鼠标"))
+                tipBody := GetLang("此操作将 立即禁用鼠标输入，您将无法通过鼠标操作计算机！")
+            else if (cmd == GetLang("禁用键盘"))
+                tipBody := GetLang("此操作将 立即禁用键盘输入，您将无法通过键盘操作计算机！")
+            else
+                tipBody := GetLang("此操作将 立即禁用键盘和鼠标输入，您将无法通过键鼠操作计算机！")
+            tipStr := Format("{}`n{}`n{}`n{}`n{}", tipBody, GetLang("重要须知："), GetLang(
+                "- 以管理员身份运行本软件，否则该指令无效。"), GetLang("- 务必后续执行对应的启用指令，否则输入设备将保持禁用状态！"), GetLang("是否确认禁用？"))
+            title := cmd == GetLang("禁用鼠标") ? GetLang("禁用鼠标（需管理员权限）")
+                : (cmd == GetLang("禁用键盘") ? GetLang("禁用键盘（需管理员权限）") : GetLang("禁用键鼠（需管理员权限）"))
+            if (MsgBox(tipStr, title, "4") == "No")
                 return false
         }
 
-        if (this.CmdTypeCon.Text == GetLang("启用键鼠")) {
-            MsgBox(
-                GetLang("- 必须 以管理员身份运行本软件，否则该指令无效。"),
-                GetLang("启用键鼠（需管理员权限）")
-            )
+        if (cmd == GetLang("启用键鼠") || cmd == GetLang("启用鼠标") || cmd == GetLang("启用键盘")) {
+            title := cmd == GetLang("启用鼠标") ? GetLang("启用鼠标（需管理员权限）")
+                : (cmd == GetLang("启用键盘") ? GetLang("启用键盘（需管理员权限）") : GetLang("启用键鼠（需管理员权限）"))
+            MsgBox(GetLang("- 必须 以管理员身份运行本软件，否则该指令无效。"), title)
         }
         return true
     }

@@ -181,16 +181,15 @@ class MacroGraphConnectionsMixin {
         this.links := newLinks
     }
 
-    ; 用户新建连线后：纠正展开搜索的连线（搜索→X 改走双分支、补对称分支），再加粗并补绑点击
+    ; 用户新建连线后：清理旧「分支→后续」模型残留，再加粗并补绑点击
     _OnConnectionsChanged() {
         this._NormalizeBranchConnections()
         this._ThickenConnections()
         this._RebindPathClicks()
     }
 
-    ; 展开态搜索节点的连线纠正：
-    ; ①用户把「展开搜索 → X」直连后续 → 改成「真分支→X」「假分支→X」（搜索只能连分支）
-    ; ②用户把「某分支 → X」 → 自动补上「另一分支 → X」，对称表达"分支择一后汇合到 X"
+    ; 连线纠正（新模型：展开时主节点仍连后续；分支仅入点、无出线）：
+    ; 旧图/残留的「分支→X / 情况分支→X」译回「父→X」并停用分支出线。
     _NormalizeBranchConnections() {
         g := this.graph
         if (g == "")
@@ -200,42 +199,21 @@ class MacroGraphConnectionsMixin {
         for conn in g.connections {
             if (conn.HasOwnProp("Active") && !conn.Active)
                 continue
-            ; 内联展开的分支子节点相关连线（分支→子、子→子）一般不做分支归一，保持原样；
-            ; 但「内联如果/搜索子」的真/假分支卡片 → 后继时，需补上另一分支卡片 → 同一后继，
-            ; 使真假分支都连到后续指令（与顶层如果一致）。
-            if (this._IsInlineSub(conn.From) || this._IsInlineSub(conn.To)) {
-                if (this._IsInlineSub(conn.From)) {
-                    ibi := this._BranchInfo(conn.From)
-                    if (ibi != "" && ibi.proIdx < 0 && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To))
-                        toActivate.Push({ from: this._BranchId(ibi.searchId, !ibi.isTrue), to: conn.To })
-                }
+            ; 内联子图连线保持原样
+            if (this._IsInlineSub(conn.From) || this._IsInlineSub(conn.To))
                 continue
-            }
-            ; ① 展开父节点直连后续：拆成各分支→后续
-            if (this._HasVisibleBranches(conn.From) && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To)) {
-                toDeactivate.Push(conn)
-                if (this._IsIfProNodeId(conn.From)) {
-                    count := this._IfProBranchCountFromId(conn.From)
-                    loop count
-                        toActivate.Push({ from: this._ProBranchId(conn.From, A_Index - 1), to: conn.To })
-                } else {
-                    toActivate.Push({ from: this._BranchId(conn.From, true), to: conn.To })
-                    toActivate.Push({ from: this._BranchId(conn.From, false), to: conn.To })
-                }
-                continue
-            }
-            ; ② 分支连到后续：补对称的其余分支
+            ; 残留：真假分支 → 后续 → 改为主节点 → 后续
             bi := this._BranchInfo(conn.From)
-            if (bi != "" && bi.proIdx < 0 && !this._IsBranchId(conn.To))
-                toActivate.Push({ from: this._BranchId(bi.searchId, !bi.isTrue), to: conn.To })
+            if (bi != "" && bi.proIdx < 0 && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To)) {
+                toDeactivate.Push(conn)
+                toActivate.Push({ from: bi.searchId, to: conn.To })
+                continue
+            }
+            ; 残留：如果Pro 情况分支 → 后续 → 改为如果Pro → 后续
             pi := this._ProBranchInfo(conn.From)
             if (pi != "" && !this._IsProBranchId(conn.To) && !this._IsBranchId(conn.To)) {
-                count := this._IfProBranchCountFromId(pi.parentId)
-                loop count {
-                    idx := A_Index - 1
-                    if (idx != pi.idx)
-                        toActivate.Push({ from: this._ProBranchId(pi.parentId, idx), to: conn.To })
-                }
+                toDeactivate.Push(conn)
+                toActivate.Push({ from: pi.parentId, to: conn.To })
             }
         }
         for conn in toDeactivate

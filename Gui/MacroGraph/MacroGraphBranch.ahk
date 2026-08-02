@@ -210,7 +210,7 @@ class MacroGraphBranchMixin {
         this.ui.Update("VarSumEmpty_" id, "Visibility", anyOn ? "Collapsed" : "Visible")
     }
 
-    ; 折叠：隐藏分支节点与分支相关连线，搜索直连原后续
+    ; 折叠：隐藏分支节点与「主→分支」连线，主节点直连后续（后继边展开时已存在）
     _FoldSearchRuntime(searchId) {
         g := this.graph
         if (g == "")
@@ -223,6 +223,7 @@ class MacroGraphBranchMixin {
         }
         for isTrue in [true, false]
             this.ui.Update("Node_" this._BranchId(searchId, isTrue), "Visibility", "Collapsed")
+        this._ApplyPairBranchPortVisibility(searchId)
         for x in succ
             this._ActivateConnection(searchId, x)
         this._CaptureLinks()
@@ -231,19 +232,14 @@ class MacroGraphBranchMixin {
         this._RebindPathClicks()
     }
 
-    ; 展开：显示（或首次注入）分支节点，搜索改连分支、分支连原后续
+    ; 展开：显示分支节点并由主节点侧边出点连入；主节点仍直连后续（分支无出点）
     _UnfoldSearchRuntime(searchId) {
         g := this.graph
         if (g == "")
             return
         this._CaptureLinks()
         succ := this._SuccessorsOf(searchId)
-        ; 停用「搜索 → 非分支后续」直连
-        for conn in g.connections {
-            if (conn.From == searchId && !this._IsBranchId(conn.To))
-                this._DeactivateConnection(conn)
-        }
-        ; 分支节点：首次展开则注入，否则显隐
+        ; 分支节点：首次展开则注入，否则显隐 + 主→分支连线
         if (!this._branchInjected.Has(searchId)) {
             this._InjectBranchPair(searchId)
         } else {
@@ -252,14 +248,85 @@ class MacroGraphBranchMixin {
             this._ActivateConnection(searchId, this._BranchId(searchId, true))
             this._ActivateConnection(searchId, this._BranchId(searchId, false))
         }
-        ; 分支 → 各后续
-        for x in succ {
-            this._ActivateConnection(this._BranchId(searchId, true), x)
-            this._ActivateConnection(this._BranchId(searchId, false), x)
-        }
+        ; 主节点 → 各后续（展开态与收起态一致）
+        for x in succ
+            this._ActivateConnection(searchId, x)
+        this._ApplyPairBranchPortVisibility(searchId)
+        this._SchedulePairBranchPathUpdate(searchId)
         ; 展开：若后继离搜索过近，把整条后继子树右移腾出分支显示空间
         this._SpreadForExpand(searchId)
         this._RebindPathClicks()
+    }
+
+    ; ---- 搜索/如果：侧边真假出点路径（对齐 BrPort，Tag 供拖动保持起点）----
+    _IsPairBranchLink(fromId, toId) {
+        if ((!this._IsSearchNodeId(fromId) && !this._IsIfNodeId(fromId)) || !this._IsBranchId(toId))
+            return false
+        bi := this._BranchInfo(toId)
+        return bi != "" && bi.proIdx < 0 && bi.searchId == fromId && (this._IsExpandedSearch(fromId) || this._IsExpandedIf(fromId))
+    }
+
+    _PairBranchPathGeom(parentId, toId, px := "", py := "") {
+        g := this.graph
+        if (g == "")
+            return ""
+        pn := g.GetNode(parentId)
+        bn := g.GetNode(toId)
+        if (!pn || !bn)
+            return ""
+        bi := this._BranchInfo(toId)
+        if (bi == "" || bi.proIdx >= 0)
+            return ""
+        px := (px != "") ? px : pn.X
+        py := (py != "") ? py : pn.Y
+        nw := this._BranchParentWidth(parentId)
+        mt := this._PairBranchPortMarginTop(bi.isTrue)
+        sy := py + 30 + mt + 7
+        sx := px + nw
+        return this._IfProBranchGeom(sx, sy, bn.X, bn.Y + 31)
+    }
+
+    _ApplyPairBranchConnectionPath(fromId, toId, pathId, initial := false, pathEl := "") {
+        g := this.graph
+        geom := this._PairBranchPathGeom(fromId, toId)
+        if (geom == "")
+            return
+        if (initial && pathEl != "") {
+            g._SetConnPathData(pathId, geom, true, pathEl)
+            sy := this._IfProParsePathStartY(geom)
+            pn := g.GetNode(fromId)
+            if (sy != "" && pn)
+                pathEl.SetProp("Tag", "ifproStartY:" Round(sy - pn.Y))
+        } else if (this.ui != "") {
+            g._SetConnPathData(pathId, geom)
+            sy := this._IfProParsePathStartY(geom)
+            if (sy != "")
+                this._SetIfProPathDragTag(pathId, fromId, sy)
+        }
+    }
+
+    _SchedulePairBranchPathUpdate(parentId, px := "", py := "") {
+        if (this.ui == "" || this.graph == "")
+            return
+        this._UpdatePairBranchPaths(parentId, px, py)
+    }
+
+    _UpdatePairBranchPaths(parentId, px := "", py := "") {
+        g := this.graph
+        if (g == "" || this.ui == "" || !(this._IsExpandedSearch(parentId) || this._IsExpandedIf(parentId)))
+            return
+        for isTrue in [true, false] {
+            brId := this._BranchId(parentId, isTrue)
+            pathId := g.id "_Path_" parentId "_" brId
+            geom := this._PairBranchPathGeom(parentId, brId, px, py)
+            if (geom != "") {
+                g._SetConnPathData(pathId, geom)
+                sy := this._IfProParsePathStartY(geom)
+                if (sy != "")
+                    this._SetIfProPathDragTag(pathId, parentId, sy)
+                g._PlaceConnArrow(brId, pathId)
+            }
+        }
     }
 
     ; 取某节点当前的逻辑后继（基于 this.links）
@@ -362,18 +429,19 @@ class MacroGraphBranchMixin {
             if (conn.From == searchId || this._IsBranchId(conn.From) || this._IsBranchId(conn.To))
                 g.UpdatePath(conn.From, conn.To, conn.PathId)
         }
+        this._SchedulePairBranchPathUpdate(searchId)
     }
 
     ; 展开时后继与父节点的最小横向间距：
     ;   · 如果Pro：越过分支区（默认 dx 已含父宽间隙且对齐 grid + 分支宽 200 + 余量）
-    ;   · 搜索/如果：越过分支区（父宽 + 100 + 分支宽 200 + 余量）
+    ;   · 搜索/如果：越过分支区（默认 dx 网格对齐 + 分支宽 200 + 余量）
     ;   · 循环：越过外置循环体（父宽 + 60 间距 + 循环体宽 200 + 余量）
     _ExpandMinGap(searchId) {
         if (this._IsLoopNodeId(searchId))
             return this._LoopNodeWidth(searchId) + 60 + 200 + 80
         if (this._IsIfProNodeId(searchId))
             return this._IfProBranchDefaultDX() + 200 + 80
-        return this._BranchParentWidth(searchId) + 360
+        return this._PairBranchDefaultDX(searchId) + 200 + 80
     }
 
     ; 收起时 A 右缘到后继节点左缘的目标间距（px）

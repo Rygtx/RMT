@@ -17,7 +17,6 @@ class RunGui {
         this.StdInCon := ""
         this.StdInTipCon := ""
         this.StdInEditBtnCon := ""
-        this.StdOutTipCon := ""
         this.ActiveEdit := ""
 
         this.StdInEditGui := ""
@@ -89,8 +88,8 @@ class RunGui {
         this.RunModeCon.OnEvent("Change", (*) => this.OnModeChange())
 
         PosX += 120
-        Options := ["Hide", "", "Min", "Max"]
-        this.OptionCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R4", PosX, PosY - 3, 50), Options)
+        Options := GetLangArr(["后台", "默认", "最小化", "最大化"])
+        this.OptionCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R4", PosX, PosY - 3, 110), Options)
 
         PosY += 35
         PosX := 10
@@ -120,44 +119,36 @@ class RunGui {
         btnCon := MyGui.Add("Button", Format("x{} y{}", PosX, PosY - 5), GetLang("选择文件"))
         btnCon.OnEvent("Click", (*) => this.OnClickFileSelectBtn())
 
+        ; 三列对齐：标签宽70 + 下拉宽100，列间距 20（输出行与编码行下拉框 x 一致）
+        labelW := 70, comboW := 100, colGap := 20
+        col1 := 10
+        col2 := col1 + labelW + comboW + colGap
+        col3 := col2 + labelW + comboW + colGap
+
         PosY += 35
-        PosX := 10
-        this.StdOutTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("输出："))
-        PosX += 40
-        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("返回值"))
+        tip1 := MyGui.Add("Text", Format("x{} y{} w{}", col1, PosY, labelW), GetLang("返回值："))
         this.SaveNameTipConArr.Push(tip1)
-        PosX += 40
-        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        con1 := MyGui.Add("ComboBox", Format("x{} y{} w{}", col1 + labelW, PosY - 3, comboW), [])
         this.SaveNameConArr.Push(con1)
 
-        PosX += 110
-        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("输出"))
+        tip2 := MyGui.Add("Text", Format("x{} y{} w{}", col2, PosY, labelW), GetLang("输出："))
         this.SaveNameTipConArr.Push(tip2)
-        PosX += 40
-        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        con2 := MyGui.Add("ComboBox", Format("x{} y{} w{}", col2 + labelW, PosY - 3, comboW), [])
         this.SaveNameConArr.Push(con2)
 
-        PosX += 110
-        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 40), GetLang("错误"))
+        tip3 := MyGui.Add("Text", Format("x{} y{} w{}", col3, PosY, labelW), GetLang("错误："))
         this.SaveNameTipConArr.Push(tip3)
-        PosX += 40
-        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 3, 100), [])
+        con3 := MyGui.Add("ComboBox", Format("x{} y{} w{}", col3 + labelW, PosY - 3, comboW), [])
         this.SaveNameConArr.Push(con3)
 
         PosY += 30
-        PosX := 10
         encArr := ["UTF-8", "UTF-16", "CP0"]
-        this.EncInTextCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 70), GetLang("输入编码："))
-        PosX += 70
-        this.EncInCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", PosX, PosY - 1, 90), encArr)
-        PosX += 100
-        this.EncOutTextCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 70), GetLang("输出编码："))
-        PosX += 70
-        this.EncOutCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", PosX, PosY - 1, 90), encArr)
-        PosX += 100
-        this.EncErrTextCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 2, 70), GetLang("错误编码："))
-        PosX += 70
-        this.EncErrCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", PosX, PosY - 1, 90), encArr)
+        this.EncInTextCon := MyGui.Add("Text", Format("x{} y{} w{}", col1, PosY + 2, labelW), GetLang("输入编码："))
+        this.EncInCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", col1 + labelW, PosY - 1, comboW), encArr)
+        this.EncOutTextCon := MyGui.Add("Text", Format("x{} y{} w{}", col2, PosY + 2, labelW), GetLang("输出编码："))
+        this.EncOutCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", col2 + labelW, PosY - 1, comboW), encArr)
+        this.EncErrTextCon := MyGui.Add("Text", Format("x{} y{} w{}", col3, PosY + 2, labelW), GetLang("错误编码："))
+        this.EncErrCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R6", col3 + labelW, PosY - 1, comboW), encArr)
 
         PosY += 30
         PosX := 10
@@ -197,7 +188,6 @@ class RunGui {
         val := this.RunModeCon.Value
         switch val {
             case 1:
-                this.StdOutTipCon.Visible := false
                 loop 3 {
                     this.SaveNameTipConArr[A_Index].Visible := false
                     this.SaveNameConArr[A_Index].Visible := false
@@ -214,7 +204,6 @@ class RunGui {
                 this.EncErrTextCon.Visible := false
 
             case 2:
-                this.StdOutTipCon.Visible := true
                 this.SaveNameTipConArr[1].Visible := true
                 this.SaveNameConArr[1].Visible := true
                 loop 2 {
@@ -233,7 +222,6 @@ class RunGui {
                 this.EncErrTextCon.Visible := false
 
             case 3:
-                this.StdOutTipCon.Visible := false
                 loop 3 {
                     this.SaveNameTipConArr[A_Index].Visible := false
                     this.SaveNameConArr[A_Index].Visible := false
@@ -250,7 +238,6 @@ class RunGui {
                 this.EncErrTextCon.Visible := false
 
             case 4:
-                this.StdOutTipCon.Visible := true
                 loop 3 {
                     this.SaveNameTipConArr[A_Index].Visible := true
                     this.SaveNameConArr[A_Index].Visible := true

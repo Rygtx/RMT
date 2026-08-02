@@ -31,6 +31,8 @@ class MacroGraphNodeUIMixin {
         this._FillNodeBody(id, d, body)
         if (d.type == GetLang("如果Pro") && this._nodeShellGrid != "")
             this._AddIfProBranchPortEls(this._nodeShellGrid, id)
+        else if (this._IsBranchPairParentType(d.type) && this._nodeShellGrid != "")
+            this._AddPairBranchPortEls(this._nodeShellGrid, id)
     }
 
     ; 填充节点 body（内联编辑控件）。静态构建与运行时注入复用同一套生成逻辑。
@@ -476,16 +478,51 @@ class MacroGraphNodeUIMixin {
         return this._IsNodePro(searchId) ? 380 : 200
     }
 
+    ; 图形网格吸附（与 EnableDrag grid=20 一致）
+    _GraphGridSnap(v, step := 20) {
+        return Integer(Round(Number(v) / step) * step)
+    }
+
+    ; 搜索/如果：是否为「真假双分支」父类型（不含如果Pro）
+    _IsBranchPairParentType(type) {
+        return type == GetLang("如果") || type == GetLang("搜索") || type == GetLang("搜索Pro")
+    }
+
+    ; 真/假分支默认相对 dy（grid=20）。
+    ; 真=60：避开标题栏标准出点(连后续)；假=200；吸附后与侧边 BrPort 水平对齐。
+    _PairBranchDefaultDY(isTrue) {
+        return isTrue ? 60 : 200
+    }
+
+    _PairBranchDefaultDX(parentId) {
+        return this._GraphGridSnap(this._BranchParentWidth(parentId) + 100)
+    }
+
+    ; 右侧真/假视觉出点中心 Y（相对节点顶）；与分支头中心(顶+31)对齐，便于水平连线
+    _PairBranchPortCenterY(isTrue) {
+        return this._PairBranchDefaultDY(isTrue) + 31
+    }
+
+    _PairBranchPortMarginTop(isTrue) {
+        return this._PairBranchPortCenterY(isTrue) - 37
+    }
+
     ; 分支节点相对搜索节点的逻辑坐标。
     ; 优先使用节点上「保存过的相对偏移」(TrueBranch*/FalseBranch*)，使收缩/展开/重载后分支位置稳定；
-    ; 未保存过时回退到默认计算：X = 节点宽度 + 固定间距（落在右侧、Pro 更宽不重叠），
-    ; Y：真分支与搜索齐平、假分支在其下方偏移。
+    ; 未保存过时回退到默认计算：dx/dy 均为 grid=20 倍数，吸附后与侧边出点水平对齐。
     _BranchPos(searchId, isTrue) {
         sp := this.pos.Has(searchId) ? this.pos[searchId] : { x: 200, y: 200 }
         rel := this._SavedBranchOffset(searchId, isTrue)
-        if (rel != "")
-            return { x: sp.x + rel.dx, y: sp.y + rel.dy }
-        return { x: sp.x + this._BranchParentWidth(searchId) + 100, y: sp.y + (isTrue ? 0 : 210) }
+        if (rel != "") {
+            dx := rel.dx, dy := rel.dy
+            ; 旧默认偏移迁移到当前网格对齐默认
+            if (isTrue && (dy == 0 || dy == 34 || dy == 40))
+                dy := 60
+            if (!isTrue && (dy == 210 || dy == 220))
+                dy := 200
+            return { x: sp.x + dx, y: sp.y + dy }
+        }
+        return { x: sp.x + this._PairBranchDefaultDX(searchId), y: sp.y + this._PairBranchDefaultDY(isTrue) }
     }
 
     ; 取节点上保存的分支相对偏移 { dx, dy }；未保存（字段为空）返回 ""
@@ -541,7 +578,8 @@ class MacroGraphNodeUIMixin {
         }
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillBranchNodeBody(searchId, isTrue, body, brId)
-        this._AddNodePorts(grid, brId)
+        ; 分支不参与主流程出线：仅入点（主节点出点连后续；侧边出点连本分支）
+        this._AddNodeInPortOnly(grid, brId)
         return border
     }
 
@@ -573,6 +611,8 @@ class MacroGraphNodeUIMixin {
         this._ActivateConnection(searchId, this._BranchId(searchId, true))
         this._ActivateConnection(searchId, this._BranchId(searchId, false))
         this._branchInjected[searchId] := true
+        this._ApplyPairBranchPortVisibility(searchId)
+        SetTimer(() => this._SchedulePairBranchPathUpdate(searchId), -100)
     }
 
     _InjectBranchNode(searchId, isTrue) {
@@ -628,14 +668,7 @@ class MacroGraphNodeUIMixin {
 
     ; 给一个节点 grid 追加 入/出 端口（与 _NewNodeShell 中端口样式一致）
     _AddNodePorts(grid, nodeId) {
-        portInEl := XAMLElement("Ellipse")
-        portInEl.Name("Port_In_" nodeId)
-        portInEl._Props["Width"] := "14", portInEl._Props["Height"] := "14"
-        portInEl._Props["Fill"] := "#4CAF50", portInEl._Props["Stroke"] := "#333", portInEl._Props["StrokeThickness"] := "1"
-        portInEl._Props["Grid.Row"] := "1", portInEl._Props["VerticalAlignment"] := "Top", portInEl._Props["HorizontalAlignment"] := "Left", portInEl._Props["Margin"] := "-7,-7,0,0"
-        portInEl._Props["Panel.ZIndex"] := "10", portInEl._Props["IsHitTestVisible"] := "True", portInEl._Props["Cursor"] := "Hand"
-        grid._Children.Push(portInEl)
-
+        this._AddNodeInPortOnly(grid, nodeId)
         portOutEl := XAMLElement("Ellipse")
         portOutEl.Name("Port_Out_" nodeId)
         portOutEl._Props["Width"] := "14", portOutEl._Props["Height"] := "14"
@@ -643,6 +676,47 @@ class MacroGraphNodeUIMixin {
         portOutEl._Props["Grid.Row"] := "1", portOutEl._Props["VerticalAlignment"] := "Top", portOutEl._Props["HorizontalAlignment"] := "Right", portOutEl._Props["Margin"] := "0,-7,-7,0"
         portOutEl._Props["Panel.ZIndex"] := "10", portOutEl._Props["IsHitTestVisible"] := "True", portOutEl._Props["Cursor"] := "Hand"
         grid._Children.Push(portOutEl)
+    }
+
+    ; 仅入点（真假/情况分支、循环体类旁路节点：不跨主流程出线）
+    _AddNodeInPortOnly(grid, nodeId) {
+        portInEl := XAMLElement("Ellipse")
+        portInEl.Name("Port_In_" nodeId)
+        portInEl._Props["Width"] := "14", portInEl._Props["Height"] := "14"
+        portInEl._Props["Fill"] := "#4CAF50", portInEl._Props["Stroke"] := "#333", portInEl._Props["StrokeThickness"] := "1"
+        portInEl._Props["Grid.Row"] := "1", portInEl._Props["VerticalAlignment"] := "Top", portInEl._Props["HorizontalAlignment"] := "Left", portInEl._Props["Margin"] := "-7,-7,0,0"
+        portInEl._Props["Panel.ZIndex"] := "10", portInEl._Props["IsHitTestVisible"] := "True", portInEl._Props["Cursor"] := "Hand"
+        grid._Children.Push(portInEl)
+    }
+
+    ; 搜索/如果右侧真/假视觉出点（不可拖线；连线几何对齐这些点）
+    _AddPairBranchPortEls(grid, id) {
+        folded := this._NodeFolded(id)
+        for isTrue in [true, false] {
+            tag := isTrue ? "T" : "F"
+            mt := this._PairBranchPortMarginTop(isTrue)
+            vis := folded ? "Collapsed" : "Visible"
+            el := XAMLElement("Ellipse")
+            el.Name("BrPort_" id "_" tag)
+            el._Props["Width"] := "14", el._Props["Height"] := "14"
+            el._Props["Fill"] := "#FF5722", el._Props["Stroke"] := "#333", el._Props["StrokeThickness"] := "1"
+            el._Props["Grid.Row"] := "1", el._Props["VerticalAlignment"] := "Top", el._Props["HorizontalAlignment"] := "Right"
+            el._Props["Margin"] := "0," mt ",-7,0"
+            el._Props["Panel.ZIndex"] := "20", el._Props["Visibility"] := vis
+            el._Props["IsHitTestVisible"] := "False", el._Props["Cursor"] := "Hand"
+            grid._Children.Push(el)
+        }
+    }
+
+    _ApplyPairBranchPortVisibility(id) {
+        if (this.ui == "")
+            return
+        expanded := this._IsExpandedSearch(id) || this._IsExpandedIf(id)
+        for isTrue in [true, false] {
+            tag := isTrue ? "T" : "F"
+            this.ui.Update("BrPort_" id "_" tag, "Visibility", expanded ? "Visible" : "Collapsed")
+        }
+        this.ui.Update("Port_Out_" id, "Visibility", "Visible")
     }
 
     ; 折叠（未展开）时分支节点显示的指令条数
@@ -1140,6 +1214,8 @@ class MacroGraphNodeUIMixin {
             this._AddLoopCyclePortEls(grid, id)
         if (d.type == GetLang("如果Pro"))
             this._AddIfProBranchPortEls(grid, id)
+        else if (this._IsBranchPairParentType(d.type))
+            this._AddPairBranchPortEls(grid, id)
 
         ; 压成单行供运行时 AddXamlItem 注入
         nodeXaml := this._FlattenXaml(border.ToString())
@@ -1427,6 +1503,12 @@ class MacroGraphNodeUIMixin {
         ; ComboBox 上 .Text() 会被别名成 Content，需用 SetProp 直接写 Text 属性（编辑框文本，ToString 会自动转义）
         cmb.SetProp("Text", textValue)
         return row
+    }
+
+    ; Action 按钮悬停：默认 Button 样式悬停背景为 #20FFFFFF，与 ActionText（白）撞色看不清
+    _ApplyActionBtnStyle(btn) {
+        btn.InjectResources('<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/><Setter Property="Foreground" Value="{DynamicResource ActionText}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>')
+        return btn
     }
 
     ; 标签型复选框行

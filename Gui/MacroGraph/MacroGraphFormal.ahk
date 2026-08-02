@@ -62,7 +62,8 @@ class MacroGraphFormalMixin {
     }
 
     _RmtOpList() {
-        return GetLangArr(["截图", "截图提取文本", "自由贴", "启用键鼠", "禁用键鼠", "显示菜单", "关闭菜单",
+        return GetLangArr(["截图", "截图提取文本", "自由贴", "启用鼠标", "启用键盘", "启用键鼠",
+            "禁用鼠标", "禁用键盘", "禁用键鼠", "显示菜单", "关闭菜单",
             "暂停所有宏", "恢复所有宏", "终止所有宏", "开启变量监视", "关闭变量监视", "开启指令显示",
             "关闭指令显示", "关闭软件", "休眠", "重载"])
     }
@@ -279,10 +280,6 @@ class MacroGraphFormalMixin {
             this._FillIfProBody(id, d, body)
     }
 
-    _AddFormalHint(body) {
-        body.Add("TextBlock").Text(GetLang("双击编辑")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
-    }
-
     _FillSubMacroBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
         macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
@@ -476,15 +473,16 @@ class MacroGraphFormalMixin {
         on := toggled == 1 || toggled == "1"
         un := d.HasOwnProp("updateName" slot) ? d["updateName" slot] : "Var" slot
         ex := d.HasOwnProp("expression" slot) ? d["expression" slot] : ""
-        ; 逐级展开：仅勾选上一个变量后才显示下一个（visible 控制整组行显隐，降低展开高度）
-        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, on, visible)
+        ; 逐级展开：仅勾选上一个运算后才显示下一个（visible 控制整组行显隐，降低展开高度）
+        this._AddCheckRow(body, p "TogRow_" id, p "Tog_" id, GetLang("运算") slot, on, visible)
         ; 表达式行：文本框 + 编辑按钮（输入框宽度140px）
         ; 注意：表达式中可能包含 { } 变量语法，需要 XAML 转义
         exprRow := body.Add("StackPanel").Name(p "ExprRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         if (!(visible && on))
             exprRow.Visibility("Collapsed")
         exprRow.Add("TextBox").Name(p "Expr_" id).Text(this._XamlEscape(ex)).Width("140").Height("20").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center").TextAlignment("Center").CaretBrush("{DynamicResource InputText}")
-        exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
+        editBtn := exprRow.Add("Button").Name(p "ExprEdit_" id).Content(GetLang("编辑")).Width("32").Height("20").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
+        this._ApplyActionBtnStyle(editBtn)
         ; 结果变量下拉
         this._AddEditableComboRow(body, p "TargetRow_" id, GetLang("结果变量："), p "Target_" id, GetGuiVarArr(), un, visible && on, lw, cw)
     }
@@ -568,12 +566,12 @@ class MacroGraphFormalMixin {
             toggled := d.HasOwnProp("opToggle" slot) ? d["opToggle" slot] : (slot == 1 ? 1 : 0)
             prevOn := vis && (toggled == 1 || toggled == "1")
         }
-        this._AddFormalHint(fullBox)
     }
 
-    ; 收起态摘要：4 个固定命名行（按启用与否显隐），逐个显示「目标 = 表达式」
+    ; 收起态摘要：4 个固定命名行（按启用与否显隐），逐个显示「目标 = 表达式」（颜色跟主题）
     _FillOperationSummary(id, d, box) {
         anyOn := false
+        fg := "{DynamicResource TextMain}"
         loop 4 {
             slot := A_Index
             info := this._OpSummaryRowInfo(d, slot)
@@ -582,10 +580,10 @@ class MacroGraphFormalMixin {
             row := box.Add("StackPanel").Name("OpSumRow_" slot "_" id).Orientation("Horizontal").Margin("0,5,0,0")
             if (!info.on)
                 row.Visibility("Collapsed")
-            row.Add("Ellipse").Width("7").Height("7").Fill("#5C9DED").Margin("0,0,6,0").VerticalAlignment("Center")
-            row.Add("TextBlock").Name("OpSumTxt_" slot "_" id).Text(this._XamlEscape(info.text)).Foreground("#E8E8E8").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
+            row.Add("Ellipse").Width("7").Height("7").Fill("{DynamicResource GraphConnSel}").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("TextBlock").Name("OpSumTxt_" slot "_" id).Text(this._XamlEscape(info.text)).Foreground(fg).FontSize(this._MGFontSize(12)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
         }
-        emptyTb := box.Add("TextBlock").Name("OpSumEmpty_" id).Text(GetLang("未启用任何变量")).Foreground("#999999").FontSize(this._MGFontSize(11)).Margin("0,5,0,0")
+        emptyTb := box.Add("TextBlock").Name("OpSumEmpty_" id).Text(GetLang("未启用任何运算")).Foreground(fg).FontSize(this._MGFontSize(11)).Margin("0,5,0,0")
         if (anyOn)
             emptyTb.Visibility("Collapsed")
     }
@@ -604,57 +602,74 @@ class MacroGraphFormalMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
+        anyOn := false
         loop 4 {
             slot := A_Index
             info := this._OpSummaryRowInfo(d, slot)
-            rowName := "OpSumRow_" slot "_" id
-            txtName := "OpSumTxt_" slot "_" id
-            try {
-                this.ui.Update(rowName, "Visibility", info.on ? "Visible" : "Collapsed")
-                this.ui.Update(txtName, "Text", info.text)
-            }
+            if (info.on)
+                anyOn := true
+            this.ui.Update("OpSumRow_" slot "_" id, "Visibility", info.on ? "Visible" : "Collapsed")
+            this.ui.Update("OpSumTxt_" slot "_" id, "Text", info.text)
         }
+        this.ui.Update("OpSumEmpty_" id, "Visibility", anyOn ? "Collapsed" : "Visible")
+    }
+
+    ; 与运行编辑器一致：1不等待 2等待+返回值 3不等待+输入 4等待+输入输出
+    _FormalRunModeArr() {
+        return GetLangArr(["不等待", "等待+返回值", "不等待+输入", "等待+输入输出"])
     }
 
     _FillRunBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
-        modes := GetLangArr(["不等待", "等待+返回值", "等待+完整输出"])
-        saveLabels := [GetLang("退出码"), GetLang("标准输出"), GetLang("标准错误")]
-        rm := d.HasOwnProp("mode") ? d.runMode : 1
-        rp := d.HasOwnProp("target") ? d.runTarget : ""
-        showSave := rm >= 2
-        optionVal := d.HasOwnProp("option") ? d.option : 0
+        modes := this._FormalRunModeArr()
+        saveLabels := [GetLang("返回值"), GetLang("输出"), GetLang("错误")]
+        rm := d.HasOwnProp("runMode") ? d.runMode : 1
+        if (rm == "" || !IsNumber(rm))
+            rm := 1
+        rm := Integer(rm)
+        if (rm < 1 || rm > 4)
+            rm := 1
+        rp := d.HasOwnProp("runTarget") ? d.runTarget : ""
+        optionVal := d.HasOwnProp("option") ? d.option : 1
+        if (optionVal == "" || !IsNumber(optionVal))
+            optionVal := 1
+        optionVal := Integer(optionVal)
         stdinVal := d.HasOwnProp("stdin") ? d.stdin : ""
-        showStdIn := rm == 3
+        ; 显隐：与 RunGui.OnModeChange 对齐
+        showStdIn := (rm == 3 || rm == 4)
+        showEncIn := showStdIn
+        showEncOut := (rm == 4)
+        showSave1 := (rm == 2 || rm == 4)
+        showSave23 := (rm == 4)
         ; 路径行：输入框 + 文件按钮（无标签，输入框宽度+30px）
         RunTargetRow := body.Add("StackPanel").Name("RunTargetRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         RunTargetRow.Add("TextBox").Name("RunTarget_" id).Text(rp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
+        this._ApplyActionBtnStyle(RunTargetRow.Add("Button").Name("RunTargetBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}"))
         this._AddComboRow(body, "RunModeRow_" id, GetLang("模式："), "RunModeCmb_" id, modes, rm - 1, true, true, lw, cw)
 
-        ; 窗口状态 ComboBox (Hide / / Max / Min)
-        options := ["Hide", "", "Min", "Max"]
+        options := GetLangArr(["后台", "默认", "最小化", "最大化"])
         this._AddComboRow(body, "RunHideRow_" id, GetLang("窗口："), "RunOptionCmb_" id, options, optionVal, true, true, lw, cw)
-
-        ; 标准输入 Row
-        stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
-        if (!showStdIn)
-            stdinRow.Visibility("Collapsed")
-        stdinRow.Add("Label").Content(GetLang("标准输入：")).Width(lw).Height("22").FontSize("11").Foreground("{DynamicResource InputText}").VerticalContentAlignment("Center").Padding("0")
-        stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(stdinVal).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
 
         encArr := GetLangArr(["UTF-8", "UTF-16", "CP0"])
         encInVal  := d.HasOwnProp("encIn")  ? d.encIn  : "UTF-8"
         encOutVal := d.HasOwnProp("encOut") ? d.encOut : "UTF-8"
-        this._AddComboRow(body, "RunEncInRow_" id,  GetLang("输入编码："), "RunEncInCmb_"  id, encArr, this._IndexInLangArr(encArr, encInVal),  showStdIn, true, lw, cw)
-        this._AddComboRow(body, "RunEncOutRow_" id, GetLang("输出编码："), "RunEncOutCmb_" id, encArr, this._IndexInLangArr(encArr, encOutVal), showStdIn, true, lw, cw)
+        encErrVal := d.HasOwnProp("encErr") ? d.encErr : "UTF-8"
+        this._AddComboRow(body, "RunEncInRow_" id,  GetLang("输入编码："), "RunEncInCmb_"  id, encArr, this._IndexInLangArr(encArr, encInVal),  showEncIn, true, lw, cw)
+        this._AddComboRow(body, "RunEncOutRow_" id, GetLang("输出编码："), "RunEncOutCmb_" id, encArr, this._IndexInLangArr(encArr, encOutVal), showEncOut, true, lw, cw)
+        this._AddComboRow(body, "RunEncErrRow_" id, GetLang("错误编码："), "RunEncErrCmb_" id, encArr, this._IndexInLangArr(encArr, encErrVal), showEncOut, true, lw, cw)
+
+        stdinRow := body.Add("StackPanel").Name("RunStdInRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
+        if (!showStdIn)
+            stdinRow.Visibility("Collapsed")
+        stdinRow.Add("Label").Content(GetLang("输入：")).Width(lw).Height("22").FontSize("11").Foreground("{DynamicResource InputText}").VerticalContentAlignment("Center").Padding("0")
+        stdinRow.Add("TextBox").Name("RunStdIn_" id).Text(this._XamlEscape(stdinVal)).Width(cw).Height("22").MinHeight("0").FontSize("11").Padding("4,0").VerticalContentAlignment("Center")
 
         loop 3 {
             i := A_Index
             sn := d.HasOwnProp("runSave" i) ? d["runSave" i] : (i == 1 ? "ExitCode" : (i == 2 ? "StdOut" : "StdErr"))
+            showSave := (i == 1) ? showSave1 : showSave23
             this._AddEditableComboRow(body, "RunSave" i "Row_" id, saveLabels[i] "：", "RunSave" i "_" id, GetGuiVarArr(), sn, showSave, lw, cw)
         }
-        this._AddFormalHint(body)
     }
 
     ; 选择文件按钮：打开文件选择对话框，选择后填入路径输入框
@@ -722,7 +737,7 @@ class MacroGraphFormalMixin {
         ; 路径行：输入框 + 文件按钮（无标签，与运行节点一致）
         fioPathRow := body.Add("StackPanel").Name("FIOPathRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         fioPathRow.Add("TextBox").Name("FIOPath_" id).Text(fp).Width(cw + 25).Height("22").MinHeight("0").FontSize("12").Padding("4,0").VerticalContentAlignment("Center")
-        fioPathRow.Add("Button").Name("FIOPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}")
+        this._ApplyActionBtnStyle(fioPathRow.Add("Button").Name("FIOPathBrowse_" id).Content(GetLang("文件")).Width("50").Height("22").FontSize(this._MGFontSize(10)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}"))
         ; 表名/序号（仅Excel时显示，默认值1）
         nameOrSerial := d.HasOwnProp("NameOrSerial") ? d.NameOrSerial : 1
         this._AddFieldRow(body, "FIOSheetRow_" id, GetLang("表名："), "FIOSheet_" id, nameOrSerial, IsExcel, true, "", "", "", lw, cw)
@@ -743,7 +758,6 @@ class MacroGraphFormalMixin {
         ; 保存类型是变量时用变量列表，是数组时用数组列表
         saveNameList := IsResOnlyVar ? GetGuiVarArr() : GetGuiArrNameArr()
         this._AddEditableComboRow(body, "FIOSaveRow_" id, GetLang("保存名："), "FIOSave_" id, saveNameList, sn, showSave, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillTextOpsBody(id, d, body) {
@@ -772,7 +786,6 @@ class MacroGraphFormalMixin {
         ; 保存类型固定为文本框（参考文件读写节点），避免切换类型时闪烁
         this._AddFieldRow(body, "TxtSaveTypeRow_" id, GetLang("保存类型："), "TxtSaveTypeTxt_" id, fixedSt, true, false, "", "", "", lw, cw)
         this._AddEditableComboRow(body, "TxtSaveRow_" id, GetLang("保存名："), "TxtSave_" id, GetGuiVarArr(), sn, true, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillArrayBody(id, d, body) {
@@ -799,7 +812,7 @@ class MacroGraphFormalMixin {
         saveNameList := (effSt == "数组") ? GetGuiArrNameArr() : GetGuiVarArr()
         this._AddComboRow(body, "ArrTypeRow_" id, GetLang("操作："), "ArrTypeCmb_" id, typeNames, this._IndexInLangArr(typeNames, GetLang(at)), true, true, lw, cw)
         this._AddEditableComboRow(body, "ArrNameRow_" id, GetLang("数组："), "ArrName_" id, GetGuiArrNameArr(), an, true, lw, cw)
-        this._AddCheckRow(body, "ArrIgnRow_" id, "ArrIgn_" id, GetLang("忽略已存在"), (ign == 1 || ign == "1") && f.ShowIgn, f.ShowIgn)
+        this._AddCheckRow(body, "ArrIgnRow_" id, "ArrIgn_" id, GetLang("如果数组存在则不改变数据"), (ign == 1 || ign == "1") && f.ShowIgn, f.ShowIgn)
         this._AddFieldRow(body, "ArrInitRow_" id, GetLang("初始值："), "ArrInit_" id, initTxt, f.IsCreate, true, "", "", "", lw, cw)
         this._AddEditableComboRow(body, "ArrMainRow_" id, GetLang("子索引："), "ArrMain_" id, GetGuiVarArr(), mi, f.IsShowMainIndex, lw, cw)
         this._AddEditableComboRow(body, "ArrArgsIdxRow_" id, GetLang("索引："), "ArrArgsIdx_" id, GetGuiVarArr(), ai, showIdx, lw, cw)
@@ -807,7 +820,6 @@ class MacroGraphFormalMixin {
         this._AddEditableComboRow(body, "ArrArgsNameRow_" id, GetLang("参数值："), "ArrArgsName_" id, argsNameList, agn, showData, lw, cw)
         this._AddComboRow(body, "ArrSaveTypeRow_" id, GetLang("保存类型："), "ArrSaveTypeCmb_" id, saveTypes, this._IndexInLangArr(saveTypes, GetLang(effSt)), f.IsShowResult, fixedSt == "", lw, cw)
         this._AddEditableComboRow(body, "ArrSaveRow_" id, GetLang("保存名："), "ArrSave_" id, saveNameList, sn, f.IsShowResult, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillRmtBody(id, d, body) {
@@ -837,7 +849,6 @@ class MacroGraphFormalMixin {
         this._AddComboRow(body, "RmtOpRow_" id, GetLang("指令："), "RmtOpCmb_" id, ops, this._IndexInLangArr(ops, currentOp), true, true, lw, cw)
         ; 菜单序号（仅显示菜单时显示）
         this._AddComboRow(body, "RmtMenuRow_" id, GetLang("菜单序号："), "RmtMenuCmb_" id, menuItems, Max(0, menuIdx - 1), showMenu && menuItems.Length > 0, showMenu, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillBGMouseBody(id, d, body) {
@@ -848,9 +859,11 @@ class MacroGraphFormalMixin {
         ot := d.HasOwnProp("bgOperateType") ? d.bgOperateType : 1
         mt := d.HasOwnProp("bgMouseType") ? d.bgMouseType : 1
         isScroll := mt == 4
+        showClickTime := !isScroll && (ot == 1 || ot == 2)   ; 点击/双击
         tt := d.HasOwnProp("targetTitle") ? d.targetTitle : ""
         px := d.HasOwnProp("bgPosVarX") ? d.bgPosVarX : 100
         py := d.HasOwnProp("bgPosVarY") ? d.bgPosVarY : 100
+        ctm := d.HasOwnProp("clickTime") ? d.clickTime : 50
         sv := d.HasOwnProp("scrollV") ? d.scrollV : 1
         sh := d.HasOwnProp("scrollH") ? d.scrollH : 0
         titleRow := body.Add("StackPanel").Name("BgmTitleRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
@@ -858,11 +871,11 @@ class MacroGraphFormalMixin {
         titleRow.Add("Button").Name("BgmTitleEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0").Cursor("Hand")
         this._AddComboRow(body, "BgmMouseRow_" id, GetLang("按键："), "BgmMouseCmb_" id, mouseTypes, mt - 1, true, true, lw, cw)
         this._AddComboRow(body, "BgmOpRow_" id, GetLang("动作："), "BgmOpCmb_" id, opTypes, ot - 1, !isScroll, !isScroll, lw, cw)
+        this._AddFieldRow(body, "BgmTimeRow_" id, GetLang("点击时间:"), "BgmTime_" id, ctm, showClickTime, true, "", "", "", lw, cw)
         this._AddEditableComboRow(body, "BgmXRow_" id, GetLang("坐标X："), "BgmX_" id, varList, px, true, lw, cw)
         this._AddEditableComboRow(body, "BgmYRow_" id, GetLang("坐标Y："), "BgmY_" id, varList, py, true, lw, cw)
         this._AddFieldRow(body, "BgmSVRow_" id, GetLang("垂直滚动："), "BgmSV_" id, sv, isScroll, true, "", "", "", lw, cw)
         this._AddFieldRow(body, "BgmSHRow_" id, GetLang("水平滚动："), "BgmSH_" id, sh, isScroll, true, "", "", "", lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillBGKeyBody(id, d, body) {
@@ -883,14 +896,18 @@ class MacroGraphFormalMixin {
         this._AddFieldRow(body, "BgkTimeRow_" id, GetLang("点击时长："), "BgkTime_" id, ctm, isClick, true, "", "", "", lw, cw)
         this._AddFieldRow(body, "BgkCountRow_" id, GetLang("点击次数："), "BgkCount_" id, cc, isClick, true, "", "", "", lw, cw)
         this._AddFieldRow(body, "BgkInterRow_" id, GetLang("每次间隔："), "BgkInter_" id, ci, isClick, true, "", "", "", lw, cw)
-        this._AddFormalHint(body)
+    }
+
+    ; 与 WindowManageGui.ActionTypeArr 一致
+    _FormalWindowManageActions() {
+        return GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
+            "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度", "开启鼠标穿透", "关闭鼠标穿透"])
     }
 
     _FillWindowManageBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
         varList := GetGuiVarArr()
-        actions := GetLangArr(["激活窗口", "最大化窗口", "最小化窗口", "还原窗口", "关闭窗口", "移动窗口",
-            "调整大小", "置顶窗口", "取消置顶", "修改标题", "修改透明度"])
+        actions := this._FormalWindowManageActions()
         at := d.HasOwnProp("wmActionType") ? d.wmActionType : "激活窗口"
         sv := d.HasOwnProp("wmSearchValue") ? d.wmSearchValue : ""
         atKey := GetLangKey(at)
@@ -901,14 +918,13 @@ class MacroGraphFormalMixin {
         this._AddComboRow(body, "WmActRow_" id, GetLang("操作："), "WmActCmb_" id, actions, this._IndexInLangArr(actions, GetLang(at)), true, true, lw, cw)
         winRow := body.Add("StackPanel").Name("WmWinRow_" id).Orientation("Horizontal").Margin("0,5,0,0")
         this._MakeTextBox(winRow, "WmWin_" id, sv, "130")
-        winRow.Add("Button").Name("WmWinEdit_" id).Content(GetLang("编辑")).FontSize(this._MGFontSize(11)).Height("20").Margin("4,0,0,0").Padding("8,0").Cursor("Hand")
+        this._ApplyActionBtnStyle(winRow.Add("Button").Name("WmWinEdit_" id).Content(GetLang("编辑")).Width("40").Height("20").FontSize(this._MGFontSize(11)).Padding("0").Margin("4,0,0,0").VerticalAlignment("Center").Cursor("Hand").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderThickness("1").BorderBrush("{DynamicResource ActionStroke}"))
         this._AddEditableComboRow(body, "WmXRow_" id, GetLang("坐标X："), "WmX_" id, varList, d.HasOwnProp("wmPosX") ? d.wmPosX : 0, isMove, lw, cw)
         this._AddEditableComboRow(body, "WmYRow_" id, GetLang("坐标Y："), "WmY_" id, varList, d.HasOwnProp("wmPosY") ? d.wmPosY : 0, isMove, lw, cw)
         this._AddEditableComboRow(body, "WmWRow_" id, GetLang("宽度："), "WmW_" id, varList, d.HasOwnProp("wmWidth") ? d.wmWidth : 0, isSize, lw, cw)
         this._AddEditableComboRow(body, "WmHRow_" id, GetLang("高度："), "WmH_" id, varList, d.HasOwnProp("wmHeight") ? d.wmHeight : 0, isSize, lw, cw)
         this._AddEditableComboRow(body, "WmTitleRow_" id, GetLang("新标题："), "WmTitle_" id, varList, d.HasOwnProp("wmNewTitle") ? d.wmNewTitle : "", isTitle, lw, cw)
         this._AddEditableComboRow(body, "WmTransRow_" id, GetLang("透明度："), "WmTrans_" id, varList, d.HasOwnProp("wmTransparency") ? d.wmTransparency : "80", isTrans, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillKeyCheckBody(id, d, body) {
@@ -923,7 +939,6 @@ class MacroGraphFormalMixin {
         this._AddComboRow(body, "KcCheckRow_" id, GetLang("检测："), "KcCheckCmb_" id, checkTypes, ct - 1, true, true, lw, cw)
         this._AddComboRow(body, "KcStateRow_" id, GetLang("状态类型："), "KcStateCmb_" id, stateTypes, st - 1, true, true, lw, cw)
         this._AddEditableComboRow(body, "KcVarRow_" id, GetLang("变量："), "KcVar_" id, GetGuiVarArr(), vn, true, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _FillScreenShotBody(id, d, body) {
@@ -953,7 +968,6 @@ class MacroGraphFormalMixin {
         this._AddFieldRow(body, "SsFixedRow_" id, GetLang("名称："), "SsFixed_" id, fixed, showFixed, true, "", "", "", lw, cw)
         this._AddCheckRow(body, "SsResTogRow_" id, "SsResTog_" id, GetLang("保存到变量"), on, true)
         this._AddEditableComboRow(body, "SsResNameRow_" id, GetLang("变量名："), "SsResName_" id, varList, rn, on, lw, cw)
-        this._AddFormalHint(body)
     }
 
     _LoopCondiTypes() {
@@ -1432,6 +1446,7 @@ class MacroGraphFormalMixin {
             this._FormalTrackField(id, "RunStdIn", h, runtime)
             this._FormalTrackCombo(id, "RunEncInCmb", h, runtime)
             this._FormalTrackCombo(id, "RunEncOutCmb", h, runtime)
+            this._FormalTrackCombo(id, "RunEncErrCmb", h, runtime)
             loop 3
                 this._FormalTrackEditCombo(id, "RunSave" A_Index, h, runtime)
         } else if (t == GetLang("文件读写")) {
@@ -1485,6 +1500,7 @@ class MacroGraphFormalMixin {
             this._BindCtrl("BgmTitleEdit_" id, "Click", this._OnFormalBGMouseTitleEdit.Bind(this, id), runtime)
             this._FormalTrackCombo(id, "BgmOpCmb", h, runtime)
             this._FormalTrackCombo(id, "BgmMouseCmb", h, runtime)
+            this._FormalTrackField(id, "BgmTime", h, runtime)
             this._FormalTrackEditCombo(id, "BgmX", h, runtime)
             this._FormalTrackEditCombo(id, "BgmY", h, runtime)
             this._FormalTrackField(id, "BgmSV", h, runtime)

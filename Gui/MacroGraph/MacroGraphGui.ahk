@@ -203,13 +203,12 @@ class MacroGraphGui {
 
         ; 右上角：切换到逻辑树（仅顶层宏编辑器；嵌套分支编辑器不显示）
         ; 右下角：保存（颜色走通用窗口主题）
-        actionBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource ActionHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource ActionHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
         if (this.OnClosedAction == "") {
             toTreeBtn := root.Add("Button").Name("MG_BtnToTree").Content(GetLang("逻辑树")).HorizontalAlignment("Right").VerticalAlignment("Top").Margin("0,12,16,0").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
-            toTreeBtn.InjectResources(actionBtnStyle)
+            this._ApplyActionBtnStyle(toTreeBtn)
         }
         saveBtn := root.Add("Button").Name("MG_BtnSave").Content(GetLang("保存")).HorizontalAlignment("Right").VerticalAlignment("Bottom").Margin("0,0,16,16").Width("90").Height("32").Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}").BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1").FontSize("14").Cursor("Hand")
-        saveBtn.InjectResources(actionBtnStyle)
+        this._ApplyActionBtnStyle(saveBtn)
 
         ; 渲染前：为展开的搜索节点预留分支空间（仅在后继过近时右移逻辑坐标），避免首次进入分支与后继重叠
         this._StaticSpreadExpandedSearches()
@@ -236,23 +235,12 @@ class MacroGraphGui {
             }
         }
 
-        ; 连线（来自 links，跨重建保留）。展开的搜索节点：其后继经真/假分支节点转发，
-        ; 表达「执行分支后再执行后续节点」；折叠时搜索直连后续。
+        ; 连线（来自 links，跨重建保留）。展开/收起均由主节点直连后续；
+        ; 展开时另有「主→分支」强制边（由 _BuildBranches 添加），分支无出点。
         for link in this.links {
             if (!this._NodeExists(link.from) || !this._NodeExists(link.to))
                 continue
-            if (this._HasVisibleBranches(link.from)) {
-                if (this._IsIfProNodeId(link.from)) {
-                    count := this._IfProBranchCountFromId(link.from)
-                    loop count
-                        this.graph.AddConnection(this._ProBranchId(link.from, A_Index - 1), link.to)
-                } else {
-                    this.graph.AddConnection(this._BranchId(link.from, true), link.to)
-                    this.graph.AddConnection(this._BranchId(link.from, false), link.to)
-                }
-            } else {
-                this.graph.AddConnection(link.from, link.to)
-            }
+            this.graph.AddConnection(link.from, link.to)
         }
 
         ; 右键菜单（_BuildContextMenu 内部会把 ContextMenu 属性元素移到画布子元素最前，
@@ -268,6 +256,9 @@ class MacroGraphGui {
             if (this._IsExpandedIfPro(id)) {
                 this._RefreshIfProPortPositions(id)
                 this._UpdateIfProBranchPaths(id)
+            } else if (this._IsExpandedSearch(id) || this._IsExpandedIf(id)) {
+                this._ApplyPairBranchPortVisibility(id)
+                this._UpdatePairBranchPaths(id)
             }
         }
         this._RegisterNodeEvents()

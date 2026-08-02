@@ -424,6 +424,7 @@ class MacroGraphDataMixin {
             d.stdin := ObjHasOwnProp(data, "StdIn") ? data.StdIn : ""
             d.encIn  := (ObjHasOwnProp(data, "Encoding") && ObjHasOwnProp(data.Encoding, "In"))  ? data.Encoding.In  : "UTF-8"
             d.encOut := (ObjHasOwnProp(data, "Encoding") && ObjHasOwnProp(data.Encoding, "Out")) ? data.Encoding.Out : "UTF-8"
+            d.encErr := (ObjHasOwnProp(data, "Encoding") && ObjHasOwnProp(data.Encoding, "Err")) ? data.Encoding.Err : "UTF-8"
             loop 3 {
                 if (ObjHasOwnProp(data, "SaveNameArr") && data.SaveNameArr.Length >= A_Index)
                     d["runSave" A_Index] := data.SaveNameArr[A_Index]

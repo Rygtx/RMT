@@ -88,8 +88,7 @@ class MacroGraphInlineMixin {
         }
 
         ; 连线：分支→入口子节点、子节点之间。
-        ; 若某子节点本身是「如果/搜索」（有真/假分支卡片），其后继经由两个分支卡片相连——
-        ; 与顶层如果一致（真、假分支各连一条到后继），保证收/展、增删后语义与显示对称。
+        ; 内联子若本身是「如果/搜索」，后继仍由该子节点直连（与顶层：展开时主节点连后续一致）。
         for rec in recs {
             if (rec.entry && keyToSub.Has(rec.key))
                 this._ActivateConnection(brId, keyToSub[rec.key])
@@ -100,12 +99,7 @@ class MacroGraphInlineMixin {
                 if (!keyToSub.Has(nk))
                     continue
                 toSub := keyToSub[nk]
-                if (this._HasVisibleBranches(fromSub) && !this._IsIfProNodeId(fromSub)) {
-                    this._ActivateConnection(this._BranchId(fromSub, true), toSub)
-                    this._ActivateConnection(this._BranchId(fromSub, false), toSub)
-                } else {
-                    this._ActivateConnection(fromSub, toSub)
-                }
+                this._ActivateConnection(fromSub, toSub)
             }
         }
 

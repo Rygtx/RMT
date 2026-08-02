@@ -141,9 +141,9 @@ class MacroGraphIfProMixin {
         return 6 + 6 + 6 + 2 + 18
     }
 
-    ; 网格吸附（与 EnableDrag grid=20 一致）
+    ; 网格吸附（与 EnableDrag grid=20 一致；复用统一入口）
     _IfProGridSnap(v, step := 20) {
-        return Integer(Round(Number(v) / step) * step)
+        return this._GraphGridSnap(v, step)
     }
 
     ; 各情况/默认分支出点中心 Y（相对节点顶边）。
@@ -229,12 +229,17 @@ class MacroGraphIfProMixin {
         return pi != "" && pi.parentId == fromId && this._IsExpandedIfPro(fromId)
     }
 
-    ; 由 XNodeGraph.UpdatePath 委托：已处理返回 true，否则 false 走默认路径
+    ; 由 XNodeGraph.UpdatePath 委托：如果Pro / 搜索·如果 侧边出点路径；否则 false 走默认
     _TryIfProUpdatePath(fromId, toId, pathId, initial := false, pathEl := "") {
-        if (!this._IsIfProBranchLink(fromId, toId))
-            return false
-        this._ApplyIfProConnectionPath(fromId, toId, pathId, initial, pathEl)
-        return true
+        if (this._IsIfProBranchLink(fromId, toId)) {
+            this._ApplyIfProConnectionPath(fromId, toId, pathId, initial, pathEl)
+            return true
+        }
+        if (this._IsPairBranchLink(fromId, toId)) {
+            this._ApplyPairBranchConnectionPath(fromId, toId, pathId, initial, pathEl)
+            return true
+        }
+        return false
     }
 
     _ApplyIfProConnectionPath(fromId, toId, pathId, initial := false, pathEl := "") {
@@ -384,7 +389,7 @@ class MacroGraphIfProMixin {
         count := this._IfProBranchCountFromId(id)
         loop count
             this.ui.Update("ProBrPort_" id "_" (A_Index - 1), "Visibility", expanded ? "Visible" : "Collapsed")
-        ; 展开/收起均保留标题栏标准出点；展开时若从此出点连到后续，会自动拆分到各情况分支
+        ; 展开/收起均保留标题栏标准出点（主流程后继始终从主节点出）
         this.ui.Update("Port_Out_" id, "Visibility", "Visible")
     }
 
@@ -571,7 +576,8 @@ class MacroGraphIfProMixin {
         hp.Add("TextBlock").Text(title).Foreground(titleFg).FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillProBranchNodeBody(parentId, idx, body, brId)
-        this._AddNodePorts(grid, brId)
+        ; 情况分支不参与主流程出线：仅入点
+        this._AddNodeInPortOnly(grid, brId)
         return border
     }
 
@@ -903,10 +909,7 @@ class MacroGraphIfProMixin {
             return
         this._CaptureLinks()
         succ := this._SuccessorsOf(parentId)
-        for conn in g.connections {
-            if (conn.From == parentId && !this._IsBranchId(conn.To) && !this._IsProBranchId(conn.To))
-                this._DeactivateConnection(conn)
-        }
+        ; 展开：主节点仍连后续；仅显示情况分支并由主节点侧边出点连入分支
         if (!this._branchInjected.Has(parentId)) {
             this._InjectProBranchSet(parentId)
         } else {
@@ -919,15 +922,8 @@ class MacroGraphIfProMixin {
                 this._ActivateConnection(parentId, brId)
             }
         }
-        count := this._IfProBranchCountFromId(parentId)
-        loop count {
-            idx := A_Index - 1
-            brId := this._ProBranchId(parentId, idx)
-            for x in succ
-                this._ActivateConnection(brId, x)
-        }
-        loop count
-            this.ui.Update("ProBrPort_" parentId "_" (A_Index - 1), "Visibility", "Visible")
+        for x in succ
+            this._ActivateConnection(parentId, x)
         this._ApplyIfProPortOutVisibility(parentId)
         this._RestoreProBranchPositions(parentId)
         this._SpreadForExpand(parentId)

@@ -261,7 +261,7 @@ class MacroGraphMenuMixin {
         ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）
         if (this._IsExpandedLoop(id))
             this._InjectLoopBodyNode(id)
-        ; 由出点拖拽触发的添加：自动连线（源可能是分支节点；展开搜索的直连会被规范化为双分支）
+        ; 由出点拖拽触发的添加：自动连线（展开态主节点仍直连后续；分支无出点）
         if (pendingFrom != "" && pendingFrom != id) {
             srcOk := fromIsBranch ? this._branchInjected.Has(logicalFrom) : this._NodeExists(pendingFrom)
             if (srcOk) {

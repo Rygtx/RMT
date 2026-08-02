@@ -89,7 +89,7 @@ class MacroGraphHandlersMixin {
         else if (type == GetLang("数组"))
             keys := ["ArrName_" id, "ArrMain_" id, "ArrArgsIdx_" id, "ArrArgsName_" id, "ArrSave_" id]
         else if (type == GetLang("后台鼠标"))
-            keys := ["BgmX_" id, "BgmY_" id]
+            keys := ["BgmX_" id, "BgmY_" id, "BgmTime_" id]
         else if (type == GetLang("后台按键"))
             keys := ["BgkTime_" id, "BgkCount_" id, "BgkInter_" id]
         else if (type == GetLang("窗口管理"))

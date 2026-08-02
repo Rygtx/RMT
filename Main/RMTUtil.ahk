@@ -642,7 +642,9 @@ ToolTipTimer() {
 ExcuteRMTCMDAction(Cmd) {
     ; 新格式: RMT指令⫶类别⫶指令 → paramArr[1]=RMT指令, paramArr[2]=类别, paramArr[3]=指令
     paramArr := StrSplit(Cmd, "⫶")
-    switch paramArr[3] {
+    if (paramArr.Length >= 3 && ApplyRmtInputControl(paramArr[3]))
+        return
+    switch GetLangKey(paramArr[3]) {
         case "截图":
             OnToolScreenShot()
         case "截图提取文本":
@@ -685,10 +687,6 @@ ExcuteRMTCMDAction(Cmd) {
             OpenMenuWheel(paramArr[4], false)
         case "关闭菜单":
             CloseMenuWheel()
-        case "启用键鼠":
-            BlockInput false
-        case "禁用键鼠":
-            BlockInput true
         case "休眠":
             OnSuspendHotkey()
         case "暂停所有宏":

@@ -1245,20 +1245,57 @@ OnMouseMove(tableItem, cmd, index) {
     }
 }
 
+; RMT 输入控制：键鼠/鼠标/键盘 启用与禁用（cmd 可为中文键或当前语言文本）
+ApplyRmtInputControl(cmdStr) {
+    key := GetLangKey(cmdStr)
+    switch key {
+        case "启用键鼠":
+            BlockInput false
+            try BlockInput "MouseMoveOff"
+            RmtBlockKeyboard(false)
+            return true
+        case "禁用键鼠":
+            BlockInput true
+            return true
+        case "启用鼠标":
+            BlockInput "MouseMoveOff"
+            return true
+        case "禁用鼠标":
+            BlockInput "MouseMove"
+            return true
+        case "启用键盘":
+            RmtBlockKeyboard(false)
+            return true
+        case "禁用键盘":
+            RmtBlockKeyboard(true)
+            return true
+    }
+    return false
+}
+
+; 仅屏蔽键盘（InputHook）；与 BlockInput 鼠标模式相互独立
+RmtBlockKeyboard(enableBlock) {
+    static hook := unset
+    if (!IsSet(hook)) {
+        hook := InputHook("L0 I")
+        hook.KeyOpt("{All}", "S")
+    }
+    if (enableBlock) {
+        if (!hook.InProgress)
+            hook.Start()
+    } else if (hook.InProgress) {
+        hook.Stop()
+    }
+}
+
 OnRMTCMD(tableItem, cmd, index) {
     ; 新格式: RMT指令_类别_指令 → paramArr[1]=RMT指令, paramArr[2]=类别, paramArr[3]=指令
     paramArr := StrSplit(cmd, "_")
     cmdStr := paramArr[3]
-    if (cmdStr == "启用键鼠") {
-        BlockInput false
-    }
-    else if (cmdStr == "禁用键鼠") {
-        BlockInput true
-    }
-    else {
-        cmd := StrReplace(cmd, "_", "⫶")
-        MyExcuteRMTCMDAction(cmd)
-    }
+    if (ApplyRmtInputControl(cmdStr))
+        return
+    cmd := StrReplace(cmd, "_", "⫶")
+    MyExcuteRMTCMDAction(cmd)
 }
 
 OnInterval(tableItem, cmd, index) {
