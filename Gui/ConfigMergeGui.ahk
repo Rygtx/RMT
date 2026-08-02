@@ -88,7 +88,7 @@ class ConfigMergeGui {
 
         fileRow := srcInner.Add("Grid").Margin("0,2,0,0")
         fileRow.Cols("*", "Auto")
-        fileRow.Add("TextBlock").Text(GetLang("文件导入（.rmt）"))
+        fileRow.Add("TextBlock").Text(GetLang("本地文件导入（.rmt）"))
             .Foreground("{DynamicResource TextMain}").FontSize(13)
             .VerticalAlignment("Center").Grid_Column(0)
         this._AddBtn(fileRow, "SelectFileBtn", GetLang("选择文件"), this._srcCtrlW)
@@ -96,7 +96,7 @@ class ConfigMergeGui {
 
         localRow := srcInner.Add("Grid").Margin("0,10,0,0")
         localRow.Cols("*", "Auto")
-        localRow.Add("TextBlock").Text(GetLang("配置导入"))
+        localRow.Add("TextBlock").Text(GetLang("本地配置导入"))
             .Foreground("{DynamicResource TextMain}").FontSize(13)
             .VerticalAlignment("Center").Grid_Column(0)
         localRow.Add("ComboBox").Name("LocalConfigDDL")
@@ -120,15 +120,16 @@ class ConfigMergeGui {
 
         header := listGrid.Add("Grid").Grid_Row(0).Height(30)
             .Background("{DynamicResource TitleBarColor}")
-        header.Cols("22", "36", "*", "150", "50")
-        header.Add("TextBlock").Grid_Column(0)
-        header.Add("TextBlock").Text(GetLang("选择")).Grid_Column(1)
+        header.Cols("*", "150")
+        headerLeft := header.Add("StackPanel").Orientation("Horizontal").Grid_Column(0)
+            .VerticalAlignment("Center").Margin("8,0,0,0")
+        headerLeft.Add("TextBlock").Text(GetLang("选择"))
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
-            .HorizontalAlignment("Center").VerticalAlignment("Center")
-        header.Add("TextBlock").Text(GetLang("宏名称")).Grid_Column(2)
+            .VerticalAlignment("Center").Width("40")
+        headerLeft.Add("TextBlock").Text(GetLang("宏名称"))
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
-            .VerticalAlignment("Center").Margin("4,0,0,0")
-        header.Add("TextBlock").Text(GetLang("触发键/类型")).Grid_Column(3)
+            .VerticalAlignment("Center").Margin("8,0,0,0")
+        header.Add("TextBlock").Text(GetLang("触发键/类型")).Grid_Column(1)
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
             .HorizontalAlignment("Center").VerticalAlignment("Center")
 
@@ -367,33 +368,44 @@ class ConfigMergeGui {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
         chkName := "MergeChk_" rowId
         foldName := "MergeFold_" rowId
-        indent := indentLevel * 14
+        ; 三角+选框+名称整体缩进（每级 22px）
+        indent := indentLevel * 22
         weight := isBold ? "SemiBold" : "Normal"
         checkedStr := checked ? "True" : "False"
-        foldGlyph := expanded ? "▼" : "▶"
-        foldVis := showFold ? "Visible" : "Hidden"
+        ; Segoe 箭头：展开 ChevronDown、折叠 ChevronRight（比实心 ▼/▶ 更宽、更均衡）
+        foldGlyph := expanded ? "&#xE70D;" : "&#xE76C;"
+        foldTip := this._XmlEsc(expanded ? GetLang("收起") : GetLang("展开"))
+        iconFont := "Segoe Fluent Icons, Segoe MDL2 Assets"
+
+        ; 无三角的叶子行保留同宽占位，使同级选框竖直对齐
+        if (showFold) {
+            foldXaml := '<Button Name="' foldName '" Width="20" Height="20" Padding="0" Cursor="Hand"'
+                . ' Background="Transparent" BorderThickness="0" VerticalAlignment="Center"'
+                . ' ToolTip="' foldTip '">'
+                . '<TextBlock Text="' foldGlyph '" FontFamily="' iconFont '" FontSize="12"'
+                . ' Foreground="{DynamicResource TextMain}"'
+                . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+                . '</Button>'
+        } else {
+            foldXaml := '<Border Width="20" Height="20" Background="Transparent"/>'
+        }
 
         xaml := '<Grid ' ns ' Height="28" Margin="0,1,0,0">'
             . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="22"/>'
-            . '<ColumnDefinition Width="36"/>'
             . '<ColumnDefinition Width="*"/>'
             . '<ColumnDefinition Width="150"/>'
-            . '<ColumnDefinition Width="50"/>'
             . '</Grid.ColumnDefinitions>'
-            . '<Button Name="' foldName '" Grid.Column="0" Content="' foldGlyph '" Visibility="' foldVis '"'
-            . ' Width="20" Height="20" Padding="0" FontSize="10" Cursor="Hand"'
-            . ' Background="Transparent" BorderThickness="0"'
-            . ' Foreground="{DynamicResource TextMain}"'
-            . ' HorizontalAlignment="Center" VerticalAlignment="Center"'
-            . ' ToolTip="' this._XmlEsc(expanded ? GetLang("收起") : GetLang("展开")) '"/>'
-            . '<CheckBox Name="' chkName '" Grid.Column="1" IsChecked="' checkedStr '"'
-            . ' VerticalAlignment="Center" HorizontalAlignment="Center"'
+            . '<StackPanel Grid.Column="0" Orientation="Horizontal"'
+            . ' Margin="' indent ',0,4,0" VerticalAlignment="Center">'
+            . foldXaml
+            . '<CheckBox Name="' chkName '" IsChecked="' checkedStr '"'
+            . ' VerticalAlignment="Center" Margin="4,0,0,0"'
             . ' Foreground="{DynamicResource TextMain}"/>'
-            . '<TextBlock Grid.Column="2" Text="' this._XmlEsc(nameText) '"'
+            . '<TextBlock Text="' this._XmlEsc(nameText) '"'
             . ' Foreground="{DynamicResource TextMain}" FontSize="12" FontWeight="' weight '"'
-            . ' VerticalAlignment="Center" Margin="' indent ',0,0,0" TextTrimming="CharacterEllipsis"/>'
-            . '<TextBlock Grid.Column="3" Text="' this._XmlEsc(triggerText) '"'
+            . ' VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"/>'
+            . '</StackPanel>'
+            . '<TextBlock Grid.Column="1" Text="' this._XmlEsc(triggerText) '"'
             . ' Foreground="{DynamicResource TextSub}" FontSize="12"'
             . ' HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '</Grid>'
@@ -532,18 +544,36 @@ class ConfigMergeGui {
             return
         }
 
-        conflicts := MergeUtil.CheckConflicts(checkedItems)
-        if (conflicts.Length > 0) {
-            conflictSerials := []
-            for c in conflicts {
-                conflictSerials.Push(c.Serial " (" c.Type ")")
-            }
+        sourceDir := this.IsFromRmt ? MergeUtil.TempMergeDir : this.SourcePath
 
-            tipStr := GetLang("以下资源序列号与当前配置存在冲突，将自动重命名：") "`n`n"
-            for serialInfo in conflictSerials {
-                tipStr .= "  - " serialInfo "`n"
+        serialReplaceMap := MergeUtil.PreviewSerialReplaceMap(checkedItems, sourceDir)
+        if (GetObjectCount(serialReplaceMap) > 0) {
+            tipStr := GetLang("检测到以下资源序列号与当前配置存在冲突，将自动重命名：") "`n`n"
+            shown := 0
+            for oldSerial, newSerial in serialReplaceMap {
+                tipStr .= "  - " oldSerial " → " newSerial "`n"
+                shown++
+                if (shown >= 30) {
+                    tipStr .= "  ...`n"
+                    break
+                }
             }
             MsgBox(tipStr, GetLang("资源冲突提示"), 0x0)
+        }
+
+        varReplaceMap := MergeUtil.PreviewVarReplaceMap(checkedItems, sourceDir)
+        if (GetObjectCount(varReplaceMap) > 0) {
+            tipStr := GetLang("检测到以下变量名与当前配置存在冲突，将仅在导入侧自动重命名：") "`n`n"
+            shown := 0
+            for oldName, newName in varReplaceMap {
+                tipStr .= "  - " oldName " → " newName "`n"
+                shown++
+                if (shown >= 30) {
+                    tipStr .= "  ...`n"
+                    break
+                }
+            }
+            MsgBox(tipStr, GetLang("变量冲突提示"), 0x0)
         }
 
         moduleCount := MergeUtil.GetModuleCountFromItems(checkedItems)
@@ -566,6 +596,8 @@ class ConfigMergeGui {
 
             if (result.RenamedResources.Length > 0)
                 successMsg .= "`n" Format("{}: {}", GetLang("重命名资源"), result.RenamedResources.Length)
+            if (result.RenamedVariables.Length > 0)
+                successMsg .= "`n" Format("{}: {}", GetLang("重命名变量"), result.RenamedVariables.Length)
             if (result.CopiedImages.Length > 0)
                 successMsg .= "`n" Format("{}: {}", GetLang("复制图片"), result.CopiedImages.Length)
 

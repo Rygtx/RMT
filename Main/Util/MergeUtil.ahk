@@ -31,6 +31,7 @@ class MergeResult {
         this.ImportTime := ""
         this.MergedItems := Map()
         this.RenamedResources := []
+        this.RenamedVariables := []
         this.CopiedImages := []
     }
 }
@@ -38,11 +39,18 @@ class MergeResult {
 class MergeUtil {
     static TempMergeDir := ""
 
+    ; 可合并页签：按 Symbol 读写源 MacroFile.ini，Index 映射到「当前程序」页签。
+    ; 旧版（1.2 前）源配置无 UITKArr 等键 → 界面宏解析为空并跳过；
+    ; 1.2+ 源配置有 UI 数据 → 正常导入到界面宏页签。无需单独版本分支。
     static GetMergeTabConfig() {
-        return [{ Index: 1, Symbol: "Normal", Name: "按键宏" }, { Index: 2, Symbol: "String", Name: "字串宏" }, { Index: 3,
-            Symbol: "Menu", Name: "菜单宏" }, { Index: 4, Symbol: "Timing", Name: "定时宏" }, { Index: 5, Symbol: "SubMacro",
-                Name: "宏" }, { Index: 6, Symbol: "Replace", Name: "按键替换" }
-        ]
+        tabs := []
+        for symbol in ["Normal", "String", "Menu", "UI", "Timing", "SubMacro", "Replace"] {
+            idx := GetTableIndex(symbol)
+            if (idx <= 0)
+                continue
+            tabs.Push({ Index: idx, Symbol: symbol, Name: MainSoftData.TabNameArr[idx] })
+        }
+        return tabs
     }
 
     static ParseSourceConfig(settingDir) {
@@ -65,9 +73,12 @@ class MergeUtil {
             for moduleNode in moduleNodes {
                 moduleNode.Level := 2
                 moduleNode.TabName := tabInfo.Name
+                moduleNode.TabIndex := tabInfo.Index
                 for item in moduleNode.Children {
                     item.Level := 3
                     item.TabName := tabInfo.Name
+                    item.TabIndex := tabInfo.Index
+                    item.ModuleName := moduleNode.ModuleName
                     if (item.TriggerKey != "" || item.Remark != "")
                         itemCount++
                 }
@@ -388,6 +399,28 @@ class MergeUtil {
         return conflicts
     }
 
+    ; 预览指令序列号重命名映射（old → new）；无冲突时返回空 Map
+    static PreviewSerialReplaceMap(checkedItems, sourceSettingDir := "") {
+        replaceMap := Map()
+        if (sourceSettingDir == "")
+            sourceSettingDir := MergeUtil.TempMergeDir != "" ? MergeUtil.TempMergeDir : ""
+        if (sourceSettingDir == "")
+            return replaceMap
+
+        allSourceSerials := MergeUtil.CollectAllResourceSerials(checkedItems)
+        if (GetObjectCount(allSourceSerials) == 0)
+            return replaceMap
+
+        collectedConfigs := MergeUtil.CollectSourceConfigs(sourceSettingDir, allSourceSerials)
+        if (GetObjectCount(collectedConfigs) == 0)
+            return replaceMap
+
+        replaceInfo := MergeUtil.BuildSerialReplaceMap(collectedConfigs)
+        if (!IsObject(replaceInfo) || !IsObject(replaceInfo.ReplaceMap))
+            return replaceMap
+        return replaceInfo.ReplaceMap
+    }
+
     static InferSerialType(serialStr) {
         if (serialStr == "")
             return ""
@@ -671,6 +704,366 @@ class MergeUtil {
         return updatedItems
     }
 
+    ; -----------------------------------------------------------------
+    ; 变量冲突检测 / 仅导入侧重命名
+    ; -----------------------------------------------------------------
+
+    static IsSystemVarName(name) {
+        if (name == "")
+            return true
+        for v in GetSystemVarArr() {
+            if (name == v || name == GetLangKey(v))
+                return true
+        }
+        builtins := ["宏循环次数", "循环次数", "循环-跳过本轮", "循环-跳出", "分支-跳出"]
+        for b in builtins {
+            if (name == b || name == GetLang(b) || name == GetLangKey(b))
+                return true
+        }
+        return false
+    }
+
+    static AddVarNameCandidate(varMap, name) {
+        try
+            name := Trim(String(name))
+        catch
+            return
+        if (name == "" || IsNumber(name))
+            return
+        if (InStr(name, "\") || InStr(name, "/") || InStr(name, "{") || InStr(name, "}"))
+            return
+        if (MergeUtil.IsSystemVarName(name))
+            return
+        varMap[name] := true
+    }
+
+    static CollectBraceVars(text, varMap) {
+        if (text == "" || !IsObject(varMap))
+            return
+        pos := 1
+        while (RegExMatch(text, "\{([^\{\}]+)\}", &m, pos)) {
+            MergeUtil.AddVarNameCandidate(varMap, m[1])
+            pos := m.Pos + m.Len
+            if (pos <= 0)
+                break
+        }
+    }
+
+    static CollectVarsFromIntervalCmd(cmdStr, varMap) {
+        if (cmdStr == "")
+            return
+        paramArr := StrSplit(cmdStr, "_")
+        if (paramArr.Length < 2)
+            return
+        cmdKey := GetLangKey(GetCmdStr(paramArr[1]))
+        if (cmdKey != "间隔")
+            return
+        rest := paramArr[2]
+        loop (paramArr.Length - 2)
+            rest .= "_" paramArr[A_Index + 2]
+        if (InStr(rest, "~")) {
+            parts := StrSplit(rest, "~")
+            MergeUtil.AddVarNameCandidate(varMap, parts[1])
+            if (parts.Length >= 2)
+                MergeUtil.AddVarNameCandidate(varMap, parts[2])
+        }
+        else
+            MergeUtil.AddVarNameCandidate(varMap, rest)
+    }
+
+    static CollectIntervalVarsInMacroStr(macroStr, varMap) {
+        if (macroStr == "")
+            return
+        for cmdStr in SplitMacro(macroStr)
+            MergeUtil.CollectVarsFromIntervalCmd(cmdStr, varMap)
+    }
+
+    static CollectVarsFromDataObj(Data, varMap) {
+        if (!IsObject(Data) || !IsObject(varMap))
+            return
+
+        for f in ["ResultSaveName", "CoordXName", "CoordYName", "SaveName", "VariableName", "VarName", "Name", "ArgsName"] {
+            if (ObjHasOwnProp(Data, f))
+                MergeUtil.AddVarNameCandidate(varMap, Data.%f%)
+        }
+
+        for f in ["VariableArr", "CopyVariableArr", "MinVariableArr", "MaxVariableArr", "NameArr", "UpdateNameArr", "SaveNameArr"] {
+            if (!ObjHasOwnProp(Data, f) || !IsObject(Data.%f%))
+                continue
+            for v in Data.%f% {
+                if (IsObject(v)) {
+                    for vv in v
+                        MergeUtil.AddVarNameCandidate(varMap, vv)
+                }
+                else
+                    MergeUtil.AddVarNameCandidate(varMap, v)
+            }
+        }
+
+        if (ObjHasOwnProp(Data, "VariNameArr") && IsObject(Data.VariNameArr)) {
+            for row in Data.VariNameArr {
+                if (IsObject(row)) {
+                    for vv in row
+                        MergeUtil.AddVarNameCandidate(varMap, vv)
+                }
+                else
+                    MergeUtil.AddVarNameCandidate(varMap, row)
+            }
+        }
+
+        for f in ["PosVarX", "PosVarY", "StartPosX", "StartPosY", "EndPosX", "EndPosY",
+            "RowVar", "ColVar", "RowEndVar", "ColEndVar", "TextRowVar", "InsertCount", "LoopCount",
+            "MainIndex", "ArgsIndex", "PosX", "PosY", "Width", "Height", "Transparency"] {
+            if (ObjHasOwnProp(Data, f))
+                MergeUtil.AddVarNameCandidate(varMap, Data.%f%)
+        }
+
+        for f in ["Text", "Target", "StdIn", "FilePath", "Content", "ExtractStr", "SearchText",
+            "SearchImagePath", "WinInfo", "SearchValue", "NewTitle", "Search", "Replace"] {
+            if (ObjHasOwnProp(Data, f))
+                MergeUtil.CollectBraceVars(Data.%f%, varMap)
+        }
+        if (ObjHasOwnProp(Data, "ExpressionArr") && IsObject(Data.ExpressionArr)) {
+            for expr in Data.ExpressionArr
+                MergeUtil.CollectBraceVars(expr, varMap)
+        }
+
+        for f in ["LoopBody", "TrueMacro", "FalseMacro", "DefaultMacro", "SubMacro"] {
+            if (ObjHasOwnProp(Data, f) && Data.%f% != "")
+                MergeUtil.CollectIntervalVarsInMacroStr(Data.%f%, varMap)
+        }
+        for f in ["MacroArr", "TrueMacroArr", "FalseMacroArr", "StartMacroArr", "EndMacroArr"] {
+            if (!ObjHasOwnProp(Data, f) || !IsObject(Data.%f%))
+                continue
+            for m in Data.%f%
+                MergeUtil.CollectIntervalVarsInMacroStr(m, varMap)
+        }
+    }
+
+    ; 从勾选宏 + 已解析的导入配置中收集变量名
+    static CollectImportVariableNames(checkedItems, sourceSettingDir, replaceInfo := "") {
+        varMap := Map()
+        sourceDataFileMap := MergeUtil.BuildSourceDataFileMap(sourceSettingDir)
+        visitSerials := Map()
+
+        for item in checkedItems {
+            MergeUtil.CollectIntervalVarsInMacroStr(item.MacroStr, varMap)
+            MergeUtil.CollectVarsWalkingMacro(item.MacroStr, sourceSettingDir, sourceDataFileMap, visitSerials, varMap)
+        }
+
+        if (IsObject(replaceInfo) && IsObject(replaceInfo.ParsedConfigs)) {
+            for _, configInfo in replaceInfo.ParsedConfigs
+                MergeUtil.CollectVarsFromDataObj(configInfo["Data"], varMap)
+        }
+        return varMap
+    }
+
+    static CollectVarsWalkingMacro(macroStr, sourceSettingDir, sourceDataFileMap, visitSerials, varMap) {
+        if (macroStr == "")
+            return
+        for cmdStr in SplitMacro(macroStr) {
+            MergeUtil.CollectVarsFromIntervalCmd(cmdStr, varMap)
+            cleanCmd := GetCmdStr(String(cmdStr))
+            serial := MergeUtil.ExtractSerialFromCmdDirect(cleanCmd)
+            if (serial == "" || visitSerials.Has(serial))
+                continue
+            visitSerials[serial] := true
+            cmdType := MergeUtil.FindSerialTypeFromSource(serial, sourceDataFileMap)
+            if (cmdType == "")
+                continue
+            Data := MergeUtil.ReadSourceConfigData(sourceSettingDir, serial, cmdType, sourceDataFileMap)
+            if (!IsObject(Data))
+                continue
+            MergeUtil.CollectVarsFromDataObj(Data, varMap)
+            for f in ["LoopBody", "TrueMacro", "FalseMacro", "DefaultMacro", "SubMacro"] {
+                if (ObjHasOwnProp(Data, f) && Data.%f% != "")
+                    MergeUtil.CollectVarsWalkingMacro(Data.%f%, sourceSettingDir, sourceDataFileMap, visitSerials, varMap)
+            }
+            for f in ["MacroArr", "TrueMacroArr", "FalseMacroArr", "StartMacroArr", "EndMacroArr"] {
+                if (!ObjHasOwnProp(Data, f) || !IsObject(Data.%f%))
+                    continue
+                for m in Data.%f%
+                    MergeUtil.CollectVarsWalkingMacro(m, sourceSettingDir, sourceDataFileMap, visitSerials, varMap)
+            }
+        }
+    }
+
+    ; 检测与当前配置冲突的变量，生成导入侧重命名映射（不影响当前配置）
+    ; Var1→Var2→Var3…；State→State1→State2…
+    static BuildVarReplaceMap(sourceVarMap) {
+        replaceMap := Map()
+        if (!IsObject(sourceVarMap) || GetObjectCount(sourceVarMap) == 0)
+            return replaceMap
+
+        usedMap := Map()
+        for k, _ in MySoftData.GlobalVariMap
+            usedMap[k] := true
+        for k, _ in sourceVarMap
+            usedMap[k] := true
+
+        for varName, _ in sourceVarMap {
+            if (MergeUtil.IsSystemVarName(varName))
+                continue
+            if (!MySoftData.GlobalVariMap.Has(varName))
+                continue
+            newName := MergeUtil.GenerateUniqueVarName(varName, usedMap)
+            if (newName == "" || newName == varName)
+                continue
+            replaceMap[varName] := newName
+            usedMap[newName] := true
+        }
+        return replaceMap
+    }
+
+    static GenerateUniqueVarName(baseName, usedMap) {
+        if (RegExMatch(baseName, "^(.*?)(\d+)$", &m)) {
+            prefix := m[1]
+            num := Integer(m[2]) + 1
+        }
+        else {
+            prefix := baseName
+            num := 1
+        }
+        loop 10000 {
+            candidate := prefix num
+            if (!usedMap.Has(candidate) && !MergeUtil.IsSystemVarName(candidate))
+                return candidate
+            num++
+        }
+        return prefix A_Now
+    }
+
+    ; 预览导入侧变量重命名映射（old → new）；无冲突时返回空 Map
+    static PreviewVarReplaceMap(checkedItems, sourceSettingDir := "") {
+        if (sourceSettingDir == "")
+            sourceSettingDir := MergeUtil.TempMergeDir != "" ? MergeUtil.TempMergeDir : ""
+        if (sourceSettingDir == "")
+            return Map()
+        sourceVarMap := MergeUtil.CollectImportVariableNames(checkedItems, sourceSettingDir, "")
+        return MergeUtil.BuildVarReplaceMap(sourceVarMap)
+    }
+
+    static ApplyVarRenameToMacros(checkedItems, varReplaceMap) {
+        if (!IsObject(varReplaceMap) || GetObjectCount(varReplaceMap) == 0)
+            return checkedItems
+        for item in checkedItems
+            item.MacroStr := MergeUtil.ApplyVarRenameToMacroStr(item.MacroStr, varReplaceMap)
+        return checkedItems
+    }
+
+    static ApplyVarRenameToMacroStr(macroStr, varReplaceMap) {
+        if (macroStr == "" || !IsObject(varReplaceMap) || GetObjectCount(varReplaceMap) == 0)
+            return macroStr
+        cmdArr := SplitMacro(macroStr)
+        result := ""
+        for index, cmdStr in cmdArr {
+            if (index > 1)
+                result .= ","
+            result .= MergeUtil.ApplyVarRenameToIntervalCmd(cmdStr, varReplaceMap)
+        }
+        return result
+    }
+
+    static ApplyVarRenameToIntervalCmd(cmdStr, varReplaceMap) {
+        paramArr := StrSplit(cmdStr, "_")
+        if (paramArr.Length < 2)
+            return cmdStr
+        cmdKey := GetLangKey(GetCmdStr(paramArr[1]))
+        if (cmdKey != "间隔")
+            return cmdStr
+        rest := paramArr[2]
+        loop (paramArr.Length - 2)
+            rest .= "_" paramArr[A_Index + 2]
+        if (InStr(rest, "~")) {
+            parts := StrSplit(rest, "~")
+            left := MergeUtil.ReplaceVarExact(parts[1], varReplaceMap)
+            right := parts.Length >= 2 ? MergeUtil.ReplaceVarExact(parts[2], varReplaceMap) : ""
+            rest := left "~" right
+        }
+        else
+            rest := MergeUtil.ReplaceVarExact(rest, varReplaceMap)
+        return paramArr[1] "_" rest
+    }
+
+    static ReplaceVarExact(val, varReplaceMap) {
+        if (val == "" || !IsObject(varReplaceMap))
+            return val
+        val := String(val)
+        return varReplaceMap.Has(val) ? varReplaceMap[val] : val
+    }
+
+    static ReplaceVarInText(text, varReplaceMap) {
+        if (text == "" || !IsObject(varReplaceMap) || GetObjectCount(varReplaceMap) == 0)
+            return text
+        text := String(text)
+        for oldName, newName in varReplaceMap
+            text := StrReplace(text, "{" oldName "}", "{" newName "}")
+        return text
+    }
+
+    static ApplyVarRenameToData(Data, varReplaceMap) {
+        if (!IsObject(Data) || !IsObject(varReplaceMap) || GetObjectCount(varReplaceMap) == 0)
+            return
+
+        for f in ["ResultSaveName", "CoordXName", "CoordYName", "SaveName", "VariableName", "VarName", "Name", "ArgsName"] {
+            if (ObjHasOwnProp(Data, f))
+                Data.%f% := MergeUtil.ReplaceVarExact(Data.%f%, varReplaceMap)
+        }
+
+        for f in ["VariableArr", "CopyVariableArr", "MinVariableArr", "MaxVariableArr", "NameArr", "UpdateNameArr", "SaveNameArr"] {
+            if (!ObjHasOwnProp(Data, f) || !IsObject(Data.%f%))
+                continue
+            arr := Data.%f%
+            for i, v in arr {
+                if (IsObject(v)) {
+                    for j, vv in v
+                        v[j] := MergeUtil.ReplaceVarExact(vv, varReplaceMap)
+                }
+                else
+                    arr[i] := MergeUtil.ReplaceVarExact(v, varReplaceMap)
+            }
+        }
+
+        if (ObjHasOwnProp(Data, "VariNameArr") && IsObject(Data.VariNameArr)) {
+            for i, row in Data.VariNameArr {
+                if (IsObject(row)) {
+                    for j, vv in row
+                        row[j] := MergeUtil.ReplaceVarExact(vv, varReplaceMap)
+                }
+                else
+                    Data.VariNameArr[i] := MergeUtil.ReplaceVarExact(row, varReplaceMap)
+            }
+        }
+
+        for f in ["PosVarX", "PosVarY", "StartPosX", "StartPosY", "EndPosX", "EndPosY",
+            "RowVar", "ColVar", "RowEndVar", "ColEndVar", "TextRowVar", "InsertCount", "LoopCount",
+            "MainIndex", "ArgsIndex", "PosX", "PosY", "Width", "Height", "Transparency"] {
+            if (ObjHasOwnProp(Data, f))
+                Data.%f% := MergeUtil.ReplaceVarExact(Data.%f%, varReplaceMap)
+        }
+
+        for f in ["Text", "Target", "StdIn", "FilePath", "Content", "ExtractStr", "SearchText",
+            "SearchImagePath", "WinInfo", "SearchValue", "NewTitle", "Search", "Replace"] {
+            if (ObjHasOwnProp(Data, f))
+                Data.%f% := MergeUtil.ReplaceVarInText(Data.%f%, varReplaceMap)
+        }
+        if (ObjHasOwnProp(Data, "ExpressionArr") && IsObject(Data.ExpressionArr)) {
+            for i, expr in Data.ExpressionArr
+                Data.ExpressionArr[i] := MergeUtil.ReplaceVarInText(expr, varReplaceMap)
+        }
+
+        for f in ["LoopBody", "TrueMacro", "FalseMacro", "DefaultMacro", "SubMacro"] {
+            if (ObjHasOwnProp(Data, f) && Data.%f% != "")
+                Data.%f% := MergeUtil.ApplyVarRenameToMacroStr(Data.%f%, varReplaceMap)
+        }
+        for f in ["MacroArr", "TrueMacroArr", "FalseMacroArr", "StartMacroArr", "EndMacroArr"] {
+            if (!ObjHasOwnProp(Data, f) || !IsObject(Data.%f%))
+                continue
+            for i, m in Data.%f%
+                Data.%f%[i] := MergeUtil.ApplyVarRenameToMacroStr(m, varReplaceMap)
+        }
+    }
+
     static ExecuteMerge(checkedItems, sourceName) {
         result := MergeResult()
         result.SourceName := sourceName
@@ -680,17 +1073,42 @@ class MergeUtil {
         sourceDir := MergeUtil.TempMergeDir != "" ? MergeUtil.TempMergeDir : A_WorkingDir "\Setting\" sourceName
 
         allSourceSerials := MergeUtil.CollectAllResourceSerials(checkedItems)
+        replaceInfo := ""
+        serialReplaceMap := Map()
 
         if (GetObjectCount(allSourceSerials) > 0) {
             collectedConfigs := MergeUtil.CollectSourceConfigs(sourceDir, allSourceSerials)
 
             if (GetObjectCount(collectedConfigs) > 0) {
                 replaceInfo := MergeUtil.BuildSerialReplaceMap(collectedConfigs)
-
-                serialReplaceMap := MergeUtil.ProcessAndSaveRenamedConfigs(replaceInfo, sourceDir, result)
-
-                checkedItems := MergeUtil.ApplySerialReplaceToMacros(checkedItems, serialReplaceMap)
+                serialReplaceMap := replaceInfo.ReplaceMap
             }
+        }
+
+        ; 变量冲突：仅重命名导入侧，不影响当前配置已有变量
+        sourceVarMap := MergeUtil.CollectImportVariableNames(checkedItems, sourceDir, replaceInfo)
+        varReplaceMap := MergeUtil.BuildVarReplaceMap(sourceVarMap)
+        if (GetObjectCount(varReplaceMap) > 0) {
+            if (IsObject(replaceInfo) && IsObject(replaceInfo.ParsedConfigs)) {
+                for _, configInfo in replaceInfo.ParsedConfigs
+                    MergeUtil.ApplyVarRenameToData(configInfo["Data"], varReplaceMap)
+            }
+            checkedItems := MergeUtil.ApplyVarRenameToMacros(checkedItems, varReplaceMap)
+            for oldName, newName in varReplaceMap
+                result.RenamedVariables.Push({ OldName: oldName, NewName: newName })
+        }
+
+        if (IsObject(replaceInfo) && IsObject(replaceInfo.ParsedConfigs)) {
+            serialReplaceMap := MergeUtil.ProcessAndSaveRenamedConfigs(replaceInfo, sourceDir, result)
+            checkedItems := MergeUtil.ApplySerialReplaceToMacros(checkedItems, serialReplaceMap)
+        }
+
+        ; 导入侧新变量名登记到当前下拉列表（不覆盖旧名）
+        for _, pair in result.RenamedVariables
+            MySoftData.GlobalVariMap[pair.NewName] := true
+        for varName, _ in sourceVarMap {
+            if (!varReplaceMap.Has(varName))
+                MySoftData.GlobalVariMap[varName] := true
         }
 
         MergeUtil.CopyNonConflictingImages(sourceDir, result)
@@ -720,7 +1138,12 @@ class MergeUtil {
                 serialList := []
 
                 for i, item in moduleItems {
-                    curIndex := startIndex + i - 1
+                    newSerial := GetCMDSerialStr("Item")
+                    if (newSerial == "")
+                        newSerial := "Item" A_Now i
+                    newTimingSerial := GetCMDSerialStr("Timing")
+                    if (newTimingSerial == "")
+                        newTimingSerial := newSerial
 
                     tableItem.TKArr.Push(item.TriggerKey)
                     tableItem.ModeArr.Push(1)
@@ -733,18 +1156,10 @@ class MergeUtil {
                     tableItem.StartTipSoundArr.Push(1)
                     tableItem.EndTipSoundArr.Push(1)
                     tableItem.MacroArr.Push(item.MacroStr)
-
-                    newSerial := GetCMDSerialStr("Item")
-                    if (newSerial == "") {
-                        continue
-                    }
                     tableItem.SerialArr.Push(newSerial)
-
-                    newTimingSerial := GetCMDSerialStr("Timing")
-                    if (newTimingSerial == "") {
-                        newTimingSerial := newSerial
-                    }
                     tableItem.TimingSerialArr.Push(newTimingSerial)
+                    ; 与 ModeArr 等长，否则 SaveTableItemInfo 访问 IcoPathArr 会 Invalid index
+                    tableItem.IcoPathArr.Push("")
                     serialList.Push(newSerial)
 
                     tableItem.KilledArr.Push(false)
@@ -765,6 +1180,8 @@ class MergeUtil {
                     tableItem.VariableMapArr.Push(VariableMap)
                 }
 
+                if (!IsObject(tableItem.FoldInfo))
+                    tableItem.FoldInfo := ItemFoldInfo()
                 foldInfo := tableItem.FoldInfo
                 endIndex := tableItem.ModeArr.Length
 
@@ -779,6 +1196,8 @@ class MergeUtil {
                 foldInfo.TKArr.Push("")
                 foldInfo.HoldTimeArr.Push(500)
                 foldInfo.UnorderedTriggerArr.Push(false)
+                if (IsObject(tableItem.FoldOffsetArr))
+                    tableItem.FoldOffsetArr.Push(0)
 
                 totalModuleCount++
             }
@@ -788,9 +1207,10 @@ class MergeUtil {
 
         result.ModuleCount := totalModuleCount
 
-        loop MainSoftData.TabNameArr.Length {
-            tableItem := MySoftData.TableInfo[A_Index]
-            SaveTableItemInfo(A_Index)
+        ; 仅保存可导入的宏页签，避免工具/设置等非宏页签越界
+        for _, tabInfo in MergeUtil.GetMergeTabConfig() {
+            if (tabGrouped.Has(tabInfo.Index) && tabGrouped[tabInfo.Index].Length > 0)
+                SaveTableItemInfo(tabInfo.Index)
         }
 
         return result
