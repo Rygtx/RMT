@@ -524,12 +524,16 @@ class AppThemeUtil {
     }
 
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）
+    ; 用类名字符串动态解析：Worker 未 Include 这些 Gui，直接写类名会触发 #Warn / 编译失败
     static RefreshOpenSettingWindows() {
-        classes := [HotkeySettingGui, ToolRecordSettingGui, MenuWheelGlobalSettingGui,
-            UIMacroPanelSettingGui, CMDTipSettingGui, ThemeSettingGui,
-            TimingGui, MenuMacroSettingGui, UIMacroSettingGui]
-        for cls in classes {
+        classNames := ["HotkeySettingGui", "ToolRecordSettingGui", "MenuWheelGlobalSettingGui",
+            "UIMacroPanelSettingGui", "CMDTipSettingGui", "ThemeSettingGui",
+            "TimingGui", "MenuMacroSettingGui", "UIMacroSettingGui"]
+        for name in classNames {
             try {
+                if (!IsSet(%name%))
+                    continue
+                cls := %name%
                 if (!IsObject(cls) || !cls.HasOwnProp("instances"))
                     continue
                 for , inst in cls.instances {

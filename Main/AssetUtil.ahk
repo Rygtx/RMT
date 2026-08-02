@@ -584,10 +584,17 @@ XamlUiDiag(msg, tag := "diag") {
 }
 
 XamlUiDiagDaemon(tag := "daemon") {
+    ; Worker 未加载 AHK-XAML：用动态名解析，避免裸写 XAMLHost 触发 #Warn / 编译失败
     try {
-        hwnd := XAMLHost.daemonHwnd
-        alive := XAMLHost.IsDaemonAlive()
-        resp := alive ? XAMLHost.IsDaemonResponsive(300) : false
+        hostName := "XAMLHost"
+        if (!IsSet(%hostName%)) {
+            XamlUiDiag("XAMLHost not loaded", tag)
+            return
+        }
+        host := %hostName%
+        hwnd := host.daemonHwnd
+        alive := host.IsDaemonAlive()
+        resp := alive ? host.IsDaemonResponsive(300) : false
         XamlUiDiag(Format("daemonHwnd={} alive={} responsive={}", hwnd, alive, resp), tag)
     } catch as e {
         XamlUiDiag("daemon status err: " e.Message, tag)
