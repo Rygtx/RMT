@@ -106,8 +106,8 @@ class MacroGraphIfProMixin {
         if (slot > cc + 1)
             return 0
         on := slot <= cc
-        ; Border Margin 3 + Padding 2/4 + Border 2
-        h := 3 + 2 + this._IfProRowEstH() + 4 + 2
+        ; 分割线 Margin 6+4 + 条件开关行
+        h := 6 + 4 + this._IfProRowEstH()
         if (!on)
             return h
         cmp := (slot <= data.CompareTypeArr[caseIdx].Length) ? data.CompareTypeArr[caseIdx][slot] : 3
@@ -118,8 +118,8 @@ class MacroGraphIfProMixin {
     }
 
     _IfProCaseSectionEstH(data, caseIdx) {
-        ; Border Margin 6 + Padding 4/6 + Border 2
-        h := 6 + 4 + 18 + 6 + 2
+        ; 组框 Margin6 + Padding4/6 + Border2 + 情况标题18
+        h := 6 + 4 + 6 + 2 + 18
         cc := this._IfProCaseCondiCount(data, caseIdx)
         if (cc > 1)
             h += this._IfProRowEstH()
@@ -137,10 +137,17 @@ class MacroGraphIfProMixin {
     }
 
     _IfProDefSectionEstH() {
-        return 6 + 8 + 18 + 8 + 2
+        ; 组框 Margin6 + Padding6/6 + Border2 + 标题18
+        return 6 + 6 + 6 + 2 + 18
     }
 
-    ; 各情况/默认分支出点中心 Y（相对节点顶边，整数像素；body 起始于 30+6=36）
+    ; 网格吸附（与 EnableDrag grid=20 一致）
+    _IfProGridSnap(v, step := 20) {
+        return Integer(Round(Number(v) / step) * step)
+    }
+
+    ; 各情况/默认分支出点中心 Y（相对节点顶边）。
+    ; 先按内容估中心，再吸附使默认分支 dy(=centerY-31) 为 20 的倍数，分支落格后连线仍水平。
     _IfProPortCenterY(data, branchIdx) {
         cc := this._IfProCaseCountFromData(data)
         y := 36
@@ -149,17 +156,21 @@ class MacroGraphIfProMixin {
             loop ci - 1
                 y += this._IfProCaseSectionEstH(data, A_Index)
             y += this._IfProCaseSectionEstH(data, ci) // 2
-            return y
+        } else {
+            loop cc
+                y += this._IfProCaseSectionEstH(data, A_Index)
+            y += this._IfProDefSectionEstH() // 2
         }
-        loop cc
-            y += this._IfProCaseSectionEstH(data, A_Index)
-        y += this._IfProDefSectionEstH() // 2
-        y -= 10  ; 末位「以上都不是」出点略上移，与 UI 对齐
-        return y
+        return this._IfProGridSnap(y - 31) + 31
     }
 
     _IfProPortMarginTop(data, branchIdx) {
         return this._IfProPortCenterY(data, branchIdx) - 37
+    }
+
+    ; 分支默认横向间距（父宽 + 间隙，吸附到 grid=20）
+    _IfProBranchDefaultDX() {
+        return this._IfProGridSnap(this._IfProNodeWidth() + 100)
     }
 
     _IfProBranchPathGeom(parentId, toId, px := "", py := "") {
@@ -425,13 +436,14 @@ class MacroGraphIfProMixin {
     }
 
     _IfProNodeWidth() {
-        return 200
+        return this._FormalNodeWidth(GetLang("如果Pro"))
     }
 
     _IfProBranchDefaultDY(parentId, idx) {
         data := this._IfProData(parentId)
         if (data == "")
-            return 40 + idx * 130
+            return this._IfProGridSnap(40 + idx * 140)
+        ; 与出点中心对齐：centerY-31，已保证为 grid=20 倍数
         return this._IfProPortCenterY(data, idx) - 31
     }
 
@@ -471,7 +483,7 @@ class MacroGraphIfProMixin {
         rel := this._SavedProBranchOffset(parentId, idx + 1)
         if (rel != "")
             return { x: sp.x + rel.dx, y: sp.y + rel.dy }
-        return { x: sp.x + this._IfProNodeWidth() + 100, y: sp.y + this._IfProBranchDefaultDY(parentId, idx) }
+        return { x: sp.x + this._IfProBranchDefaultDX(), y: sp.y + this._IfProBranchDefaultDY(parentId, idx) }
     }
 
     ; 分支拖动只更新引擎坐标时，从引擎节点反写逻辑坐标（供折叠保存 ProBranchOff）
@@ -521,13 +533,22 @@ class MacroGraphIfProMixin {
     }
 
     _ProBranchHeaderColor(idx, caseCount) {
+        ; 情况分支跟标题栏主题色；「以上都不是」用操作区主题色区分
         if (idx >= caseCount)
-            return "#6A1B9A"
-        return "#3949AB"
+            return "{DynamicResource ActionBg}"
+        return "{DynamicResource TitleBarColor}"
     }
 
     _ProBranchBorderColor(idx, caseCount) {
-        return idx >= caseCount ? "#8E24AA" : "#5C6BC0"
+        if (idx >= caseCount)
+            return "{DynamicResource ActionStroke}"
+        return "{DynamicResource InputStroke}"
+    }
+
+    _ProBranchTitleFg(idx, caseCount) {
+        if (idx >= caseCount)
+            return "{DynamicResource ActionText}"
+        return "{DynamicResource TitleBarForeground}"
     }
 
     _MakeProBranchBorderEl(parentId, idx, x, y, asFragment := false) {
@@ -535,6 +556,7 @@ class MacroGraphIfProMixin {
         cc := this._IfProCaseCountFromData(this._IfProData(parentId))
         headerColor := this._ProBranchHeaderColor(idx, cc)
         borderColor := this._ProBranchBorderColor(idx, cc)
+        titleFg := this._ProBranchTitleFg(idx, cc)
         title := this._IfProBranchTitle(parentId, idx)
 
         border := XAMLElement("Border")
@@ -546,7 +568,7 @@ class MacroGraphIfProMixin {
         this._AddNodeSelRing(grid, brId)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
         hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
-        hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        hp.Add("TextBlock").Text(title).Foreground(titleFg).FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillProBranchNodeBody(parentId, idx, body, brId)
         this._AddNodePorts(grid, brId)
@@ -573,8 +595,8 @@ class MacroGraphIfProMixin {
         fidx := this._IndexInLangArr(flowTypes, ct)
         if (fidx < 0)
             fidx := 0
-        this._AddComboRow(body, "BrFlowRow_" brId, GetLang("流程控制："), "BrFlowCmb_" brId, flowTypes, fidx, true, true, "58", "120")
-        body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
+        lw := this._FormalLW(), cw := this._FormalCW()
+        this._AddComboRow(body, "BrFlowRow_" brId, GetLang("流程控制："), "BrFlowCmb_" brId, flowTypes, fidx, true, true, lw, cw)
     }
 
     _BuildProBranchSet(parentId) {
@@ -710,7 +732,11 @@ class MacroGraphIfProMixin {
     }
 
     _RefreshProBranchBody(parentId, idx) {
-        if (this.ui == "" || !this._branchInjected.Has(parentId))
+        if (this.ui == "")
+            return
+        if (this._IsIfProNodeId(parentId) && this._NodeFolded(parentId))
+            this._RefreshIfProInlineBranches(parentId)
+        if (!this._branchInjected.Has(parentId))
             return
         brId := this._ProBranchId(parentId, idx)
         cmds := this._BranchGraphCmds(this._IfProBranchMacro(parentId, idx))
@@ -745,6 +771,8 @@ class MacroGraphIfProMixin {
         else
             data.DefaultControlType := val
         SaveMacroCMDData(data)
+        if (this._NodeFolded(parentId))
+            this._RefreshIfProInlineBranches(parentId)
         this._Apply()
     }
 
@@ -923,6 +951,7 @@ class MacroGraphIfProMixin {
         try SaveMacroCMDData(node)
         if (willFold) {
             this._RefreshIfProSummary(id)
+            this._RefreshIfProInlineBranches(id)
             this._FoldIfProRuntime(id)
         } else {
             this._UnfoldIfProRuntime(id)
@@ -933,6 +962,7 @@ class MacroGraphIfProMixin {
             this.ui.Update("IfProC" ci "Full_" id, "Visibility", willFold ? "Collapsed" : "Visible")
             this.ui.Update("IfProC" ci "Sum_" id, "Visibility", willFold ? "Visible" : "Collapsed")
         }
+        this.ui.Update("IfProDefBranch_" id, "Visibility", willFold ? "Visible" : "Collapsed")
         this._ApplyIfProPortOutVisibility(id)
         this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
@@ -995,19 +1025,19 @@ class MacroGraphIfProMixin {
 
     _FillIfProCaseSummaryRows(box, id, caseIdx, data) {
         fs := this._MGFontSize(11)
-        fg := "#9FA8DA"
+        fg := "{DynamicResource TextMain}"
         logic := this._IfProCaseLogicSummary(data, caseIdx)
-        lRow := box.Add("TextBlock").Name("IfProSumLogic_" caseIdx "_" id).Text(logic.text).Foreground("#C5CAE9").FontSize(this._MGFontSize(12)).Margin("0,4,0,0").TextWrapping("Wrap")
+        lRow := box.Add("TextBlock").Name("IfProSumLogic_" caseIdx "_" id).Text(logic.text).Foreground(fg).FontSize(this._MGFontSize(12)).Margin("0,4,0,0").TextWrapping("Wrap")
         if (!logic.show)
             lRow.Visibility("Collapsed")
-        condiN := data.VariNameArr[caseIdx].Length
-        loop condiN {
+        ; 固定 4 槽：构建时条件数可能为 1，勾选更多后刷新仍能显示（与展开态 4 条件一致）
+        loop 4 {
             slot := A_Index
             info := this._IfProCondiSummaryRow(data, caseIdx, slot)
             row := box.Add("StackPanel").Name("IfProSumRow_" caseIdx "_" slot "_" id).Orientation("Horizontal").Margin("0,5,0,0")
             if (!info.on)
                 row.Visibility("Collapsed")
-            row.Add("Ellipse").Width("7").Height("7").Fill("#5C9DED").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("Ellipse").Width("7").Height("7").Fill("{DynamicResource GraphConnSel}").Margin("0,0,6,0").VerticalAlignment("Center")
             row.Add("TextBlock").Name("IfProSumTxt_" caseIdx "_" slot "_" id).Text(info.text).Foreground(fg).FontSize(fs).VerticalAlignment("Center").TextWrapping("Wrap")
         }
     }
@@ -1024,8 +1054,7 @@ class MacroGraphIfProMixin {
             logic := this._IfProCaseLogicSummary(data, ci)
             this.ui.Update("IfProSumLogic_" ci "_" id, "Text", logic.text)
             this.ui.Update("IfProSumLogic_" ci "_" id, "Visibility", logic.show ? "Visible" : "Collapsed")
-            condiN := data.VariNameArr[ci].Length
-            loop condiN {
+            loop 4 {
                 slot := A_Index
                 info := this._IfProCondiSummaryRow(data, ci, slot)
                 this.ui.Update("IfProSumRow_" ci "_" slot "_" id, "Visibility", info.on ? "Visible" : "Collapsed")
@@ -1035,21 +1064,32 @@ class MacroGraphIfProMixin {
     }
 
     _FillIfProCondiSlot(inner, id, caseIdx, slot, data, showRow, showVal) {
-        lw := "44", cw := "100"
+        lw := this._FormalLW(), cw := this._FormalCW()
         p := "IfProC" caseIdx "S" slot
         nm := (slot <= data.VariNameArr[caseIdx].Length) ? data.VariNameArr[caseIdx][slot] : ("Var" slot)
         cmp := (slot <= data.CompareTypeArr[caseIdx].Length) ? data.CompareTypeArr[caseIdx][slot] : 3
         vr := (slot <= data.VariableArr[caseIdx].Length) ? data.VariableArr[caseIdx][slot] : ("Var" slot)
         on := slot <= data.VariNameArr[caseIdx].Length
         cmpTypes := this._IfProCmpTypes()
-        card := inner.Add("Border").Name(p "Row_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("3").Background("{DynamicResource InputBg}").Margin("0,3,0,0").Padding("4,2,4,4")
+        block := inner.Add("StackPanel").Name(p "Row_" id).Margin("0,2,0,0")
         if (!showRow)
-            card.Visibility("Collapsed")
-        stk := card.Add("StackPanel")
-        this._AddCheckRow(stk, p "TogChk_" id, p "Tog_" id, GetLang("条件") slot, on, true)
-        this._AddEditableComboRow(stk, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), on && showRow, lw, cw)
-        this._AddComboRow(stk, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, on && showRow, true, lw, cw)
-        this._AddEditableComboRow(stk, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), on && showRow && showVal, lw, cw)
+            block.Visibility("Collapsed")
+        block.Add("Border").Name(p "Sep_" id).Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        this._AddCheckRow(block, p "TogChk_" id, p "Tog_" id, GetLang("条件") slot, on, true)
+        this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), on && showRow, lw, cw)
+        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, on && showRow, true, lw, cw)
+        this._AddEditableComboRow(block, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), on && showRow && showVal, lw, cw)
+    }
+
+    ; 收起态：某一情况/默认分支的指令列表 + 流程控制（嵌在对应组框内、逻辑摘要下方）
+    _FillIfProCaseBranchBlock(parent, id, idx) {
+        fg := "{DynamicResource TextMain}"
+        parent.Add("Border").Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        cmds := this._BranchGraphCmds(this._IfProBranchMacro(id, idx))
+        ; 组框内不使用负边距，避免贴破左右内边距
+        this._FillLoopChips(parent, "IfProInline" idx "Chips_" id, "IfProInline" idx "Expand_" id, "IfProInline" idx "_" id, cmds, "0")
+        ct := GetLang(this._IfProBranchControl(id, idx))
+        parent.Add("TextBlock").Name("IfProInline" idx "Flow_" id).Text(GetLang("流程控制") "：" ct).Foreground(fg).FontSize(this._MGFontSize(11)).Margin("0,2,0,0")
     }
 
     _FillIfProCaseSection(body, id, caseIdx, data, folded := "") {
@@ -1057,16 +1097,19 @@ class MacroGraphIfProMixin {
             folded := this._NodeFolded(id)
         p := "IfProC" caseIdx
         fs := this._MGFontSize(12)
-        sec := body.Add("Border").Name(p "Sec_" id).BorderBrush("#5C6BC0").BorderThickness("1.5").CornerRadius("6").Background("#2E2E45").Margin("0,6,0,0").Padding("6,4,6,6")
+        fg := "{DynamicResource TextMain}"
+        ; 情况用主题组框包起，条件仍用分割线分隔
+        sec := body.Add("Border").Name(p "Sec_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Background("{DynamicResource ControlBg}").Margin("0,6,0,0").Padding("6,4,6,6")
         wrap := sec.Add("StackPanel")
         innerFull := wrap.Add("StackPanel").Name(p "Full_" id)
         innerFull.Visibility(folded ? "Collapsed" : "Visible")
-        innerFull.Add("TextBlock").Text("情况" caseIdx).Foreground("#C5CAE9").FontWeight("Bold").FontSize(fs)
+        innerFull.Add("TextBlock").Text("情况" caseIdx).Foreground(fg).FontWeight("Bold").FontSize(fs)
         cc := this._IfProCaseCondiCount(data, caseIdx)
         logicTypes := this._IfProLogicTypes()
         lt := data.LogicTypeArr[caseIdx]
         showLogic := cc > 1
-        this._AddComboRow(innerFull, p "LogicRow_" id, GetLang("逻辑关系："), p "LogicCmb_" id, logicTypes, Max(0, lt - 1), showLogic, true, "58", "96")
+        lw := this._FormalLW(), cw := this._FormalCW()
+        this._AddComboRow(innerFull, p "LogicRow_" id, GetLang("逻辑关系："), p "LogicCmb_" id, logicTypes, Max(0, lt - 1), showLogic, true, lw, cw)
         prevOn := true
         loop 4 {
             slot := A_Index
@@ -1076,17 +1119,56 @@ class MacroGraphIfProMixin {
             this._FillIfProCondiSlot(innerFull, id, caseIdx, slot, data, chainVis, cmp != 7)
             prevOn := chainVis && on
         }
+        ; 收起：条件摘要 + 本情况分支指令/流程控制
         innerSum := wrap.Add("StackPanel").Name(p "Sum_" id)
         innerSum.Visibility(folded ? "Visible" : "Collapsed")
-        innerSum.Add("TextBlock").Text("情况" caseIdx).Foreground("#C5CAE9").FontWeight("Bold").FontSize(fs)
+        innerSum.Add("TextBlock").Text("情况" caseIdx).Foreground(fg).FontWeight("Bold").FontSize(fs)
         this._FillIfProCaseSummaryRows(innerSum, id, caseIdx, data)
+        this._FillIfProCaseBranchBlock(innerSum, id, caseIdx - 1)
     }
 
     _FillIfProDefaultSection(body, id, data, folded := "") {
+        if (folded == "")
+            folded := this._NodeFolded(id)
         fs := this._MGFontSize(12)
-        sec := body.Add("Border").Name("IfProDefSec_" id).BorderBrush("#8E24AA").BorderThickness("1").CornerRadius("5").Background("#2A2438").Margin("0,6,0,0").Padding("6,8,6,8")
-        inner := sec.Add("StackPanel")
-        inner.Add("TextBlock").Text(GetLang("以上都不是")).Foreground("#E1BEE7").FontWeight("Bold").FontSize(fs)
+        sec := body.Add("Border").Name("IfProDefSec_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("6").Background("{DynamicResource ControlBg}").Margin("0,6,0,0").Padding("6,6,6,6")
+        wrap := sec.Add("StackPanel")
+        wrap.Add("TextBlock").Text(GetLang("以上都不是")).Foreground("{DynamicResource TextMain}").FontWeight("Bold").FontSize(fs)
+        ; 收起：默认分支指令/流程控制嵌在组框内
+        brBox := wrap.Add("StackPanel").Name("IfProDefBranch_" id)
+        brBox.Visibility(folded ? "Visible" : "Collapsed")
+        defIdx := this._IfProCaseCountFromData(data)
+        this._FillIfProCaseBranchBlock(brBox, id, defIdx)
+    }
+
+    _OnIfProInlineChipsToggle(id, idx, *) {
+        if (this.ui == "")
+            return
+        key := "IfProInline" idx "_" id
+        panelName := "IfProInline" idx "Chips_" id
+        btnName := "IfProInline" idx "Expand_" id
+        nv := !(this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key])
+        this._loopChipsExpanded[key] := nv
+        cmds := this._BranchGraphCmds(this._IfProBranchMacro(id, idx))
+        this._RebuildLoopChips(panelName, cmds, nv)
+        this.ui.Update(btnName, "Content", nv ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+    }
+
+    _RefreshIfProInlineBranches(id) {
+        if (this.ui == "")
+            return
+        count := this._IfProBranchCountFromId(id)
+        loop count {
+            idx := A_Index - 1
+            key := "IfProInline" idx "_" id
+            cmds := this._BranchGraphCmds(this._IfProBranchMacro(id, idx))
+            expanded := this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key]
+            this._RebuildLoopChips("IfProInline" idx "Chips_" id, cmds, expanded)
+            this.ui.Update("IfProInline" idx "Expand_" id, "Visibility", cmds.Length > this._LoopPreviewCount() ? "Visible" : "Collapsed")
+            this.ui.Update("IfProInline" idx "Expand_" id, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+            ct := GetLang(this._IfProBranchControl(id, idx))
+            this.ui.Update("IfProInline" idx "Flow_" id, "Text", GetLang("流程控制") "：" ct)
+        }
     }
 
     _FillIfProBody(id, d, body) {
@@ -1099,7 +1181,6 @@ class MacroGraphIfProMixin {
         loop cc
             this._FillIfProCaseSection(secBox, id, A_Index, data, folded)
         this._FillIfProDefaultSection(secBox, id, data, folded)
-        this._AddFormalHint(body)
         this._ifProUiCaseCount[id] := cc
     }
 }

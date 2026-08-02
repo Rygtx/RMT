@@ -9,7 +9,8 @@
 ; ============================================================================
 
 class MacroGraphBranchMixin {
-    ; 切换搜索节点折叠态：折叠隐藏真/假分支节点（搜索直连后续），展开则显示分支节点。
+    ; 切换搜索/如果节点折叠态：折叠隐藏真/假分支节点（直连后续），展开则显示分支节点。
+    ; 如果节点额外：收起时显示条件摘要 + 内嵌真/假分支；展开时恢复完整条件卡。
     ; 运行时显隐 + 连线启停，避免整窗重建闪烁。
     _OnToggleFold(id, *) {
         if (!this.cmdNodes.Has(id))
@@ -22,6 +23,17 @@ class MacroGraphBranchMixin {
             this._FoldSearchRuntime(id)
         else
             this._UnfoldSearchRuntime(id)
+        if (this._IsIfNodeId(id) && this.ui != "") {
+            if (willFold) {
+                this._RefreshIfSummary(id)
+                this._RefreshIfInlineBranches(id)
+            }
+            this.ui.Update("IfFullBox_" id, "Visibility", willFold ? "Collapsed" : "Visible")
+            this.ui.Update("IfSumBox_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+            this.ui.Update("IfInlineBranch_" id, "Visibility", willFold ? "Visible" : "Collapsed")
+            if (!willFold)
+                this._RefreshFormalIfVisibility(id)
+        }
         ; 标题按钮图标：折叠→▶（点击展开），展开→▼（点击收起）
         this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
@@ -62,8 +74,8 @@ class MacroGraphBranchMixin {
     }
 
     ; 切换循环节点折叠态：
-    ;   展开(Folded=0)：次数/条件下拉保持 + 外置循环体节点（回环连线）；
-    ;   收起(Folded=1)：次数/条件下拉不变，改为内置循环体列表，隐藏外置体与回环连线。
+    ;   展开(Folded=0)：次数/条件/逻辑/条件卡 + 外置循环体节点（回环连线）；
+    ;   收起(Folded=1)：次数/条件下拉保留，条件简化为圆点摘要 + 内置循环体列表，隐藏外置体与回环连线。
     ; 运行时显隐 + 连线启停，避免整窗重建闪烁。
     _OnToggleLoopFold(id, *) {
         if (this.ui == "" || !this.cmdNodes.Has(id))
@@ -74,16 +86,16 @@ class MacroGraphBranchMixin {
         try SaveMacroCMDData(node)
         if (willFold) {
             this._FoldLoopRuntime(id)          ; 隐藏外置循环体 + 停用回环连线
+            this._RefreshLoopSummary(id)
+            this._RefreshLoopChips(id)
         } else {
             this._UnfoldLoopRuntime(id)        ; 显示/注入外置循环体 + 启用回环连线
         }
-        ; 次数/条件等控件始终在 LoopFullBox，折叠时不切换成摘要文字
         this.ui.Update("LoopInlineBody_" id, "Visibility", willFold ? "Visible" : "Collapsed")
         d := this._FormalDFromId(id)
         showCondi := (d.HasOwnProp("condiType") ? d.condiType : 1) != 1
-        this._FormalSetVis(id, "LoopPortPad_" id, !willFold && !showCondi)
-        if (willFold)
-            this._RefreshLoopChips(id)         ; 内置循环体列表随收起显示，刷新内容
+        this.ui.Update("LoopCondiSumBox_" id, "Visibility", (willFold && showCondi) ? "Visible" : "Collapsed")
+        this._RefreshFormalLoopVisibility(id)  ; 同步逻辑/条件卡显隐（收起时隐藏）
         this.ui.Update("SFold_" id, "Content", willFold ? "▶" : "▼")
         this.ui.Update("SFold_" id, "ToolTip", willFold ? GetLang("展开") : GetLang("收起"))
         this._CaptureLinks()
@@ -128,8 +140,20 @@ class MacroGraphBranchMixin {
         this._SpreadForExpand(loopId)          ; 展开：后继子树右移腾出外置循环体空间
     }
 
-    ; 旧收起摘要已废弃：折叠时次数/条件仍用同一套下拉，保留空实现以免调用方报错
+    ; 刷新循环收起态条件摘要（逻辑关系 + 条件圆点行）
     _RefreshLoopSummary(id) {
+        if (this.ui == "")
+            return
+        info := this._LoopSummaryInfo(id)
+        this.ui.Update("LoopSumLogic_" id, "Text", GetLang("逻辑关系") "：" info.logicName)
+        this.ui.Update("LoopSumLogic_" id, "Visibility", info.showLogic ? "Visible" : "Collapsed")
+        data := this._SearchData(id)
+        loop 4 {
+            slot := A_Index
+            ci := this._LoopCondiSummaryRow(data, slot)
+            this.ui.Update("LoopSumCondiRow_" slot "_" id, "Visibility", ci.on ? "Visible" : "Collapsed")
+            this.ui.Update("LoopSumCondiTxt_" slot "_" id, "Text", ci.text)
+        }
     }
 
     ; 外置循环体节点单击：计时判定双击 → 打开嵌套节点编辑器编辑循环体子图
@@ -341,11 +365,14 @@ class MacroGraphBranchMixin {
     }
 
     ; 展开时后继与父节点的最小横向间距：
-    ;   · 搜索/如果/如果Pro：越过分支区（父宽 + 100 + 分支宽 200 + 余量）
+    ;   · 如果Pro：越过分支区（默认 dx 已含父宽间隙且对齐 grid + 分支宽 200 + 余量）
+    ;   · 搜索/如果：越过分支区（父宽 + 100 + 分支宽 200 + 余量）
     ;   · 循环：越过外置循环体（父宽 + 60 间距 + 循环体宽 200 + 余量）
     _ExpandMinGap(searchId) {
         if (this._IsLoopNodeId(searchId))
             return this._LoopNodeWidth(searchId) + 60 + 200 + 80
+        if (this._IsIfProNodeId(searchId))
+            return this._IfProBranchDefaultDX() + 200 + 80
         return this._BranchParentWidth(searchId) + 360
     }
 

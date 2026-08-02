@@ -2784,7 +2784,22 @@ public class AhkWpfEngine
         else if (c is ComboBox)
         {
             ComboBox cb = (ComboBox)c;
-            if (cb.SelectedItem is ComboBoxItem)
+            // 可编辑下拉：显示文本即真值。标签拖拽只改 Text，SelectedItem 可能仍指向旧项。
+            if (cb.IsEditable)
+            {
+                try
+                {
+                    var editBox = cb.Template != null
+                        ? cb.Template.FindName("PART_EditableTextBox", cb) as System.Windows.Controls.TextBox
+                        : null;
+                    if (editBox != null)
+                        val = editBox.Text ?? "";
+                    else
+                        val = cb.Text ?? "";
+                }
+                catch { val = cb.Text ?? ""; }
+            }
+            else if (cb.SelectedItem is ComboBoxItem)
             {
                 object tag = ((ComboBoxItem)cb.SelectedItem).Tag;
                 object content = ((ComboBoxItem)cb.SelectedItem).Content;
@@ -8024,7 +8039,23 @@ public class AhkWpfEngine
         System.Action<System.Windows.Controls.Control, string> setCtrlText = (c, v) =>
         {
             var t = c as System.Windows.Controls.TextBox; if (t != null) { t.Text = v; return; }
-            var cb = c as System.Windows.Controls.ComboBox; if (cb != null) { cb.Text = v; return; }
+            var cb = c as System.Windows.Controls.ComboBox;
+            if (cb != null)
+            {
+                // 先清选中项，避免 Text 与 SelectedItem 不一致导致读值仍拿旧 Content
+                cb.SelectedIndex = -1;
+                cb.Text = v;
+                try
+                {
+                    var editBox = cb.Template != null
+                        ? cb.Template.FindName("PART_EditableTextBox", cb) as System.Windows.Controls.TextBox
+                        : null;
+                    if (editBox != null)
+                        editBox.Text = v;
+                }
+                catch { }
+                return;
+            }
         };
 
         // 同一 StackPanel 内存在数值内容的 TextBox / 可编辑 ComboBox 则返回它，否则 null

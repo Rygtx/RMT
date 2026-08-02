@@ -23,6 +23,12 @@ class MacroGraphHandlersMixin {
 
     ; 读 Combo 显示文本：state → Query → SelectedIndex 映射 items
     _ComboText(key, state := unset, items := unset) {
+        ; 可编辑下拉标签拖拽只改 Text，必须优先 >Text，否则会读到陈旧 SelectedItem
+        if (this.ui != "") {
+            t := this.ui.Query(key ">Text")
+            if (t != "")
+                return t
+        }
         if (IsSet(state) && IsObject(state) && state.Has(key) && state[key] != "")
             return state[key]
         if (this.ui != "") {
@@ -38,15 +44,83 @@ class MacroGraphHandlersMixin {
         return ""
     }
 
-    ; 将 Combo 当前值补进 state，供仍读 state 文本的 Formal handler 复用
-    _EnsureComboInState(state, key, items) {
+    ; 将 Combo 当前值写入 state（始终优先界面 >Text，覆盖标签拖拽后的陈旧 SelectedItem）
+    _EnsureComboInState(state, key, items := unset) {
         if (!IsObject(state))
             return
-        if (state.Has(key) && state[key] != "")
-            return
-        txt := this._ComboText(key, state, items)
+        txt := this._ComboText(key, unset, IsSet(items) ? items : unset)
         if (txt != "")
             state[key] := txt
+    }
+
+    ; 把可编辑下拉/文本控件的当前显示值拉进 state（标签拖拽后 Flush 用）
+    _PullEditTextIntoState(state, key) {
+        if (!IsObject(state) || this.ui == "")
+            return
+        if (this._InlineVal(state, key, &val))
+            state[key] := val
+    }
+
+    ; Formal 节点按类型补拉可拖拽/可编辑字段，避免 Query(*) 漏键导致 Flush 写不回
+    _PullFormalEditKeys(id, type, state) {
+        keys := []
+        if (type == GetLang("宏操作"))
+            keys := ["SubIns_" id]
+        else if (type == GetLang("变量")) {
+            loop 4 {
+                p := "VarS" A_Index
+                keys.Push(p "Name_" id, p "Copy_" id, p "Min_" id, p "Max_" id, p "CopyTxt_" id)
+            }
+        } else if (type == GetLang("变量提取")) {
+            keys := ["ExSX_" id, "ExSY_" id, "ExEX_" id, "ExEY_" id, "ExCnt_" id, "ExInt_" id]
+            loop 6
+                keys.Push("ExV" A_Index "Name_" id)
+        } else if (type == GetLang("运算")) {
+            loop 4
+                keys.Push("OpS" A_Index "Target_" id)
+        } else if (type == GetLang("运行")) {
+            keys := ["RunTarget_" id, "RunStdIn_" id]
+            loop 3
+                keys.Push("RunSave" A_Index "_" id)
+        } else if (type == GetLang("文件读写"))
+            keys := ["FIORow_" id, "FIOCol_" id, "FIORowEnd_" id, "FIOColEnd_" id, "FIOTxtRow_" id, "FIOSave_" id, "FIOArr_" id, "FIOSheet_" id]
+        else if (type == GetLang("文本处理"))
+            keys := ["TxtName_" id, "TxtArgsName_" id, "TxtSave_" id]
+        else if (type == GetLang("数组"))
+            keys := ["ArrName_" id, "ArrMain_" id, "ArrArgsIdx_" id, "ArrArgsName_" id, "ArrSave_" id]
+        else if (type == GetLang("后台鼠标"))
+            keys := ["BgmX_" id, "BgmY_" id]
+        else if (type == GetLang("后台按键"))
+            keys := ["BgkTime_" id, "BgkCount_" id, "BgkInter_" id]
+        else if (type == GetLang("窗口管理"))
+            keys := ["WmX_" id, "WmY_" id, "WmW_" id, "WmH_" id, "WmTrans_" id]
+        else if (type == GetLang("按键检测"))
+            keys := ["KcVar_" id]
+        else if (type == GetLang("抓图"))
+            keys := ["SsSX_" id, "SsSY_" id, "SsEX_" id, "SsEY_" id, "SsResName_" id]
+        else if (type == GetLang("循环")) {
+            keys := ["LoopCount_" id]
+            loop 4 {
+                p := "LoopC" A_Index
+                keys.Push(p "Name_" id, p "Var_" id)
+            }
+        } else if (type == GetLang("如果")) {
+            keys := ["IfSaveName_" id, "IfTrueVal_" id, "IfFalseVal_" id]
+            loop 4 {
+                p := "IfC" A_Index
+                keys.Push(p "Name_" id, p "Var_" id)
+            }
+        } else if (type == GetLang("如果Pro")) {
+            loop 4 {
+                ci := A_Index
+                loop 4 {
+                    ps := "IfProC" ci "S" A_Index
+                    keys.Push(ps "Name_" id, ps "Var_" id)
+                }
+            }
+        }
+        for key in keys
+            this._PullEditTextIntoState(state, key)
     }
 
     ; 按键类型下拉项：0=按下 1=松开 2=点击（与 _TypeIndex / 节点构建顺序一致）
@@ -1468,7 +1542,7 @@ class MacroGraphHandlersMixin {
             this._FlushFormalInline(id, d, state)
     }
 
-    ; Formal：复用现有写回 handler，_flushSilent 抑制 _Apply；>Text 覆盖可编辑下拉（标签拖拽）
+    ; Formal：复用现有写回 handler，_flushSilent 抑制 _Apply；可编辑下拉一律以 >Text 为准（标签拖拽）
     _FlushFormalInline(id, d, state) {
         if (!IsObject(state))
             state := Map()
@@ -1481,11 +1555,10 @@ class MacroGraphHandlersMixin {
             keys := []
             for k, _ in state
                 keys.Push(k)
-            for k in keys {
-                t := this.ui.Query(k ">Text")
-                if (t != "")
-                    state[k] := t
-            }
+            for k in keys
+                this._PullEditTextIntoState(state, k)
+            ; 按节点补拉可拖拽数值字段（防止 Query(*) 未收录该键）
+            this._PullFormalEditKeys(id, d.type, state)
         }
         prev := this.HasOwnProp("_flushSilent") ? this._flushSilent : false
         this._flushSilent := true

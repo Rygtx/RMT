@@ -141,6 +141,12 @@ class MacroGraphFormalHandlersMixin {
             data.ToggleArr[slot] := this._FormalChecked(state, p "Tog_" id) ? 1 : 0
             if (state.Has(p "OpCmb_" id) && state[p "OpCmb_" id] != "")
                 data.OperaTypeArr[slot] := this._IndexInLangArr(opTypes, state[p "OpCmb_" id]) + 1
+            ; 可编辑下拉：优先界面 Text（标签拖拽只改 Text，SelectedItem 可能仍是旧值）
+            this._PullEditTextIntoState(state, p "Name_" id)
+            this._PullEditTextIntoState(state, p "Copy_" id)
+            this._PullEditTextIntoState(state, p "Min_" id)
+            this._PullEditTextIntoState(state, p "Max_" id)
+            this._PullEditTextIntoState(state, p "CopyTxt_" id)
             if (state.Has(p "Name_" id) && state[p "Name_" id] != "")
                 data.VariableArr[slot] := GetVarName(state[p "Name_" id])
             ot := data.OperaTypeArr[slot]
@@ -1484,6 +1490,8 @@ class MacroGraphFormalHandlersMixin {
         }
         SaveMacroCMDData(data)
         this._RefreshFormalIfVisibility(id)
+        if (this._NodeFolded(id))
+            this._RefreshIfSummary(id)
         this._Apply()
     }
 
@@ -1491,10 +1499,11 @@ class MacroGraphFormalHandlersMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
+        folded := this._NodeFolded(id)
         saveOn := d.HasOwnProp("saveToggle") && (d.saveToggle == 1 || d.saveToggle == "1")
-        this._FormalSetVis(id, "IfSaveNameRow_" id, saveOn)
-        this._FormalSetVis(id, "IfTrueValRow_" id, saveOn)
-        this._FormalSetVis(id, "IfFalseValRow_" id, saveOn)
+        this._FormalSetVis(id, "IfSaveNameRow_" id, !folded && saveOn)
+        this._FormalSetVis(id, "IfTrueValRow_" id, !folded && saveOn)
+        this._FormalSetVis(id, "IfFalseValRow_" id, !folded && saveOn)
         prevOn := true
         loop 4 {
             slot := A_Index
@@ -1504,10 +1513,11 @@ class MacroGraphFormalHandlersMixin {
                 tog := d["ifTog1"] == 1 || d["ifTog1"] == "1"
             chainVis := (slot == 1) ? true : prevOn
             cmp := d.HasOwnProp("ifCmp" slot) ? d["ifCmp" slot] : 1
-            this._FormalSetVis(id, p "TogRow_" id, chainVis)
-            this._FormalSetVis(id, p "NameRow_" id, chainVis && tog)
-            this._FormalSetVis(id, p "CmpRow_" id, chainVis && tog)
-            this._FormalSetVis(id, p "VarRow_" id, chainVis && tog && cmp != 7)
+            cardVis := !folded && chainVis
+            this._FormalSetVis(id, p "TogRow_" id, cardVis)
+            this._FormalSetVis(id, p "NameRow_" id, cardVis && tog)
+            this._FormalSetVis(id, p "CmpRow_" id, cardVis && tog)
+            this._FormalSetVis(id, p "VarRow_" id, cardVis && tog && cmp != 7)
             prevOn := chainVis && tog
         }
     }
@@ -1531,6 +1541,8 @@ class MacroGraphFormalHandlersMixin {
                 data.FalseControlType := val
         }
         SaveMacroCMDData(data)
+        if (this._IsIfNodeId(parentId) && this._NodeFolded(parentId))
+            this._RefreshIfInlineBranches(parentId)
         this._Apply()
     }
 
@@ -1589,16 +1601,18 @@ class MacroGraphFormalHandlersMixin {
         d := this._FormalDFromId(id)
         condiType := d.HasOwnProp("condiType") ? d.condiType : 1
         showCondi := condiType != 1
-        this._FormalSetVis(id, "LoopLogicRow_" id, showCondi)
+        folded := this._NodeFolded(id)
+        this._FormalSetVis(id, "LoopLogicRow_" id, showCondi && !folded)
+        this._FormalSetVis(id, "LoopCondiSumBox_" id, showCondi && folded)
         ; 展开且无条件时垫高以容纳回环下端口；有条件/收起态不垫
-        this._FormalSetVis(id, "LoopPortPad_" id, !showCondi && !this._NodeFolded(id))
+        this._FormalSetVis(id, "LoopPortPad_" id, !showCondi && !folded)
         prevOn := true
         loop 4 {
             slot := A_Index
             p := "LoopC" slot
             tog := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
             chainVis := (slot == 1) ? true : prevOn   ; 逐级展开：仅勾选上一条件后才显示本条件块
-            cardVis := showCondi && chainVis
+            cardVis := showCondi && !folded && chainVis
             cmp := d.HasOwnProp("loopCmp" slot) ? d["loopCmp" slot] : 1
             this._FormalSetVis(id, p "TogRow_" id, cardVis)   ; 整块条件（含分隔线）随条件类型 + 逐级展开显隐
             this._FormalSetVis(id, p "NameRow_" id, cardVis && tog)

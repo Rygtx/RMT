@@ -80,6 +80,9 @@ class MacroGraphFormalMixin {
         ; 变量提取参数较多：与搜索Pro同宽(380)，内部两列布局
         if (type == GetLang("变量提取"))
             return 380
+        ; 如果Pro：标准 Formal 下拉(80/96) + 情况分区，略宽于普通 Formal 节点
+        if (type == GetLang("如果Pro"))
+            return 240
         return 200
     }
 
@@ -296,7 +299,6 @@ class MacroGraphFormalMixin {
         ; 插入次数置于宏序号上方（出现时紧跟操作类型）
         this._AddEditableComboRow(body, "SubInsRow_" id, GetLang("插入次数："), "SubIns_" id, GetGuiVarArr(), ins, showIns, lw, cw)
         this._AddComboRow(body, "SubIdxRow_" id, GetLang("宏序号："), "SubIdxCmb_" id, idxItems, Max(0, idx - 1), showIdx, showIdx, lw, cw)
-        this._AddFormalHint(body)
     }
 
     ; 变量槽（对齐「变量编辑器」：开关 + 变量名 + 变量类型 + 选择/输入 / 最小 / 最大）。
@@ -306,7 +308,8 @@ class MacroGraphFormalMixin {
     ;   - 随机数值：显示「最小/最大」两行
     ;   - 删除：仅变量名
     _FillVariableSlot(body, id, slot, d, visible := true) {
-        lw := "66", cw := "94"
+        ; 与间隔节点一致：标准 Formal 宽(80/96)；用分隔线代替组框
+        lw := this._FormalLW(), cw := this._FormalCW()
         p := "VarS" slot
         toggled := d.HasOwnProp("toggle" slot) ? d["toggle" slot] : (slot == 1 ? 1 : 0)
         on := this._FormalVarSlotOn(toggled)
@@ -320,23 +323,22 @@ class MacroGraphFormalMixin {
         showChar := on && ot == 3
         showSys := on && ot == 4
         showMinMax := on && ot == 2
-        ; 每个变量独立卡片：分组清晰、表现更佳，开关/字段集中显示
-        ; 逐级展开：仅勾选上一个变量后才显示下一个（visible 控制整张卡片显隐，降低展开高度）
-        card := body.Add("Border").Name(p "Card_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4").Background("{DynamicResource InputBg}").Margin("0,6,0,0").Padding("6,2,6,6")
+        ; 逐级展开：仅勾选上一变量后才显示本槽；分割线分隔，不挤占左右区域
+        block := body.Add("StackPanel").Name(p "Card_" id).Margin("0,2,0,0")
         if (!visible)
-            card.Visibility("Collapsed")
-        inner := card.Add("StackPanel")
-        this._AddCheckRow(inner, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, on, true)
-        this._AddEditableComboRow(inner, p "NameRow_" id, GetLang("变量名："), p "Name_" id, GetGuiVarArr(), vn, on, lw, cw)
-        this._AddComboRow(inner, p "OpRow_" id, GetLang("类型："), p "OpCmb_" id, opTypes, ot - 1, on, true, lw, cw)
+            block.Visibility("Collapsed")
+        block.Add("Border").Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        this._AddCheckRow(block, p "TogRow_" id, p "Tog_" id, GetLang("变量") slot, on, true)
+        this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量名："), p "Name_" id, GetGuiVarArr(), vn, on, lw, cw)
+        this._AddComboRow(block, p "OpRow_" id, GetLang("类型："), p "OpCmb_" id, opTypes, ot - 1, on, true, lw, cw)
         ; 数值：可下拉选变量或手输数字；字符：纯文本输入框（无下拉）。两行各自固定标签、按类型显隐切换。
-        this._AddEditableComboRow(inner, p "CopyRow_" id, GetLang("数值："), p "Copy_" id, GetGuiVarArr(), cv, showNum, lw, cw)
-        this._AddFieldRow(inner, p "CharRow_" id, GetLang("字符："), p "CopyTxt_" id, cv, showChar, true, "", "", "", lw, cw)
+        this._AddEditableComboRow(block, p "CopyRow_" id, GetLang("数值："), p "Copy_" id, GetGuiVarArr(), cv, showNum, lw, cw)
+        this._AddFieldRow(block, p "CharRow_" id, GetLang("字符："), p "CopyTxt_" id, cv, showChar, true, "", "", "", lw, cw)
         sysItems := GetSystemVarArr()
         sysIdx := this._IndexInLangArr(sysItems, GetLang(cv))
-        this._AddComboRow(inner, p "SysRow_" id, GetLang("系统："), p "SysCmb_" id, sysItems, sysIdx, showSys, true, lw, cw)
-        this._AddEditableComboRow(inner, p "MinRow_" id, GetLang("最小值："), p "Min_" id, GetGuiVarArr(), minv, showMinMax, lw, cw)
-        this._AddEditableComboRow(inner, p "MaxRow_" id, GetLang("最大值："), p "Max_" id, GetGuiVarArr(), maxv, showMinMax, lw, cw)
+        this._AddComboRow(block, p "SysRow_" id, GetLang("系统："), p "SysCmb_" id, sysItems, sysIdx, showSys, true, lw, cw)
+        this._AddEditableComboRow(block, p "MinRow_" id, GetLang("最小值："), p "Min_" id, GetGuiVarArr(), minv, showMinMax, lw, cw)
+        this._AddEditableComboRow(block, p "MaxRow_" id, GetLang("最大值："), p "Max_" id, GetGuiVarArr(), maxv, showMinMax, lw, cw)
     }
 
     _FillVariableBody(id, d, body) {
@@ -362,12 +364,12 @@ class MacroGraphFormalMixin {
             toggled := d.HasOwnProp("toggle" slot) ? d["toggle" slot] : (slot == 1 ? 1 : 0)
             prevOn := vis && this._FormalVarSlotOn(toggled)
         }
-        this._AddFormalHint(fullBox)
     }
 
-    ; 收起态摘要：4 个固定命名行（按启用与否显隐），逐个显示「变量名 = 值/描述」，可在折叠时就地刷新
+    ; 收起态摘要：4 个固定命名行（按启用与否显隐），逐个显示「变量名 = 值/描述」（颜色跟主题）
     _FillVariableSummary(id, d, box) {
         anyOn := false
+        fg := "{DynamicResource TextMain}"
         loop 4 {
             slot := A_Index
             info := this._VarSummaryRowInfo(d, slot)
@@ -376,10 +378,10 @@ class MacroGraphFormalMixin {
             row := box.Add("StackPanel").Name("VarSumRow_" slot "_" id).Orientation("Horizontal").Margin("0,5,0,0")
             if (!info.on)
                 row.Visibility("Collapsed")
-            row.Add("Ellipse").Width("7").Height("7").Fill("#5C9DED").Margin("0,0,6,0").VerticalAlignment("Center")
-            row.Add("TextBlock").Name("VarSumTxt_" slot "_" id).Text(info.text).Foreground("#E8E8E8").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
+            row.Add("Ellipse").Width("7").Height("7").Fill("{DynamicResource GraphConnSel}").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("TextBlock").Name("VarSumTxt_" slot "_" id).Text(info.text).Foreground(fg).FontSize(this._MGFontSize(12)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
         }
-        emptyTb := box.Add("TextBlock").Name("VarSumEmpty_" id).Text(GetLang("未启用任何变量")).Foreground("#999999").FontSize(this._MGFontSize(11)).Margin("0,5,0,0")
+        emptyTb := box.Add("TextBlock").Name("VarSumEmpty_" id).Text(GetLang("未启用任何变量")).Foreground(fg).FontSize(this._MGFontSize(11)).Margin("0,5,0,0")
         if (anyOn)
             emptyTb.Visibility("Collapsed")
     }
@@ -459,13 +461,12 @@ class MacroGraphFormalMixin {
         this._ProCellEdit(r, "ExCntRow_" id, GetLang("次数："), "ExCnt_" id, [GetLang("无限")], scText, isOcr, LW, CW, false)
         this._ProCellField(r, "ExIntRow_" id, GetLang("间隔："), "ExInt_" id, d.HasOwnProp("searchInterval") ? d.searchInterval : 1000, isOcr, "", LW, CW, true)
 
-        ; 提取变量：6 个，复选框+名称为一格，两格一行
+        ; 提取变量：6 个，复选框+名称为一格，两格一行（左列对齐次数、右列对齐间隔）
         loop 3 {
             r := body.Add("StackPanel").Orientation("Horizontal").Margin("0,5,0,0")
             this._FillExVarSlotCell(r, id, A_Index * 2 - 1, d, varList, false)
             this._FillExVarSlotCell(r, id, A_Index * 2, d, varList, true)
         }
-        this._AddFormalHint(body)
     }
 
     _FillOperationSlot(body, id, slot, d, visible := true) {
@@ -975,9 +976,9 @@ class MacroGraphFormalMixin {
         return this._LoopCmpTypes()
     }
 
-    ; 如果节点：逻辑关系 + 条件1~4（逐级展开）+ 结果保存
+    ; 如果节点：逻辑关系 + 条件1~4（分割线分隔、标准宽）+ 结果保存；收起态为条件摘要 + 内嵌真/假分支
     _FillIfCondiCard(body, id, slot, d, showCard) {
-        lw := "44", cw := "108"
+        lw := this._FormalLW(), cw := this._FormalCW()
         p := "IfC" slot
         on := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
         if (slot == 1 && d.HasOwnProp("ifTog1"))
@@ -988,40 +989,167 @@ class MacroGraphFormalMixin {
         cmpTypes := this._IfCmpTypes()
         showRow := showCard && on
         showVal := showRow && cmp != 7
-        card := body.Add("Border").Name(p "TogRow_" id).BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").CornerRadius("4").Background("{DynamicResource InputBg}").Margin("0,5,0,0").Padding("6,2,6,6")
+        block := body.Add("StackPanel").Name(p "TogRow_" id).Margin("0,2,0,0")
         if (!showCard)
-            card.Visibility("Collapsed")
-        inner := card.Add("StackPanel")
-        this._AddCheckRow(inner, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
-        this._AddEditableComboRow(inner, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
-        this._AddComboRow(inner, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
-        this._AddEditableComboRow(inner, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
+            block.Visibility("Collapsed")
+        block.Add("Border").Name(p "Sep_" id).Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        this._AddCheckRow(block, p "TogChkRow_" id, p "Tog_" id, GetLang("条件") slot, on, true)
+        this._AddEditableComboRow(block, p "NameRow_" id, GetLang("变量："), p "Name_" id, GetGuiVarArr(), GetLang(nm), showRow, lw, cw)
+        this._AddComboRow(block, p "CmpRow_" id, GetLang("比较："), p "Cmp_" id, cmpTypes, cmp - 1, showRow, true, lw, cw)
+        this._AddEditableComboRow(block, p "VarRow_" id, GetLang("值："), p "Var_" id, GetGuiVarArr(), GetLang(vr), showVal, lw, cw)
+    }
+
+    ; 如果条件收起态简要：{on, text}
+    _IfCondiSummaryRow(data, slot) {
+        res := {on: false, text: ""}
+        if (data == "")
+            return res
+        tog := data.ToggleArr[slot]
+        if (!tog)
+            return res
+        res.on := true
+        cmpArr := this._IfCmpTypes()
+        ct := data.CompareTypeArr[slot]
+        cmpStr := (ct >= 1 && ct <= cmpArr.Length) ? cmpArr[ct] : cmpArr[1]
+        nm := GetLang(data.NameArr[slot])
+        res.text := (ct != 7) ? nm " " cmpStr " " GetLang(data.VariableArr[slot]) : nm " " cmpStr
+        return res
+    }
+
+    _FillIfCondiSummary(id, box) {
+        fg := "{DynamicResource TextMain}"
+        data := this._SearchData(id)
+        anyOn := false
+        loop 4 {
+            slot := A_Index
+            ci := this._IfCondiSummaryRow(data, slot)
+            if (ci.on)
+                anyOn := true
+            row := box.Add("StackPanel").Name("IfSumCondiRow_" slot "_" id).Orientation("Horizontal").Margin("0,3,0,0")
+            if (!ci.on)
+                row.Visibility("Collapsed")
+            row.Add("Ellipse").Width("7").Height("7").Fill("{DynamicResource GraphConnSel}").Margin("0,0,6,0").VerticalAlignment("Center")
+            row.Add("TextBlock").Name("IfSumCondiTxt_" slot "_" id).Text(ci.text).Foreground(fg).FontSize(this._MGFontSize(11)).VerticalAlignment("Center").TextTrimming("CharacterEllipsis")
+        }
+        emptyTb := box.Add("TextBlock").Name("IfSumEmpty_" id).Text(GetLang("未启用任何条件")).Foreground(fg).FontSize(this._MGFontSize(11)).Margin("0,3,0,0")
+        if (anyOn)
+            emptyTb.Visibility("Collapsed")
+    }
+
+    ; 收起态：内嵌真/假分支指令列表 + 流程控制（简化文字）
+    _FillIfInlineBranches(parent, id, folded) {
+        fg := "{DynamicResource TextMain}"
+        box := parent.Add("StackPanel").Name("IfInlineBranch_" id).Margin("0,2,0,0")
+        box.Visibility(folded ? "Visible" : "Collapsed")
+        for isTrue in [true, false] {
+            tag := isTrue ? "T" : "F"
+            box.Add("Border").Height("1").Margin("0,6,0,4").BorderThickness("0").Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+            head := box.Add("StackPanel").Orientation("Horizontal")
+            head.Add("Ellipse").Width("8").Height("8").Fill(isTrue ? "#4CAF50" : "#E53935").Margin("0,0,6,0").VerticalAlignment("Center")
+            head.Add("TextBlock").Text(this._BranchTitleFor(id, isTrue)).Foreground(fg).FontSize(this._MGFontSize(12)).FontWeight("Bold")
+            cmds := this._BranchGraphCmds(this._BranchStartSerial(id, isTrue))
+            this._FillLoopChips(box, "IfInline" tag "Chips_" id, "IfInline" tag "Expand_" id, "IfInline" tag "_" id, cmds)
+            data := this._BranchParentData(id)
+            ct := "无"
+            if (data != "") {
+                raw := isTrue ? (data.HasOwnProp("TrueControlType") ? data.TrueControlType : "无") : (data.HasOwnProp("FalseControlType") ? data.FalseControlType : "无")
+                ct := GetLang(raw)
+            }
+            box.Add("TextBlock").Name("IfInline" tag "Flow_" id).Text(GetLang("流程控制") "：" ct).Foreground(fg).FontSize(this._MGFontSize(11)).Margin("0,2,0,0")
+        }
+    }
+
+    ; 展开/收起如果节点内嵌分支指令列表
+    _OnIfInlineChipsToggle(id, isTrue, *) {
+        if (this.ui == "")
+            return
+        tag := isTrue ? "T" : "F"
+        key := "IfInline" tag "_" id
+        panelName := "IfInline" tag "Chips_" id
+        btnName := "IfInline" tag "Expand_" id
+        nv := !(this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key])
+        this._loopChipsExpanded[key] := nv
+        cmds := this._BranchGraphCmds(this._BranchStartSerial(id, isTrue))
+        this._RebuildLoopChips(panelName, cmds, nv)
+        this.ui.Update(btnName, "Content", nv ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+    }
+
+    ; 运行时刷新如果节点收起态条件摘要
+    _RefreshIfSummary(id) {
+        if (this.ui == "")
+            return
+        data := this._SearchData(id)
+        anyOn := false
+        loop 4 {
+            slot := A_Index
+            ci := this._IfCondiSummaryRow(data, slot)
+            if (ci.on)
+                anyOn := true
+            this.ui.Update("IfSumCondiRow_" slot "_" id, "Visibility", ci.on ? "Visible" : "Collapsed")
+            this.ui.Update("IfSumCondiTxt_" slot "_" id, "Text", ci.text)
+        }
+        this.ui.Update("IfSumEmpty_" id, "Visibility", anyOn ? "Collapsed" : "Visible")
+    }
+
+    ; 运行时刷新如果节点收起态内嵌真/假分支
+    _RefreshIfInlineBranches(id) {
+        if (this.ui == "")
+            return
+        for isTrue in [true, false] {
+            tag := isTrue ? "T" : "F"
+            key := "IfInline" tag "_" id
+            cmds := this._BranchGraphCmds(this._BranchStartSerial(id, isTrue))
+            expanded := this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key]
+            this._RebuildLoopChips("IfInline" tag "Chips_" id, cmds, expanded)
+            this.ui.Update("IfInline" tag "Expand_" id, "Visibility", cmds.Length > this._LoopPreviewCount() ? "Visible" : "Collapsed")
+            this.ui.Update("IfInline" tag "Expand_" id, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
+            data := this._BranchParentData(id)
+            ct := "无"
+            if (data != "") {
+                raw := isTrue ? (data.HasOwnProp("TrueControlType") ? data.TrueControlType : "无") : (data.HasOwnProp("FalseControlType") ? data.FalseControlType : "无")
+                ct := GetLang(raw)
+            }
+            this.ui.Update("IfInline" tag "Flow_" id, "Text", GetLang("流程控制") "：" ct)
+        }
     }
 
     _FillIfBody(id, d, body) {
         lw := this._FormalLW(), cw := this._FormalCW()
+        folded := this._NodeFolded(id)
         logicTypes := this._IfLogicTypes()
         logicType := d.HasOwnProp("logicType") ? d.logicType : 1
         saveOn := d.HasOwnProp("saveToggle") && (d.saveToggle == 1 || d.saveToggle == "1")
         saveName := d.HasOwnProp("saveName") ? d.saveName : GetLang("结果")
         trueVal := d.HasOwnProp("trueValue") ? d.trueValue : 1
         falseVal := d.HasOwnProp("falseValue") ? d.falseValue : 0
+        ; 逻辑关系始终可编辑（与循环次数类似）
         this._AddComboRow(body, "IfLogicRow_" id, GetLang("逻辑关系："), "IfLogicCmb_" id, logicTypes, Max(0, logicType - 1), true, true, lw, cw)
+
+        ; ---- 展开：完整条件 + 结果保存 ----
+        fullBox := body.Add("StackPanel").Name("IfFullBox_" id)
+        fullBox.Visibility(folded ? "Collapsed" : "Visible")
         prevOn := true
         loop 4 {
             slot := A_Index
             chainVis := (slot == 1) ? true : prevOn
-            this._FillIfCondiCard(body, id, slot, d, chainVis)
+            this._FillIfCondiCard(fullBox, id, slot, d, chainVis)
             on := (slot == 1) ? true : (d.HasOwnProp("ifTog" slot) && (d["ifTog" slot] == 1 || d["ifTog" slot] == "1"))
             if (slot == 1 && d.HasOwnProp("ifTog1"))
                 on := d["ifTog1"] == 1 || d["ifTog1"] == "1"
             prevOn := chainVis && on
         }
-        this._AddCheckRow(body, "IfSaveTogRow_" id, "IfSaveTog_" id, GetLang("结果保存"), saveOn, true)
-        this._AddEditableComboRow(body, "IfSaveNameRow_" id, GetLang("变量名："), "IfSaveName_" id, GetGuiVarArr(), GetLang(saveName), saveOn, lw, cw)
-        this._AddFieldRow(body, "IfTrueValRow_" id, GetLang("真值："), "IfTrueVal_" id, trueVal, saveOn, true, "", "", "", lw, cw)
-        this._AddFieldRow(body, "IfFalseValRow_" id, GetLang("假值："), "IfFalseVal_" id, falseVal, saveOn, true, "", "", "", lw, cw)
-        this._AddFormalHint(body)
+        this._AddCheckRow(fullBox, "IfSaveTogRow_" id, "IfSaveTog_" id, GetLang("结果保存"), saveOn, true)
+        this._AddEditableComboRow(fullBox, "IfSaveNameRow_" id, GetLang("变量名："), "IfSaveName_" id, GetGuiVarArr(), GetLang(saveName), saveOn, lw, cw)
+        this._AddFieldRow(fullBox, "IfTrueValRow_" id, GetLang("真值："), "IfTrueVal_" id, trueVal, saveOn, true, "", "", "", lw, cw)
+        this._AddFieldRow(fullBox, "IfFalseValRow_" id, GetLang("假值："), "IfFalseVal_" id, falseVal, saveOn, true, "", "", "", lw, cw)
+
+        ; ---- 收起：条件圆点摘要 ----
+        sumBox := body.Add("StackPanel").Name("IfSumBox_" id)
+        sumBox.Visibility(folded ? "Visible" : "Collapsed")
+        this._FillIfCondiSummary(id, sumBox)
+
+        ; ---- 收起：内嵌真/假分支 ----
+        this._FillIfInlineBranches(body, id, folded)
     }
 
     ; 循环体命令显示串数组（用于内联小卡片展示）。
@@ -1053,12 +1181,13 @@ class MacroGraphFormalMixin {
 
     ; 构建循环体指令列表 + 展开/收起按钮（内联体与外置体共用；样式与分支统一）。
     ;   parent：承载容器；panelName：列表命名；btnName：按钮命名；key：展开态键；cmds：指令串数组。
-    _FillLoopChips(parent, panelName, btnName, key, cmds) {
+    ;   panelMargin：默认 -10 抵消节点 body 左边距；组框内嵌时传 "0" 以免顶破左右内边距。
+    _FillLoopChips(parent, panelName, btnName, key, cmds, panelMargin := "-10,0,0,0") {
         expanded := this._loopChipsExpanded.Has(key) && this._loopChipsExpanded[key]
-        ; 负左边距抵消节点 body 的左 10，指令背景左右贴齐节点内容区
-        panel := parent.Add("StackPanel").Name(panelName).Margin("-10,0,0,0")
+        panel := parent.Add("StackPanel").Name(panelName).Margin(panelMargin)
         if (cmds.Length == 0) {
-            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).Margin("10,0,0,0")
+            emptyMg := (panelMargin = "-10,0,0,0") ? "10,0,0,0" : "0"
+            panel.Add("TextBlock").Text("（" GetLang("空") "）").Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(11)).Margin(emptyMg)
         } else {
             shown := expanded ? cmds.Length : Min(cmds.Length, this._LoopPreviewCount())
             Loop shown
@@ -1174,12 +1303,10 @@ class MacroGraphFormalMixin {
         return res
     }
 
-    ; 收起态摘要容器：循环次数 / 循环条件 / 逻辑关系(有则显示) / 条件1~4 逐行带圆点展示（颜色跟主题）。
-    _FillLoopSummary(id, box) {
+    ; 收起态条件摘要：逻辑关系(多条件时) + 条件1~4 圆点行（次数/循环条件下拉仍保留在上方）。
+    _FillLoopCondiSumRows(id, box) {
         info := this._LoopSummaryInfo(id)
         fg := "{DynamicResource TextMain}", fs := this._MGFontSize(12)
-        box.Add("TextBlock").Name("LoopSumCount_" id).Text(GetLang("循环次数") "：" info.count).Foreground(fg).FontSize(fs).TextWrapping("Wrap")
-        box.Add("TextBlock").Name("LoopSumCondi_" id).Text(GetLang("循环条件") "：" info.condiName).Foreground(fg).FontSize(fs).Margin("0,3,0,0").TextWrapping("Wrap")
         lRow := box.Add("TextBlock").Name("LoopSumLogic_" id).Text(GetLang("逻辑关系") "：" info.logicName).Foreground(fg).FontSize(fs).Margin("0,3,0,0").TextWrapping("Wrap")
         if (!info.showLogic)
             lRow.Visibility("Collapsed")
@@ -1196,8 +1323,8 @@ class MacroGraphFormalMixin {
     }
 
     ; 循环节点主体：
-    ;   LoopFullBox：循环次数/条件/逻辑/条件卡片（折叠与展开均显示，控件表现不变）；
-    ;   LoopInlineBody（收起）：内置循环体指令列表；展开时改外置循环体节点。
+    ;   展开：次数/条件/逻辑/条件卡 + 外置循环体；
+    ;   收起：次数/条件下拉保留，条件简化为圆点摘要 + 内置循环体列表。
     _FillLoopBody(id, d, body) {
         ; 与间隔节点一致：标准 Formal 标签/下拉宽(80/96)
         lw := this._FormalLW(), cw := this._FormalCW()
@@ -1209,21 +1336,24 @@ class MacroGraphFormalMixin {
         showCondi := condiType != 1
         cmds := this._LoopBodyCmds(d)
 
-        ; ---- 次数/条件/逻辑/条件卡：折叠时仍保留同一套下拉，不换成摘要文字 ----
-        fullBox := body.Add("StackPanel").Name("LoopFullBox_" id)
         countItems := GetGuiVarArr()
         countItems.Push(GetLang("无限"))
-        this._AddEditableComboRow(fullBox, "LoopCountRow_" id, GetLang("循环次数："), "LoopCount_" id, countItems, this._LoopCountText(d), true, lw, cw)
-        this._AddComboRow(fullBox, "LoopCondiRow_" id, GetLang("循环条件："), "LoopCondiCmb_" id, condiTypes, Max(0, condiType - 1), true, true, lw, cw)
-        this._AddComboRow(fullBox, "LoopLogicRow_" id, GetLang("逻辑关系："), "LoopLogicCmb_" id, logicTypes, Max(0, logicType - 1), showCondi, true, lw, cw)
+        this._AddEditableComboRow(body, "LoopCountRow_" id, GetLang("循环次数："), "LoopCount_" id, countItems, this._LoopCountText(d), true, lw, cw)
+        this._AddComboRow(body, "LoopCondiRow_" id, GetLang("循环条件："), "LoopCondiCmb_" id, condiTypes, Max(0, condiType - 1), true, true, lw, cw)
+        ; 展开态完整条件；收起时隐藏，改用下方摘要
+        this._AddComboRow(body, "LoopLogicRow_" id, GetLang("逻辑关系："), "LoopLogicCmb_" id, logicTypes, Max(0, logicType - 1), showCondi && !folded, true, lw, cw)
         prevOn := true
         loop 4 {
             slot := A_Index
             chainVis := (slot == 1) ? true : prevOn
-            this._FillLoopCondiCard(fullBox, id, slot, d, showCondi && chainVis)
+            this._FillLoopCondiCard(body, id, slot, d, showCondi && !folded && chainVis)
             on := d.HasOwnProp("loopTog" slot) && (d["loopTog" slot] == 1 || d["loopTog" slot] == "1")
             prevOn := chainVis && on
         }
+        ; ---- 收起态：条件圆点摘要 ----
+        sumBox := body.Add("StackPanel").Name("LoopCondiSumBox_" id).Margin("0,2,0,0")
+        sumBox.Visibility((folded && showCondi) ? "Visible" : "Collapsed")
+        this._FillLoopCondiSumRows(id, sumBox)
         ; ---- 收起态：内置循环体（分割线分隔）----
         inlineBox := body.Add("StackPanel").Name("LoopInlineBody_" id).Margin("0,2,0,0")
         inlineBox.Visibility(folded ? "Visible" : "Collapsed")
@@ -1418,6 +1548,8 @@ class MacroGraphFormalMixin {
             this._FormalTrackEditCombo(id, "IfSaveName", h, runtime)
             this._FormalTrackField(id, "IfTrueVal", h, runtime)
             this._FormalTrackField(id, "IfFalseVal", h, runtime)
+            this._BindCtrl("IfInlineTExpand_" id, "Click", this._OnIfInlineChipsToggle.Bind(this, id, true), runtime)
+            this._BindCtrl("IfInlineFExpand_" id, "Click", this._OnIfInlineChipsToggle.Bind(this, id, false), runtime)
             ; 折叠真/假分支（与搜索共用 _OnToggleFold，会记忆展开/收起后继相对位置）
             this._BindCtrl("SFold_" id, "Click", this._OnToggleFold.Bind(this, id), runtime)
         } else if (t == GetLang("如果Pro")) {
@@ -1437,6 +1569,11 @@ class MacroGraphFormalMixin {
                         this._FormalTrackCombo(id, ps "Cmp", h, runtime)
                         this._FormalTrackEditCombo(id, ps "Var", h, runtime)
                     }
+                }
+                count := this._IfProBranchCountFromData(data)
+                loop count {
+                    idx := A_Index - 1
+                    this._BindCtrl("IfProInline" idx "Expand_" id, "Click", this._OnIfProInlineChipsToggle.Bind(this, id, idx), runtime)
                 }
             }
             this._BindCtrl("SFold_" id, "Click", this._OnToggleIfProFold.Bind(this, id), runtime)

@@ -305,8 +305,10 @@ class MacroGraphNodeUIMixin {
             chk.IsChecked("True")
     }
 
-    ; 提取变量单元格：复选框「变量N」+ 可编辑下拉（变量名）。名称常显，便于预填，启用与否由复选框控制。
+    ; 提取变量单元格：复选框「变量N」+ 可编辑下拉。
+    ; 左侧固定 70 宽（与次数/间隔标签列同宽），下拉 96，右格 Margin 14，使 Var1 对齐次数、Var2 对齐间隔。
     _FillExVarSlotCell(rowSP, id, slot, d, varList, rightCell) {
+        LW := "70", CW := "96"
         p := "ExV" slot
         toggled := d.HasOwnProp("exToggle" slot) ? d["exToggle" slot] : (slot == 1 ? 1 : 0)
         on := toggled == 1 || toggled == "1"
@@ -314,10 +316,11 @@ class MacroGraphNodeUIMixin {
         cell := rowSP.Add("StackPanel").Name(p "TogRow_" id).Orientation("Horizontal")
         if (rightCell)
             cell.Margin("14,0,0,0")
-        chk := cell.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center").Margin("0,0,4,0")
+        left := cell.Add("StackPanel").Orientation("Horizontal").Width(LW).VerticalAlignment("Center")
+        chk := left.Add("CheckBox").Name(p "Tog_" id).Content(GetLang("变量") slot).Foreground("{DynamicResource TextMain}").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (on)
             chk.IsChecked("True")
-        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width("96").Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
+        cmb := cell.Add("ComboBox").Name(p "Name_" id).Width(CW).Height("22").MinHeight("0").FontSize(this._MGFontSize(12)).Padding(this._MGComboPadding()).MaxDropDownHeight("200").Foreground("{DynamicResource InputText}").IsEditable("True").IsTextSearchEnabled("False")
         for it in varList
             cmb.Add("ComboBoxItem").Content(it)
         cmb.SetProp("Text", vn)
@@ -702,7 +705,6 @@ class MacroGraphNodeUIMixin {
                 fidx := this._IndexInLangArr(flowTypes, GetLang(GetLangKey(ct)))
             this._AddComboRow(body, "BrFlowRow_" brId, GetLang("流程控制："), "BrFlowCmb_" brId, flowTypes, Max(0, fidx), true, true, "58", "120")
         }
-        body.Add("TextBlock").Text(GetLang("双击编辑分支")).Foreground("#888888").FontSize(this._MGFontSize(10)).Margin("0,4,0,0")
     }
 
     ; 兼容旧名：分支指令行宽度（现改为通栏斑马纹，不再限宽）
@@ -728,7 +730,12 @@ class MacroGraphNodeUIMixin {
 
     ; 运行时刷新分支节点内容（搜索编辑器/分支编辑器改动后调用，无需重建窗口）
     _RefreshBranchBody(searchId, isTrue) {
-        if (this.ui == "" || !this._branchInjected.Has(searchId))
+        if (this.ui == "")
+            return
+        ; 如果节点收起时外置分支已隐藏，仍需刷新内嵌摘要
+        if (this._IsIfNodeId(searchId) && this._NodeFolded(searchId))
+            this._RefreshIfInlineBranches(searchId)
+        if (!this._branchInjected.Has(searchId))
             return
         brId := this._BranchId(searchId, isTrue)
         if (this._IsIfNodeId(searchId)) {
@@ -1091,15 +1098,14 @@ class MacroGraphNodeUIMixin {
         border := XAMLElement("Border")
         border.SetProp("xmlns", pres).SetProp("xmlns:x", xns)
         border.Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        ; 循环不设 MinHeight（会底部异色/重叠空块）；回环端口靠 LoopPortPad 透明垫高
-        if (d.type == GetLang("如果Pro"))
-            border.SetProp("MinHeight", "220")
+        ; 循环/如果Pro 不设 MinHeight（收起时会底部异色/重叠空块）；回环端口靠 LoopPortPad 透明垫高
         grid := border.Add("Grid")
         grid.Rows("30", "Auto")
         this._AddNodeSelRing(grid, id)
         this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
-        ; 循环与间隔等节点同用标准正文边距，下拉框对齐 Formal 标准宽(80/96)
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
+        ; 循环与间隔等节点同用标准正文边距；如果Pro 左右对称，组框右边不贴边
+        bodyMg := (d.type == GetLang("如果Pro")) ? "10,0,10,8" : "10,0,0,8"
+        body := grid.Add("StackPanel").Grid_Row(1).Margin(bodyMg)
         this._FillNodeBody(id, d, body)
 
         ; 端口：直接设置 _Props 确保属性正确
@@ -1162,11 +1168,9 @@ class MacroGraphNodeUIMixin {
             nodeW := (title == GetLang("搜索Pro")) ? 380 : 200
 
         node := g.canvas.Add("Border").Name("Node_" id).Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").CornerRadius("6").Width(String(nodeW)).Padding("0").Margin("0").SetProp("ClipToBounds", "False").SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
-        ; 循环不设 MinHeight（底部异色/重叠空块）；如果/如果Pro 保留最小高度保证分支端口落点
+        ; 循环/如果Pro 不设 MinHeight（底部异色/重叠空块）；如果保留最小高度保证真假端口落点
         if (title == GetLang("如果"))
             node.SetProp("MinHeight", "200")
-        if (title == GetLang("如果Pro"))
-            node.SetProp("MinHeight", "220")
 
         grid := node.Add("Grid")
         grid.Rows("30", "Auto")
@@ -1176,7 +1180,9 @@ class MacroGraphNodeUIMixin {
 
         this._BuildHeader(grid, id, title, headerColor)
 
-        body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
+        ; 如果Pro 左右对称边距，组框右边与左边留白一致
+        bodyMg := (title == GetLang("如果Pro")) ? "10,0,10,8" : "10,0,0,8"
+        body := grid.Add("StackPanel").Grid_Row(1).Margin(bodyMg)
 
         ; 端口：使用原始 XAML 字符串注入，确保属性正确
         ; 入点在标题栏下方左侧，出点在标题栏下方右侧
