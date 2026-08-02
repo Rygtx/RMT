@@ -369,14 +369,17 @@ OnItemAddFoldBtnClick(tableItem, btn, *) {
     MainSoftData.TabCtrl.UseTab()
 
     if (isMenu)
-        OnItemAddMenuItem(tableItem, foldIndex + 1)
+        OnItemAddMenuItem(tableItem, foldIndex + 1, 4)
+    else if (isUI)
+        OnItemAddMenuItem(tableItem, foldIndex + 1, 3)
 
     MySlider.RefreshTab()
 }
 
-OnItemAddMenuItem(tableItem, foldIndex) {
+; 菜单宏/界面宏新增模块时批量预置配置项（菜单默认 4、界面默认 3）
+OnItemAddMenuItem(tableItem, foldIndex, count := 4) {
     RecycleTabItem(tableItem)
-    loop 8 {
+    loop count {
         foldInfo := tableItem.FoldInfo
         isMenu := CheckIsMenuMacroTable(tableItem.Index)
         isUI := GetTableSymbol(tableItem.Index) == "UI"

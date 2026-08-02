@@ -1,54 +1,213 @@
 ﻿#Requires AutoHotkey v2.0
 
+; 界面宏图标配置：XAML，颜色跟随通用主题
 class UIMacroSettingGui {
+    static instances := Map()
+    static _opening := false
+
     __new() {
-        this.Gui := ""
+        this.ui := 0
+        this.closed := true
+        this._instanceKey := ""
         this.SureFocusCon := ""
         this.CurrentMacroIndex := 0
         this.TableIndex := 0
         this.OriginalIconPath := ""
         this.StoredIconPath := ""
+        this._pathText := ""
+        this._editBtnStyle := ""
     }
 
     ShowGui(tableIndex, macroIndex) {
         this.TableIndex := tableIndex
         this.CurrentMacroIndex := macroIndex
-
         tableItem := MySoftData.TableInfo[tableIndex]
         this.StoredIconPath := this.GetFullIconPath(tableItem.IcoPathArr[macroIndex])
         this.OriginalIconPath := this.StoredIconPath
+        this._pathText := this.StoredIconPath
 
-        if (this.Gui != "") {
-            this.Gui.Destroy()
+        key := "uiIco"
+        if (UIMacroSettingGui.instances.Has(key)) {
+            oldInst := UIMacroSettingGui.instances[key]
+            hwnd := (IsObject(oldInst.ui) && oldInst.ui.HasProp("wpfHwnd")) ? oldInst.ui.wpfHwnd : 0
+            if (!oldInst.closed && XAMLHost.CanReuseWindow(hwnd)) {
+                oldInst.TableIndex := tableIndex
+                oldInst.CurrentMacroIndex := macroIndex
+                oldInst.StoredIconPath := this.StoredIconPath
+                oldInst.OriginalIconPath := this.OriginalIconPath
+                oldInst._pathText := this._pathText
+                oldInst._ApplyValuesToUI()
+                try WinActivate("ahk_id " hwnd)
+                return
+            }
+            try {
+                if (!oldInst.closed && IsObject(oldInst.ui))
+                    oldInst.Close()
+            }
+            UIMacroSettingGui.instances.Delete(key)
         }
 
-        MyGui := Gui("", GetLang("界面宏配置 - 图标") macroIndex)
-        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
-        this.Gui := MyGui
-
-        posY := 15
-
-        con := MyGui.Add("Text", Format("x{} y{}", 20, posY), GetLang("图标文件:"))
-        posY += 28
-
-        this.IconPathEdit := MyGui.Add("Edit", Format("x{} y{} w220 h27", 20, posY), this.StoredIconPath)
-        this.IconPathEdit.Opt("ReadOnly")
-
-        browseBtn := MyGui.Add("Button", Format("x{} y{} w80 h29", 250, posY - 1), GetLang("选择"))
-        browseBtn.OnEvent("Click", (*) => this.OnBrowseClick())
-        posY += 40
-
-        sureBtn := MyGui.Add("Button", Format("x{} y{} w80 h29", 120, posY), GetLang("确定"))
-        sureBtn.OnEvent("Click", (*) => this.OnSureClick())
-
-        cancelBtn := MyGui.Add("Button", Format("x{} y{} w80 h29", 220, posY), GetLang("取消"))
-        cancelBtn.OnEvent("Click", (*) => this.OnCancelClick())
-
-        MyGui.OnEvent("Close", (*) => this.OnCancelClick())
-        MyGui.Show("w410 h" posY + 50)
+        XAMLHost.EnsureDaemonHealthy()
+        if (UIMacroSettingGui._opening)
+            return
+        UIMacroSettingGui._opening := true
+        try {
+            this._instanceKey := key
+            this._BuildAndShow()
+            UIMacroSettingGui.instances[key] := this
+        } finally {
+            UIMacroSettingGui._opening := false
+        }
     }
 
-    OnBrowseClick() {
+    _BuildAndShow() {
+        this.closed := false
+        title := GetLang("界面宏配置 - 图标") " " this.CurrentMacroIndex
+        titleHeight := "36"
+        winW := 420
+        winH := 200
+        this._editBtnStyle := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="{DynamicResource EditHoverBg}"/><Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EditHoverStroke}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}")
+        main.Rows(titleHeight, "*")
+
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Name("TitleText").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("15,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        CloseBtnTemplate := '<Style TargetType="Button"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CloseBtnRadius}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="border" Property="Background" Value="#E0FF3333"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.InjectResources(CloseBtnTemplate)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; 预览紧贴内容区右上角（无底色/边框/边距）；表单整体下沉 30px
+        body := main.Add("Grid").Grid_Row(1)
+        body.Add("Image").Name("IcoPreview").Width("64").Height("64")
+            .HorizontalAlignment("Right").VerticalAlignment("Top")
+            .Margin("0").SetProp("Stretch", "Uniform")
+
+        content := body.Add("StackPanel").Margin("18,44,18,14")
+        content.Add("TextBlock").Text(GetLang("图标文件：")).Foreground("{DynamicResource TextMain}").FontSize(13).Margin("0,0,0,8")
+
+        pathRow := content.Add("Grid").Margin("0,0,0,18").Height(28)
+        pathRow.Cols("*", "Auto")
+        pathRow.Add("TextBox").Name("IcoPathCon").Text("").Height(28).MinHeight(28)
+            .FontSize(12).FontFamily(MainSoftData.FontType)
+            .VerticalAlignment("Center").VerticalContentAlignment("Center")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Padding("6,0")
+            .Grid_Column(0)
+        browseBtn := pathRow.Add("Button").Name("BtnBrowse").Content(GetLang("选择"))
+            .Width(72).Height(28).MinHeight(28).Margin("8,0,0,0").FontSize(12).Cursor("Hand")
+            .VerticalAlignment("Center")
+            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
+            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1")
+            .Grid_Column(1)
+        browseBtn.InjectResources(this._editBtnStyle)
+
+        btnRow := content.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
+        okBtn := btnRow.Add("Button").Name("BtnConfirm").Content(GetLang("确定"))
+            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
+            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(28).Margin("0,0,100,0")
+        okBtn.InjectResources(this._editBtnStyle)
+        cancelBtn := btnRow.Add("Button").Name("BtnCancel").Content(GetLang("取消"))
+            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
+            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1")
+            .FontSize(13).Cursor("Hand").Width(80).Height(28)
+        cancelBtn.InjectResources(this._editBtnStyle)
+
+        pos := GetCenterPosOnActiveMonitor(winW, winH)
+        dipX := PhysToDip(pos.x)
+        dipY := PhysToDip(pos.y)
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"',
+            Format('Title="{}" ShowInTaskbar="False" Width="{}" Height="{}" Left="{}" Top="{}" Opacity="0"',
+                title, winW, winH, dipX, dipY))
+        this.ui.xaml := StrReplace(this.ui.xaml, 'WindowStartupLocation="CenterScreen"', 'WindowStartupLocation="Manual"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'CornerRadius="{DynamicResource WindowRadius}"', 'CornerRadius="{DynamicResource PanelRadius}"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '<CornerRadius x:Key="PanelRadius">8</CornerRadius>')
+
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnCancel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnConfirm", "Click", ObjBindMethod(this, "OnSureClick"))
+        this.ui.OnEvent("BtnBrowse", "Click", ObjBindMethod(this, "OnBrowseClick"))
+        this.ui.Track("IcoPathCon")
+        this.ui.OnEvent("IcoPathCon", "LostFocus", ObjBindMethod(this, "OnPathChanged"))
+        this.ui.OnEvent("IcoPathCon", "KeyDown:Return", ObjBindMethod(this, "OnPathChanged"))
+
+        this.ui.Show()
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                this._ApplyValuesToUI()
+                try this.ui.Update("Window", "Opacity", "1")
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                break
+            }
+            Sleep(50)
+        }
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+            this._ApplyValuesToUI()
+        } finally {
+            this.ui.Update("Window", "Opacity", "1")
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        this.closed := true
+        UIMacroSettingGui._opening := false
+        if (this._instanceKey != "" && UIMacroSettingGui.instances.Has(this._instanceKey))
+            UIMacroSettingGui.instances.Delete(this._instanceKey)
+        this.ui := ""
+        try {
+            if (!XAMLHost.IsDaemonAlive())
+                XAMLHost.ResetDaemon()
+        }
+    }
+
+    _ApplyValuesToUI() {
+        if (!IsObject(this.ui) || this.closed)
+            return
+        title := GetLang("界面宏配置 - 图标") " " this.CurrentMacroIndex
+        try this.ui.Update("TitleText", "Text", title)
+        try this.ui.Update("Window", "Title", title)
+        try this.ui.Update("IcoPathCon", "Text", this._pathText)
+        this._RefreshPreview(this._pathText)
+    }
+
+    _RefreshPreview(path) {
+        if (!IsObject(this.ui) || this.closed)
+            return
+        if (path != "" && FileExist(path)) {
+            src := StrReplace(path, "\", "/")
+            try this.ui.Update("IcoPreview", "Source", src)
+            try this.ui.Update("IcoPreview", "Visibility", "Visible")
+        } else {
+            try this.ui.Update("IcoPreview", "Visibility", "Collapsed")
+        }
+    }
+
+    OnPathChanged(state := unset, ctrl := unset, event := unset) {
+        path := this._pathText
+        if (IsSet(state) && IsObject(state) && state.Has("IcoPathCon"))
+            path := state["IcoPathCon"]
+        else if (IsObject(this.ui))
+            path := this.ui.Query("IcoPathCon")
+        this._pathText := path
+        this.OriginalIconPath := path
+        this._RefreshPreview(path)
+    }
+
+    OnBrowseClick(state := unset, ctrl := unset, event := unset) {
         fullPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UIIcon\"
         file := FileSelect(1, fullPath, GetLang("选择图标"), "Image Files (*.gif; *.png; *.jpg; *.jpeg)")
         if (file == "")
@@ -57,7 +216,6 @@ class UIMacroSettingGui {
         SplitPath file, &name, &dir, &ext, &name_no_ext, &drive
         destDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UIIcon"
         newPath := destDir "\" name
-
         if (file != newPath) {
             if (!FileExist(destDir))
                 DirCreate(destDir)
@@ -68,86 +226,75 @@ class UIMacroSettingGui {
             FileCopy(file, newPath, 1)
             file := newPath
         }
-
         this.OriginalIconPath := file
-        this.IconPathEdit.Value := file
+        this._pathText := file
+        try this.ui.Update("IcoPathCon", "Text", file)
+        this._RefreshPreview(file)
     }
 
     GetFullIconPath(path) {
         if (path == "")
             return ""
-
         if (FileExist(path))
             return path
-
         fullPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UIIcon\" path
         if (FileExist(fullPath))
             return fullPath
-
         return ""
     }
 
-    OnSureClick() {
+    OnSureClick(state := unset, ctrl := unset, event := unset) {
+        this.OnPathChanged(IsSet(state) ? state : unset)
         tableItem := MySoftData.TableInfo[this.TableIndex]
         idx := this.CurrentMacroIndex
-
         finalPath := ""
-        if (this.OriginalIconPath != "" && FileExist(this.OriginalIconPath)) {
+        if (this.OriginalIconPath != "" && FileExist(this.OriginalIconPath))
             finalPath := this.CopyIconToImagesFolder(this.OriginalIconPath)
-        }
-
-        while (tableItem.IcoPathArr.Length < idx) {
+        while (tableItem.IcoPathArr.Length < idx)
             tableItem.IcoPathArr.Push("")
-        }
         tableItem.IcoPathArr[idx] := finalPath
-
-        this.Gui.Destroy()
+        this.Close()
     }
 
     CopyIconToImagesFolder(sourcePath) {
         iconsDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UIIcon"
-        if (!FileExist(iconsDir)) {
+        if (!FileExist(iconsDir))
             DirCreate(iconsDir)
-        }
-
         SplitPath sourcePath, &name, &dir, &ext, &name_no_ext, &drive
         destPath := iconsDir "\" name
-
-        if (sourcePath == destPath) {
+        if (sourcePath == destPath)
             return sourcePath
-        }
-
         if (FileExist(destPath)) {
             name := this.GetUniqueFileName(sourcePath)
             destPath := iconsDir "\" name
         }
-
-        try {
-            FileCopy(sourcePath, destPath, 1)
-        }
-
+        try FileCopy(sourcePath, destPath, 1)
         return destPath
     }
 
     GetUniqueFileName(sourcePath) {
         SplitPath sourcePath, , , &ext, &nameNoExt
         destDir := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\UIIcon"
-
-        if (!FileExist(destDir "\" nameNoExt "." ext)) {
+        if (!FileExist(destDir "\" nameNoExt "." ext))
             return nameNoExt "." ext
-        }
-
         counter := 1
         while (true) {
             newName := nameNoExt "_" counter "." ext
-            if (!FileExist(destDir "\" newName)) {
+            if (!FileExist(destDir "\" newName))
                 return newName
-            }
             counter++
         }
     }
 
-    OnCancelClick() {
-        this.Gui.Destroy()
+    OnCancelClick(state := unset, ctrl := unset, event := unset) {
+        this.Close()
+    }
+
+    Close() {
+        this.closed := true
+        if IsObject(this.ui) {
+            try this.ui.Update("Window", "Close", "")
+            this.ui := ""
+        }
     }
 }

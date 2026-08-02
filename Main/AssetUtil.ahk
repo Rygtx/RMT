@@ -737,7 +737,10 @@ ReadTableItemInfo(index) {
         defaultFoldInfo := ItemFoldInfo()
         defaultFoldInfo.RemarkArr := [GetLang("RMT默认初始化配置")]
         defaultFoldInfo.FrontInfoArr := [""]
-        IndexSpanValue := savedModeArrStr == "" ? "无-无" : savedModeArrStr == "1" ? "1-1" : "1-8"
+        if (savedModeArrStr == "")
+            IndexSpanValue := "无-无"
+        else
+            IndexSpanValue := "1-" StrSplit(savedModeArrStr, "π").Length
         defaultFoldInfo.IndexSpanArr := [IndexSpanValue]
         defaultFoldInfo.FoldStateArr := [false]
         defaultFoldInfo.ForbidStateArr := [false]
@@ -878,35 +881,34 @@ GetTableItemDefaultInfo(index) {
         savedUnorderedTriggerArrStr := "0"
     }
     else if (symbol == "Menu") {
-        savedTKArrStr := "πππππππ"
-        savedHoldTimeArrStr := "500π500π500π500π500π500π500π500"
-        savedModeArrStr := "1π1π1π1π1π1π1π1"
-        savedForbidArrStr := "0π0π0π0π0π0π0π0"
-        savedRemarkArrStr := "πππππππ"
-        savedLoopCountStr := "1π1π1π1π1π1π1π1"
-        savedTriggerTypeStr := "4π4π4π4π4π4π4π4"
-        savedSerialeArrStr := "3π4π5π6π7π8π12π13"
-        savedTimingSerialStr :=
-            "Timing3πTiming4πTiming5πTiming6πTiming7πTiming8πTiming12πTiming13"
-        savedStartTipSoundStr := "1π1π1π1π1π1π1π1"
-        savedEndTipSoundStr := "1π1π1π1π1π1π1π1"
-        savedIcoPathArrStr := "0π0π0π0π0π0π0π0π"
-        savedUnorderedTriggerArrStr := "0π0π0π0π0π0π0π0"
+        savedTKArrStr := "πππ"
+        savedHoldTimeArrStr := "500π500π500π500"
+        savedModeArrStr := "1π1π1π1"
+        savedForbidArrStr := "0π0π0π0"
+        savedRemarkArrStr := GetLang("快捷启动") "π" GetLang("音量调节") "π" GetLang("窗口管理") "π" GetLang("自定义")
+        savedLoopCountStr := "1π1π1π1"
+        savedTriggerTypeStr := "4π4π4π4"
+        savedSerialeArrStr := "3π4π5π6"
+        savedTimingSerialStr := "Timing3πTiming4πTiming5πTiming6"
+        savedStartTipSoundStr := "1π1π1π1"
+        savedEndTipSoundStr := "1π1π1π1"
+        savedIcoPathArrStr := "0π0π0π0"
+        savedUnorderedTriggerArrStr := "0π0π0π0"
     }
     else if (symbol == "UI") {
-        savedTKArrStr := ""
-        savedHoldTimeArrStr := "500"
-        savedModeArrStr := "1"
-        savedForbidArrStr := "1"
-        savedRemarkArrStr := GetLang("在指定界面显示常驻按钮")
-        savedLoopCountStr := "1"
-        savedTriggerTypeStr := "1"
-        savedSerialeArrStr := "14"
-        savedTimingSerialStr := "Timing14"
-        savedStartTipSoundStr := "1"
-        savedEndTipSoundStr := "1"
-        savedIcoPathArrStr := "0π0π"
-        savedUnorderedTriggerArrStr := "0"
+        savedTKArrStr := "ππ"
+        savedHoldTimeArrStr := "500π500π500"
+        savedModeArrStr := "1π1π1"
+        savedForbidArrStr := "1π1π1"
+        savedRemarkArrStr := GetLang("界面按钮") "π" GetLang("游戏辅助") "π" GetLang("快捷入口")
+        savedLoopCountStr := "1π1π1"
+        savedTriggerTypeStr := "1π1π1"
+        savedSerialeArrStr := "14π15π16"
+        savedTimingSerialStr := "Timing14πTiming15πTiming16"
+        savedStartTipSoundStr := "1π1π1"
+        savedEndTipSoundStr := "1π1π1"
+        savedIcoPathArrStr := "0π0π0"
+        savedUnorderedTriggerArrStr := "0π0π0"
     }
     else if (symbol == "Timing") {
         savedTKArrStr := ""

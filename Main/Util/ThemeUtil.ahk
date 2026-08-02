@@ -526,7 +526,8 @@ class AppThemeUtil {
     ; 刷新已打开的通用窗口类设置界面（主题保存后同步）
     static RefreshOpenSettingWindows() {
         classes := [HotkeySettingGui, ToolRecordSettingGui, MenuWheelGlobalSettingGui,
-            UIMacroPanelSettingGui, CMDTipSettingGui, ThemeSettingGui]
+            UIMacroPanelSettingGui, CMDTipSettingGui, ThemeSettingGui,
+            TimingGui, MenuMacroSettingGui, UIMacroSettingGui]
         for cls in classes {
             try {
                 if (!IsObject(cls) || !cls.HasOwnProp("instances"))
