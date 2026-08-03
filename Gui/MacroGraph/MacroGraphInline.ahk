@@ -1,18 +1,18 @@
 #Requires AutoHotkey v2.0
 
 ; ============================================================================
-; MacroGraphGui 职能拆分 —— 如果分支「内联展开」
+; MacroGraphGui 职能拆分 —— 分支/循环体「内联展开」
 ;
-; 在「真/假分支」节点标题栏提供折叠/展开按钮：
-;   · 折叠（默认）：分支节点仍是现在的样子（标题 + 指令小卡片预览）。
-;   · 展开：把该分支子图里的指令以「真实可编辑节点」的形式内联渲染在画布上，
-;           并从分支节点出点连线到子图首节点，可像普通节点一样内联编辑/双击编辑/拖动。
+; 在「如果/搜索/搜索Pro 真假分支」「如果Pro 情况分支」「循环体」标题栏提供折叠/展开：
+;   · 折叠（默认）：容器仍是现在的样子（标题 + 指令小卡片预览）。
+;   · 展开：把该容器子图里的指令以「真实可编辑节点」的形式内联渲染在画布上，
+;           并从容器出点连线到子图首节点，可像普通节点一样内联编辑/双击编辑/拖动。
 ;
-; 关键约束：内联子节点仅是「分支子图」的可视化编辑视图，不属于顶层图：
+; 关键约束：内联子节点仅是「容器子图」的可视化编辑视图，不属于顶层图：
 ;   · 子节点放入 this.cmdNodes / this.pos（复用全部内联编辑机制），但不进 this.order；
 ;   · 顶层的连线捕获 / 归一 / 保存均通过 _IsInlineSub 跳过这些子节点与相关连线；
-;   · 任意改动（字段编辑 / 双击编辑 / 增删 / 连线）在 _Apply 时就地回写到
-;     父节点数据的 TrueMacro / FalseMacro（复用既有序列码，不产生泄漏）。
+;   · 任意改动在 _Apply 时就地回写到 TrueMacro / FalseMacro / MacroArr /
+;     DefaultMacro / LoopBody（复用既有序列码，不产生泄漏）。
 ;
 ; 本视图为会话级：整窗重建（_Render）或重新打开编辑器时先回写再折叠，重建后默认折叠。
 ;
@@ -25,6 +25,11 @@ class MacroGraphInlineMixin {
         return this.HasOwnProp("_ilOwner") && this._ilOwner.Has(id)
     }
 
+    ; 是否可作为内联展开容器（真/假分支、如果Pro 情况、循环体）
+    _IsInlineContainerId(brId) {
+        return this._BranchInfo(brId) != "" || this._IsLoopBodyId(brId)
+    }
+
     ; 数组是否已包含某值（序列码去重用）
     _ArrHasVal(arr, val) {
         for v in arr {
@@ -34,23 +39,117 @@ class MacroGraphInlineMixin {
         return false
     }
 
-    ; 分支标题栏「内联展开/折叠」按钮点击
+    ; 读取容器子图开始序列码（真假分支 / 如果Pro / 循环体）
+    _InlineContainerStartSerial(brId) {
+        bi := this._BranchInfo(brId)
+        if (bi != "") {
+            if (bi.proIdx >= 0)
+                return this._IfProBranchMacro(bi.searchId, bi.proIdx)
+            return this._BranchStartSerial(bi.searchId, bi.isTrue)
+        }
+        li := this._LoopBodyInfo(brId)
+        if (li != "") {
+            data := this._SearchData(li.loopId)
+            if (!IsObject(data))
+                return ""
+            return data.HasOwnProp("LoopBody") ? data.LoopBody : ""
+        }
+        return ""
+    }
+
+    ; 把开始序列码写回容器对应字段
+    _WriteInlineContainerStartSerial(brId, startSerial) {
+        bi := this._BranchInfo(brId)
+        if (bi != "") {
+            if (bi.proIdx >= 0) {
+                data := this._IfProData(bi.searchId)
+                if (!IsObject(data))
+                    return
+                cc := this._IfProCaseCountFromData(data)
+                if (bi.proIdx < cc)
+                    data.MacroArr[bi.proIdx + 1] := startSerial
+                else
+                    data.DefaultMacro := startSerial
+                SaveMacroCMDData(data)
+                return
+            }
+            data := this._BranchParentData(bi.searchId)
+            if (!IsObject(data))
+                return
+            if (bi.isTrue)
+                data.TrueMacro := startSerial
+            else
+                data.FalseMacro := startSerial
+            SaveMacroCMDData(data)
+            return
+        }
+        li := this._LoopBodyInfo(brId)
+        if (li != "") {
+            data := this._SearchData(li.loopId)
+            if (!IsObject(data))
+                return
+            data.LoopBody := startSerial
+            SaveMacroCMDData(data)
+        }
+    }
+
+    ; 折叠后刷新容器指令预览
+    _RefreshInlineContainerBody(brId) {
+        bi := this._BranchInfo(brId)
+        if (bi != "") {
+            if (bi.proIdx >= 0)
+                this._RefreshProBranchBody(bi.searchId, bi.proIdx)
+            else
+                this._RefreshBranchBody(bi.searchId, bi.isTrue)
+            return
+        }
+        li := this._LoopBodyInfo(brId)
+        if (li != "")
+            this._RefreshLoopBodyNode(li.loopId)
+    }
+
+    ; 真/假分支标题栏「内联展开/折叠」
     _OnBranchInlineToggle(searchId, isTrue, *) {
         if (this.ui == "" || this.graph == "")
             return
-        brId := this._BranchId(searchId, isTrue)
-        if (this._ilExpanded.Has(brId) && this._ilExpanded[brId])
-            this._CollapseInlineBranch(searchId, isTrue)
-        else
-            this._ExpandInlineBranch(searchId, isTrue)
+        this._ToggleInlineByBrId(this._BranchId(searchId, isTrue))
     }
 
-    ; 展开：解析分支子图 → 内联注入为真实节点 → 连线（分支→首节点、子节点之间）
+    ; 如果Pro 情况分支标题栏「内联展开/折叠」
+    _OnProBranchInlineToggle(parentId, idx, *) {
+        if (this.ui == "" || this.graph == "")
+            return
+        this._ToggleInlineByBrId(this._ProBranchId(parentId, idx))
+    }
+
+    ; 循环体标题栏「内联展开/折叠」
+    _OnLoopBodyInlineToggle(loopId, *) {
+        if (this.ui == "" || this.graph == "")
+            return
+        this._ToggleInlineByBrId(this._LoopBodyId(loopId))
+    }
+
+    _ToggleInlineByBrId(brId) {
+        if (brId == "" || !this._IsInlineContainerId(brId))
+            return
+        if (this._ilExpanded.Has(brId) && this._ilExpanded[brId])
+            this._CollapseInlineByBrId(brId)
+        else
+            this._ExpandInlineByBrId(brId)
+    }
+
+    ; 兼容旧调用：真/假分支展开
     _ExpandInlineBranch(searchId, isTrue) {
-        brId := this._BranchId(searchId, isTrue)
+        this._ExpandInlineByBrId(this._BranchId(searchId, isTrue))
+    }
+
+    ; 展开：解析容器子图 → 内联注入为真实节点 → 连线（容器→首节点、子节点之间）
+    _ExpandInlineByBrId(brId) {
+        if (brId == "" || !this._IsInlineContainerId(brId))
+            return
         if (this._ilExpanded.Has(brId) && this._ilExpanded[brId])
             return
-        startSerial := this._BranchStartSerial(searchId, isTrue)
+        startSerial := this._InlineContainerStartSerial(brId)
         ; 记住可复用的分支开始节点序列码（图结构才复用；线性/空则留空，序列化时再分配）
         SplitSerialTextAndNumbers(startSerial, &t, &n)
         this._ilStartSerial[brId] := (t == GetLangKey("图形开始节点") && n != "") ? startSerial : ""
@@ -64,6 +163,17 @@ class MacroGraphInlineMixin {
             node.CurCMD := rec.cmd
             ; 图结构子节点复用其原序列码（就地更新，避免序列码泄漏）；线性/新增子节点留空
             node.SerialStr := (SubStr(rec.key, 1, 3) == "new") ? "" : rec.key
+            ; 还原折叠/后继偏移，便于布局按「展开态」给后继留空（如 按键→如果B→间隔）
+            if (node.SerialStr != "") {
+                nd := GetMacroCMDData(node.SerialStr)
+                if (IsObject(nd)) {
+                    node.Folded := nd.HasOwnProp("Folded") ? nd.Folded : 0
+                    for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff", "LoopBodyDX", "LoopBodyDY"] {
+                        if (nd.HasOwnProp(layoutProp))
+                            node.%layoutProp% := nd.%layoutProp%
+                    }
+                }
+            }
             this.cmdNodes[subId] := node
             this._ilOwner[subId] := brId
             this._ilSerial[subId] := node.SerialStr
@@ -72,22 +182,22 @@ class MacroGraphInlineMixin {
         }
         this._ilSubs[brId] := subsArr
 
-        ; 布局（按到分支的层级从左到右、同层纵向堆叠）
+        ; 布局：展开的如果/搜索后继按 ExpandMinGap 留空，不能只用固定 260 步进
         this._LayoutInlineSubs(brId, recs, keyToSub)
 
         ; 注入子节点（复用完整内联节点，自带字段编辑 + 双击编辑 + 拖动）
         for subId in subsArr
             this._InjectFullNode(subId, this.cmdNodes[subId])
 
-        ; 子节点若本身是「如果」等带分支的节点：为其注入真/假分支卡片（内联子的子分支）。
-        ; 这些分支卡片是纯显示预览（读取该如果节点自身的 TrueMacro/FalseMacro），
-        ; 同样登记为内联子（_ilOwner），顶层捕获/归一/保存一律跳过，折叠时随之清理。
+        ; 子节点若本身带分支/循环体：注入其卡片并登记为内联子，折叠时一并清理
         for subId in subsArr {
             if (this._HasVisibleBranches(subId))
                 this._InjectInlineSubBranches(brId, subId)
+            if (this._IsExpandedLoop(subId))
+                this._InjectInlineSubLoopBody(brId, subId)
         }
 
-        ; 连线：分支→入口子节点、子节点之间。
+        ; 连线：容器→入口子节点、子节点之间。
         ; 内联子若本身是「如果/搜索」，后继仍由该子节点直连（与顶层：展开时主节点连后续一致）。
         for rec in recs {
             if (rec.entry && keyToSub.Has(rec.key))
@@ -103,6 +213,10 @@ class MacroGraphInlineMixin {
             }
         }
 
+        ; 连线就绪后再按展开间距微调（含 SuccDX 记忆；修复间隔仍贴在如果B收起位的问题）
+        for subId in subsArr
+            this._EnsureExpandGap(subId)
+
         this._ilExpanded[brId] := true
         this.ui.Update("ILExpand_" brId, "Content", "▾")
         this.ui.Update("ILExpand_" brId, "ToolTip", GetLang("收起"))
@@ -110,9 +224,8 @@ class MacroGraphInlineMixin {
         this._RebindPathClicks()
     }
 
-    ; 为内联子节点（本身是如果/搜索等带分支的节点）注入真/假分支卡片。
-    ; 分支卡片读取该节点自身数据的 TrueMacro/FalseMacro 作预览，登记为内联子（_ilOwner），
-    ; 归属于外层 ownerBrId，随外层分支折叠一并清理；顶层遍历一律通过 _IsInlineSub 跳过。
+    ; 为内联子节点（本身是如果/搜索等带分支的节点）注入真/假/多分支卡片。
+    ; 登记为内联子（_ilOwner），归属于外层 ownerBrId，随外层折叠一并清理。
     _InjectInlineSubBranches(ownerBrId, subId) {
         this._InjectBranches(subId)   ; 注入真/假（或如果Pro 多分支）卡片 + 分支↔子连线 + 事件
         brIds := []
@@ -131,26 +244,37 @@ class MacroGraphInlineMixin {
         }
     }
 
-    ; 按分支合成 ID 折叠内联分支（供递归折叠嵌套子分支使用）
-    _CollapseInlineBranchByBrId(brId2) {
-        info := this._BranchInfo(brId2)
-        if (info == "" || info.searchId == "")
-            return
-        this._CollapseInlineBranch(info.searchId, info.isTrue)
+    ; 为内联子循环节点注入外置循环体，并登记为内联子
+    _InjectInlineSubLoopBody(ownerBrId, loopId) {
+        this._InjectLoopBodyNode(loopId)
+        bid := this._LoopBodyId(loopId)
+        this._ilOwner[bid] := ownerBrId
+        if (this._ilSubs.Has(ownerBrId))
+            this._ilSubs[ownerBrId].Push(bid)
     }
 
-    ; 折叠：先回写分支子图，再移除内联子节点与相关连线，恢复分支卡片预览
+    ; 兼容旧调用：真/假分支折叠
     _CollapseInlineBranch(searchId, isTrue) {
-        brId := this._BranchId(searchId, isTrue)
+        this._CollapseInlineByBrId(this._BranchId(searchId, isTrue))
+    }
+
+    ; 按容器合成 ID 折叠（供递归折叠嵌套子容器：真假/如果Pro/循环体）
+    _CollapseInlineBranchByBrId(brId2) {
+        this._CollapseInlineByBrId(brId2)
+    }
+
+    ; 折叠：先回写容器子图，再移除内联子节点与相关连线，恢复容器卡片预览
+    _CollapseInlineByBrId(brId) {
+        if (brId == "" || !this._IsInlineContainerId(brId))
+            return
         if (!(this._ilExpanded.Has(brId) && this._ilExpanded[brId]))
             return
         g := this.graph
-        ; 先递归折叠嵌套的、仍处于展开态的子分支（如：本分支里某个如果子的真/假分支也内联展开了），
-        ; 否则那些更深层的内联节点不在本分支的 _ilSubs 里，折叠时无法被清理（会残留在画布上）。
+        ; 先递归折叠嵌套的、仍处于展开态的子容器，否则更深层内联节点不在本容器 _ilSubs 里会残留
         subsPre := this._ilSubs.Has(brId) ? this._ilSubs[brId].Clone() : []
         for sid in subsPre {
             if (this._ilExpanded.Has(sid) && this._ilExpanded[sid])
-                this._CollapseInlineBranchByBrId(sid)
+                this._CollapseInlineByBrId(sid)
         }
         this._SerializeInlineBranch(brId)          ; 折叠前持久化，避免丢失编辑
         subs := this._ilSubs.Has(brId) ? this._ilSubs[brId].Clone() : []
@@ -166,6 +290,16 @@ class MacroGraphInlineMixin {
             this.ui.Update("Node_" sid, "Visibility", "Collapsed")
             this.ui.Update("Port_In_" sid, "Visibility", "Collapsed")
             this.ui.Update("Port_Out_" sid, "Visibility", "Collapsed")
+            ; 内联登记的外置循环体：一并隐藏回环路径，避免残留
+            li := this._LoopBodyInfo(sid)
+            if (li != "") {
+                this.ui.Update("LoopEnterPath_" li.loopId, "Visibility", "Collapsed")
+                this.ui.Update("LoopReturnPath_" li.loopId, "Visibility", "Collapsed")
+                this.ui.Update("LoopEnterTri_" li.loopId, "Visibility", "Collapsed")
+                this.ui.Update("LoopReturnTri_" li.loopId, "Visibility", "Collapsed")
+                if (this._loopBodyInjected.Has(li.loopId))
+                    this._loopBodyInjected.Delete(li.loopId)
+            }
             nkeep := []
             for n in g.nodes {
                 if (n.Id != sid)
@@ -191,8 +325,7 @@ class MacroGraphInlineMixin {
         this._ilExpanded[brId] := false
         this.ui.Update("ILExpand_" brId, "Content", "▸")
         this.ui.Update("ILExpand_" brId, "ToolTip", GetLang("展开"))
-        ; 分支卡片预览刷新为最新子图内容
-        this._RefreshBranchBody(searchId, isTrue)
+        this._RefreshInlineContainerBody(brId)
         this._CaptureLinks()
     }
 
@@ -230,15 +363,10 @@ class MacroGraphInlineMixin {
         }
     }
 
-    ; 把某分支的内联子图（当前画布真实状态）序列化并写回父节点 TrueMacro/FalseMacro。
+    ; 把某容器的内联子图序列化并写回 TrueMacro/FalseMacro/MacroArr/DefaultMacro/LoopBody。
     ; 子节点/开始节点均复用既有序列码就地更新，无序列码泄漏。
     _SerializeInlineBranch(brId) {
-        info := this._BranchInfo(brId)
-        if (info == "" || info.searchId == "")
-            return
-        searchId := info.searchId, isTrue := info.isTrue
-        data := this._BranchParentData(searchId)
-        if (!IsObject(data))
+        if (brId == "" || !this._IsInlineContainerId(brId))
             return
         subs := this._ilSubs.Has(brId) ? this._ilSubs[brId] : []
 
@@ -252,7 +380,7 @@ class MacroGraphInlineMixin {
             serialOf[sid] := s
         }
 
-        ; 从当前连线派生：入口(分支→子)、子→子后继、入度
+        ; 从当前连线派生：入口(容器→子)、子→子后继、入度
         nextsOf := Map()
         entries := []
         hasIncoming := Map()
@@ -262,11 +390,10 @@ class MacroGraphInlineMixin {
             if (conn.HasOwnProp("Active") && !conn.Active)
                 continue
             f := conn.From, tt := conn.To
-            ; 跳过「X → 分支卡片」的显示连线（如果子节点连向自身真/假卡片等），它不是逻辑后继
-            if (this._BranchInfo(tt) != "")
+            ; 跳过「X → 分支/循环体卡片」的显示连线，它不是逻辑后继
+            if (this._BranchInfo(tt) != "" || this._IsLoopBodyId(tt))
                 continue
-            ; 「内联如果/搜索子」的分支卡片 → 后继：归一为「该子节点 → 后继」（复用顶层分支语义，
-            ; 使真/假两卡片同连一个后继时只记一次，与顶层"分支择一后汇合"表达一致）
+            ; 「内联如果/搜索/如果Pro 子」的分支卡片 → 后继：归一为「该子节点 → 后继」
             fi := this._BranchInfo(f)
             if (fi != "" && serialOf.Has(fi.searchId))
                 f := fi.searchId
@@ -285,16 +412,24 @@ class MacroGraphInlineMixin {
             }
         }
 
-        ; 保存各子节点本体（坐标相对分支节点，便于再次展开时布局稳定）
+        ; 保存各子节点本体（坐标相对容器节点，便于再次展开时布局稳定）
+        ; 保留 Folded/分支布局字段，避免嵌套如果等节点被裸 MacroGraphNode 覆盖后丢失折叠态
         brPos := this.pos.Has(brId) ? this.pos[brId] : { x: 0, y: 0 }
         for sid, s in serialOf {
+            src := this.cmdNodes[sid]
             node := MacroGraphNode()
             node.SerialStr := s
-            node.CurCMD := this.cmdNodes[sid].CurCMD
+            node.CurCMD := src.CurCMD
             p := this.pos.Has(sid) ? this.pos[sid] : { x: 0, y: 0 }
             node.X := p.x - brPos.x
             node.Y := p.y - brPos.y
             node.NextNodeArr := nextsOf.Has(sid) ? nextsOf[sid] : []
+            node.Folded := src.HasOwnProp("Folded") ? src.Folded : 0
+            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff", "LoopBodyDX", "LoopBodyDY"] {
+                if (src.HasOwnProp(layoutProp))
+                    node.%layoutProp% := src.%layoutProp%
+            }
+            src.SerialStr := s
             SaveMacroCMDData(node)
         }
 
@@ -308,7 +443,7 @@ class MacroGraphInlineMixin {
                 emptyArr.Push(s)
         }
 
-        ; 开始节点（复用既有分支开始序列码，无则新建一次并记住）
+        ; 开始节点（复用既有容器开始序列码，无则新建一次并记住）
         startSerial := (this._ilStartSerial.Has(brId) && this._ilStartSerial[brId] != "") ? this._ilStartSerial[brId] : GetCMDSerialStr("图形开始节点")
         this._ilStartSerial[brId] := startSerial
         sn := MacroGraphStartNode()
@@ -319,11 +454,7 @@ class MacroGraphInlineMixin {
         sn.Y := 220
         SaveMacroCMDData(sn)
 
-        if (isTrue)
-            data.TrueMacro := startSerial
-        else
-            data.FalseMacro := startSerial
-        SaveMacroCMDData(data)
+        this._WriteInlineContainerStartSerial(brId, startSerial)
     }
 
     ; 解析分支内容为记录数组 [{ key, cmd, nexts:[key...], entry, x, y }]。
@@ -381,7 +512,17 @@ class MacroGraphInlineMixin {
         return recs
     }
 
-    ; 内联子节点布局：以分支节点为原点，按到分支的层级向右展开，同层纵向堆叠。
+    ; 内联前驱到后继的目标横向间距：展开的如果/搜索用 ExpandMinGap，普通节点用 260
+    _InlineSuccGap(predId) {
+        plainStep := 260
+        if (!this._HasVisibleBranches(predId) && !this._IsExpandedLoop(predId))
+            return plainStep
+        return this._ExpandTargetDX(predId)
+    }
+
+    ; 内联子节点布局：以分支节点为原点。
+    ; X 按前驱累加间距（展开的如果B → 间隔 要用展开间距，不能 level*260）；
+    ; Y 同层纵向堆叠；若存盘坐标比计算值更靠右/有 Y，则优先保留用户布局。
     _LayoutInlineSubs(brId, recs, keyToSub) {
         recByKey := Map()
         for rec in recs
@@ -406,14 +547,74 @@ class MacroGraphInlineMixin {
                 }
             }
         }
+        predsOf := Map()
+        for rec in recs {
+            if (!keyToSub.Has(rec.key))
+                continue
+            fromSub := keyToSub[rec.key]
+            for nk in rec.nexts {
+                if (!keyToSub.Has(nk))
+                    continue
+                toSub := keyToSub[nk]
+                if (!predsOf.Has(toSub))
+                    predsOf[toSub] := []
+                predsOf[toSub].Push(fromSub)
+            }
+        }
         brPos := this.pos.Has(brId) ? this.pos[brId] : { x: 200, y: 200 }
+        plainStep := 260
+        ; 按层级排序，保证算 X 时前驱已有坐标
+        byLevel := []
+        for subId, lv in level
+            byLevel.Push({ id: subId, lv: lv })
+        n := byLevel.Length
+        loop n - 1 {
+            i := A_Index
+            loop n - i {
+                j := A_Index
+                if (byLevel[j].lv > byLevel[j + 1].lv) {
+                    tmp := byLevel[j]
+                    byLevel[j] := byLevel[j + 1]
+                    byLevel[j + 1] := tmp
+                }
+            }
+        }
+        xOf := Map()
         perLevel := Map()
-        subs := this._ilSubs.Has(brId) ? this._ilSubs[brId] : []
-        for subId in subs {
-            lv := level.Has(subId) ? level[subId] : 0
+        keyOfSub := Map()
+        for k, sid in keyToSub
+            keyOfSub[sid] := k
+        for item in byLevel {
+            subId := item.id
+            lv := item.lv
+            x := brPos.x + plainStep
+            if (predsOf.Has(subId)) {
+                x := ""
+                for pred in predsOf[subId] {
+                    predX := xOf.Has(pred) ? xOf[pred] : brPos.x
+                    cand := predX + this._InlineSuccGap(pred)
+                    if (x == "" || cand > x)
+                        x := cand
+                }
+                if (x == "")
+                    x := brPos.x + plainStep
+            }
             idx := perLevel.Has(lv) ? perLevel[lv] : 0
             perLevel[lv] := idx + 1
-            this.pos[subId] := { x: brPos.x + 260 * (lv + 1), y: brPos.y + 150 * idx }
+            y := brPos.y + 150 * idx
+            ; 存盘相对坐标：仅当不比展开间距更挤时采用（避免把收起态间距原样搬回来）
+            if (keyOfSub.Has(subId) && recByKey.Has(keyOfSub[subId])) {
+                rec := recByKey[keyOfSub[subId]]
+                if (rec.x != "" && IsNumber(rec.x)) {
+                    savedX := brPos.x + (rec.x + 0)
+                    if (savedX >= x)
+                        x := savedX
+                }
+                if (rec.y != "" && IsNumber(rec.y))
+                    y := brPos.y + (rec.y + 0)
+            }
+            xOf[subId] := x
+            this.pos[subId] := { x: x, y: y }
         }
     }
 }

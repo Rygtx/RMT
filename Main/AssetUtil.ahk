@@ -755,6 +755,7 @@ ReadTableItemInfo(index) {
         defaultFoldInfo.TKTypeArr := [4]
         defaultFoldInfo.TKArr := [""]
         defaultFoldInfo.HoldTimeArr := [500]
+        defaultFoldInfo.UnorderedTriggerArr := [false]
         savedFoldInfoStr := JSON.stringify(defaultFoldInfo, 0)
     }
 

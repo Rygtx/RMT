@@ -7322,6 +7322,102 @@ public class AhkWpfEngine
         CollapseTempConnectionVisual();
     }
 
+    // 端口所属节点 Id（Port_In_/Port_Out_/Port_In2_/Port_Out2_ 前缀）
+    private string PortOwnerNodeId(string portName)
+    {
+        if (string.IsNullOrEmpty(portName)) return "";
+        if (portName.StartsWith("Port_Out2_", StringComparison.Ordinal)) return portName.Substring(10);
+        if (portName.StartsWith("Port_In2_", StringComparison.Ordinal)) return portName.Substring(9);
+        if (portName.StartsWith("Port_Out_", StringComparison.Ordinal)) return portName.Substring(9);
+        if (portName.StartsWith("Port_In_", StringComparison.Ordinal)) return portName.Substring(8);
+        return "";
+    }
+
+    private bool PortIsOutput(string portName)
+    {
+        return !string.IsNullOrEmpty(portName) &&
+            (portName.StartsWith("Port_Out_", StringComparison.Ordinal) || portName.StartsWith("Port_Out2_", StringComparison.Ordinal));
+    }
+
+    private bool PortIsInput(string portName)
+    {
+        return !string.IsNullOrEmpty(portName) &&
+            (portName.StartsWith("Port_In_", StringComparison.Ordinal) || portName.StartsWith("Port_In2_", StringComparison.Ordinal));
+    }
+
+    private Point PortCenterOnCanvas(FrameworkElement port, Canvas canvas)
+    {
+        Point pp = GetCanvasPosition(port, canvas);
+        double w = port.ActualWidth > 0 ? port.ActualWidth : (port.Width > 0 ? port.Width : 14);
+        double h = port.ActualHeight > 0 ? port.ActualHeight : (port.Height > 0 ? port.Height : 14);
+        return new Point(pp.X + w / 2, pp.Y + h / 2);
+    }
+
+    // 在吸附半径内找最近的对端端口（出点→入点 / 入点→出点）。不放大端口外观。
+    private FrameworkElement FindSnapTargetPort(Canvas canvas, FrameworkElement srcPort, Point pos, double radiusPx)
+    {
+        if (canvas == null || srcPort == null || string.IsNullOrEmpty(srcPort.Name))
+            return null;
+        bool fromOut = PortIsOutput(srcPort.Name);
+        bool fromIn = PortIsInput(srcPort.Name);
+        if (!fromOut && !fromIn)
+            return null;
+        string srcOwner = PortOwnerNodeId(srcPort.Name);
+        double minDistSq = radiusPx * radiusPx;
+        FrameworkElement closest = null;
+        var allPorts = FindDescendantsByNamePrefix(canvas, "Port_");
+        foreach (var fe in allPorts)
+        {
+            if (fe == null || fe == srcPort || string.IsNullOrEmpty(fe.Name)) continue;
+            if (fe.Visibility != Visibility.Visible) continue;
+            // 出点只吸附入点，入点只吸附出点
+            if (fromOut && !PortIsInput(fe.Name)) continue;
+            if (fromIn && !PortIsOutput(fe.Name)) continue;
+            string owner = PortOwnerNodeId(fe.Name);
+            if (owner != "" && owner == srcOwner) continue;
+            Point pc = PortCenterOnCanvas(fe, canvas);
+            double dx = pos.X - pc.X, dy = pos.Y - pc.Y;
+            double distSq = dx * dx + dy * dy;
+            if (distSq < minDistSq)
+            {
+                minDistSq = distSq;
+                closest = fe;
+            }
+        }
+        return closest;
+    }
+
+    // 右键命中连线 Path（按描边加宽几何判定，便于点到线）
+    private string FindConnectionPathAt(Canvas canvas, Point pos, double tol)
+    {
+        if (canvas == null) return null;
+        string best = null;
+        double bestStroke = -1;
+        foreach (UIElement child in canvas.Children)
+        {
+            var pathFe = child as System.Windows.Shapes.Path;
+            if (pathFe == null || pathFe.Name == null || !pathFe.Name.Contains("_Path_")) continue;
+            if (pathFe.Visibility != Visibility.Visible || pathFe.Data == null) continue;
+            try
+            {
+                double strokeTol = Math.Max(tol, pathFe.StrokeThickness > 0 ? pathFe.StrokeThickness : 6);
+                var widened = pathFe.Data.GetWidenedPathGeometry(
+                    new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, strokeTol));
+                if (widened.FillContains(pos))
+                {
+                    // 多条重叠时取描边更粗的（通常是加粗后的主连线）
+                    if (pathFe.StrokeThickness >= bestStroke)
+                    {
+                        bestStroke = pathFe.StrokeThickness;
+                        best = pathFe.Name;
+                    }
+                }
+            }
+            catch { }
+        }
+        return best;
+    }
+
     // 开始从端口拖线
     private void BeginConnectionDrag(Canvas canvas, FrameworkElement port, Point startPos)
     {
@@ -7340,7 +7436,9 @@ public class AhkWpfEngine
         try { canvas.CaptureMouse(); } catch { }
     }
 
-    // 拖线中跟随鼠标
+    // 松手时入点吸附半径（拖线过程中不磁吸，仅 CompleteConnectionDrag 使用）
+    private const double ConnPortSnapRadius = 25;
+
     private void MoveConnectionDrag(Canvas canvas, Point pos)
     {
         if (connectionDragPhase != ConnDragDragging || connectionSourcePort == null)
@@ -7370,56 +7468,8 @@ public class AhkWpfEngine
             return;
         }
 
-        FrameworkElement closestPort = null;
-        double minDistance = 2500;
-
-        if (c != null)
-        {
-            FrameworkElement targetNode = null;
-            foreach (UIElement child in c.Children)
-            {
-                var fe = child as FrameworkElement;
-                if (fe == null || fe.Name == null || !fe.Name.StartsWith("Node_")) continue;
-                double nx = Canvas.GetLeft(fe);
-                double ny = Canvas.GetTop(fe);
-                if (double.IsNaN(nx) || double.IsNaN(ny)) continue;
-                if (dropPos.X >= nx && dropPos.X <= nx + fe.ActualWidth &&
-                    dropPos.Y >= ny && dropPos.Y <= ny + fe.ActualHeight)
-                {
-                    targetNode = fe;
-                    break;
-                }
-            }
-            if (targetNode != null)
-            {
-                string nodeId = targetNode.Name.Substring(5);
-                string expectedPortName = srcPort.Name.StartsWith("Port_Out") ? "Port_In_" + nodeId : "Port_Out_" + nodeId;
-                var port = targetNode.FindName(expectedPortName) as FrameworkElement;
-                if (port == null)
-                {
-                    var ports = FindDescendantsByNamePrefix(targetNode, expectedPortName);
-                    if (ports.Count > 0) port = ports[0];
-                }
-                closestPort = port;
-            }
-            if (closestPort == null)
-            {
-                var allPorts = FindDescendantsByNamePrefix(c, "Port_");
-                foreach (var fe in allPorts)
-                {
-                    if (fe == srcPort) continue;
-                    Point pp = GetCanvasPosition(fe, c);
-                    double px = pp.X + fe.Width / 2;
-                    double py = pp.Y + fe.Height / 2;
-                    double distSq = (dropPos.X - px) * (dropPos.X - px) + (dropPos.Y - py) * (dropPos.Y - py);
-                    if (distSq < minDistance)
-                    {
-                        minDistance = distSq;
-                        closestPort = fe;
-                    }
-                }
-            }
-        }
+        // 优先按距离吸附对端端口（入点附近松手即可连上，不要求鼠标落在节点矩形内）
+        FrameworkElement closestPort = FindSnapTargetPort(c, srcPort, dropPos, ConnPortSnapRadius);
 
         if (closestPort != null)
         {
@@ -8618,6 +8668,10 @@ public class AhkWpfEngine
                 {
                     var pos = e.GetPosition(canvas);
                     string coords = pos.X.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + pos.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    // 右键命中连线时附带 PathId，供 AHK 选中连线并弹出仅含「删除」的菜单
+                    string hitPath = FindConnectionPathAt(canvas, pos, 10);
+                    if (!string.IsNullOrEmpty(hitPath))
+                        coords = coords + "," + hitPath;
                     // 诊断：记录右键点的屏幕设备坐标，菜单打开后与其左上角对比，量出真实偏移。
                     try
                     {
@@ -8627,7 +8681,8 @@ public class AhkWpfEngine
                         var src = PresentationSource.FromVisual(canvas);
                         double dpi = (src != null && src.CompositionTarget != null) ? src.CompositionTarget.TransformToDevice.M11 : 1.0;
                         LogDebug("[CtxMenu] rightClick canvasLocal=(" + pos.X.ToString("F1") + "," + pos.Y.ToString("F1")
-                            + ")  screenDevice=(" + devPt.X.ToString("F1") + "," + devPt.Y.ToString("F1") + ")  dpiScale=" + dpi.ToString("F3"));
+                            + ")  screenDevice=(" + devPt.X.ToString("F1") + "," + devPt.Y.ToString("F1") + ")  dpiScale=" + dpi.ToString("F3")
+                            + " hitPath=" + (hitPath ?? ""));
                     }
                     catch (Exception ex) { LogDebug("[CtxMenu] rightclick-log err: " + ex.Message); }
                     SendToAhk("EVENT|" + winId + "|" + canvas.Name + "|ContextMenuOpened|" + LengthPrefix(coords) + "\n");

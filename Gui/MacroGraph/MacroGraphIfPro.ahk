@@ -572,8 +572,15 @@ class MacroGraphIfProMixin {
         grid.Rows("28", "Auto")
         this._AddNodeSelRing(grid, brId)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
-        hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
+        hgrid := header.Add("Grid")
+        hp := hgrid.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text(title).Foreground(titleFg).FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        ; 如果Pro 情况分支：标题栏右侧「内联展开/折叠」
+        ilOn := this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(brId) && this._ilExpanded[brId]
+        hgrid.Add("Button").Name("ILExpand_" brId).Content(ilOn ? "▾" : "▸").ToolTip(ilOn ? GetLang("收起") : GetLang("展开"))
+            .Foreground(titleFg).Background("#22FFFFFF").BorderThickness("0").FontSize(this._MGFontSize(11))
+            .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
+            .HorizontalAlignment("Right").VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillProBranchNodeBody(parentId, idx, body, brId)
         ; 情况分支不参与主流程出线：仅入点
@@ -691,6 +698,7 @@ class MacroGraphIfProMixin {
         this._TrackCtrl("BrFlowCmb_" brId, runtime)
         this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnProBranchFlowControl.Bind(this, parentId, idx), runtime)
         this._BindCtrl("BrFlowCmb_" brId, "DropDownClosed", this._OnProBranchFlowControl.Bind(this, parentId, idx), runtime)
+        this._BindCtrl("ILExpand_" brId, "Click", this._OnProBranchInlineToggle.Bind(this, parentId, idx), runtime)
     }
 
     _OnProBranchClick(parentId, idx, *) {
@@ -803,6 +811,9 @@ class MacroGraphIfProMixin {
         if (g == "")
             return
         brIds := this._CollectProBranchIds(parentId)
+        ; 删除前先折叠各情况分支的内联展开，避免孤儿节点留在画布上
+        for brId in brIds
+            this._CollapseInlineByBrId(brId)
         brSet := Map()
         for brId in brIds {
             brSet[brId] := true
@@ -881,6 +892,10 @@ class MacroGraphIfProMixin {
         g := this.graph
         if (g == "")
             return
+        ; 先折叠各情况分支上的内联展开并回写，再隐藏分支卡片
+        count := this._IfProBranchCountFromId(parentId)
+        loop count
+            this._CollapseInlineByBrId(this._ProBranchId(parentId, A_Index - 1))
         this._CaptureLinks()
         if (this.cmdNodes.Has(parentId)) {
             node := this.cmdNodes[parentId]
@@ -893,7 +908,6 @@ class MacroGraphIfProMixin {
             if (this._ConnInvolvesParentBranch(conn, parentId))
                 this._DeactivateConnection(conn)
         }
-        count := this._IfProBranchCountFromId(parentId)
         loop count
             this.ui.Update("Node_" this._ProBranchId(parentId, A_Index - 1), "Visibility", "Collapsed")
         loop count

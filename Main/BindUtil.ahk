@@ -365,6 +365,8 @@ BindMenuHotKey() {
                     Hotkey(key " up", actionArr[2])
 
                 ; 顺序触发（默认无序）：注册反向组合键；勾选顺序时不注册
+                while (FoldInfo.UnorderedTriggerArr.Length < index)
+                    FoldInfo.UnorderedTriggerArr.Push(false)
                 if (isCombo && !FoldInfo.UnorderedTriggerArr[index]) {
                     reversedKey := GetReversedComboKey(oriKey)
                     if (reversedKey != "") {
@@ -565,6 +567,8 @@ InitTriggerKeyMap() {
         MySoftData.TriggerKeyMap[key].AddData(info)
 
         ; 顺序触发（默认无序）：将反向组合键也加入映射；勾选顺序时不加
+        while (FoldInfo.UnorderedTriggerArr.Length < index)
+            FoldInfo.UnorderedTriggerArr.Push(false)
         if (!FoldInfo.UnorderedTriggerArr[index]) {
             reversedRaw := GetReversedComboKey(FoldInfo.TKArr[index])
             if (reversedRaw != "") {

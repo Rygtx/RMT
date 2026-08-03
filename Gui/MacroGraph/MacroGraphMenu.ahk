@@ -116,9 +116,45 @@ class MacroGraphMenuMixin {
             . '</Style>'
     }
 
+    ; 画布右键：解析坐标/连线命中后弹出菜单
+    ; （C#：右键按下准备拖动画布，松开且未移动才发 ContextMenuOpened；命中连线时附带 PathId）
+    _OnGraphContextMenu(state, *) {
+        if (this.ui == "" || this.graph == "")
+            return
+        g := this.graph
+        hitPath := ""
+        if (IsObject(state) && state.Has("ContextMenuOpened")) {
+            parts := StrSplit(state["ContextMenuOpened"], ",")
+            if (parts.Length >= 2) {
+                g.lastRightClickX := Number(parts[1])
+                g.lastRightClickY := Number(parts[2])
+            }
+            if (parts.Length >= 3 && parts[3] != "")
+                hitPath := parts[3]
+        }
+        ; 右键连线：选中该连线，菜单仅「删除」可交互
+        if (hitPath != "") {
+            g.OnPathClicked(hitPath, Map(), "", "")
+            this._OpenConnectionContextMenu()
+            return
+        }
+        this._OpenContextMenu()
+    }
+
+    ; 连线右键菜单：仅删除可点
+    _OpenConnectionContextMenu() {
+        if (this.ui == "")
+            return
+        this.ui.Update("MG_Edit", "IsEnabled", "False")
+        this.ui.Update("MG_Copy", "IsEnabled", "False")
+        this.ui.Update("MG_Paste", "IsEnabled", "False")
+        this.ui.Update("MG_Delete", "IsEnabled", "True")
+        this.ui.Update("MG_AddRoot", "IsEnabled", "False")
+        this.ui.Update("MG_AddRoot", "IsSubmenuOpen", "False")
+        this.ui.Update("MG_CM", "IsOpen", "True")
+    }
+
     ; 右键（未拖动画布）时触发：先刷新菜单项状态，再在鼠标位置弹出右键菜单。
-    ; （C# 引擎已改为“右键按下即准备拖动画布，松开且未移动才发 ContextMenuOpened”，
-    ;  原生自动弹出已被抑制，需在此手动打开 MG_CM。）
     _OpenContextMenu() {
         if (this.ui == "" || this.graph == "")
             return
@@ -240,9 +276,16 @@ class MacroGraphMenuMixin {
         fromIsBranch := this._IsBranchId(pendingFrom)
         logicalFrom := this._LogicalNodeId(pendingFrom)
 
-        ; 若从「内联展开的分支」内的节点（子节点或其分支卡片）引出新增：新节点归入同一分支子图，
-        ; 登记为内联子（不进 this.order），随该分支折叠/保存一并处理，避免污染顶层图或折叠残留。
-        ownerBr := (pendingFrom != "" && this._ilOwner.Has(pendingFrom)) ? this._ilOwner[pendingFrom] : ""
+        ; 若从「内联展开的容器」引出新增：新节点归入同一子图（不进 this.order），
+        ; 随该容器折叠/保存一并处理，避免污染顶层图或折叠残留。
+        ; pendingFrom 可能是内联子，也可能是已展开的分支/循环体容器本身。
+        ownerBr := ""
+        if (pendingFrom != "") {
+            if (this._ilOwner.Has(pendingFrom))
+                ownerBr := this._ilOwner[pendingFrom]
+            else if (this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(pendingFrom) && this._ilExpanded[pendingFrom])
+                ownerBr := pendingFrom
+        }
         if (ownerBr != "") {
             this._ilOwner[id] := ownerBr
             this._ilSerial[id] := ""
@@ -261,15 +304,22 @@ class MacroGraphMenuMixin {
             else
                 this._InjectBranches(id)
         }
-        ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）
-        if (this._IsExpandedLoop(id))
-            this._InjectLoopBodyNode(id)
+        ; 循环节点：注入外置循环体节点 + 回环路径（新建默认展开）；内联子则登记为内联
+        if (this._IsExpandedLoop(id)) {
+            if (ownerBr != "")
+                this._InjectInlineSubLoopBody(ownerBr, id)
+            else
+                this._InjectLoopBodyNode(id)
+        }
         ; 由出点拖拽触发的添加：自动连线（展开态主节点仍直连后续；分支无出点）
         if (pendingFrom != "" && pendingFrom != id) {
             srcOk := fromIsBranch ? this._branchInjected.Has(logicalFrom) : this._NodeExists(pendingFrom)
             if (srcOk) {
                 this._ActivateConnection(pendingFrom, id)
                 this._NormalizeBranchConnections()
+                ; 内联子图里从展开的如果/搜索引出新节点时，按展开间距推开后继
+                if (ownerBr != "" && logicalFrom != "" && logicalFrom != id)
+                    this._EnsureExpandGap(logicalFrom)
             }
             ; 正式连线已指向新节点后再收起临时连线，避免中间闪断
             this._HideTempDropConnection()

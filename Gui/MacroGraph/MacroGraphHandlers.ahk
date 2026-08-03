@@ -98,6 +98,8 @@ class MacroGraphHandlersMixin {
             keys := ["KcVar_" id]
         else if (type == GetLang("抓图"))
             keys := ["SsSX_" id, "SsSY_" id, "SsEX_" id, "SsEY_" id, "SsResName_" id]
+        else if (type == GetLang("注释"))
+            keys := ["CommentText_" id]
         else if (type == GetLang("循环")) {
             keys := ["LoopCount_" id]
             loop 4 {
@@ -1397,7 +1399,7 @@ class MacroGraphHandlersMixin {
         if (this.ui == "")
             return
         typeKey := d.HasOwnProp("inputType") ? d.inputType : "弹窗"
-        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("Title_" id, "Text", this._NodeTitleText(d))
         this.ui.Update("InTypeCmb_" id, "SelectedIndex", this._InputTypeIndex(typeKey))
         this.ui.Update("InPauseCmb_" id, "SelectedIndex", this._InputPauseTypeIndex(d.HasOwnProp("pauseType") ? d.pauseType : "暂停当前宏"))
         this.ui.Update("InCancelCmb_" id, "SelectedIndex", this._InputCancelTypeIndex(d.HasOwnProp("cancelType") ? d.cancelType : "终止当前宏"))
@@ -1466,7 +1468,7 @@ class MacroGraphHandlersMixin {
             return
         outputTypeKey := d.HasOwnProp("outputType") ? d.outputType : "发送内容"
         varName := (d.HasOwnProp("variableName") && d.variableName != "") ? d.variableName : "Data"
-        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("Title_" id, "Text", this._NodeTitleText(d))
         this.ui.Update("OutTypeCmb_" id, "SelectedIndex", this._OutputTypeIndex(outputTypeKey))
         this.ui.Update("OutVar_" id, "Text", varName)
         if (d.HasOwnProp("text"))
@@ -1593,6 +1595,8 @@ class MacroGraphHandlersMixin {
                 this._OnFormalKeyCheck(id, state, "", "Flush")
             else if (t == GetLang("抓图"))
                 this._OnFormalScreenShot(id, state, "", "Flush")
+            else if (t == GetLang("注释"))
+                this._OnFormalComment(id, state, "", "Flush")
             else if (t == GetLang("循环"))
                 this._OnFormalLoop(id, state, "", "Flush")
             else if (t == GetLang("如果"))

@@ -69,20 +69,62 @@ class MacroGraphDataMixin {
             }
         }
         ; 真/假分支子图需深拷贝出独立序列码，避免粘贴后两个搜索共享同一分支子图
-        newData.TrueMacro := this._CloneBranchGraph(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
-        newData.FalseMacro := this._CloneBranchGraph(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
+        newData.TrueMacro := this._CloneBranchContent(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
+        newData.FalseMacro := this._CloneBranchContent(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
         SaveMacroCMDData(newData)
         return newSerial
     }
 
+    ; 深拷贝分支内容：图形开始节点走图克隆；线性宏则逐条克隆指令（嵌套如果/搜索等）
+    _CloneBranchContent(macroStr) {
+        if (macroStr == "")
+            return ""
+        SplitSerialTextAndNumbers(macroStr, &t0, &n0)
+        if (t0 == GetLangKey("图形开始节点") && n0 != "")
+            return this._CloneBranchGraph(macroStr)
+        cmdArr := SplitMacro(macroStr)
+        newArr := []
+        for cmd in cmdArr {
+            if (cmd != "")
+                newArr.Push(this._CloneNodeCurCMD(cmd))
+        }
+        return GetMacroStrByCmdArr(newArr)
+    }
+
+    ; 深拷贝单个指令的 CurCMD（按键等内联指令原样；INI 指令新建独立序列码）
+    _CloneNodeCurCMD(srcCmd) {
+        if (srcCmd == "")
+            return ""
+        head := SplitCommand(srcCmd)
+        if (head.Length < 1)
+            return srcCmd
+        name := head[1]
+        if (this._IsMMProName(name))
+            return this._CloneMMPro(srcCmd)
+        if (this._IsSearchName(name) || this._IsSearchProName(name))
+            return this._CloneSearch(srcCmd)
+        if (this._IsCompareName(name))
+            return this._CloneIf(srcCmd)
+        if (this._IsCompareProName(name))
+            return this._CloneComparePro(srcCmd)
+        if (this._IsInputName(name))
+            return this._CloneInput(srcCmd)
+        if (this._IsOutputName(name))
+            return this._CloneOutput(srcCmd)
+        iniKey := this._FormalIniKeyFromName(name)
+        if (iniKey != "")
+            return this._CloneFormalIni(srcCmd, iniKey)
+        return srcCmd
+    }
+
     ; 深拷贝一个分支子图（图形开始节点 + 其所有图形节点），返回新的开始节点序列码。
-    ; 非「图形开始节点」序列码（如空串/旧线性宏）原样返回。
+    ; 图内节点的 CurCMD（如嵌套「如果」）一并深拷贝，避免内外层共享同一份 CompareData。
     _CloneBranchGraph(startSerial) {
         if (startSerial == "")
             return ""
         SplitSerialTextAndNumbers(startSerial, &t0, &n0)
         if (t0 != GetLangKey("图形开始节点") || n0 == "")
-            return startSerial
+            return this._CloneBranchContent(startSerial)
         startData := GetMacroCMDData(startSerial)
         if (!IsObject(startData))
             return ""
@@ -109,18 +151,19 @@ class MacroGraphDataMixin {
             }
         }
 
-        ; 2) 复制每个图形节点，重映射 NextNodeArr 内的后继序列码
+        ; 2) 复制每个图形节点，重映射 NextNodeArr，并深拷贝 CurCMD
         for oldS, newS in serialMap {
             nd := GetMacroCMDData(oldS)
             cp := MacroGraphNode()
             cp.SerialStr := newS
             if (IsObject(nd)) {
-                cp.CurCMD := nd.HasOwnProp("CurCMD") ? nd.CurCMD : ""
+                curCmd := nd.HasOwnProp("CurCMD") ? nd.CurCMD : ""
+                cp.CurCMD := this._CloneNodeCurCMD(curCmd)
                 cp.X := nd.HasOwnProp("X") ? nd.X : 0
                 cp.Y := nd.HasOwnProp("Y") ? nd.Y : 0
                 cp.Folded := nd.HasOwnProp("Folded") ? nd.Folded : 0
                 ; 展开态布局信息一并深拷贝，保持分支位置稳定
-                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff"] {
+                for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff", "LoopBodyDX", "LoopBodyDY"] {
                     if (nd.HasOwnProp(layoutProp))
                         cp.%layoutProp% := nd.%layoutProp%
                 }
@@ -197,7 +240,7 @@ class MacroGraphDataMixin {
     ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致）
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组",
-            "后台鼠标", "后台按键", "窗口管理", "按键检测", "抓图", "循环"]
+            "后台鼠标", "后台按键", "窗口管理", "按键检测", "注释", "抓图", "循环"]
     }
 
     _FormalIniKeyFromName(name) {
@@ -230,7 +273,8 @@ class MacroGraphDataMixin {
                 "窗口管理", WindowManageData,
                 "按键检测", KeyCheckData,
                 "抓图", ScreenShotData,
-                "循环", LoopData
+                "循环", LoopData,
+                "注释", CommentData
             )
         }
         return m.Has(cmdKey) ? m[cmdKey] : ""
@@ -262,18 +306,22 @@ class MacroGraphDataMixin {
             newData := cls()
         newData.SerialStr := newSerial
         if (cmdKey == "如果") {
-            newData.TrueMacro := this._CloneBranchGraph(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
-            newData.FalseMacro := this._CloneBranchGraph(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
+            newData.TrueMacro := this._CloneBranchContent(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
+            newData.FalseMacro := this._CloneBranchContent(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
         }
         if (cmdKey == "如果Pro") {
             if (newData.HasOwnProp("MacroArr") && IsObject(newData.MacroArr)) {
                 loop newData.MacroArr.Length
-                    newData.MacroArr[A_Index] := this._CloneBranchGraph(newData.MacroArr[A_Index])
+                    newData.MacroArr[A_Index] := this._CloneBranchContent(newData.MacroArr[A_Index])
             }
             if (newData.HasOwnProp("DefaultMacro"))
-                newData.DefaultMacro := this._CloneBranchGraph(newData.DefaultMacro)
+                newData.DefaultMacro := this._CloneBranchContent(newData.DefaultMacro)
         }
+        if (cmdKey == "循环" && newData.HasOwnProp("LoopBody"))
+            newData.LoopBody := this._CloneBranchContent(newData.LoopBody)
         SaveMacroCMDData(newData)
+        if (cmdKey == "注释")
+            return this._CommentCmdFromData(newData)
         return newSerial
     }
 
@@ -294,8 +342,8 @@ class MacroGraphDataMixin {
                 }
             }
         }
-        newData.TrueMacro := this._CloneBranchGraph(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
-        newData.FalseMacro := this._CloneBranchGraph(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
+        newData.TrueMacro := this._CloneBranchContent(newData.HasOwnProp("TrueMacro") ? newData.TrueMacro : "")
+        newData.FalseMacro := this._CloneBranchContent(newData.HasOwnProp("FalseMacro") ? newData.FalseMacro : "")
         SaveMacroCMDData(newData)
         return newSerial
     }
@@ -330,10 +378,10 @@ class MacroGraphDataMixin {
         }
         if (newData.HasOwnProp("MacroArr") && IsObject(newData.MacroArr)) {
             loop newData.MacroArr.Length
-                newData.MacroArr[A_Index] := this._CloneBranchGraph(newData.MacroArr[A_Index])
+                newData.MacroArr[A_Index] := this._CloneBranchContent(newData.MacroArr[A_Index])
         }
         if (newData.HasOwnProp("DefaultMacro"))
-            newData.DefaultMacro := this._CloneBranchGraph(newData.DefaultMacro)
+            newData.DefaultMacro := this._CloneBranchContent(newData.DefaultMacro)
         SaveMacroCMDData(newData)
         return newSerial
     }
@@ -529,6 +577,8 @@ class MacroGraphDataMixin {
                 d["loopCmp" i] := data.CompareTypeArr[i]
                 d["loopVar" i] := data.VariableArr[i]
             }
+        } else if (cmdKey == "注释") {
+            d.commentContent := data.Content
         }
     }
 
@@ -554,16 +604,29 @@ class MacroGraphDataMixin {
         for id in this.order
             inDeg[id] := 0
         startNexts := []
+        startSeen := Map()
         for link in this.links {
             if (link.from == this.startId) {
-                if (this.cmdNodes.Has(link.to))
+                if (this.cmdNodes.Has(link.to) && !startSeen.Has(link.to)) {
+                    startSeen[link.to] := true
                     startNexts.Push(link.to)
+                }
                 continue
             }
             if (!this.cmdNodes.Has(link.from))
                 continue
             if (!nextMap.Has(link.from))
                 nextMap[link.from] := []
+            ; 后继去重，避免异常重复边把同一链路存两遍
+            already := false
+            for existTo in nextMap[link.from] {
+                if (existTo == link.to) {
+                    already := true
+                    break
+                }
+            }
+            if (already)
+                continue
             nextMap[link.from].Push(link.to)
             if (this.cmdNodes.Has(link.to))
                 inDeg[link.to] := inDeg[link.to] + 1
@@ -777,6 +840,29 @@ class MacroGraphDataMixin {
         node.CurCMD := cmd
         node.SerialStr := GetCMDSerialStr("图形节点")
         return node
+    }
+
+    ; 节点标题栏是否不显示备注（这些指令的 `_` 后段是参数而非备注）
+    _NodeTitleOmitRemark(type) {
+        return type == GetLang("间隔") || type == GetLang("按键") || type == GetLang("移动")
+            || type == GetLang("变量") || type == GetLang("RMT指令") || type == GetLang("注释")
+    }
+
+    ; 节点标题栏文本：类型名，可附带备注
+    ; 例：搜索1_检索怪物 → 搜索_检索怪物；搜索1 → 搜索
+    ; 间隔/按键/移动/变量/RMT指令：只显示类型名
+    _NodeTitleText(d) {
+        type := d.type
+        if (this._NodeTitleOmitRemark(type))
+            return type
+        raw := d.HasOwnProp("raw") ? d.raw : ""
+        if (raw == "")
+            return type
+        paramArr := SplitCommand(raw)
+        remark := paramArr.Length >= 2 ? paramArr[2] : ""
+        if (remark == "")
+            return type
+        return type "_" remark
     }
 
     ; 解析 CurCMD，返回包含各字段的明细对象（节点信息全部由此而来，不单独存储）

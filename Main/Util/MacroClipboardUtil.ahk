@@ -234,6 +234,7 @@ CollectConfigForCmd(cmdStr, cmdConfigMap) {
 }
 
 ; 从配置对象中查找所有依赖的序列码引用
+; 含：分支宏字段、图形开始节点 NodeArr/EmptyNode、图形节点 NextNodeArr/CurCMD（嵌套如果等）
 FindDependentSerials(dataObj) {
     depSerials := []
 
@@ -242,32 +243,34 @@ FindDependentSerials(dataObj) {
 
     fieldsToCheck := ["MacroArr", "TrueMacroArr", "FalseMacroArr",
                        "StartMacroArr", "EndMacroArr",
-                       "DefaultMacro", "SubMacro",
-                       "TrueMacro", "FalseMacro"]
+                       "DefaultMacro", "SubMacro", "LoopBody",
+                       "TrueMacro", "FalseMacro",
+                       "NodeArr", "EmptyNode", "NextNodeArr", "CurCMD"]
+
+    PushDep(serial) {
+        if (serial != "")
+            depSerials.Push(serial)
+    }
 
     for fieldName in fieldsToCheck {
         try {
-            if (ObjAccess(dataObj, [fieldName])) {
-                fieldValue := ObjAccess(dataObj, [fieldName])
+            if (!ObjAccess(dataObj, [fieldName]))
+                continue
+            fieldValue := ObjAccess(dataObj, [fieldName])
+            if (fieldValue == "")
+                continue
 
-                if (fieldValue != "") {
-                    if (IsObject(fieldValue)) {
-                        for item in fieldValue {
-                            if (item != "") {
-                                extractedSerial := ExtractSerialFromCmd(item)
-                                if (extractedSerial != "")
-                                    depSerials.Push(extractedSerial)
-                            }
-                        }
-                    } else {
-                        cmdList := SplitMacro(fieldValue)
-                        for cmdStr in cmdList {
-                            extractedSerial := ExtractSerialFromCmd(cmdStr)
-                            if (extractedSerial != "")
-                                depSerials.Push(extractedSerial)
-                        }
-                    }
+            if (IsObject(fieldValue)) {
+                for item in fieldValue {
+                    if (item != "")
+                        PushDep(ExtractSerialFromCmd(item))
                 }
+            } else if (fieldName == "CurCMD") {
+                PushDep(ExtractSerialFromCmd(fieldValue))
+            } else {
+                cmdList := SplitMacro(fieldValue)
+                for cmdStr in cmdList
+                    PushDep(ExtractSerialFromCmd(cmdStr))
             }
         } catch as e {
             continue
@@ -347,8 +350,9 @@ UpdateConfigInternalRefs(dataObj, replaceMap) {
 
     fieldsToUpdate := ["MacroArr", "TrueMacroArr", "FalseMacroArr",
                        "StartMacroArr", "EndMacroArr",
-                       "DefaultMacro", "SubMacro",
-                       "TrueMacro", "FalseMacro"]
+                       "DefaultMacro", "SubMacro", "LoopBody",
+                       "TrueMacro", "FalseMacro",
+                       "NodeArr", "EmptyNode", "NextNodeArr", "CurCMD"]
 
     for fieldName in fieldsToUpdate {
         try {
@@ -366,6 +370,18 @@ UpdateConfigInternalRefs(dataObj, replaceMap) {
                             if (item == oldSerial)
                                 ObjAccess(dataObj, [fieldName], newSerial, index)
                         }
+                    }
+                }
+            } else if (fieldName == "CurCMD") {
+                for oldSerial, newSerial in replaceMap {
+                    if (fieldValue == oldSerial || GetCmdStr(fieldValue) == oldSerial) {
+                        ObjAccess(dataObj, [fieldName], newSerial)
+                        break
+                    }
+                    newValue := ReplaceSerialInCmdList(fieldValue, oldSerial, newSerial)
+                    if (newValue != fieldValue) {
+                        ObjAccess(dataObj, [fieldName], newValue)
+                        fieldValue := newValue
                     }
                 }
             } else {

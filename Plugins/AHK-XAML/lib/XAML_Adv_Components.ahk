@@ -893,10 +893,11 @@ class XNodeGraph {
         if !state.Has("ContextMenuOpened")
             return
         parts := StrSplit(state["ContextMenuOpened"], ",")
-        if (parts.Length == 2) {
+        if (parts.Length >= 2) {
             this.lastRightClickX := Number(parts[1])
             this.lastRightClickY := Number(parts[2])
         }
+        ; 第三段为命中的连线 PathId（可选）；由 MacroGraphGui 统一处理选中与菜单
     }
 
     OnNewNode(nodeType, state, ctrl, event) {

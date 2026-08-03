@@ -308,6 +308,7 @@ GraphStartFlattenFirstChain(startSerial) {
 }
 
 ; 分支内容（图形开始序列码或线性宏）转为线性宏，并递归处理更深嵌套
+; visited[图形开始序列码] 缓存已转换的线性宏，避免重复压平；二次命中返回缓存而非空串
 ConvertBranchMacroToLinear(macroStr, visited) {
     macroStr := Trim(macroStr)
     if (macroStr == "")
@@ -316,10 +317,11 @@ ConvertBranchMacroToLinear(macroStr, visited) {
     ; 整个分支就是一个图形开始节点
     if (IsGraphStartSerial(macroStr)) {
         if (visited.Has(macroStr))
-            return ""
-        visited[macroStr] := true
+            return visited[macroStr]
+        visited[macroStr] := ""   ; 占位，防环
         linear := GraphStartFlattenFirstChain(macroStr)
         ExpandNestedGraphStartsInMacro(linear, visited)
+        visited[macroStr] := linear
         return linear
     }
 
@@ -330,10 +332,19 @@ ConvertBranchMacroToLinear(macroStr, visited) {
     for cmd in cmdArr {
         clean := GetCmdStr(cmd)
         if (IsGraphStartSerial(clean)) {
-            if (!visited.Has(clean)) {
-                visited[clean] := true
+            if (visited.Has(clean)) {
+                cached := visited[clean]
+                if (cached != "") {
+                    for subCmd in SplitMacro(cached) {
+                        if (subCmd != "")
+                            newArr.Push(subCmd)
+                    }
+                }
+            } else {
+                visited[clean] := ""
                 nested := GraphStartFlattenFirstChain(clean)
                 ExpandNestedGraphStartsInMacro(nested, visited)
+                visited[clean] := nested
                 for subCmd in SplitMacro(nested) {
                     if (subCmd != "")
                         newArr.Push(subCmd)

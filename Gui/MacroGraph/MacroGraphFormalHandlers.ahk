@@ -1837,7 +1837,7 @@ class MacroGraphFormalHandlersMixin {
         if (this.ui == "")
             return
         d := this._FormalDFromId(id)
-        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("Title_" id, "Text", this._NodeTitleText(d))
         if (d.type == GetLang("宏操作"))
             this._RefreshFormalSubMacroVisibility(id)
         else if (d.type == GetLang("变量"))
@@ -1870,6 +1870,8 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshFormalWindowManageVisibility(id)
         else if (d.type == GetLang("抓图"))
             this._RefreshFormalScreenShotVisibility(id)
+        else if (d.type == GetLang("注释"))
+            this._RefreshCommentInline(id, d)
     }
 
     ; 编辑器确定后：就地把数据写回内联控件值（不整窗 _Render，避免闪烁）。
@@ -1935,7 +1937,58 @@ class MacroGraphFormalHandlersMixin {
             this._RefreshScreenShotInline(id, d)
             return true
         }
+        if (d.type == GetLang("注释")) {
+            this._RefreshCommentInline(id, d)
+            return true
+        }
         return false
+    }
+
+    ; 注释节点：正文写回 Content，并同步 CurCMD 备注后缀（与 CommentGui.GetCommandStr 一致）
+    _OnFormalComment(id, state, ctrl, event) {
+        data := this._FormalIniData(id)
+        if (data == "")
+            return
+        if (!IsObject(state))
+            state := Map()
+        key := "CommentText_" id
+        if (!state.Has(key) && this.ui != "")
+            state[key] := this.ui.Query(key)
+        if (!state.Has(key))
+            return
+        content := Trim(state[key])
+        if (content == "")
+            content := GetLang("请输入注释内容")
+        data.Content := content
+        SaveMacroCMDData(data)
+        this.cmdNodes[id].CurCMD := this._CommentCmdFromData(data)
+        if (this.ui != "") {
+            h := this._CommentTextHeight(content)
+            this.ui.Update(key, "Text", content)
+            this.ui.Update(key, "Height", String(h))
+            this.ui.Update("Title_" id, "Text", GetLang("注释"))
+        }
+        this._Apply()
+    }
+
+    ; 由 CommentData 生成带备注后缀的 CurCMD（备注取内容前 20 字）
+    _CommentCmdFromData(data) {
+        SplitSerialTextAndNumbers(data.SerialStr, &textOnly, &numbersOnly)
+        cmd := Format("{}{}", GetLang(textOnly), numbersOnly)
+        remark := data.Content
+        if (StrLen(remark) > 20)
+            remark := SubStr(remark, 1, 20) "..."
+        return CorrectRemark(cmd, remark)
+    }
+
+    _RefreshCommentInline(id, d) {
+        if (this.ui == "")
+            return
+        content := d.HasOwnProp("commentContent") ? d.commentContent : GetLang("请输入注释内容")
+        h := this._CommentTextHeight(content)
+        this.ui.Update("CommentText_" id, "Text", content)
+        this.ui.Update("CommentText_" id, "Height", String(h))
+        this.ui.Update("Title_" id, "Text", GetLang("注释"))
     }
 
     ; RMT指令节点：编辑器确定后就地刷新内联控件值（避免整窗 _Render 闪烁）。
@@ -2225,6 +2278,12 @@ class MacroGraphFormalHandlersMixin {
             ssKeys := ["屏幕抓图", "窗口抓图"]
             idx := d.HasOwnProp("ssType") ? d.ssType : 1
             return GetLang(ssKeys[idx])
+        }
+        if (d.type == GetLang("注释")) {
+            c := d.HasOwnProp("commentContent") ? d.commentContent : ""
+            if (StrLen(c) > 28)
+                c := SubStr(c, 1, 28) "..."
+            return c != "" ? c : GetLang("注释")
         }
         if (d.type == GetLang("循环")) {
             lc := d.HasOwnProp("loopCount") ? d.loopCount : 10

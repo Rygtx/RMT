@@ -8,16 +8,6 @@ Compat1_0_8F4FlodInfo(FoldInfo) {
     if (FoldInfo == "")
         return
 
-    ; 逐字段检查，避免"有FrontInfoArr但缺UnorderedTriggerArr"的中间版本漏网
-    needsFix := !ObjHasOwnProp(FoldInfo, "FrontInfoArr")
-              || !ObjHasOwnProp(FoldInfo, "TKTypeArr")
-              || !ObjHasOwnProp(FoldInfo, "TKArr")
-              || !ObjHasOwnProp(FoldInfo, "HoldTimeArr")
-              || !ObjHasOwnProp(FoldInfo, "UnorderedTriggerArr")
-
-    if (!needsFix)
-        return
-
     if (!ObjHasOwnProp(FoldInfo, "FrontInfoArr"))
         FoldInfo.FrontInfoArr := []
     if (!ObjHasOwnProp(FoldInfo, "TKTypeArr"))
@@ -29,7 +19,14 @@ Compat1_0_8F4FlodInfo(FoldInfo) {
     if (!ObjHasOwnProp(FoldInfo, "UnorderedTriggerArr"))
         FoldInfo.UnorderedTriggerArr := []
 
-    loop FoldInfo.RemarkArr.Length {
+    ; 属性存在但长度为 0（如 JSON 序列化了空 UnorderedTriggerArr）时也要按模块数补齐
+    targetLen := 0
+    if (ObjHasOwnProp(FoldInfo, "RemarkArr"))
+        targetLen := FoldInfo.RemarkArr.Length
+    if (ObjHasOwnProp(FoldInfo, "IndexSpanArr") && FoldInfo.IndexSpanArr.Length > targetLen)
+        targetLen := FoldInfo.IndexSpanArr.Length
+
+    loop targetLen {
         if (FoldInfo.FrontInfoArr.Length < A_Index)
             FoldInfo.FrontInfoArr.Push("")
         if (FoldInfo.TKTypeArr.Length < A_Index)

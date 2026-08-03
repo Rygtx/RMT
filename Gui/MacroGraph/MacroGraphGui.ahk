@@ -53,7 +53,7 @@ class MacroGraphGui {
         ; 若梦兔全部指令
         this.CmdList := GetLangArr(["间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro", "输入", "输出", "循环", "宏操作",
             "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组", "RMT指令", "后台鼠标",
-            "后台按键", "窗口管理", "按键检测", "抓图"])
+            "后台按键", "窗口管理", "按键检测", "注释", "抓图"])
 
         ; 各指令对应图标（顺序与 CmdList 一一对应，复用 MacroEditGui 的图标资源）
         this.CmdIconArr := ["Images\Soft\Interval.png", "Images\Soft\Key.png",
@@ -68,7 +68,7 @@ class MacroGraphGui {
             "Images\Soft\Arr.png", "Images\Soft\rabit.png",
             "Images\Soft\Mouse.png", "Images\Soft\Key.png",
             "Images\Soft\WindowManage.png", "Images\Soft\KeyCheck.png",
-            "Images\Soft\ScreenShot.png"]
+            "Images\Soft\Comment.png", "Images\Soft\ScreenShot.png"]
 
         ; 复用现有子编辑器（双击节点时打开）
         this.IntervalGui := IntervalGui()
@@ -93,6 +93,7 @@ class MacroGraphGui {
         this.WindowManageGui := WindowManageGui()
         this.KeyCheckGui := KeyCheckGui()
         this.ScreenShotGui := ScreenShotGui()
+        this.CommentGui := CommentGui()
         this.LoopGui := LoopGui()
         this.CompareGui := CompareGui()
         this.CompareProGui := CompareProGui()
@@ -117,6 +118,7 @@ class MacroGraphGui {
         this._shotNodeId := ""        ; 正在执行截图取色的搜索节点ID（截图剪贴板回调用）
         this._searchClipAction := ObjBindMethod(this, "_SearchCheckClipboard") ; 截图剪贴板轮询回调（稳定引用，便于 SetTimer 开关）
         this._suppressCloseApply := false ; 切换到逻辑树时跳过关闭时的 _Apply，避免覆盖已写回的线性宏
+        this._closeHandled := false       ; 防止 Window.Closed 重复触发导致分支列表被刷新叠加
     }
 
     ; 指令图标的绝对路径（正斜杠，供 WPF Image.Source 使用）；不存在则返回空
@@ -133,6 +135,7 @@ class MacroGraphGui {
 
     ShowGui(macroStr, key := "") {
         this._sessionId += 1
+        this._closeHandled := false
         this._CloseUI()
         this.startSerial := ""
         this.cmdNodes := Map()
@@ -140,6 +143,13 @@ class MacroGraphGui {
         this.pos := Map()
         this.links := []
         this.seq := 0
+        ; 实例会被分支/循环体嵌套编辑器复用：清掉上一会话内联态，避免 _Render 误串行化脏数据
+        this._ilExpanded := Map()
+        this._ilSubs := Map()
+        this._ilOwner := Map()
+        this._ilSerial := Map()
+        this._ilStartSerial := Map()
+        this._ilSeq := 0
 
         ; 优先从已保存的图结构复原：macroStr 此时即开始节点(MacroGraphStartNode)的 SerialStr。
         ; 复原成功直接显示；否则按线性宏铺开（首次打开或旧的线性宏）。
@@ -278,8 +288,8 @@ class MacroGraphGui {
         this.ui.OnEvent("MG_Paste", "Click", (*) => this._PasteNodes(true))
         this.ui.OnEvent("MG_Delete", "Click", (*) => this._DeleteSelected())
         this.ui.OnEvent("MG_Edit", "Click", (*) => this._EditSelected())
-        ; 右键（未拖动画布）时：更新菜单项状态后手动弹出右键菜单
-        this.ui.OnEvent(this.graph.id, "ContextMenuOpened", (*) => this._OpenContextMenu())
+        ; 右键（未拖动画布）时：更新菜单项状态后手动弹出右键菜单（含连线命中）
+        this.ui.OnEvent(this.graph.id, "ContextMenuOpened", this._OnGraphContextMenu.Bind(this))
         ; Ctrl+V：引擎用 Mouse.GetPosition(canvas)（与拖线同源）发 PasteAt，不走右键锚点
         this.ui.OnEvent(this.graph.id, "PasteAt", this._OnPasteAt.Bind(this))
         if (this.ShowToTreeBtn)
@@ -391,19 +401,35 @@ class MacroGraphGui {
         ; 仅处理当前会话窗口的关闭；旧窗口迟到的异步关闭事件直接忽略，避免覆盖写空
         if (sid != this._sessionId)
             return
+        ; WPF Closed 可能连发：二次进入会让 OnClosedAction 再刷一次分支芯片，列表叠成双份
+        if (this._closeHandled)
+            return
+        this._closeHandled := true
         SetTimer(this._readyTimer, 0)
         skipApply := this._suppressCloseApply
         this._suppressCloseApply := false
+        closedCb := this.OnClosedAction
+        sureAction := this.SureBtnAction
+        ; 先摘掉回调再落盘/回写，避免 Closed 连发时二次进入（_closeHandled）或二次刷新叠列表
+        this.OnClosedAction := ""
+        this.SureBtnAction := ""
         if (!skipApply) {
-            this._SaveGraph()
-            this._Apply()
+            this._SerializeAllInlineBranches()
+            if (this.graph != "")
+                this._SaveGraph()
+            ; 关闭时务必把 startSerial 写回父级（TrueMacro/LoopBody 等），不能依赖后续再触发 _Apply
+            if (sureAction != "" && this.startSerial != "")
+                sureAction(this.startSerial)
         }
         this.ui := ""
         this.graph := ""
-        if (this.OnClosedAction != "") {
-            cb := this.OnClosedAction
-            cb()
-        }
+        this._ilExpanded := Map()
+        this._ilSubs := Map()
+        this._ilOwner := Map()
+        this._ilSerial := Map()
+        this._ilStartSerial := Map()
+        if (closedCb != "")
+            closedCb()
     }
 
     _CloseUI() {
@@ -472,7 +498,8 @@ class MacroGraphGui {
                 data := cls()
                 data.SerialStr := serial
                 SaveMacroCMDData(data)
-                return this._MakeNode(serial)
+                cmd := (key == "注释") ? this._CommentCmdFromData(data) : serial
+                return this._MakeNode(cmd)
             }
         }
         ; 其它指令：临时节点占位（仍只存 CurCMD，类型由解析判定）
@@ -662,7 +689,7 @@ class MacroGraphGui {
         }
         if (this.ui != "") {
             d := this._Parse(cmd)
-            this.ui.Update("Title_" id, "Text", d.type)
+            this.ui.Update("Title_" id, "Text", this._NodeTitleText(d))
             if (d.type == GetLang("间隔")) {
                 this.ui.Update("ITypeCmb_" id, "SelectedIndex", this._IntervalTypeIndex(d.itype))
                 this.ui.Update("Time_" id, "Text", d.time)
@@ -709,7 +736,7 @@ class MacroGraphGui {
         isPro := (d.type == GetLang("搜索Pro"))
         maxType := isPro ? 6 : 3
         st := (d.HasOwnProp("searchType") && d.searchType >= 1 && d.searchType <= maxType) ? d.searchType : 1
-        this.ui.Update("Title_" id, "Text", d.type)
+        this.ui.Update("Title_" id, "Text", this._NodeTitleText(d))
         this.ui.Update("STypeCmb_" id, "SelectedIndex", st - 1)
         this.ui.Update("SColor_" id, "Text", d.HasOwnProp("searchColor") ? d.searchColor : "FFFFFF")
         this.ui.Update("SText_" id, "Text", d.HasOwnProp("searchText") ? d.searchText : "")
@@ -755,10 +782,14 @@ class MacroGraphGui {
     _Apply() {
         if (this.HasOwnProp("_flushSilent") && this._flushSilent)
             return
+        this._SerializeAllInlineBranches()   ; 内联展开的分支：把当前编辑就地回写 TrueMacro/FalseMacro
+        ; 先落盘图结构再通知父级：否则父级刷新会读到空/旧分支
+        if (this.graph != "")
+            this._SaveGraph()
+        else
+            this._CaptureLinks()
         if (this.SureBtnAction == "")
             return
-        this._SerializeAllInlineBranches()   ; 内联展开的分支：把当前编辑就地回写 TrueMacro/FalseMacro
-        this._CaptureLinks()
         action := this.SureBtnAction
         action(this.startSerial)
     }

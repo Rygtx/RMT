@@ -1030,9 +1030,14 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
         return GetCmdByParams(paramArr)
     }
 
+    ; 图形开始节点：深拷贝整张子图（含嵌套如果的 CurCMD）
+    if (IsGraphStartSerial(paramArr[1]))
+        return FullCopyGraphStart(paramArr[1], CopyedMap)
+
     textOnly := GetCmdOnlyText(paramArr[1])
     cmd := GetLangKey(textOnly)
-    dataFile := MySoftData.DataFileMap[cmd]
+    if (!MySoftData.DataFileMap.Has(cmd))
+        return cmdStr
     Data := GetMacroCMDData(paramArr[1]).Clone()
     Data.SerialStr := GetCMDSerialStr(cmd)
 
@@ -1070,9 +1075,88 @@ FullCopyCmd(cmdStr, CopyedMap := Map()) {
     return res
 }
 
+; 深拷贝「图形开始节点」子图：重映射 NodeArr/EmptyNode/NextNodeArr，并对各节点 CurCMD 走 FullCopyCmd
+FullCopyGraphStart(startSerial, CopyedMap := Map()) {
+    if (startSerial == "" || !IsGraphStartSerial(startSerial))
+        return startSerial
+    if (CopyedMap.Has(startSerial))
+        return CopyedMap[startSerial]
+
+    startData := GetMacroCMDData(startSerial)
+    if (!IsObject(startData))
+        return startSerial
+
+    nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
+    emptyArr := (startData.HasOwnProp("EmptyNode") && IsObject(startData.EmptyNode)) ? startData.EmptyNode : []
+
+    serialMap := Map()
+    queue := []
+    for s in nodeArr
+        queue.Push(s)
+    for s in emptyArr
+        queue.Push(s)
+    while (queue.Length > 0) {
+        s := queue.RemoveAt(1)
+        if (s == "" || serialMap.Has(s))
+            continue
+        SplitSerialTextAndNumbers(s, &st, &sn)
+        serialMap[s] := GetCMDSerialStr(st != "" ? st : "图形节点")
+        nd := GetMacroCMDData(s)
+        if (IsObject(nd) && nd.HasOwnProp("NextNodeArr") && IsObject(nd.NextNodeArr)) {
+            for ns in nd.NextNodeArr
+                queue.Push(ns)
+        }
+    }
+
+    for oldS, newS in serialMap {
+        nd := GetMacroCMDData(oldS)
+        cp := MacroGraphNode()
+        cp.SerialStr := newS
+        if (IsObject(nd)) {
+            curCmd := nd.HasOwnProp("CurCMD") ? nd.CurCMD : ""
+            cp.CurCMD := FullCopyCmd(curCmd, CopyedMap)
+            cp.X := nd.HasOwnProp("X") ? nd.X : 0
+            cp.Y := nd.HasOwnProp("Y") ? nd.Y : 0
+            cp.Folded := nd.HasOwnProp("Folded") ? nd.Folded : 0
+            for layoutProp in ["TrueBranchDX", "TrueBranchDY", "FalseBranchDX", "FalseBranchDY", "ExpandShift", "SuccDX", "SuccDY", "FoldSuccDX", "FoldSuccDY", "ProBranchOff", "LoopBodyDX", "LoopBodyDY"] {
+                if (nd.HasOwnProp(layoutProp))
+                    cp.%layoutProp% := nd.%layoutProp%
+            }
+            newNexts := []
+            if (nd.HasOwnProp("NextNodeArr") && IsObject(nd.NextNodeArr)) {
+                for ns in nd.NextNodeArr
+                    newNexts.Push(serialMap.Has(ns) ? serialMap[ns] : ns)
+            }
+            cp.NextNodeArr := newNexts
+        }
+        SaveMacroCMDData(cp)
+        CopyedMap.Set(oldS, newS)
+    }
+
+    newStart := GetCMDSerialStr("图形开始节点")
+    CopyedMap.Set(startSerial, newStart)
+    sn := MacroGraphStartNode()
+    sn.SerialStr := newStart
+    newNodeArr := []
+    for s in nodeArr
+        newNodeArr.Push(serialMap.Has(s) ? serialMap[s] : s)
+    newEmptyArr := []
+    for s in emptyArr
+        newEmptyArr.Push(serialMap.Has(s) ? serialMap[s] : s)
+    sn.NodeArr := newNodeArr
+    sn.EmptyNode := newEmptyArr
+    sn.X := startData.HasOwnProp("X") ? startData.X : 60
+    sn.Y := startData.HasOwnProp("Y") ? startData.Y : 220
+    SaveMacroCMDData(sn)
+    return newStart
+}
+
 FullCopyMacro(MacroStr, CopyedMap) {
     if (MacroStr == "")
         return MacroStr
+    ; 整个宏就是一个图形开始节点（分支存图形态时）
+    if (IsGraphStartSerial(Trim(MacroStr)))
+        return FullCopyGraphStart(Trim(MacroStr), CopyedMap)
     cmdArr := SplitMacro(MacroStr)
     loop cmdArr.Length {
         cmdArr[A_Index] := FullCopyCmd(cmdArr[A_Index], CopyedMap)

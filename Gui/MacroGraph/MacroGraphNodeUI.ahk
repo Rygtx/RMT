@@ -568,14 +568,12 @@ class MacroGraphNodeUIMixin {
         hgrid := header.Add("Grid")
         hp := hgrid.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text(title).Foreground("White").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
-        ; 如果分支：标题栏右侧「内联展开/折叠」按钮（把分支子图指令以真实可编辑节点内联到分支之后）
-        if (this._IsIfNodeId(searchId)) {
-            ilOn := this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(brId) && this._ilExpanded[brId]
-            hgrid.Add("Button").Name("ILExpand_" brId).Content(ilOn ? "▾" : "▸").ToolTip(ilOn ? GetLang("收起") : GetLang("展开"))
-                .Foreground("White").Background("#22FFFFFF").BorderThickness("0").FontSize(this._MGFontSize(11))
-                .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
-                .HorizontalAlignment("Right").VerticalAlignment("Center")
-        }
+        ; 如果/搜索/搜索Pro 分支：标题栏右侧「内联展开/折叠」
+        ilOn := this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(brId) && this._ilExpanded[brId]
+        hgrid.Add("Button").Name("ILExpand_" brId).Content(ilOn ? "▾" : "▸").ToolTip(ilOn ? GetLang("收起") : GetLang("展开"))
+            .Foreground("White").Background("#22FFFFFF").BorderThickness("0").FontSize(this._MGFontSize(11))
+            .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
+            .HorizontalAlignment("Right").VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillBranchNodeBody(searchId, isTrue, body, brId)
         ; 分支不参与主流程出线：仅入点（主节点出点连后续；侧边出点连本分支）
@@ -792,14 +790,15 @@ class MacroGraphNodeUIMixin {
 
     ; 运行时按当前展开态重建分支指令卡片（清空后重新注入）
     _RebuildBranchChips(brId, cmds, expanded) {
-        this.ui.Update("SBChipsPanel_" brId, "ClearItems", "")
+        panel := "SBChipsPanel_" brId
+        this.ui.Update(panel, "ClearItems", "")
         if (cmds.Length == 0) {
-            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", this._CmdChipEmptyXaml())
+            this.ui.Update(panel, "AddXamlItem", this._CmdChipEmptyXaml())
             return
         }
         shown := expanded ? cmds.Length : Min(cmds.Length, this._BranchPreviewCount())
         Loop shown
-            this.ui.Update("SBChipsPanel_" brId, "AddXamlItem", this._CmdChipXaml("· " cmds[A_Index], A_Index))
+            this.ui.Update(panel, "AddXamlItem", this._CmdChipXaml("· " cmds[A_Index], A_Index))
     }
 
     ; 运行时刷新分支节点内容（搜索编辑器/分支编辑器改动后调用，无需重建窗口）
@@ -812,6 +811,12 @@ class MacroGraphNodeUIMixin {
         if (!this._branchInjected.Has(searchId))
             return
         brId := this._BranchId(searchId, isTrue)
+        cmds := this._BranchGraphCmds(this._BranchStartSerial(searchId, isTrue))
+        expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
+        ; 先重建芯片，再改流程下拉，避免 SelectionChanged 重入时读到半更新列表
+        this._RebuildBranchChips(brId, cmds, expanded)
+        this.ui.Update("SBExpand_" brId, "Visibility", cmds.Length > this._BranchPreviewCount() ? "Visible" : "Collapsed")
+        this.ui.Update("SBExpand_" brId, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
         if (this._IsIfNodeId(searchId)) {
             flowTypes := this._IfFlowTypes()
             data := this._BranchParentData(searchId)
@@ -825,11 +830,6 @@ class MacroGraphNodeUIMixin {
                 fidx := this._IndexInLangArr(flowTypes, GetLang(GetLangKey(ct)))
             this.ui.Update("BrFlowCmb_" brId, "SelectedIndex", Max(0, fidx))
         }
-        cmds := this._BranchGraphCmds(this._BranchStartSerial(searchId, isTrue))
-        expanded := this._branchExpanded.Has(brId) && this._branchExpanded[brId]
-        this._RebuildBranchChips(brId, cmds, expanded)
-        this.ui.Update("SBExpand_" brId, "Visibility", cmds.Length > this._BranchPreviewCount() ? "Visible" : "Collapsed")
-        this.ui.Update("SBExpand_" brId, "Content", expanded ? GetLang("收起") : (GetLang("展开") " (" cmds.Length ")"))
     }
 
     ; 取分支保存内容（图形开始节点序列码 或 线性宏串）
@@ -861,7 +861,9 @@ class MacroGraphNodeUIMixin {
         if (!IsObject(startData))
             return result
         nodeArr := (startData.HasOwnProp("NodeArr") && IsObject(startData.NodeArr)) ? startData.NodeArr : []
-        cur := nodeArr.Length >= 1 ? nodeArr[1] : ""
+        emptyArr := (startData.HasOwnProp("EmptyNode") && IsObject(startData.EmptyNode)) ? startData.EmptyNode : []
+        ; 优先走开始节点后继；若 NodeArr 为空（异常落盘）则回退 EmptyNode 首个，避免分支预览空白
+        cur := nodeArr.Length >= 1 ? nodeArr[1] : (emptyArr.Length >= 1 ? emptyArr[1] : "")
         visited := Map()
         while (cur != "" && !visited.Has(cur)) {
             visited[cur] := true
@@ -1038,8 +1040,15 @@ class MacroGraphNodeUIMixin {
         grid.Rows("30", "Auto")
         this._AddNodeSelRing(grid, bid)
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background("{DynamicResource ActionBg}").CornerRadius("5,5,0,0")
-        hp := header.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
+        hgrid := header.Add("Grid")
+        hp := hgrid.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").Margin("8,0")
         hp.Add("TextBlock").Text("↻ " GetLang("循环体")).Foreground("{DynamicResource ActionText}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        ; 循环体：标题栏右侧「内联展开/折叠」
+        ilOn := this.HasOwnProp("_ilExpanded") && this._ilExpanded.Has(bid) && this._ilExpanded[bid]
+        hgrid.Add("Button").Name("ILExpand_" bid).Content(ilOn ? "▾" : "▸").ToolTip(ilOn ? GetLang("收起") : GetLang("展开"))
+            .Foreground("{DynamicResource ActionText}").Background("#22FFFFFF").BorderThickness("0").FontSize(this._MGFontSize(11))
+            .Width("22").Height("20").Padding("0").Margin("0,0,4,0").Cursor("Hand")
+            .HorizontalAlignment("Right").VerticalAlignment("Center")
         body := grid.Add("StackPanel").Grid_Row(1).Margin("10,0,0,8")
         this._FillLoopBodyNodeBody(loopId, body, bid)
         ; 循环体不参与主流程，不用标准入/出端口；仅左侧两个回环交互点（与循环节点右侧两点对应）
@@ -1178,7 +1187,7 @@ class MacroGraphNodeUIMixin {
         this._AddNodeSelRing(grid, id)
         this._BuildHeader(grid, id, d.type, "{DynamicResource TitleBarColor}")
         ; 循环与间隔等节点同用标准正文边距；如果Pro 左右对称，组框右边不贴边
-        bodyMg := (d.type == GetLang("如果Pro")) ? "10,0,10,8" : "10,0,0,8"
+        bodyMg := (d.type == GetLang("如果Pro") || d.type == GetLang("注释")) ? "10,0,10,8" : "10,0,0,8"
         body := grid.Add("StackPanel").Grid_Row(1).Margin(bodyMg)
         this._FillNodeBody(id, d, body)
 
@@ -1257,7 +1266,7 @@ class MacroGraphNodeUIMixin {
         this._BuildHeader(grid, id, title, headerColor)
 
         ; 如果Pro 左右对称边距，组框右边与左边留白一致
-        bodyMg := (title == GetLang("如果Pro")) ? "10,0,10,8" : "10,0,0,8"
+        bodyMg := (title == GetLang("如果Pro") || title == GetLang("注释")) ? "10,0,10,8" : "10,0,0,8"
         body := grid.Add("StackPanel").Grid_Row(1).Margin(bodyMg)
 
         ; 端口：使用原始 XAML 字符串注入，确保属性正确
@@ -1316,12 +1325,16 @@ class MacroGraphNodeUIMixin {
         if (title == GetLang("循环"))
             this._AddLoopCyclePortEls(grid, id)
 
-        nodeObj := { Id: id, Title: title, X: x, Y: y, UI: node, W: nodeW, H: 60, Type: nodeType }
+        displayTitle := title
+        if (this.cmdNodes.Has(id))
+            displayTitle := this._NodeTitleText(this._Parse(this.cmdNodes[id].CurCMD))
+        nodeObj := { Id: id, Title: displayTitle, X: x, Y: y, UI: node, W: nodeW, H: 60, Type: nodeType }
         g.nodes.Push(nodeObj)
         return node
     }
 
     ; 节点标题栏（图标 + 标题）。静态构建与运行时注入复用同一逻辑。
+    ; title 为指令类型名（用于图标/折叠按钮判定）；显示文本可带备注（见 _NodeTitleText）。
     ; 搜索/搜索Pro 节点：标题栏右侧追加 折叠/展开 按钮，控制真/假分支节点的显隐。
     _BuildHeader(grid, id, title, headerColor) {
         header := grid.Add("Border").Grid_Row(0).Cursor("SizeAll").Background(headerColor).CornerRadius("5,5,0,0")
@@ -1331,7 +1344,10 @@ class MacroGraphNodeUIMixin {
         iconUri := this._IconForType(title)
         if (iconUri != "")
             hp.Add("Image").SetProp("Source", iconUri).Width("14").Height("14").Margin("0,0,5,0").VerticalAlignment("Center")
-        hp.Add("TextBlock").Name("Title_" id).Text(title).Foreground("{DynamicResource TitleBarForeground}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
+        displayTitle := title
+        if (this.cmdNodes.Has(id))
+            displayTitle := this._NodeTitleText(this._Parse(this.cmdNodes[id].CurCMD))
+        hp.Add("TextBlock").Name("Title_" id).Text(displayTitle).Foreground("{DynamicResource TitleBarForeground}").FontWeight("Bold").FontSize(this._MGFontSize(12)).VerticalAlignment("Center")
         if (this._IsSearchTypeTitle(title)) {
             ; 标题预览：颜色搜索显示色块（图片预览改为浮动在节点左侧，见 _AddFloatingImgPreview）
             d := this._Parse(this.cmdNodes[id].CurCMD)

@@ -42,9 +42,9 @@ class MacroGraphEventsMixin {
             this._TrackCtrl("BrFlowCmb_" brId, runtime)
             this._BindCtrl("BrFlowCmb_" brId, "SelectionChanged", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
             this._BindCtrl("BrFlowCmb_" brId, "DropDownClosed", this._OnBranchFlowControl.Bind(this, searchId, isTrue), runtime)
-            ; 内联展开/折叠按钮：把分支子图指令内联为真实可编辑节点
-            this._BindCtrl("ILExpand_" brId, "Click", this._OnBranchInlineToggle.Bind(this, searchId, isTrue), runtime)
         }
+        ; 如果/搜索/搜索Pro：内联展开/折叠按钮
+        this._BindCtrl("ILExpand_" brId, "Click", this._OnBranchInlineToggle.Bind(this, searchId, isTrue), runtime)
     }
 
     ; 注册外置循环体节点事件：选中（双击进嵌套循环体编辑器）+ 拖动刷新回环路径。
@@ -54,6 +54,7 @@ class MacroGraphEventsMixin {
         this.ui.OnEvent("Node_" bid, "CtrlSelectNode", this._OnLoopBodyClick.Bind(this, loopId))
         this.ui.OnEvent("Node_" bid, "DragMove", this._OnLoopBodyDrag.Bind(this, loopId))
         this._BindCtrl("LoopExtExpand_" bid, "Click", this._OnLoopChipsToggle.Bind(this, bid, "LoopExtChips_" bid, "LoopExtExpand_" bid, loopId), runtime)
+        this._BindCtrl("ILExpand_" bid, "Click", this._OnLoopBodyInlineToggle.Bind(this, loopId), runtime)
     }
 
     ; 注册单个节点的"本类"事件（双击编辑 + 内联字段）。runtime=true 时同时向引擎补绑/补采集

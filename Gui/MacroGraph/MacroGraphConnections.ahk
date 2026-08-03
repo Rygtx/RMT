@@ -21,8 +21,10 @@ class MacroGraphConnectionsMixin {
         p := this.pos[id]
         x := p.x + g.offsetX
         y := p.y + g.offsetY
-        nodeTitle := this._Parse(node.CurCMD).type
-        nodeW := (nodeTitle == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(nodeTitle) ? this._FormalNodeWidth(nodeTitle) : 200)
+        dInj := this._Parse(node.CurCMD)
+        nodeType := dInj.type
+        nodeTitle := this._NodeTitleText(dInj)
+        nodeW := (nodeType == GetLang("搜索Pro")) ? 380 : (this._IsFormalNodeType(nodeType) ? this._FormalNodeWidth(nodeType) : 200)
         g.nodes.Push({ Id: id, Title: nodeTitle, X: x, Y: y, W: nodeW, H: 60, Type: "Process" })
 
         ; 引擎拖动/选中处理（移动端口与连线、整体拖拽、高亮）
@@ -54,7 +56,7 @@ class MacroGraphConnectionsMixin {
         y := p.y + g.offsetY
         d := this._Parse(node.CurCMD)
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-        title := this._XmlEsc(d.type)
+        title := this._XmlEsc(this._NodeTitleText(d))
         detail := this._XmlEsc(this._Summary(d))
         tip := this._XmlEsc(GetLang("双击编辑"))
 
@@ -66,7 +68,7 @@ class MacroGraphConnectionsMixin {
         nodeXaml := StrReplace(nodeXaml, "</Grid>", portIn portOut "</Grid>")
         g.ui.Update(g.id, "AddXamlItem", nodeXaml)
 
-        g.nodes.Push({ Id: id, Title: d.type, X: x, Y: y, W: 200, H: 60, Type: "Process" })
+        g.nodes.Push({ Id: id, Title: this._NodeTitleText(d), X: x, Y: y, W: 200, H: 60, Type: "Process" })
 
         ; XNodeGraph 的拖动/选中处理（移动端口与连线、高亮）
         g.ui.OnEvent("Node_" id, "DragMove", ObjBindMethod(g, "OnNodeMoved", id))

@@ -48,6 +48,8 @@ class MacroGraphEditMixin {
         if (g == "")
             return
         bid := this._LoopBodyId(loopId)
+        ; 删除前先折叠循环体内联展开，避免孤儿节点留在画布上
+        this._CollapseInlineByBrId(bid)
         g.ui.Update("Node_" bid, "Visibility", "Collapsed")
         g.ui.Update("Port_In_" bid, "Visibility", "Collapsed")
         g.ui.Update("Port_Out_" bid, "Visibility", "Collapsed")
@@ -74,6 +76,9 @@ class MacroGraphEditMixin {
         g := this.graph
         if (g == "")
             return
+        ; 删除父节点前先清掉分支内联展开的子图，避免孤儿节点留在画布上
+        this._CollapseInlineBranch(searchId, true)
+        this._CollapseInlineBranch(searchId, false)
         for isTrue in [true, false] {
             brId := this._BranchId(searchId, isTrue)
             g.ui.Update("Node_" brId, "Visibility", "Collapsed")

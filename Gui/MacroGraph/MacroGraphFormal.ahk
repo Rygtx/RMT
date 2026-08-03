@@ -55,6 +55,7 @@ class MacroGraphFormalMixin {
             GetLang("窗口管理"), this.WindowManageGui,
             GetLang("按键检测"), this.KeyCheckGui,
             GetLang("抓图"), this.ScreenShotGui,
+            GetLang("注释"), this.CommentGui,
             GetLang("循环"), this.LoopGui,
             GetLang("如果"), this.CompareGui,
             GetLang("如果Pro"), this.CompareProGui
@@ -272,12 +273,65 @@ class MacroGraphFormalMixin {
             this._FillKeyCheckBody(id, d, body)
         else if (d.type == GetLang("抓图"))
             this._FillScreenShotBody(id, d, body)
+        else if (d.type == GetLang("注释"))
+            this._FillCommentBody(id, d, body)
         else if (d.type == GetLang("循环"))
             this._FillLoopBody(id, d, body)
         else if (d.type == GetLang("如果"))
             this._FillIfBody(id, d, body)
         else if (d.type == GetLang("如果Pro"))
             this._FillIfProBody(id, d, body)
+    }
+
+    ; 配置行高度（标签行 Margin5 + 控件高22）；注释正文 2~5 行配置高度
+    _FormalConfigRowH() {
+        return 27
+    }
+
+    ; 按文本估算注释框高度（介于 2~5 行配置高度）
+    _CommentTextHeight(text) {
+        rowH := this._FormalConfigRowH()
+        minH := rowH * 2
+        maxH := rowH * 5
+        lineH := 18
+        pad := 8
+        lines := 0
+        for part in StrSplit(text, "`n") {
+            chars := StrLen(part)
+            ; 宽约 188、字号 12：约 16 字换行
+            lines += Max(1, Integer((chars + 15) / 16))
+        }
+        if (lines < 1)
+            lines := 1
+        return Min(maxH, Max(minH, lines * lineH + pad))
+    }
+
+    ; 注释正文宽度：节点宽 200，body 左右各 10 → 可用 180；再减 2 避免右边框被裁切
+    _CommentContentW() {
+        return "178"
+    }
+
+    ; 注释节点：标题仅「注释」；正文显示注释内容（即备注），高度 2~5 行配置，超出滚动
+    _FillCommentBody(id, d, body) {
+        content := d.HasOwnProp("commentContent") ? d.commentContent : GetLang("请输入注释内容")
+        h := this._CommentTextHeight(content)
+        maxH := this._FormalConfigRowH() * 5
+        block := body.Add("StackPanel").Name("CommentBlock_" id).Margin("0,5,0,0")
+        tb := block.Add("TextBox").Name("CommentText_" id).Text(this._XamlEscape(content))
+            .Width(this._CommentContentW()).Height(String(h)).MinHeight(String(this._FormalConfigRowH() * 2))
+            .MaxHeight(String(maxH)).FontSize(this._MGFontSize(12)).Padding("4,4").Margin("0,0,0,0")
+            .HorizontalAlignment("Left")
+            .Foreground("{DynamicResource InputText}").CaretBrush("{DynamicResource InputText}")
+            .Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        tb.SetProp("TextWrapping", "Wrap")
+        tb.SetProp("AcceptsReturn", "True")
+        tb.SetProp("VerticalScrollBarVisibility", "Auto")
+        tb.SetProp("VerticalContentAlignment", "Top")
+        tb.SetProp("HorizontalContentAlignment", "Left")
+        tb.SetProp("TextAlignment", "Left")
+        ; 禁用裁剪，避免右边框/滚动条被父级裁掉
+        tb.SetProp("ClipToBounds", "False")
+        block.SetProp("ClipToBounds", "False")
     }
 
     _FillSubMacroBody(id, d, body) {
@@ -1536,6 +1590,9 @@ class MacroGraphFormalMixin {
             this._FormalTrackField(id, "SsFixed", h, runtime)
             this._FormalTrackCheck(id, "SsResTog", h, runtime)
             this._FormalTrackEditCombo(id, "SsResName", h, runtime)
+        } else if (t == GetLang("注释")) {
+            h := this._OnFormalComment.Bind(this, id)
+            this._FormalTrackField(id, "CommentText", h, runtime)
         } else if (t == GetLang("循环")) {
             h := this._OnFormalLoop.Bind(this, id)
             this._FormalTrackEditCombo(id, "LoopCount", h, runtime)

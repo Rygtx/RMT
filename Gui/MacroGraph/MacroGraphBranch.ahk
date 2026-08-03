@@ -106,6 +106,8 @@ class MacroGraphBranchMixin {
         if (this.ui == "")
             return
         bid := this._LoopBodyId(loopId)
+        ; 先折叠循环体上的内联展开并回写，再隐藏循环体卡片
+        this._CollapseInlineByBrId(bid)
         this.ui.Update("Node_" bid, "Visibility", "Collapsed")
         this.ui.Update("LoopEnterPath_" loopId, "Visibility", "Collapsed")
         this.ui.Update("LoopReturnPath_" loopId, "Visibility", "Collapsed")
@@ -217,6 +219,9 @@ class MacroGraphBranchMixin {
         g := this.graph
         if (g == "")
             return
+        ; 先折叠真/假分支上的内联展开内容并回写，再隐藏分支卡片，避免内联子节点残留画布
+        this._CollapseInlineBranch(searchId, true)
+        this._CollapseInlineBranch(searchId, false)
         this._CaptureLinks()                 ; 先取得当前逻辑后继
         succ := this._SuccessorsOf(searchId)
         for conn in g.connections {
@@ -468,10 +473,26 @@ class MacroGraphBranchMixin {
         return this.pos.Has(id) ? this.pos[id].y : 0
     }
 
+    ; 逻辑边迭代：画布已有连线时用 graph.connections（含内联子图）；否则用 this.links（渲染前静态铺开）
+    _LogicEdges() {
+        edges := []
+        if (this.graph != "" && this.graph.connections.Length > 0) {
+            for conn in this.graph.connections {
+                if (conn.HasOwnProp("Active") && !conn.Active)
+                    continue
+                edges.Push({ from: conn.From, to: conn.To })
+            }
+        } else {
+            for link in this.links
+                edges.Push({ from: link.from, to: link.to })
+        }
+        return edges
+    }
+
     ; 直接后继中离搜索节点最近的主节点逻辑 X（跳过分支合成节点，避免误用 B 的分支位置）
     _NearestSuccessorX(searchId) {
         nearest := ""
-        for link in this.links {
+        for link in this._LogicEdges() {
             if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to) || this._IsProBranchId(link.to))
                 continue
             sx := this.pos[link.to].x
@@ -484,7 +505,7 @@ class MacroGraphBranchMixin {
     ; 直接后继中离搜索节点最近的主节点 id（跳过分支合成节点）；无后继返回 ""
     _NearestSuccessorId(searchId) {
         nearestId := "", nearestX := ""
-        for link in this.links {
+        for link in this._LogicEdges() {
             if (link.from != searchId || !this.pos.Has(link.to) || this._IsBranchId(link.to) || this._IsProBranchId(link.to))
                 continue
             sx := this.pos[link.to].x
@@ -496,11 +517,12 @@ class MacroGraphBranchMixin {
         return nearestId
     }
 
-    ; 收集某节点的全部后代（沿 links 传递闭包），跳过分支合成节点
+    ; 收集某节点的全部后代（沿逻辑边传递闭包），跳过分支合成节点
     _DescendantsOf(startId) {
         out := Map()
         queue := []
-        for link in this.links {
+        edges := this._LogicEdges()
+        for link in edges {
             if (link.from == startId && !this._IsBranchId(link.to) && !this._IsProBranchId(link.to))
                 queue.Push(link.to)
         }
@@ -509,12 +531,26 @@ class MacroGraphBranchMixin {
             if (out.Has(cur) || cur == startId || this._IsBranchId(cur) || this._IsProBranchId(cur))
                 continue
             out[cur] := true
-            for link in this.links {
+            for link in edges {
                 if (link.from == cur && !this._IsBranchId(link.to) && !this._IsProBranchId(link.to))
                     queue.Push(link.to)
             }
         }
         return out
+    }
+
+    ; 仅保证展开间距（不记忆 FoldSucc）：后继过近则右移整条后继子树
+    _EnsureExpandGap(searchId) {
+        if (!this._HasVisibleBranches(searchId) && !this._IsExpandedLoop(searchId))
+            return
+        succId := this._NearestSuccessorId(searchId)
+        if (succId == "" || !this.pos.Has(succId))
+            return
+        curDX := this.pos[succId].x - this._NodeX(searchId)
+        target := this._ExpandTargetDX(searchId)
+        if (curDX >= target)
+            return
+        this._ShiftDescendants(searchId, target - curDX, 0)
     }
 
     ; 平移单个节点（更新逻辑坐标、引擎坐标与界面位置）
