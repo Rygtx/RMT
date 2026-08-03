@@ -268,8 +268,17 @@ HasGraphMultiBranch(startSerial) {
 }
 
 ; 将图形开始节点压成线性宏串：只沿第一链路（NodeArr[1] → 各 NextNodeArr[1]）
-; 多链路时非第一链路内容会丢失；搜索/如果指令本身仍保留其 TrueMacro/FalseMacro 引用
+; 并递归把循环/搜索/搜索Pro/如果/如果Pro 分支内嵌套的图形开始节点转为线性宏写回 Data
+; 多链路时非第一链路内容会丢失
 GraphStartToLinearMacro(startSerial) {
+    visited := Map()
+    linear := GraphStartFlattenFirstChain(startSerial)
+    ExpandNestedGraphStartsInMacro(linear, visited)
+    return linear
+}
+
+; 仅压平第一链路，不处理嵌套分支
+GraphStartFlattenFirstChain(startSerial) {
     result := []
     if (!IsGraphStartSerial(startSerial)) {
         for cmd in SplitMacro(startSerial) {
@@ -296,4 +305,99 @@ GraphStartToLinearMacro(startSerial) {
         cur := nexts.Length >= 1 ? nexts[1] : ""
     }
     return GetMacroStrByCmdArr(result)
+}
+
+; 分支内容（图形开始序列码或线性宏）转为线性宏，并递归处理更深嵌套
+ConvertBranchMacroToLinear(macroStr, visited) {
+    macroStr := Trim(macroStr)
+    if (macroStr == "")
+        return ""
+
+    ; 整个分支就是一个图形开始节点
+    if (IsGraphStartSerial(macroStr)) {
+        if (visited.Has(macroStr))
+            return ""
+        visited[macroStr] := true
+        linear := GraphStartFlattenFirstChain(macroStr)
+        ExpandNestedGraphStartsInMacro(linear, visited)
+        return linear
+    }
+
+    ; 已是线性宏：展开其中夹杂的图形开始节点，并处理各指令的嵌套分支
+    cmdArr := SplitMacro(macroStr)
+    newArr := []
+    changed := false
+    for cmd in cmdArr {
+        clean := GetCmdStr(cmd)
+        if (IsGraphStartSerial(clean)) {
+            if (!visited.Has(clean)) {
+                visited[clean] := true
+                nested := GraphStartFlattenFirstChain(clean)
+                ExpandNestedGraphStartsInMacro(nested, visited)
+                for subCmd in SplitMacro(nested) {
+                    if (subCmd != "")
+                        newArr.Push(subCmd)
+                }
+            }
+            changed := true
+        } else {
+            newArr.Push(cmd)
+            ExpandNestedGraphStartsInCmd(cmd, visited)
+        }
+    }
+    return changed ? GetMacroStrByCmdArr(newArr) : macroStr
+}
+
+; 遍历宏串中指令，转换其 Data 分支字段里的嵌套图形开始节点
+ExpandNestedGraphStartsInMacro(macroStr, visited) {
+    if (Trim(macroStr) == "")
+        return
+    for cmd in SplitMacro(macroStr)
+        ExpandNestedGraphStartsInCmd(cmd, visited)
+}
+
+; 若指令含分支字段（循环/搜索/如果…），把其中图形开始节点压成线性宏并写回
+ExpandNestedGraphStartsInCmd(cmdStr, visited) {
+    serial := StrSplit(GetCmdStr(cmdStr), "_")[1]
+    if (serial == "")
+        return
+    visitKey := "cmd:" serial
+    if (visited.Has(visitKey))
+        return
+
+    cmdKey := GetLangKey(GetCmdOnlyText(serial))
+    static branchCmdMap := Map("循环", true, "搜索", true, "搜索Pro", true, "如果", true, "如果Pro", true)
+    if (!branchCmdMap.Has(cmdKey))
+        return
+
+    visited[visitKey] := true
+    Data := GetMacroCMDData(serial)
+    if (!IsObject(Data))
+        return
+
+    changed := false
+    for f in ["LoopBody", "TrueMacro", "FalseMacro", "DefaultMacro", "SubMacro"] {
+        if (!ObjHasOwnProp(Data, f) || Data.%f% == "")
+            continue
+        oldVal := Data.%f%
+        newVal := ConvertBranchMacroToLinear(oldVal, visited)
+        if (newVal != oldVal) {
+            Data.%f% := GetLangMacro(newVal, 2)
+            changed := true
+        }
+    }
+    if (ObjHasOwnProp(Data, "MacroArr") && IsObject(Data.MacroArr)) {
+        loop Data.MacroArr.Length {
+            m := Data.MacroArr[A_Index]
+            if (m == "")
+                continue
+            newVal := ConvertBranchMacroToLinear(m, visited)
+            if (newVal != m) {
+                Data.MacroArr[A_Index] := GetLangMacro(newVal, 2)
+                changed := true
+            }
+        }
+    }
+    if (changed)
+        SaveMacroCMDData(Data)
 }

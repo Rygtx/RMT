@@ -122,6 +122,9 @@ class MacroGraphMenuMixin {
     _OpenContextMenu() {
         if (this.ui == "" || this.graph == "")
             return
+        ; 开始节点禁止右键菜单
+        if (this._NodeIdAtRightClick() == this.startId)
+            return
         this._UpdateMenuState()
         ; 用最稳的 IsOpen 打开（Placement=MousePoint，落在光标处，确保能弹出）。
         this.ui.Update("MG_CM", "IsOpen", "True")

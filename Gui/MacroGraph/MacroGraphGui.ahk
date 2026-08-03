@@ -351,6 +351,7 @@ class MacroGraphGui {
     }
 
     ; 切换到逻辑树：单链路直接切换；多链路（不含搜索/如果真假分支）需确认强行切换
+    ; GraphStartToLinearMacro 会递归把循环/搜索/如果等分支内的嵌套图形开始节点一并转为线性宏
     _OnSwitchToTree() {
         this._SaveGraph()
         if (HasGraphMultiBranch(this.startSerial)) {
