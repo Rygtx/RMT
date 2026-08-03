@@ -451,30 +451,8 @@ CompatRun(filePath) {
         if (Data == "")
             continue
 
-        curFix := false
-        if (ObjHasOwnProp(Data, "RunMode")) {
-            if Data.RunMode = 3
-                Data.Mode := 4
-            Data.Mode := Data.RunMode
-            Data.DeleteProp("RunMode")
-            curFix := true
-        }
-        if (ObjHasOwnProp(Data, "RunPath")) {
-            Data.Target := Data.RunPath
-            Data.DeleteProp("RunPath")
-            curFix := true
-        }
-        if (ObjHasOwnProp(Data, "SaveName")) {
-            if (!ObjHasOwnProp(Data, "SaveNameArr")) {
-                Data.SaveNameArr := [Data.SaveName, "StdOut", "StdErr"]
-            }
-            Data.DeleteProp("SaveName")
-            curFix := true
-        }
-        if (!ObjHasOwnProp(Data, "Option")) {
-            Data.Option := 1
-            curFix := true
-        }
+        ; 字段补齐 / RunMode→Mode 等（含无 Mode 的 1.1.x 配置）
+        curFix := CompatEnsureRunData(Data)
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
