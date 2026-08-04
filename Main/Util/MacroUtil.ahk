@@ -1408,35 +1408,81 @@ OnClearToolText(*) {
     SetToolTextDisplay("")
 }
 
-OnBootStartChanged(ctrl, *) {
-    global MySoftData
-    MainSoftData.IsBootStart := ctrl.Value
+GetBootStartRegPaths() {
+    ; 同时清理 64/32 位注册表视图，避免取消自启后残留
+    return [
+        "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run",
+        "HKEY_CURRENT_USER\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
+    ]
+}
+
+GetBootStartValueNames() {
+    ; RMT 为当前值名，ButtonAssist 为历史值名
+    return ["RMT", "ButtonAssist"]
+}
+
+IsBootStart() {
+    for regPath in GetBootStartRegPaths() {
+        for name in GetBootStartValueNames() {
+            try {
+                value := RegRead(regPath, name)
+                if (value != "")
+                    return true
+            }
+        }
+    }
+    return false
+}
+
+ClearBootStartRegistry() {
+    for regPath in GetBootStartRegPaths() {
+        for name in GetBootStartValueNames() {
+            try RegDelete(regPath, name)
+        }
+    }
+}
+
+; 按 enable 写入/清理开机自启注册表；返回是否与预期一致
+ApplyBootStartRegistry(enable) {
+    ClearBootStartRegistry()
+    if (!enable)
+        return !IsBootStart()
+
     regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
-    softPath := A_ScriptFullPath
-    if (!MainSoftData.IsBootStart) {
-        RegDelete(regPath, "RMT")
+    cmd := '"' A_ScriptFullPath '" -min'
+    if (MainSoftData.IsAdminStart)
+        cmd .= " -admin"
+    try {
+        RegWrite(cmd, "REG_SZ", regPath, "RMT")
+    } catch {
+        return false
     }
-    else if (MainSoftData.IsAdminStart) {
-        RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
+    return IsBootStart()
+}
+
+; 启动时让注册表与 ini 中的 IsBootStart 对齐（清理取消后仍残留的自启项）
+SyncBootStartRegistry() {
+    ApplyBootStartRegistry(!!MainSoftData.IsBootStart)
+}
+
+OnBootStartChanged(ctrl, *) {
+    MainSoftData.IsBootStart := !!ctrl.Value
+    ok := ApplyBootStartRegistry(MainSoftData.IsBootStart)
+    IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
+    if (!ok) {
+        ; 注册表未能与选项对齐时回滚勾选，避免界面已关、实际仍自启
+        MainSoftData.IsBootStart := !MainSoftData.IsBootStart
+        try ctrl.Value := MainSoftData.IsBootStart
+        IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
+        MsgBox(GetLang("开机自启设置失败，请检查是否被安全软件拦截，或勿通过兼容性强制管理员运行。"), GetLang("提示"), 48)
     }
-    else {
-        RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")
-    }
-    IniWrite(MainSoftData.IsBootStart, IniFile, IniSection, "IsBootStart")
 }
 
 OnAdminStartChanged(ctrl, *) {
-    global MySoftData
-    MainSoftData.IsAdminStart := ctrl.Value
-    IniWrite(MainSoftData.IsAdminStart, IniFile, IniSection, "IsAdminStart")
-    if (MainSoftData.IsBootStart) {
-        regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
-        softPath := A_ScriptFullPath
-        if (MainSoftData.IsAdminStart)
-            RegWrite(softPath " -min -admin", "REG_SZ", regPath, "RMT")
-        else
-            RegWrite(softPath " -min", "REG_SZ", regPath, "RMT")
-    }
+    MainSoftData.IsAdminStart := !!ctrl.Value
+    IniWrite(MainSoftData.IsAdminStart ? 1 : 0, IniFile, IniSection, "IsAdminStart")
+    if (MainSoftData.IsBootStart)
+        ApplyBootStartRegistry(true)
 }
 
 OnTextOps(tableItem, cmd, index) {

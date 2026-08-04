@@ -73,6 +73,7 @@ global MainSoftData := MainConfig()
 global IniFile := A_WorkingDir "\Setting\MainSettings.ini"
 global LangDir := A_WorkingDir "\Lang"
 LoadMainSetting()               ;加载通用设置
+SyncBootStartRegistry()         ;主进程：开机自启选项与注册表对账（Worker 勿调用）
 
 global MyJoyMacro := JoyMacro()
 global MyMouseInfo := MouseWinData()

@@ -491,6 +491,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 开始时间：=Start Time:
 开始解包文件:=Unpacking:
 开机自启=Start on Boot
+开机自启设置失败，请检查是否被安全软件拦截，或勿通过兼容性强制管理员运行。=Failed to update Start on Boot. Check security software, and do not force admin via Compatibility settings.
 弹窗=Dialog
 当前宏=This Macro
 当前宏指令=Current Macro

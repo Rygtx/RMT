@@ -1269,17 +1269,6 @@ CloseMenuWheel() {
     MyMenuWheel.Close()
 }
 
-IsBootStart() {
-    regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
-    try {
-        value := RegRead(regPath, "RMT")
-        if (value != "")
-            return true
-    }
-
-    return false
-}
-
 CorrectRemark(CommandStr, Remark) {
     charsToRemove := [",", "，", "`n", "⫶", "_"]
     for char in charsToRemove {

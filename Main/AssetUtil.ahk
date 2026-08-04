@@ -456,6 +456,12 @@ LoadMainSetting() {
     else
         MainSoftData.IsBootStart := !!MainSoftData.IsBootStart
     MainSoftData.IsAdminStart := IniRead(IniFile, IniSection, "IsAdminStart", false)
+    if (MainSoftData.IsAdminStart == 1 || MainSoftData.IsAdminStart == "true")
+        MainSoftData.IsAdminStart := true
+    else if (MainSoftData.IsAdminStart == "false" || MainSoftData.IsAdminStart == 0)
+        MainSoftData.IsAdminStart := false
+    else
+        MainSoftData.IsAdminStart := !!MainSoftData.IsAdminStart
     MainSoftData.ShowSplitLine := IniRead(IniFile, IniSection, "ShowSplitLine", false)
     MainSoftData.FixedMenuWheel := IniRead(IniFile, IniSection, "FixedMenuWheel", false)
     MainSoftData.MenuWheelSelectMode := IniRead(IniFile, IniSection, "MenuWheelSelectMode", 2)
