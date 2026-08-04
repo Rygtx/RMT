@@ -585,6 +585,7 @@
     }
 
     WorkViGJoySetState(JoyType, Key, Value) {
+        JoyDebugLog(Format("WorkViGJoySetState -> master JY type={} key={} value={}", JoyType, Key, Value), "worker")
         MsgSendHandler("Joy", JoyType, Key, Value)
     }
 }

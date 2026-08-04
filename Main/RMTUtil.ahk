@@ -201,8 +201,21 @@ PluginInit() {
     global MyEnglishOcr := 0   ; 懒加载：首次使用时才初始化
     global MyPToken := Gdip_Startup()
 
-    if (MySoftData.HasJoyMacro)
+    JoyDebugLog(Format("PluginInit HasJoyMacro={} MutiThreadNum={} WorkPoolEnabled={} IsAdmin={} Script={}"
+        , MySoftData.HasJoyMacro, MainSoftData.MutiThreadNum, WorkPoolEnabled(), A_IsAdmin, A_ScriptFullPath), "init")
+    if (MySoftData.HasJoyMacro) {
         global ViGJoy := ViGEmXb360()
+        try instOk := (IsSet(ViGJoy) && ViGJoy.Instance != "")
+        catch
+            instOk := false
+        try xidx := ViGJoy.ViGJoyXInputIdx
+        catch
+            xidx := "?"
+        JoyDebugLog(Format("PluginInit ViGEmXb360 created InstanceOK={} XInputIdx={} DllPath={}"
+            , instOk, xidx, IsSet(ViGEmDllPath) ? ViGEmDllPath : "(unset)"), "init")
+    } else {
+        JoyDebugLog("PluginInit skip ViGEm (HasJoyMacro=false); will lazy-create on first Joy send", "init")
+    }
 
     ; 构建包含 DLL 文件的目录路径（根据进程位数自动选择 x86 或 x64）
     archDir := (A_PtrSize = 4) ? "x86" : "x64"
@@ -607,18 +620,47 @@ MacroCount(content) {
 }
 
 ViGJoySetState(JoyType, Key, Value) {
-    if (!IsSet(ViGJoy))
+    JoyDebugLog(Format("ViGJoySetState enter type={} key={} value={} IsSet(ViGJoy)={}"
+        , JoyType, Key, Value, IsSet(ViGJoy)), "vigem")
+
+    if (!IsSet(ViGJoy)) {
+        JoyDebugLog("ViGJoySetState lazy-create ViGEmXb360()", "vigem")
         global ViGJoy := ViGEmXb360()
+    }
 
-    if (ViGJoy.Instance == "")
+    try instEmpty := (ViGJoy.Instance == "")
+    catch as e {
+        JoyDebugLog(Format("ViGJoySetState Instance check failed: {}", e.Message), "vigem")
         return
+    }
+    if (instEmpty) {
+        JoyDebugLog("ViGJoySetState ABORT: Instance empty (ViGEmBus 未就绪/创建失败)", "vigem")
+        return
+    }
 
-    if (JoyType == "Btn")
-        ViGJoy.Buttons[Key].SetState(Value)
-    else if (JoyType == "Axis")
-        ViGJoy.Axes[Key].SetState(Value)
-    else if (JoyType == "Dpad")
-        ViGJoy.Dpad.SetState(Key)
+    try {
+        if (JoyType == "Btn") {
+            if (!ViGJoy.Buttons.Has(Key)) {
+                JoyDebugLog(Format("ViGJoySetState ABORT: Buttons has no key '{}'", Key), "vigem")
+                return
+            }
+            ViGJoy.Buttons[Key].SetState(Value)
+        } else if (JoyType == "Axis") {
+            if (!ViGJoy.Axes.Has(Key)) {
+                JoyDebugLog(Format("ViGJoySetState ABORT: Axes has no key '{}'", Key), "vigem")
+                return
+            }
+            ViGJoy.Axes[Key].SetState(Value)
+        } else if (JoyType == "Dpad") {
+            ViGJoy.Dpad.SetState(Key)
+        } else {
+            JoyDebugLog(Format("ViGJoySetState ABORT: unknown JoyType '{}'", JoyType), "vigem")
+            return
+        }
+        JoyDebugLog(Format("ViGJoySetState OK type={} key={} value={}", JoyType, Key, Value), "vigem")
+    } catch as e {
+        JoyDebugLog(Format("ViGJoySetState EXCEPTION: {} | {}", e.Message, e.What), "vigem")
+    }
 }
 
 ToolTipContent(content) {

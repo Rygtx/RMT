@@ -43,8 +43,20 @@ SendKeysDown(keys, tableItem, index, Action) {
 SendKeyWrapper(KeyArrStr, holdTime, tableItem, index, keyType, Action) {
     KeyArrStr := StrReplace(KeyArrStr, "逗号", ",")
     KeyArr := GetPressKeyArr(KeyArrStr)
-    if !IsObject(KeyArr) || (KeyArr.Length = 0)
+    if (InStr(KeyArrStr, "Joy")) {
+        arrText := ""
+        if (IsObject(KeyArr)) {
+            for k in KeyArr
+                arrText .= (arrText = "" ? "" : ",") k
+        }
+        JoyDebugLog(Format("SendKeyWrapper in={} keyType={} hold={} arr=[{}] len={}"
+            , KeyArrStr, keyType, holdTime, arrText, IsObject(KeyArr) ? KeyArr.Length : -1), "send")
+    }
+    if !IsObject(KeyArr) || (KeyArr.Length = 0) {
+        if (InStr(KeyArrStr, "Joy"))
+            JoyDebugLog(Format("SendKeyWrapper ABORT empty KeyArr for '{}'", KeyArrStr), "send")
         return
+    }
 
     switch keyType {
         case 1:
@@ -71,8 +83,13 @@ SendSingleKey(key, state, tableItem, index, Action) {
 
     RealAction := ResolveActionForKey(Action, key)
 
-    if state && HandleRepeatedKeyDown(key, tableItem, index, RealAction)
+    ; 手柄键经 ViGEm 输出，不是 AHK 物理键名（JoyB 等会导致 GetKeyState 抛错）
+    isJoyKey := InStr(key, "Joy")
+    if state && !isJoyKey && HandleRepeatedKeyDown(key, tableItem, index, RealAction)
         return
+
+    if (isJoyKey)
+        JoyDebugLog(Format("SendSingleKey call action key={} state={}", key, state), "send")
 
     RealAction(key, state, tableItem, index)
 }
@@ -81,8 +98,16 @@ SendSingleKey(key, state, tableItem, index, Action) {
 ; Repeated key-down policy
 ; ------------------------------------------------------------
 HandleRepeatedKeyDown(key, tableItem, index, Action) {
-    if !GetKeyState(key)
+    ; Joy* 不是合法 GetKeyState 键名，调用会抛错并中断宏
+    if (InStr(key, "Joy"))
         return false
+
+    try {
+        if !GetKeyState(key)
+            return false
+    } catch {
+        return false
+    }
 
     switch MainSoftData.KeyDownDownType {
         case 1:  ; auto release first
@@ -203,6 +228,8 @@ SendJoyBtnKey(key, state, tableItem, index) {
     bucket := GetHoldBucket(tableItem, index)
 
     JoyBtnName := SubStr(key, 4)
+    JoyDebugLog(Format("SendJoyBtnKey key={} state={} btnName={} MyViGJoySetState={}", key, state, JoyBtnName
+        , Type(MyViGJoySetState)), "send")
     if (JoyBtnName = "LT" || JoyBtnName = "RT")
         MyViGJoySetState("Axis", JoyBtnName, state ? 100 : 0)
     else
@@ -218,7 +245,10 @@ SendJoyAxisKey(key, state, tableItem, index) {
     bucket := GetHoldBucket(tableItem, index)
 
     Value := InStr(key, "Min") ? 0 : 100
-    MyViGJoySetState("Axis", SubStr(key, 8, 2), state ? Value : 50)
+    axisName := SubStr(key, 8, 2)
+    outVal := state ? Value : 50
+    JoyDebugLog(Format("SendJoyAxisKey key={} state={} axis={} value={}", key, state, axisName, outVal), "send")
+    MyViGJoySetState("Axis", axisName, outVal)
 
     if state
         TrackDown(bucket, key, "JoyAxis")
@@ -230,7 +260,9 @@ SendJoyDpadKey(key, state, tableItem, index) {
     bucket := GetHoldBucket(tableItem, index)
 
     RealKey := SubStr(key, 8)
-    MyViGJoySetState("Dpad", state ? RealKey : "None", 0)
+    dpadVal := state ? RealKey : "None"
+    JoyDebugLog(Format("SendJoyDpadKey key={} state={} dpad={}", key, state, dpadVal), "send")
+    MyViGJoySetState("Dpad", dpadVal, 0)
 
     if state && (RealKey != "None")
         TrackDown(bucket, key, "JoyDpad")

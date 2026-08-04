@@ -1342,6 +1342,13 @@ OnPressKey(tableItem, cmd, index) {
     action := isJoyAxis ? SendJoyAxisKey : action
     action := isJoyDpad ? SendJoyDpadKey : action
 
+    if (isJoyKey || isJoyAxis || isJoyDpad) {
+        actionName := isJoyDpad ? "SendJoyDpadKey" : (isJoyAxis ? "SendJoyAxisKey" : "SendJoyBtnKey")
+        JoyDebugLog(Format("OnPressKey cmd={} key={} type={} mode={} action={} pool={} killed={} HasJoyMacro={}"
+            , cmd, paramArr[2], paramArr[3], tableItem.ModeArr[index], actionName
+            , WorkPoolEnabled(), tableItem.KilledArr[index], MySoftData.HasJoyMacro), "press")
+    }
+
     keyType := keyTypeMap[paramArr[3]]
     holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
     count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1

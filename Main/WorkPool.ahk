@@ -792,6 +792,9 @@ class WorkPool {
                     case "MC":
                         MacroCount(args[1])
                     case "JY":
+                        JoyDebugLog(Format("WorkPool recv JY args=[{}, {}, {}] from worker#{}"
+                            , args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""
+                            , args.Length >= 3 ? args[3] : "", wd.idx), "pool")
                         ViGJoySetState(args[1], args[2], args[3])
                     case "SA":
                         arr := []

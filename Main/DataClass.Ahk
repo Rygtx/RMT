@@ -451,6 +451,37 @@ class SoftData {
             "JoyRMin", "JoyAxisRYMin",
             "JoyRMax", "JoyAxisRYMax"
         )
+        ; PS5：L2/R2/L3/R3 等为数字按钮；同时兼容以 XInput 扳机轴暴露的情况
+        this.JoyAhkToPS5Map := Map(
+            "Joy1", "JoyA",
+            "Joy2", "JoyB",
+            "Joy3", "JoyX",
+            "Joy4", "JoyY",
+            "Joy5", "JoyLB",
+            "Joy6", "JoyRB",
+            "Joy7", "JoyLT",
+            "Joy8", "JoyRT",
+            "Joy9", "JoyBack",
+            "Joy10", "JoyStart",
+            "Joy11", "JoyLS",
+            "Joy12", "JoyRS",
+            "Joy13", "JoyHome",
+            "Joy14", "JoyPad",
+            "JoyZMin", "JoyLT",
+            "JoyZMax", "JoyRT",
+            "JoyPOV_0", "JoyDpadUp",
+            "JoyPOV_9000", "JoyDpadRight",
+            "JoyPOV_18000", "JoyDpadDown",
+            "JoyPOV_27000", "JoyDpadLeft",
+            "JoyXMin", "JoyAxisLXMin",
+            "JoyXMax", "JoyAxisLXMax",
+            "JoyYMin", "JoyAxisLYMin",
+            "JoyYMax", "JoyAxisLYMax",
+            "JoyUMin", "JoyAxisRXMin",
+            "JoyUMax", "JoyAxisRXMax",
+            "JoyRMin", "JoyAxisRYMin",
+            "JoyRMax", "JoyAxisRYMax"
+        )
     }
 
     GetJoyToAhkMap() {
@@ -458,6 +489,14 @@ class SoftData {
         if (joyType == "PS5")
             return this.JoyPS5ToAhkMap
         return this.JoyXboxToAhkMap
+    }
+
+    ; 录制时 AHK 原始键名 → 友好名（按当前 JoyType）
+    GetAhkToJoyMap() {
+        joyType := MainSoftData.JoyType
+        if (joyType == "PS5")
+            return this.JoyAhkToPS5Map
+        return this.JoyAhkToXboxMap
     }
 
     GetJoyDisplayName(joyKey) {

@@ -589,6 +589,20 @@ XamlUiDiag(msg, tag := "diag") {
     }
 }
 
+; 手柄按键输出诊断日志（排查：宏内 Joy 按键不生效）
+; 输出：主进程 A_WorkingDir\Log\JoyDebug.log；Worker 写到 A_ScriptDir\..\Log\JoyDebug.log
+JoyDebugLog(msg, tag := "joy") {
+    try {
+        isWorker := IsSet(MySoftData) && ObjHasOwnProp(MySoftData, "isWorker") && MySoftData.isWorker
+        logDir := isWorker ? (A_ScriptDir "\..\Log") : (A_WorkingDir "\Log")
+        if !DirExist(logDir)
+            DirCreate(logDir)
+        who := isWorker ? "Worker" : "Master"
+        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " +" A_TickCount " [" who "/" tag "] " msg "`n"
+            , logDir "\JoyDebug.log", "UTF-8")
+    }
+}
+
 XamlUiDiagDaemon(tag := "daemon") {
     ; Worker 未加载 AHK-XAML：用动态名解析，避免裸写 XAMLHost 触发 #Warn / 编译失败
     try {
