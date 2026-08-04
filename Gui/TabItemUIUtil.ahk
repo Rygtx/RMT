@@ -541,6 +541,11 @@ OnItemEditTriggerKey(tableItem, index, *) {
 ;编辑定时器
 OnItemEditTiming(tableItem, index, *) {
     SerialStr := tableItem.TimingSerialArr[index]
+    ; 非法序列码（旧兼容曾填 "0"）会污染 TimingFile，打开前纠正
+    if (!RegExMatch(SerialStr, "^Timing\d+$")) {
+        SerialStr := GetCMDSerialStr("Timing")
+        tableItem.TimingSerialArr[index] := SerialStr
+    }
     MyTimingGui.ShowGui(SerialStr)
 }
 

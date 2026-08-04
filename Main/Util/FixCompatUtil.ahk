@@ -163,12 +163,57 @@ CompatPath(FilePath, Data) {
     return false
 }
 
+; 生成不与 usedMap 冲突的 Timing 序列码（不走 GetCMDSerialStr，避免误删 TimingFile 键）
+CompatNextTimingSerial(usedMap) {
+    n := 1
+    loop {
+        cand := "Timing" n
+        if (!usedMap.Has(cand)) {
+            usedMap.Set(cand, true)
+            return cand
+        }
+        n += 1
+    }
+}
+
+; 补齐/修复 TimingSerialArr：禁止用 "0" 占位（否则定时编辑会把键 0 写入 TimingFile.ini）
+CompatFixTimingSerialArr(savedStr, baseLen, &changed) {
+    changed := false
+    usedMap := Map()
+    valueArr := savedStr == "" ? [] : StrSplit(savedStr, "π")
+    ; 先登记已合法的 Timing 序列，避免补齐时撞号
+    for v in valueArr {
+        if (RegExMatch(v, "^Timing\d+$"))
+            usedMap.Set(v, true)
+    }
+    loop baseLen {
+        i := A_Index
+        cur := (i <= valueArr.Length) ? valueArr[i] : ""
+        if (!RegExMatch(cur, "^Timing\d+$")) {
+            cur := CompatNextTimingSerial(usedMap)
+            if (i <= valueArr.Length)
+                valueArr[i] := cur
+            else
+                valueArr.Push(cur)
+            changed := true
+        }
+    }
+    newStr := ""
+    loop valueArr.Length {
+        newStr .= valueArr[A_Index]
+        if (A_Index < valueArr.Length)
+            newStr .= "π"
+    }
+    return newStr
+}
+
 CompatCMD(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
 
     ; 兼容旧版缺失的结构数组字段（如UnorderedTriggerArr等），以ModeArr长度为基准补齐
+    ; 注意：TimingSerialArr 不能默认填 "0"，否则定时配置会乱入 TimingFile
     arrFields := Map(
         "UnorderedTriggerArr", "0",
         "TriggerTypeArr", "1",
@@ -177,8 +222,7 @@ CompatCMD(filePath) {
         "StartTipSoundArr", "1",
         "EndTipSoundArr", "1",
         "IcoPathArr", "",
-        "SerialArr", "0",
-        "TimingSerialArr", "0"
+        "SerialArr", "0"
     )
     loop MainSoftData.TabSymbolArr.Length {
         symbol := GetTableSymbol(A_Index)
@@ -213,6 +257,14 @@ CompatCMD(filePath) {
                 }
             }
         }
+        ; TimingSerialArr：缺失、过短或含非法值（如旧逻辑填的 0）时按 TimingN 修复
+        timingSaved := IniRead(filePath, IniSection, symbol "TimingSerialArr", "")
+        timingChanged := false
+        timingNew := CompatFixTimingSerialArr(timingSaved, baseLen, &timingChanged)
+        if (timingChanged || timingSaved == "") {
+            IniWrite(timingNew, filePath, IniSection, symbol "TimingSerialArr")
+            hasFix := true
+        }
     }
     loop MainSoftData.TabSymbolArr.Length {
         symbol := GetTableSymbol(A_Index)
@@ -241,11 +293,25 @@ CompatTiming(filePath) {
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        ; 只保留 TimingN 键；丢弃误写入的异种序列码（如 0、移动Pro、搜索Pro）
+        if (!RegExMatch(lineKey, "^Timing\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
 
         curFix := false
+        ; 以 ini 行键为准写回（新版 SaveTimingData 可能不落 SerialStr 字段）
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
+            curFix := true
+        }
 
         if (Data.HasOwnProp("StartTime")) {
             Data.StartStamp := TimeStrToStamp(Data.StartTime)
@@ -264,7 +330,7 @@ CompatTiming(filePath) {
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")
@@ -307,14 +373,27 @@ CompatSearchPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    hasFix := CompatSerial(filePath, "Search", "搜索Pro")
-    hasFix := CompatSerial(filePath, "Search\+", "搜索Pro")
+    hasFix := CompatSerial(filePath, "Search", "搜索Pro") || hasFix
+    hasFix := CompatSerial(filePath, "Search\+", "搜索Pro") || hasFix
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        ; 丢弃误写入的异种序列码（如移动Pro 被写进 SearchProFile）
+        if (!RegExMatch(lineKey, "^搜索Pro\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
+            hasFix := true
+        }
 
         curFix := CompatPath(filePath, Data)
         ;如果有了，那就说明是新版本，不需要兼容处理
@@ -346,7 +425,7 @@ CompatSearchPro(filePath) {
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")
@@ -357,13 +436,25 @@ CompatMMPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    hasFix := CompatSerial(filePath, "MMPro", "移动Pro")
+    hasFix := CompatSerial(filePath, "MMPro", "移动Pro") || hasFix
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        if (!RegExMatch(lineKey, "^移动Pro\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
+            hasFix := true
+        }
 
         curFix := false
         ;1.0.8F7到新版本兼容, 新增鼠标类型
@@ -399,7 +490,7 @@ CompatMMPro(filePath) {
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")

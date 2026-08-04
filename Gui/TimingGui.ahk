@@ -23,7 +23,9 @@ class TimingGui {
     }
 
     ShowGui(SerialStr) {
-        this.SerialStr := SerialStr != "" ? SerialStr : GetCMDSerialStr("Timing")
+        if (SerialStr == "" || !RegExMatch(SerialStr, "^Timing\d+$"))
+            SerialStr := GetCMDSerialStr("Timing")
+        this.SerialStr := SerialStr
         this.Data := this.GetTimingData(this.SerialStr)
         this._LoadDataToFields()
 
@@ -572,6 +574,7 @@ class TimingGui {
         Data.CustomUnit := this._unitIndex
 
         minimal := {}
+        minimal.SerialStr := Data.SerialStr
         minimal.StartStamp := Data.StartStamp
         minimal.Type := Data.Type
         if (Data.EndStamp)
