@@ -106,8 +106,16 @@ EnumerateObject(obj) {
 ; ============================================================================
 
 ; 查找序列码所属的指令类型（用于纯序列码格式，如"输出1"）
+; 优先按序列码前缀推断类型（避免某配置文件被误写入异种序列码时误判，如 SearchProFile 里残留移动Pro）
 FindSerialType(serialStr) {
-    ; 遍历所有已知的配置文件类型
+    inferredType := InferSerialTypeByPrefix(serialStr)
+    if (inferredType != "" && MySoftData.DataFileMap.Has(inferredType)) {
+        try {
+            if (IniRead(MySoftData.DataFileMap[inferredType], IniSection, serialStr, "") != "")
+                return inferredType
+        } catch as e {
+        }
+    }
     for cmdType, DataFile in MySoftData.DataFileMap {
         try {
             existingData := IniRead(DataFile, IniSection, serialStr, "")
@@ -116,7 +124,29 @@ FindSerialType(serialStr) {
         } catch as e {
         }
     }
-    return ""
+    return inferredType != "" ? inferredType : ""
+}
+
+; 按序列码前缀推断指令类型；同前缀时取最长匹配（搜索Pro 优先于 搜索）
+InferSerialTypeByPrefix(serialStr) {
+    if (serialStr == "")
+        return ""
+    bestType := ""
+    bestLen := 0
+    for cmdType, _ in MySoftData.DataFileMap {
+        typeLen := StrLen(cmdType)
+        if (typeLen <= bestLen || typeLen >= StrLen(serialStr))
+            continue
+        if (SubStr(serialStr, 1, typeLen) != cmdType)
+            continue
+        afterType := SubStr(serialStr, typeLen + 1)
+        numPart := RegExReplace(afterType, "\D.*$", "")
+        if (numPart != "" && IsNumber(numPart)) {
+            bestType := cmdType
+            bestLen := typeLen
+        }
+    }
+    return bestType
 }
 
 ; 从指令字符串中提取序列码（支持多种格式）

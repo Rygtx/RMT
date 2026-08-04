@@ -271,7 +271,7 @@ class MMProGui {
                 this.Data.ConfigName := ConfigName
                 this.RefreshConfigDLArr()
                 saveStr := JSON.stringify(this.Data, 0)
-                IniWrite(saveStr, SearchProFile, IniSection, this.Data.SerialStr)
+                IniWrite(saveStr, MMProFile, IniSection, this.Data.SerialStr)
                 MsgBox(GetLang("修改成功"))
             }
             this.WinRuleGui.SureAction := SureAction

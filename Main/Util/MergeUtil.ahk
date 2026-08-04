@@ -422,22 +422,25 @@ class MergeUtil {
     }
 
     static InferSerialType(serialStr) {
+        ; 与 MacroClipboardUtil.InferSerialTypeByPrefix 一致：最长前缀匹配
         if (serialStr == "")
             return ""
-
+        bestType := ""
+        bestLen := 0
         for cmdType, _ in MySoftData.DataFileMap {
             typeLen := StrLen(cmdType)
-            if (typeLen >= StrLen(serialStr))
+            if (typeLen <= bestLen || typeLen >= StrLen(serialStr))
                 continue
-
-            if (SubStr(serialStr, 1, typeLen) == cmdType) {
-                afterType := SubStr(serialStr, typeLen + 1)
-                numPart := RegExReplace(afterType, "\D.*$", "")
-                if (numPart != "" && IsNumber(numPart))
-                    return cmdType
+            if (SubStr(serialStr, 1, typeLen) != cmdType)
+                continue
+            afterType := SubStr(serialStr, typeLen + 1)
+            numPart := RegExReplace(afterType, "\D.*$", "")
+            if (numPart != "" && IsNumber(numPart)) {
+                bestType := cmdType
+                bestLen := typeLen
             }
         }
-        return ""
+        return bestType
     }
 
     static GetModuleCountFromItems(checkedItems) {
@@ -539,6 +542,16 @@ class MergeUtil {
     }
 
     static FindSerialTypeFromSource(serialStr, sourceDataFileMap) {
+        ; 优先按前缀推断，避免源配置文件里误写入异种序列码时读错类型
+        inferredType := MergeUtil.InferSerialType(serialStr)
+        if (inferredType != "" && sourceDataFileMap.Has(inferredType)) {
+            try {
+                if (IniRead(sourceDataFileMap[inferredType], IniSection, serialStr, "") != "")
+                    return inferredType
+            } catch as e {
+            }
+        }
+
         for cmdType, DataFile in sourceDataFileMap {
             try {
                 existingData := IniRead(DataFile, IniSection, serialStr, "")
@@ -548,7 +561,6 @@ class MergeUtil {
             }
         }
 
-        inferredType := MergeUtil.InferSerialType(serialStr)
         if (inferredType != "" && sourceDataFileMap.Has(inferredType))
             return inferredType
 
