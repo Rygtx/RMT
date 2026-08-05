@@ -188,7 +188,7 @@ class TriggerKeyData {
 
 class TriggerKeyInfo {
     __New() {
-        this.macroType := 1     ; 1:item 2:fold
+        this.macroType := 1     ; 1:按键/字串等 item  2:菜单宏 fold  3:界面宏 fold
         this.tableIndex := 1    ;table索引
         this.itemIndex := 1     ;item索引
         this.foldIndex := 1     ;折叠框索引
@@ -196,13 +196,17 @@ class TriggerKeyInfo {
         this.forbidTrigger := false
     }
 
+    ; 菜单宏 / 界面宏均为 Fold 级触发键
+    IsFoldMacro() {
+        return this.macroType == 2 || this.macroType == 3
+    }
+
     GetFrontStr() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return GetItemFrontInfo(tableItem, this.itemIndex)
-        else if (this.macroType == 2) {
+        if (this.IsFoldMacro())
             return tableItem.FoldInfo.FrontInfoArr[this.foldIndex]
-        }
         return ""
     }
 
@@ -210,19 +214,20 @@ class TriggerKeyInfo {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.TKArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.IsFoldMacro())
             return tableItem.FoldInfo.TKArr[this.foldIndex]
-        }
-        return 1
+        return ""
     }
 
     GetTriggerType() {      ;触发类型   "按下", "松开", "松止", "开关", "长按"
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.TriggerTypeArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.macroType == 2)
             return tableItem.FoldInfo.TKTypeArr[this.foldIndex]
-        }
+        ; 界面宏固定按「按下」切换面板（与 BindUIPanelHotKey 约定一致）
+        if (this.macroType == 3)
+            return 1
         return 1
     }
 
@@ -230,9 +235,8 @@ class TriggerKeyInfo {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.HoldTimeArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.macroType == 2)
             return tableItem.FoldInfo.HoldTimeArr[this.foldIndex]
-        }
         return 500
     }
 
@@ -242,12 +246,21 @@ class TriggerKeyInfo {
 
     GetWorkState() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
-        if (this.macroType == 1) {
+        if (this.macroType == 1)
             return tableItem.IsWorkIndexArr[this.itemIndex]
-        }
-        else {
+        if (this.macroType == 2)
             return MainSoftData.CurMenuWheelIndex == this.foldIndex
+        if (this.macroType == 3) {
+            ; 有任意该模块面板可见则视为工作中（长按等逻辑用）
+            if (!IsSet(MyUIMacroGui) || !IsObject(MyUIMacroGui))
+                return false
+            for key, panelInfo in MyUIMacroGui.PanelMap {
+                if (panelInfo.foldIndex == this.foldIndex && panelInfo.visible)
+                    return true
+            }
+            return false
         }
+        return false
     }
 
     Action() {
@@ -267,10 +280,15 @@ class TriggerKeyInfo {
             else
                 TriggerMacroHandler(this.tableIndex, this.itemIndex)
         }
-        else {
+        else if (this.macroType == 2) {
             if (triggerType == 3)
                 this.forbidTrigger := true
             OpenMenuWheel(this.foldIndex, triggerType == 4)
+        }
+        else if (this.macroType == 3) {
+            ; 界面宏：切换悬浮面板，绝不能误开菜单轮盘
+            if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
+                MyUIMacroGui.TogglePanel(this.foldIndex)
         }
     }
 
@@ -288,11 +306,12 @@ class TriggerKeyInfo {
                 KillTableItemMacro(tableItem, this.itemIndex)
             }
         }
-        else {
+        else if (this.macroType == 2) {
             if (triggerType == 3)
                 this.forbidTrigger := false
             if (triggerType != 4)
                 CloseMenuWheel()
         }
+        ; macroType 3：按下切换，松开无需额外处理
     }
 }

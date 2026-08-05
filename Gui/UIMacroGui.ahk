@@ -14,7 +14,22 @@ class UIMacroGui {
         this.RunningMap := Map()
         this.RecoverTimers := Map()
         this._lastActiveHwnd := 0       ; 上次检测的前台窗口 hwnd
+        ; 用户主动关闭（右键关闭/Alt+F4/热键隐藏）后禁止「激活时默认显示」重建，直到热键再开
+        this.UserClosedKeys := Map()
         this.StartMonitor()
+    }
+
+    MarkUserClosed(panelKey) {
+        this.UserClosedKeys[panelKey] := true
+    }
+
+    ClearUserClosed(panelKey) {
+        if (this.UserClosedKeys.Has(panelKey))
+            this.UserClosedKeys.Delete(panelKey)
+    }
+
+    IsUserClosed(panelKey) {
+        return this.UserClosedKeys.Has(panelKey) && this.UserClosedKeys[panelKey]
     }
 
     StartMonitor() {
@@ -130,6 +145,9 @@ class UIMacroGui {
     CreateAutoPanel(foldIndex, panelKey, targetHwnd) {
         if (this.PanelMap.Has(panelKey))
             return
+        ; 用户曾主动关闭：不要因点击主界面/切换前台而自动重建
+        if (this.IsUserClosed(panelKey))
+            return
 
         tableItem := MySoftData.TableInfo[4]
         if (!tableItem || !tableItem.FoldInfo)
@@ -202,7 +220,7 @@ class UIMacroGui {
             return
 
         ; 如果已被使用者手動關閉，則不進行自動顯示
-        if (panelInfo.HasProp("userClosed") && panelInfo.userClosed)
+        if (this.IsUserClosed(panelKey) || (panelInfo.HasProp("userClosed") && panelInfo.userClosed))
             return
 
         ; 配置变化检测：按钮尺寸/列数/颜色变化 → 销毁重建
@@ -325,6 +343,10 @@ class UIMacroGui {
         body := main.Add("Grid").Grid_Row(1).Name("BodyPanel").Margin("2,1,2,2")
         textMaxW := Max(btnItemW - 8, 24)
 
+        ; 按钮样式挂在控件本地，避免无 x:Key 的 Style 进 Window.Resources 后被同步到
+        ; Application.Current，关闭浮窗后污染其它 XAML 窗口
+        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/><Setter TargetName="Bd" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
+
         ; 列定义：根据按钮宽度显式设置
         colDefs := body.Add("Grid.ColumnDefinitions")
         loop cols
@@ -348,6 +370,7 @@ class UIMacroGui {
             btn.Background(btnColor).Foreground(btnTextColor).FontSize(fontSize)
             btn.HorizontalAlignment("Stretch")
             btn.Padding("0")
+            btn.InjectResources(panelBtnStyle)
 
             sp := btn.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center")
                 .VerticalAlignment("Center")
@@ -378,9 +401,7 @@ class UIMacroGui {
         ui.xaml := StrReplace(ui.xaml, 'AllowsTransparency="False"', 'AllowsTransparency="True"')
         ui.xaml := StrReplace(ui.xaml, 'Background="Transparent"', 'Background="' bgColor '"')
 
-        ; 窗口级按钮样式：覆盖全局默认样式，取消 hover 背景变化，改为 hover/按下时显示边框
-        panelBtnStyle := '<Style TargetType="Button"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Cursor" Value="Arrow"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/><Setter TargetName="Bd" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FF0A84FF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>'
-        ui.xaml := StrReplace(ui.xaml, '%resources%', '<CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>' panelBtnStyle)
+        ui.xaml := StrReplace(ui.xaml, '%resources%', '<CornerRadius x:Key="CloseBtnRadius">0,8,0,0</CornerRadius>')
         ui.xaml := StrReplace(ui.xaml, '%components%', '')
 
         ; 绑定事件（对齐 floating_panel L246-249）
@@ -459,21 +480,22 @@ class UIMacroGui {
             try panelInfo.ui.Update("Window", "NativeOwner", String(panelInfo.targetHwnd))
         }
 
-        ; L373-L375: 设置窗口扩展样式 + 移除系统菜单（隐藏标题栏右键菜单）
+        ; L373-L375: 设置窗口扩展样式 + 精简系统菜单（保留关闭，供标题栏右键）
         hwnd := panelInfo.wpfHwnd
         if (hwnd) {
             exStyle := DllCall("user32\GetWindowLongW", "Ptr", hwnd, "Int", -20, "Int")
             DllCall("user32\SetWindowLongW", "Ptr", hwnd, "Int", -20, "Int"
                 , exStyle | 0x80)
-            ; 移除系统菜单（标题栏右键菜单），保留SC_MOVE以支持拖拽
+            ; 精简系统菜单项，保留 SC_CLOSE / SC_MOVE；置顶时菜单层级由引擎 SysMenu 事件配合处理
             hSysMenu := DllCall("user32\GetSystemMenu", "Ptr", hwnd, "Int", 0, "Ptr")
             if (hSysMenu) {
-                ; DllCall("user32\DeleteMenu", "Ptr", hSysMenu, "UInt", 0xF060, "UInt", 0)  ; SC_CLOSE
                 DllCall("user32\DeleteMenu", "Ptr", hSysMenu, "UInt", 0xF020, "UInt", 0)  ; SC_MINIMIZE
                 DllCall("user32\DeleteMenu", "Ptr", hSysMenu, "UInt", 0xF000, "UInt", 0)  ; SC_SIZE
                 DllCall("user32\DeleteMenu", "Ptr", hSysMenu, "UInt", 0xF030, "UInt", 0)  ; SC_MAXIMIZE
                 DllCall("user32\DeleteMenu", "Ptr", hSysMenu, "UInt", 0xF120, "UInt", 0)  ; SC_RESTORE
             }
+            ; 系统菜单打开期间暂停 AHK 侧反复 WinSetAlwaysOnTop，避免把菜单重新压到下面
+            try panelInfo.ui.OnEvent("Window", "SysMenu", ObjBindMethod(this, "OnPanelSysMenu", foldIndex))
         }
 
         ; L377-L384: 模式分支初始化
@@ -509,9 +531,10 @@ class UIMacroGui {
         if (!hwnd || !DllCall("user32\IsWindow", "Ptr", hwnd))
             return
 
-        ; L398-L409: 屏幕模式分支
+        ; L398-L409: 屏幕模式分支（系统菜单打开时勿反复置顶，否则菜单会被压到浮窗下方）
         if (panelInfo.isScreenMode) {
-            try WinSetAlwaysOnTop(1, "ahk_id " hwnd)
+            if (!(panelInfo.HasProp("_suspendTopmost") && panelInfo._suspendTopmost))
+                try WinSetAlwaysOnTop(1, "ahk_id " hwnd)
             return
         }
 
@@ -601,6 +624,7 @@ class UIMacroGui {
         }
 
         if (!this.PanelMap.Has(panelKey)) {
+            this.ClearUserClosed(panelKey)  ; 热键主动打开：清除「用户关闭」标记
             if (targetHwnd)
                 this.CreateAutoPanel(foldIndex, panelKey, targetHwnd)
             else
@@ -623,6 +647,7 @@ class UIMacroGui {
                 || panelInfo._cfg_BgColor != MainSoftData.UIPanelBgColor
                 || panelInfo._cfg_TitleBg != MainSoftData.UIPanelTitleBg
                 || panelInfo._cfg_TitleText != MainSoftData.UIPanelTitleText)) {
+            this.ClearUserClosed(panelKey)
             this.DestroyPanel(panelKey)
             if (targetHwnd)
                 this.CreateAutoPanel(foldIndex, panelKey, targetHwnd)
@@ -638,7 +663,8 @@ class UIMacroGui {
             return
 
         if (panelInfo.visible) {
-            panelInfo.userClosed := false ; 重新打開時清除手動關閉標記
+            panelInfo.userClosed := false
+            this.ClearUserClosed(panelKey)
             ; SW_SHOWNA：显示但不抢焦点，保持鼠标下仍是目标窗，下次触发判断更稳定
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 8)
             this.ApplyPanelPosition(panelInfo)
@@ -652,9 +678,24 @@ class UIMacroGui {
                 }
             }
         } else {
-            panelInfo.userClosed := true ; 標記為：使用者主動關閉
+            panelInfo.userClosed := true
+            this.MarkUserClosed(panelKey)
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 0)
         }
+    }
+
+    ; 引擎通知：标题栏系统菜单打开/关闭（暂停/恢复 AlwaysOnTop 重刷）
+    ; 回调参数：(stateMap, "Window", "SysMenu")，Open/Close 在 stateMap["SysMenu"]
+    OnPanelSysMenu(panelKey, state := unset, ctrl := unset, event := unset) {
+        if (!this.PanelMap.Has(panelKey))
+            return
+        panelInfo := this.PanelMap[panelKey]
+        isOpen := false
+        if (IsSet(state) && IsObject(state) && state.Has("SysMenu"))
+            isOpen := (state["SysMenu"] = "Open")
+        panelInfo._suspendTopmost := isOpen
+        if (!isOpen && panelInfo.isScreenMode && panelInfo.visible && panelInfo.wpfHwnd)
+            try WinSetAlwaysOnTop(1, "ahk_id " panelInfo.wpfHwnd)
     }
 
     ; 销毁指定模块的全部面板（前台信息变更时清理旧目标实例）
@@ -696,8 +737,9 @@ class UIMacroGui {
                 deadFolds.Push(panelKey)
                 continue
             }
-            ; 面板窗口已失效（被关闭）
+            ; 面板窗口已失效（被关闭）：视为用户主动关闭，禁止随后点主界面自动重建
             if (!panelInfo.ui || !panelInfo.wpfHwnd || !WinExist("ahk_id " panelInfo.wpfHwnd)) {
+                this.MarkUserClosed(panelKey)
                 deadFolds.Push(panelKey)
                 continue
             }
@@ -730,8 +772,8 @@ class UIMacroGui {
                 continue
 
             hwnd := panelInfo.wpfHwnd
-
-            WinSetAlwaysOnTop(1, "ahk_id " hwnd)
+            if (!(panelInfo.HasProp("_suspendTopmost") && panelInfo._suspendTopmost))
+                WinSetAlwaysOnTop(1, "ahk_id " hwnd)
         }
         ; 清理已关闭的面板残留条目（DestroyPanel 会关闭窗口 + 停止定时器）
         for panelKey in deadFolds {
@@ -768,6 +810,8 @@ class UIMacroGui {
                                 if (!mainHwnd || activeHwnd != mainHwnd)
                                     continue
                                 panelKey := foldIndex
+                                if (this.IsUserClosed(panelKey))
+                                    continue
                                 if (!this.PanelMap.Has(panelKey))
                                     this.CreateAutoPanel(foldIndex, panelKey, 0)
                                 else
@@ -775,6 +819,8 @@ class UIMacroGui {
                             } else if (activeHwnd && this.IsHwndMatchFrontInfo(activeHwnd, frontInfo)) {
                                 ; 有前台模块：面板键为 foldIndex|hwnd（每个窗口实例独立面板）
                                 panelKey := foldIndex "|" activeHwnd
+                                if (this.IsUserClosed(panelKey))
+                                    continue
                                 if (!this.PanelMap.Has(panelKey))
                                     this.CreateAutoPanel(foldIndex, panelKey, activeHwnd)
                                 else
@@ -981,6 +1027,7 @@ class UIMacroGui {
     }
 
     ShowPanel(foldIndex) {
+        this.ClearUserClosed(foldIndex)
         if (!this.PanelMap.Has(foldIndex))
             this.CreatePanel(foldIndex)
 
@@ -989,6 +1036,7 @@ class UIMacroGui {
             return
 
         try {
+            panelInfo.userClosed := false
             DllCall("user32\ShowWindow", "Ptr", panelInfo.wpfHwnd, "Int", 9)
             if (panelInfo.isScreenMode) {
                 WinSetAlwaysOnTop(1, "ahk_id " panelInfo.wpfHwnd)

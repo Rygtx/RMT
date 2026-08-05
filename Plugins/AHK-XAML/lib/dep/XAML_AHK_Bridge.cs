@@ -250,6 +250,7 @@ public class AhkWpfEngine
     Point connectionLastPos = new Point();
     bool connectionDragCompleting = false;       // MouseUp 内主动 ReleaseCapture 时抑制 LostMouseCapture 重入
     bool suppressTempClearOnMenuClosed = false;  // AHK 重开指令菜单时勿误清临时线
+    bool _restoreTopmostAfterMenu = false;       // Topmost 窗系统菜单期间临时取消置顶，避免菜单被压在下方
     // 兼容旧字段名（部分代码路径仍读 pending）
     bool tempConnectionPendingDrop
     {
@@ -784,6 +785,52 @@ public class AhkWpfEngine
         }
     }
 
+    /// <summary>
+    /// Sync brush/radius/theme keys from a window into Application.Resources for DynamicResource.
+    /// Never sync Style / ControlTemplate / Type-keyed (implicit) resources: they must stay window-local.
+    /// Copying implicit Button styles (e.g. UIMacro panel) into Application poisons later windows
+    /// after the source window closes — subsequent CREATE_WINDOW fails or hangs.
+    /// </summary>
+    private static void SyncWindowResourcesToApp(Window win)
+    {
+        if (win == null || Application.Current == null)
+            return;
+        foreach (System.Collections.DictionaryEntry entry in win.Resources)
+        {
+            if (entry.Key is Type)
+                continue;
+            if (entry.Value is Style || entry.Value is FrameworkTemplate)
+                continue;
+            try
+            {
+                Application.Current.Resources[entry.Key] = entry.Value;
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// Drop any implicit (Type-keyed) styles previously leaked into Application.Resources.
+    /// MergedDictionaries from LoadComponentStyles are untouched.
+    /// </summary>
+    private static void ClearLeakedAppImplicitStyles()
+    {
+        if (Application.Current == null)
+            return;
+        try
+        {
+            var keys = new System.Collections.Generic.List<object>();
+            foreach (object key in Application.Current.Resources.Keys)
+            {
+                if (key is Type)
+                    keys.Add(key);
+            }
+            foreach (object key in keys)
+                Application.Current.Resources.Remove(key);
+        }
+        catch { }
+    }
+
     [STAThread]
     public static void Main(string[] args)
     {
@@ -1121,10 +1168,7 @@ public class AhkWpfEngine
             {
                 win = (Window)XamlReader.Load(stream);
             }
-            foreach (System.Collections.DictionaryEntry entry in win.Resources)
-            {
-                Application.Current.Resources[entry.Key] = entry.Value;
-            }
+            SyncWindowResourcesToApp(win);
             xamlContent = null;
             xamlBytes = null;
         }
@@ -1206,6 +1250,7 @@ public class AhkWpfEngine
         };
         win.Closed += (s, e) =>
         {
+            ClearLeakedAppImplicitStyles();
             SendToAhkAsync("EVENT|" + winId + "|Window|Closed\n");
             lock (_activeEngines)
             {
@@ -1547,10 +1592,7 @@ public class AhkWpfEngine
                     }
                     catch { }
                 }
-                foreach (System.Collections.DictionaryEntry entry in win.Resources)
-                {
-                    Application.Current.Resources[entry.Key] = entry.Value;
-                }
+                SyncWindowResourcesToApp(win);
                 // Re-apply WindowChrome (stripped during BAML compilation)
                 if (win.WindowStyle == WindowStyle.None && !win.AllowsTransparency)
                 {
@@ -1607,10 +1649,7 @@ public class AhkWpfEngine
                     {
                         win = (Window)XamlReader.Load(stream);
                     }
-                    foreach (System.Collections.DictionaryEntry entry in win.Resources)
-                    {
-                        Application.Current.Resources[entry.Key] = entry.Value;
-                    }
+                    SyncWindowResourcesToApp(win);
                 }
             }
         }
@@ -1640,10 +1679,7 @@ public class AhkWpfEngine
                 {
                     win = (Window)XamlReader.Load(stream);
                 }
-                foreach (System.Collections.DictionaryEntry entry in win.Resources)
-                {
-                    Application.Current.Resources[entry.Key] = entry.Value;
-                }
+                SyncWindowResourcesToApp(win);
                 xamlContent = null;
                 xamlBytes = null;
                 GC.Collect();
@@ -1812,6 +1848,7 @@ public class AhkWpfEngine
         };
         win.Closed += (s, e) =>
         {
+            ClearLeakedAppImplicitStyles();
             SendToAhkAsync("EVENT|" + winId + "|Window|Closed\n");
             lock (_activeEngines)
             {
@@ -3289,6 +3326,40 @@ public class AhkWpfEngine
                 return IntPtr.Zero;
             }
         }
+        else if (msg == 0x0211) // WM_ENTERMENULOOP：系统菜单/弹出菜单打开
+        {
+            try
+            {
+                // Topmost / Win32 TOPMOST 窗的系统菜单会被压在窗口下方；菜单期间临时取消置顶
+                _restoreTopmostAfterMenu = (win != null && win.Topmost);
+                if (win != null)
+                {
+                    if (win.Topmost)
+                        win.Topmost = false;
+                    IntPtr h = new WindowInteropHelper(win).Handle;
+                    if (h != IntPtr.Zero)
+                        SetWindowPos(h, new IntPtr(-2), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_NOTOPMOST
+                }
+                SendToAhkAsync("EVENT|" + winId + "|Window|SysMenu|Open\n");
+            }
+            catch { }
+        }
+        else if (msg == 0x0212) // WM_EXITMENULOOP
+        {
+            try
+            {
+                if (win != null && _restoreTopmostAfterMenu)
+                {
+                    win.Topmost = true;
+                    IntPtr h = new WindowInteropHelper(win).Handle;
+                    if (h != IntPtr.Zero)
+                        SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_TOPMOST
+                }
+                _restoreTopmostAfterMenu = false;
+                SendToAhkAsync("EVENT|" + winId + "|Window|SysMenu|Close\n");
+            }
+            catch { }
+        }
         else if (msg == 0x0024)
         { // WM_GETMINMAXINFO
             try
@@ -3934,7 +4005,13 @@ public class AhkWpfEngine
                     }
                 }
             }
-            if (Application.Current != null && !win.Title.StartsWith("Developer Tools - ")) Application.Current.Resources[parts[1]] = win.Resources[parts[1]];
+            if (Application.Current != null && !win.Title.StartsWith("Developer Tools - ")
+                && win.Resources.Contains(parts[1]))
+            {
+                object synced = win.Resources[parts[1]];
+                if (!(synced is Style) && !(synced is FrameworkTemplate))
+                    Application.Current.Resources[parts[1]] = synced;
+            }
             // Force-apply ScrollBarWidth to all ScrollBar elements in the visual tree
             if (parts[1] == "ScrollBarWidth" && win.Resources[parts[1]] is double)
             {

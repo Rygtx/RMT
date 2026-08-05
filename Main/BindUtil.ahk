@@ -390,7 +390,9 @@ BindMenuHotKey() {
     }
 }
 
-; 界面宏模块级触发键：切换悬浮面板显示/隐藏
+; 界面宏模块级触发键：走 TriggerKeyMap 统一分发（与菜单宏一致）
+; 不可单独 Hotkey→TogglePanel：与按键宏共用同一键时会被 BindTabHotKey 覆盖，
+; 且旧逻辑在 TriggerKeyInfo 里误把 macroType=3 当成菜单宏打开轮盘。
 BindUIPanelHotKey() {
     tableItem := MySoftData.TableInfo[4]
     if (!tableItem || !tableItem.FoldInfo)
@@ -402,12 +404,32 @@ BindUIPanelHotKey() {
             continue
 
         oriKey := FoldInfo.TKArr[Index]
+        isCombo := IsComboKey(oriKey)
+        key := isCombo ? oriKey : ("$*" oriKey)
+        actionArr := GetBindMacroAction(oriKey)
+        isJoyKey := RegExMatch(oriKey, "Joy")
+        frontInfo := FoldInfo.FrontInfoArr[Index]
+        realFrontStr := GetParamsWinInfoStr(frontInfo)
 
-        key := "$*" oriKey
-        foldIndex := Index
+        if (realFrontStr != "")
+            HotIfWinActive(realFrontStr)
 
-        ; 界面宏触发类型固定为"开关"：按下时切换面板
-        try Hotkey(key, (*) => MyUIMacroGui.TogglePanel(foldIndex))
+        if (isJoyKey) {
+            MyJoyMacro.AddMacro(oriKey, actionArr[1], frontInfo, actionArr[2])
+        }
+        else {
+            try {
+                if (actionArr[1] != "")
+                    Hotkey(key, actionArr[1])
+                if (actionArr[2] != "" && !isCombo)
+                    Hotkey(key " up", actionArr[2])
+            }
+            catch as e {
+            }
+        }
+
+        if (realFrontStr != "")
+            HotIfWinActive
     }
 }
 
