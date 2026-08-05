@@ -270,8 +270,11 @@ class TriggerKeyInfo {
         triggerType := this.GetTriggerType()
         if (this.macroType == 1) {
             if (triggerType == 4) {
-                WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
-                if (WorkerIndex != 0) {       ;关闭开关
+                ; 占用标记或 usePool 中仍有该宏的 Worker，都视为运行中 → 停止（避免脏标记导致误启动）
+                isRunning := tableItem.IsWorkIndexArr[this.itemIndex]
+                if (!isRunning && WorkPoolEnabled() && MyWorkPool.HasItemWork(this.tableIndex, this.itemIndex))
+                    isRunning := true
+                if (isRunning) {
                     MyStopMacro(this.tableIndex, this.itemIndex)
                     return
                 }

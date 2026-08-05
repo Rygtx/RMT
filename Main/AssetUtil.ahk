@@ -1905,6 +1905,22 @@ WaitIfPaused(tableItem, itemIndex) {
     }
 }
 
+; 可中断休眠：间隔内定期检查暂停/终止
+InterruptibleSleep(tableItem, index, duration) {
+    if (duration <= 0)
+        return
+    curTime := 0
+    clip := Min(100, duration)
+    while (curTime < duration) {
+        WaitIfPaused(tableItem, index)
+        if (tableItem.KilledArr[index])
+            break
+        Sleep(clip)
+        curTime += clip
+        clip := Min(500, duration - curTime)
+    }
+}
+
 GetItemFoldIndex(tableItem, itemIndex) {
     FoldInfo := tableItem.FoldInfo
     if (!IsObject(FoldInfo) || !FoldInfo.HasProp("IndexSpanArr"))

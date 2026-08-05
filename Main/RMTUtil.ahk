@@ -327,26 +327,22 @@ InitFilePath() {
 
 StopMacro(tableIndex, itemIndex) {
     tableItem := MySoftData.TableInfo[tableIndex]
-    isWork := tableItem.IsWorkIndexArr[itemIndex]
     if (tableItem.GraphBranchCountArr.Length >= itemIndex)
         tableItem.GraphBranchCountArr[itemIndex] := 0
-    if (isWork) {
-        ; 把 StopMacro 事件写入目标 Worker 的发送通道，再唤醒它在自身进程内停止宏。
-        ; 此前只 PostMessage 而未投递 payload，Worker 取不到指令，宏不会真正停止。
-        payload := EncodeBatch(EncodeCommand("ST", tableIndex, itemIndex))
-        for idx, wd in MyWorkPool.usePool {
-            if (wd.tableIndex == tableIndex && wd.itemIndex == itemIndex) {
-                MyWorkPool.PushTask(wd, MsgType.EVENT, 0, payload)
-            }
+
+    ; 多线程：搜图等 DllCall 会卡住 Worker，协作式 KilledArr/ST 不可靠，直接杀进程
+    if (WorkPoolEnabled()) {
+        hasWork := tableItem.IsWorkIndexArr[itemIndex] || MyWorkPool.HasItemWork(tableIndex, itemIndex)
+        if (hasWork) {
+            MyWorkPool.ForceStopItem(tableIndex, itemIndex)
+            return
         }
-        ; 主进程侧设置 Killed 标记（供 Worker 完成回报时判定为"终止"状态）并释放残留按键
-        KillTableItemMacro(tableItem, itemIndex)
-        SetTableItemState(tableIndex, itemIndex, 3)
-        tableItem.IsWorkIndexArr[itemIndex] := 0
-    } else {
-        ; 主进程内执行的宏：置 Killed 标记后，宏循环会自行退出并由 OnFinishMacro 设置终止状态
-        KillTableItemMacro(tableItem, itemIndex)
     }
+
+    ; 主进程内执行的宏：置 Killed 标记后，宏循环会自行退出并由 OnFinishMacro 设置终止状态
+    KillTableItemMacro(tableItem, itemIndex)
+    if (tableItem.TriggerTypeArr.Length >= itemIndex && tableItem.TriggerTypeArr[itemIndex] == 4)
+        SetTableItemState(tableIndex, itemIndex, 3)
 }
 
 ; Worker 多分支图形宏：接收 Worker 提交的分支节点列表，入队并分派，回复确认

@@ -10,10 +10,15 @@ SearchOnTrigger(tableItem, cmdStr, index) {
 
 SearchExecute(tableItem, Data, index) {
     if (Data.SearchCount == -1) {
+        WaitIfPaused(tableItem, index)
+        if (tableItem.KilledArr[index])
+            return
         isLoopFound := SearchOnce(tableItem, Data, index)
+        if (tableItem.KilledArr[index])
+            return
         if (!isLoopFound) {
             FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
-            Sleep(FloatInterval)
+            InterruptibleSleep(tableItem, index, FloatInterval)
         }
         return isLoopFound
     }
@@ -30,7 +35,7 @@ SearchExecute(tableItem, Data, index) {
 
             if (Data.SearchCount > A_Index) {
                 FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
-                Sleep(FloatInterval)
+                InterruptibleSleep(tableItem, index, FloatInterval)
             }
         }
 

@@ -379,6 +379,13 @@ OnEditHotkeyAndSync(showCon, keyCon, OnlyTriggerKey, fieldName, *) {
     OnOpenEditHotkeyGui(showCon, keyCon, OnlyTriggerKey)
 }
 
+; 设置页数值编辑：输入过程中允许空/非法字符，仅在合法整数时写回
+OnSettingIntEditChange(fieldName, ctrl, *) {
+    v := Trim(ctrl.Value)
+    if (v != "" && IsInteger(v))
+        MainSoftData.%fieldName% := Integer(v)
+}
+
 ;设置
 AddSettingUI(index) {
     MyGui := MainSoftData.MyGui
@@ -395,33 +402,33 @@ AddSettingUI(index) {
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("点击时间浮动(%)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MainSoftData.HoldFloat, tableItem
     )
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.HoldFloat := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("HoldFloat"))
 
     AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("每次间隔浮动(%)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MainSoftData.PreIntervalFloat,
     tableItem)
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.PreIntervalFloat := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("PreIntervalFloat"))
 
     AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("间隔指令浮动(%)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MainSoftData.IntervalFloat,
     tableItem)
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.IntervalFloat := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("IntervalFloat"))
 
     posY += 40
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("坐标X浮动(px)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 145, posY - 4), MainSoftData.CoordXFloat,
     tableItem)
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.CoordXFloat := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("CoordXFloat"))
 
     AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("坐标Y浮动(px)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 440, posY - 4), MainSoftData.CoordYFloat,
     tableItem)
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.CoordYFloat := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("CoordYFloat"))
 
     AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("多线程数(-1~10)："), tableItem)
     con := AddTableControl("Edit", Format("x{} y{} w100 center", posX + 760, posY - 4), MainSoftData.MutiThreadNum,
     tableItem)
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.MutiThreadNum := Integer(ctrl.Value))
+    con.OnEvent("Change", OnSettingIntEditChange.Bind("MutiThreadNum"))
     Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 865, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickMutiThreadHelpBtn)
 

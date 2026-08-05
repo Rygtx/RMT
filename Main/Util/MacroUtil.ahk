@@ -123,6 +123,8 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
     if (tableItem.KilledArr[index])
         return
     WaitIfPaused(tableItem, index)
+    if (tableItem.KilledArr[index])
+        return
     if (SubStr(cmdStr, 1, 2) == "🚫")
         return
 
@@ -190,6 +192,8 @@ CheckFrontWindowActive(frontInfoStr) {
 
 OnSearchWrapper(tableItem, cmdStr, index) {
     isLoopFound := SearchOnTrigger(tableItem, cmdStr, index)
+    if (tableItem.KilledArr[index])
+        return
     if (isLoopFound != "" && isLoopFound == false) {
         return [cmdStr]
     }
@@ -958,7 +962,17 @@ OnExVariable(tableItem, cmd, index) {
     MySetGlobalVariable(NameArr, ValueArr, true)
 
     if (Data.SearchCount == -1) {
-        return OnExVariableOnce(tableItem, index, Data)
+        WaitIfPaused(tableItem, index)
+        if (tableItem.KilledArr[index])
+            return
+        isFound := OnExVariableOnce(tableItem, index, Data)
+        if (tableItem.KilledArr[index])
+            return
+        if (!isFound) {
+            FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
+            InterruptibleSleep(tableItem, index, FloatInterval)
+        }
+        return isFound
     }
     else {
         loop Data.SearchCount {
@@ -973,7 +987,7 @@ OnExVariable(tableItem, cmd, index) {
 
             if (Data.SearchCount > A_Index) {
                 FloatInterval := GetFloatTime(Data.SearchInterval, MainSoftData.PreIntervalFloat)
-                Sleep(FloatInterval)
+                InterruptibleSleep(tableItem, index, FloatInterval)
             }
         }
     }
@@ -1317,17 +1331,7 @@ OnInterval(tableItem, cmd, index) {
     }
 
     FloatInterval := GetFloatTime(interval, MainSoftData.IntervalFloat)
-    curTime := 0
-    clip := Min(100, FloatInterval)
-    while (curTime < FloatInterval) {
-        WaitIfPaused(tableItem, index)
-
-        if (tableItem.KilledArr[index])
-            break
-        Sleep(clip)
-        curTime += clip
-        clip := Min(500, FloatInterval - curTime)
-    }
+    InterruptibleSleep(tableItem, index, FloatInterval)
 }
 
 OnPressKey(tableItem, cmd, index) {
