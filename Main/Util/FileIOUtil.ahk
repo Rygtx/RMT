@@ -40,6 +40,11 @@ ReadExcel(Data, tableItem, index) {
             HasColEnd := TryGetTabVarValue(&ColEnd, tableItem, index, Data.ColEndVar, true)
             if (!HasRowEnd || !HasColEnd)
                 return
+            err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
+            if (err != "") {
+                MsgBox(err)
+                return
+            }
             IsOk := ExcelRangeRowToRead(FilePath, Data.NameOrSerial, Row, Col, RowEnd, ColEnd, &ResArr)
             if (IsOk)
                 MySetGlobalArray(Data.SaveName, ResArr)
@@ -48,10 +53,39 @@ ReadExcel(Data, tableItem, index) {
             HasColEnd := TryGetTabVarValue(&ColEnd, tableItem, index, Data.ColEndVar, true)
             if (!HasRowEnd || !HasColEnd)
                 return
+            err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
+            if (err != "") {
+                MsgBox(err)
+                return
+            }
             IsOk := ExcelRangeColToRead(FilePath, Data.NameOrSerial, Row, Col, RowEnd, ColEnd, &ResArr)
             if (IsOk)
                 MySetGlobalArray(Data.SaveName, ResArr)
     }
+}
+
+; 指定区域：终止行/列 >= 起始；且行或列至少有一侧终止 > 起始（禁止单单元格）
+; 字面量才校验；变量名则跳过（运行时再判）
+CheckExcelRegionBounds(rowStart, colStart, rowEnd, colEnd) {
+    hasRow := IsInteger(rowStart) && IsInteger(rowEnd)
+    hasCol := IsInteger(colStart) && IsInteger(colEnd)
+    if (hasRow) {
+        r1 := Integer(rowStart), r2 := Integer(rowEnd)
+        if (r2 < r1)
+            return GetLang("终止行号必须大于或等于起始行号")
+    }
+    if (hasCol) {
+        c1 := Integer(colStart), c2 := Integer(colEnd)
+        if (c2 < c1)
+            return GetLang("终止列号必须大于或等于起始列号")
+    }
+    if (hasRow && hasCol) {
+        r1 := Integer(rowStart), r2 := Integer(rowEnd)
+        c1 := Integer(colStart), c2 := Integer(colEnd)
+        if (r2 == r1 && c2 == c1)
+            return GetLang("指定区域无效：终止行与终止列不能同时等于起始（至少一侧终止大于起始）")
+    }
+    return ""
 }
 
 WriteExcel(Data, tableItem, index) {

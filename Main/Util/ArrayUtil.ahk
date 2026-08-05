@@ -58,10 +58,13 @@ GetArray(Text) {
         LastValue := SubStr(Text, LastSplitPos + 1)
         IsArrayStart := SubStr(LastValue, 1, 1) == "[" || SubStr(LastValue, 1, 1) == "【"
         IsArrayEnd := SubStr(LastValue, StrLen(LastValue)) == "]" || SubStr(LastValue, StrLen(LastValue)) == "】"
-        IsArray := IsArrayStart && IsArrayEnd
-        LastValue := GetEscapeValue(LastValue)
-        LastValue := IsArray ? [LastValue] : LastValue
-        ResArr.Push(LastValue)
+        if (IsArrayStart && IsArrayEnd) {
+            ; 整段为 [ ... ]：解析内部为子数组，避免 "[a]" 被误做成 ["[a]"]
+            ArrayText := SubStr(LastValue, 2, StrLen(LastValue) - 2)
+            ResArr.Push(GetArray(ArrayText))
+        } else {
+            ResArr.Push(GetEscapeValue(LastValue))
+        }
     }
     return ResArr
 }

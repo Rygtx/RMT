@@ -377,14 +377,9 @@ class FileIOGui {
         IsRead := CurType == GetLang("读取Excel") || CurType == GetLang("读取文本文件")
         HasExcelRegion := IsRead && (CurMode == GetLang("指定区域-行") || CurMode == GetLang("指定区域-列"))
         if (HasExcelRegion) {
-            if (IsInteger(this.RowCon.Text) && IsInteger(this.RowEndCon.Text)
-            && this.RowCon.Text >= this.RowEndCon.Text) {
-                MsgBox("起始行号必须小于终止行号")
-                return false
-            }
-            if (IsInteger(this.ColCon.Text) && IsInteger(this.ColEndCon.Text)
-            && this.ColCon.Text >= this.ColEndCon.Text) {
-                MsgBox("起始列号必须小于终止列号")
+            err := CheckExcelRegionBounds(this.RowCon.Text, this.ColCon.Text, this.RowEndCon.Text, this.ColEndCon.Text)
+            if (err != "") {
+                MsgBox(err)
                 return false
             }
         }

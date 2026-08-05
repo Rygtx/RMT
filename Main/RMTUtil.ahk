@@ -395,10 +395,8 @@ GetArrayRefByPath(rootArr, path, &lastIdx) {
 SetGlobalArray(Name, Value, excludeIdx := 0) {
     MySoftData.ArrayMap[Name] := Value
     MyVarListenGui.Refresh()
-    args := [Name, Value.Length]
-    for item in Value
-        args.Push(item)
-    MyWorkPool.BroadcastEx(excludeIdx, "SA", args*)
+    ; 整串序列化，保留二维嵌套；旧协议按元素展开会把 [[a],[b]] 压成一维
+    MyWorkPool.BroadcastEx(excludeIdx, "SA", Name, GetArrayStr(Value))
 }
 
 CloneGlobalArray(SourceName, NewArrName, excludeIdx := 0) {

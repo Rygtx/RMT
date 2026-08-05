@@ -872,12 +872,17 @@ class WorkPool {
                             , args.Length >= 3 ? args[3] : "", wd.idx), "pool")
                         ViGJoySetState(args[1], args[2], args[3])
                     case "SA":
-                        arr := []
-                        count := Integer(args[2])
-                        loop count {
-                            arr.Push(args[A_Index + 2])
+                        ; 新协议：name + GetArrayStr；旧协议：name + count + items...
+                        if (args.Length == 2) {
+                            SetGlobalArray(args[1], GetArray(args[2]), wd.idx)
+                        } else {
+                            arr := []
+                            count := Integer(args[2])
+                            loop count {
+                                arr.Push(args[A_Index + 2])
+                            }
+                            SetGlobalArray(args[1], arr, wd.idx)
                         }
-                        SetGlobalArray(args[1], arr, wd.idx)
                     case "CA":
                         CloneGlobalArray(args[1], args[2], wd.idx)
                     case "DA":

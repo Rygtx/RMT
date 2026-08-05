@@ -201,11 +201,8 @@
                 MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
                 return
             case "SA":
-                name := args[1]
-                arr := GetArray(args[2])
-                realArgs.Push(name, arr.Length)
-                for item in arr
-                    realArgs.Push(item)
+                ; args[2] 已是 GetArrayStr，整串转发以保留二维结构
+                realArgs.Push(args[1], args[2])
             case "CA":
                 realArgs.Push(args[1], args[2])
             case "MA", "IA":
@@ -353,13 +350,18 @@
                         tableItem := MySoftData.TableInfo[args[1]]
                         tableItem.PauseArr[args[2]] := args[3]
                     case "SA":
-                        name := args[1]
-                        count := Integer(args[2])
-                        arr := []
-                        loop count {
-                            arr.Push(args[A_Index + 2])
+                        ; 新协议：name + GetArrayStr；旧协议：name + count + items...
+                        if (args.Length == 2) {
+                            MySoftData.ArrayMap[args[1]] := GetArray(args[2])
+                        } else {
+                            name := args[1]
+                            count := Integer(args[2])
+                            arr := []
+                            loop count {
+                                arr.Push(args[A_Index + 2])
+                            }
+                            MySoftData.ArrayMap[name] := arr
                         }
-                        MySoftData.ArrayMap[name] := arr
                     case "CA":
                         sourceName := args[1]
                         newArrName := args[2]
