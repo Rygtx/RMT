@@ -71,4 +71,6 @@ global XAML_ENABLE_DEVTOOLS := true
 ; --- In-Process CLR Hosting (Opt-In) ---
 ; When true, boots the WPF engine in-process inside the parent AHK thread using CLR hosting.
 ; When false, spawns a separate background daemon process (default, robust).
-global XAML_IN_PROCESS_PREVIEW := true
+; 注意：进程内模式下 daemon HWND 属于 AHK 自身；若 EnsureDaemonMatches 误判路径并 KillDaemon，
+; 旧逻辑会 ProcessClose 当前进程导致多窗口闪退。默认务必为 false。
+global XAML_IN_PROCESS_PREVIEW := false

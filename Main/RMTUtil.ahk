@@ -11,6 +11,10 @@ global XAML_AXML_DEBUG_MODE := false
 global XAML_ENABLE_LOGGING := false
 global XAML_ENABLE_TRACING := false
 global XAML_ENABLE_DEVTOOLS := false
+; XAML_Config 默认 true（进程内 CLR）。多 XAML 窗时 EnsureDaemonMatches 会把映像路径
+; （RMT/AHK.exe）与 ahk-xaml.dll 判为不匹配并 KillDaemon，进而 ProcessClose 自身导致闪退。
+; 正式运行使用独立 daemon 进程。
+global XAML_IN_PROCESS_PREVIEW := false
 
 ;资源保存（带脏检查优化：只写入实际发生变化的配置项）
 OnSaveSetting(*) {

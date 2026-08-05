@@ -335,6 +335,11 @@ class XAMLHost {
         try Func("XamlUiDiag").Call(msg, tag)
     }
 
+    ; 进程内 CLR 宿主时，daemon HWND 属于当前 AHK/RMT 进程，绝不能 ProcessClose 自身
+    static IsInProcessDaemon() {
+        return IsSet(XAML_IN_PROCESS_PREVIEW) && XAML_IN_PROCESS_PREVIEW
+    }
+
     ; 强制结束卡死的 XAML 引擎进程，便于下次重新拉起
     static KillDaemon() {
         hwnd := XAMLHost.daemonHwnd
@@ -344,10 +349,14 @@ class XAMLHost {
             try {
                 pid := 0
                 DllCall("user32\GetWindowThreadProcessId", "Ptr", hwnd, "UInt*", &pid)
-                if (pid)
+                ; 进程内模式或 PID 即自身时，只清句柄，禁止自杀式 ProcessClose
+                if (pid && pid != ProcessExist() && !XAMLHost.IsInProcessDaemon())
                     ProcessClose(pid)
             }
         }
+        ; 进程内模式没有独立 ahk-xaml 进程
+        if (XAMLHost.IsInProcessDaemon())
+            return
         try {
             loop 10 {
                 if !ProcessExist("ahk-xaml.dll")
@@ -396,6 +405,9 @@ class XAMLHost {
     static EnsureDaemonMatches(expectedExe) {
         XAMLHost.EnsureDaemonHealthy()
         if (!XAMLHost.daemonHwnd || expectedExe == "")
+            return
+        ; 进程内宿主时映像路径是 AHK/RMT.exe，与 ahk-xaml.dll 必然不同，不能据此 Kill
+        if (XAMLHost.IsInProcessDaemon())
             return
         actual := XAMLHost.GetDaemonExePath()
         if (actual == "")
