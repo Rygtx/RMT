@@ -376,9 +376,21 @@ InitData() {
         "注释", CommentData, "抓图", ScreenShotData, "图形节点", MacroGraphNode, "图形开始节点", MacroGraphStartNode)
 }
 
+; 是否正在运行罗技软件（G HUB / LGS）
+; IbSendInit 只判断虚拟设备能否打开，进程未启动时仍可能返回成功，但按键实际无效
+IsLogitechSoftwareRunning() {
+    for name in ["lghub.exe", "lghub_agent.exe", "LCore.exe"] {
+        if ProcessExist(name)
+            return true
+    }
+    return false
+}
+
 InitLogitechGHubNew() {
     if (MySoftData.IsLogitechInit)
         return true
+
+    static hasTipNoGHUB := false
 
     ; G HUB 2021 / LGS：鼠标报告 5 字节，须用 "Logitech"
     ; 较新 G HUB：鼠标报告 8 字节，须用 "LogitechGHubNew"
@@ -389,10 +401,19 @@ InitLogitechGHubNew() {
         res := IbSendInit("LogitechGHubNew", 0)
     }
     if (res == false) {
-        static hasTipNoGHUB := false
         if (!hasTipNoGHUB) {
             hasTipNoGHUB := true
-            ShowLogitechGHubTip()
+            ShowLogitechGHubTip(false)
+        }
+        return false
+    }
+
+    ; 设备可打开 ≠ 软件在运行；未运行时提醒并允许下次重试
+    if (!IsLogitechSoftwareRunning()) {
+        try IbSendDestroy()
+        if (!hasTipNoGHUB) {
+            hasTipNoGHUB := true
+            ShowLogitechGHubTip(true)
         }
         return false
     }
