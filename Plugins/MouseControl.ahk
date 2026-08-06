@@ -42,17 +42,41 @@ MC_MoveR(x, y) {
     DllCall(MCDllPath "\move_R", "Int", Integer(x), "Int", Integer(y))
 }
 
-; 绝对移动到目标坐标（使用 MouseGetPos + move_R，精度完美）
+; 绝对移动到目标屏幕坐标（虚拟桌面像素，原点为虚拟屏左上角）
+; 优先调用 DLL 的 move_Abs；若多屏/加速导致未到位，再分片相对逼近
 MC_MoveAbs(targetX, targetY) {
+    global MCDllPath
     CoordMode("Mouse", "Screen")
+    targetX := Integer(targetX)
+    targetY := Integer(targetY)
+
+    DllCall(MCDllPath "\move_Abs", "Int", targetX, "Int", targetY)
+
     MouseGetPos(&curX, &curY)
-    MC_MoveR(targetX - curX, targetY - curY)
+    if (Abs(targetX - curX) <= 2 && Abs(targetY - curY) <= 2)
+        return
+
+    ; 相对报告通常为 int8（±127），必须分片，否则跨屏会被截到当前屏边缘
+    maxStep := 127
+    Loop 400 {
+        MouseGetPos(&curX, &curY)
+        dx := targetX - curX
+        dy := targetY - curY
+        if (Abs(dx) <= 1 && Abs(dy) <= 1)
+            return
+        if (Mod(A_Index, 20) = 0)
+            DllCall(MCDllPath "\move_Abs", "Int", targetX, "Int", targetY)
+        stepX := Max(-maxStep, Min(maxStep, dx))
+        stepY := Max(-maxStep, Min(maxStep, dy))
+        MC_MoveR(stepX, stepY)
+    }
 }
 
 ; 带速度的绝对移动（分步插值）
 ; targetX/Y: 目标屏幕坐标
 ; speed: 0=瞬移, 1~99=速度（值越大越快，与AHK MouseMove的Speed含义一致）
 MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
+    global MCDllPath
     if (speed <= 0 || speed >= 100) {
         MC_MoveAbs(targetX, targetY)
         return
@@ -60,31 +84,29 @@ MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
 
     CoordMode("Mouse", "Screen")
     MouseGetPos(&curX, &curY)
+    targetX := Integer(targetX)
+    targetY := Integer(targetY)
 
     dx := targetX - curX
     dy := targetY - curY
     dist := Sqrt(dx * dx + dy * dy)
 
-    if (dist < 2)  ; 已经很接近
+    if (dist < 2)
         return
 
     ; 根据速度计算步数和延迟（模拟AHK MouseMove的速度感）
-    ; speed越大→步数少→延迟短→速度快
     stepCount := Max(1, Round(dist * (100 - speed) / 1500))
     stepDelay := Max(1, Round((100 - speed) / 10))
 
-    stepX := dx / stepCount
-    stepY := dy / stepCount
-
     Loop Round(stepCount) {
-        MC_MoveR(Round(stepX), Round(stepY))
+        nextX := Round(curX + dx * A_Index / stepCount)
+        nextY := Round(curY + dy * A_Index / stepCount)
+        DllCall(MCDllPath "\move_Abs", "Int", nextX, "Int", nextY)
         Sleep(stepDelay)
     }
 
-    ; 最后一步修正残余误差
-    MouseGetPos(&finalX, &finalY)
-    if (finalX != targetX || finalY != targetY)
-        MC_MoveR(targetX - finalX, targetY - finalY)
+    ; 终点闭环修正（含跨屏分片相对）
+    MC_MoveAbs(targetX, targetY)
 }
 
 ; 带速度的相对移动
