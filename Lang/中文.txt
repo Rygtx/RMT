@@ -936,6 +936,9 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 编辑模式：
 罗技
 罗技：调用 罗技驱动 模拟按键（需管理员权限并且运行过G HUB）。
+使用罗技按键类型，需要下载安装G HUB
+新版GHUB无法使用鼠标相关功能
+去下载
 AHI
 AHI：调用 Interception 驱动模拟按键（需安装 Interception 驱动）。
 Tip:AHI驱动需要安装Interception驱动并以管理员权限运行

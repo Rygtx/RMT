@@ -138,6 +138,18 @@ SendLogicKey(Key, state, tableItem, index) {
 
     bucket := GetHoldBucket(tableItem, index)
 
+    ; 滚轮走专用鼠标滚轮 API，避免 {WheelUp down} 经钩子时格式不稳定
+    static WheelDeltaMap := Map("WheelUp", 120, "WheelDown", -120)
+    if WheelDeltaMap.Has(Key) {
+        if state
+            DllCall("IbInputSimulator\IbSendMouseWheel", "Int", WheelDeltaMap[Key])
+        if state
+            TrackDown(bucket, Key, "Logic")
+        else
+            TrackUp(bucket, Key)
+        return
+    }
+
     IbSend("{Blind}{" Key " " (state ? "down" : "up") "}")
     if state
         TrackDown(bucket, Key, "Logic")

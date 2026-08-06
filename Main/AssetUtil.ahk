@@ -380,9 +380,22 @@ InitLogitechGHubNew() {
     if (MySoftData.IsLogitechInit)
         return true
 
-    res := IbSendInit("LogitechGHubNew", 0)
-    if (res == false)
+    ; G HUB 2021 / LGS：鼠标报告 5 字节，须用 "Logitech"
+    ; 较新 G HUB：鼠标报告 8 字节，须用 "LogitechGHubNew"
+    ; 类型选错时键盘往往仍可用，但鼠标/滚轮会无效
+    res := IbSendInit("Logitech", 0)
+    if (res == false) {
+        try IbSendDestroy()
+        res := IbSendInit("LogitechGHubNew", 0)
+    }
+    if (res == false) {
+        static hasTipNoGHUB := false
+        if (!hasTipNoGHUB) {
+            hasTipNoGHUB := true
+            ShowLogitechGHubTip()
+        }
         return false
+    }
 
     MySoftData.IsLogitechInit := true
     return true

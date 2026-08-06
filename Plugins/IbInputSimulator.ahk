@@ -7,10 +7,8 @@
 #Requires AutoHotkey v2.0
 
 #DllLoad "*i IbInputSimulator.dll"  ;DllCall("LoadLibrary") cannot locate DLL correctly
-global hasTipNoGHUB := false
 
 IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
-    global hasTipNoGHUB
     workding_dir := A_WorkingDir
     SetWorkingDir(A_ScriptDir)
 
@@ -47,17 +45,37 @@ IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
 
     SetWorkingDir(workding_dir)
 
-    if (result != 0 && send_type == "LogitechGHubNew" && !hasTipNoGHUB) {
-        hasTipNoGHUB := true
-        MsgBox("使用罗技按键类型，需要下载安装G HUB")
-        Run("https://www.logitechg.com/en-my/innovation/g-hub.html")
+    ; Error 枚举：0=Success … 6=DeviceNotFound（未找到 G HUB 虚拟设备）
+    ; 提示仅在最终失败时由 InitLogitechGHubNew 弹出（避免先试 Logitech 失败就误弹）
+    if (result != 0)
         return false
-    }
 
     if (mode !== 0) {
         IbSendMode(mode)
     }
     return true
+}
+
+; 罗技 G HUB 未就绪提示：左「去下载」打开官网，右「取消」关闭
+ShowLogitechGHubTip() {
+    gHubUrl := "https://www.logitechg.com/innovation/g-hub.html"
+    chosen := ""
+    g := Gui("+AlwaysOnTop -MinimizeBox", GetLang("提示"))
+    try
+        g.SetFont("S10 W550 Q2", MainSoftData.FontType)
+    catch
+        g.SetFont("S10")
+    g.Add("Text", "x20 y15 w320", GetLang("使用罗技按键类型，需要下载安装G HUB") "`n" GetLang("新版GHUB无法使用鼠标相关功能"))
+    btnDL := g.Add("Button", "x20 y70 w140 h30 Default", GetLang("去下载"))
+    btnCancel := g.Add("Button", "x170 y70 w140 h30", GetLang("取消"))
+    btnDL.OnEvent("Click", (*) => (chosen := "download", g.Destroy()))
+    btnCancel.OnEvent("Click", (*) => (chosen := "cancel", g.Destroy()))
+    g.OnEvent("Close", (*) => (chosen := "cancel", g.Destroy()))
+    g.Show("w330 h115 Center")
+    hwnd := g.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+    if (chosen == "download")
+        Run(gHubUrl)
 }
 
 IbSendMode(mode) {
