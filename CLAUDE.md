@@ -53,6 +53,7 @@ RMT（若梦兔）是一款基于 **AutoHotkey v2** 的免费开源按键宏工�
  - `CompatDataUtil.ahk` - 内存数据结构字段补齐（主程序与 Worker 共用）
   - `Gdip_All.ahk` - GDI+图像处理
   - `HumanMouse.ahk` - 人类化鼠标移动
+ - `MouseMoveUtil.ahk` - 鼠标移动策略（按按键类型 + 移动模式分发 AHK/罗技/AHI）
   - `PresssKeyUtil.ahk` - 按键模拟工具
   - `ArrayUtil.ahk` - 数组工具
   - `SerialUtil.ahk` - 序列化工具

@@ -25,6 +25,7 @@
 #Include "..\Plugins\AhiDriver\AhiDriver.ahk"
 #Include "..\Plugins\IbInputSimulator.ahk"
 #Include "..\Plugins\MouseControl.ahk"
+#Include Util\MouseMoveUtil.ahk
 
 global WM_COPYDATA := 0x4a ;传递字符串，系统信息
 

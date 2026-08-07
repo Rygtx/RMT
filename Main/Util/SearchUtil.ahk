@@ -262,46 +262,14 @@ HandleSearchResult(tableItem, Data, index, ImagePath, ResXList, ResYList, ResHwn
 }
 
 DoMouseAction(tableItem, Data, index, Pos, hwnd, Speed, isWin) {
-    isLogiMode := Integer(tableItem.ModeArr[index]) == 3
-    if (isLogiMode)
-        InitMouseControl()
+    keyMode := GetMacroKeyMode(tableItem, index)
 
-    if (Data.MouseActionType == 4) {
-        ; 双击
-        if (isLogiMode) {
-            MC_MoveAbsSmooth(Round(Pos[1]), Round(Pos[2]), Speed)
-            if (!InitLogitechGHubNew())
-                return
-            IbClick("Left", , , 2)
-        }
-        else {
-            SetDefaultMouseSpeed(Speed)
-            Click(Format("{} {} {}"), Pos[1], Pos[2], 2)
-        }
+    if (!isWin && (Data.MouseActionType == 2 || Data.MouseActionType == 3 || Data.MouseActionType == 4)) {
+        SearchMouseActionByStrategy(keyMode, Data.MouseActionType, Pos[1], Pos[2], Speed, Data.ClickCount)
+        return
     }
-    else if (!isWin && Data.MouseActionType == 3) {
-        ; 点击
-        if (isLogiMode) {
-            MC_MoveAbsSmooth(Round(Pos[1]), Round(Pos[2]), Speed)
-            if (!InitLogitechGHubNew())
-                return
-            IbClick("Left", , , Data.ClickCount)
-        }
-        else {
-            SetDefaultMouseSpeed(Speed)
-            Click(Format("{} {} {}"), Pos[1], Pos[2], Data.ClickCount)
-        }
-    }
-    else if (!isWin && Data.MouseActionType == 2) {
-        ; 移动
-        if (isLogiMode) {
-            MC_MoveAbsSmooth(Round(Pos[1]), Round(Pos[2]), Speed)
-        }
-        else {
-            MouseMove(Pos[1], Pos[2], Speed)
-        }
-    }
-    else if (isWin && Data.MouseActionType == 3) {
+
+    if (isWin && Data.MouseActionType == 3) {
         lParam := (Pos[2] << 16) | (Pos[1] & 0xFFFF)
         PostMessage 0x203, 1, lParam, , "ahk_id " hwnd
         Sleep 50

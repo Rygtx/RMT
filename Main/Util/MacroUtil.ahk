@@ -622,101 +622,21 @@ OnMMPro(tableItem, cmd, index) {
 }
 
 OnMMProOnce(tableItem, index, Data) {
-    SendMode("Event")
-    CoordMode("Mouse", "Screen")
     Speed := 100 - Data.Speed
     MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
-    isLogiMode := Integer(tableItem.ModeArr[index]) == 3
-    if (isLogiMode)
-        InitMouseControl()
+    keyMode := GetMacroKeyMode(tableItem, index)
+    IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
 
     hasPosVarX := TryGetTabVarValue(&PosX, tableItem, index, Data.PosVarX)
     hasPosVarY := TryGetTabVarValue(&PosY, tableItem, index, Data.PosVarY)
-    if (!hasPosVarX || !hasPosVarY) {
+    if (!hasPosVarX || !hasPosVarY)
         return
-    }
 
     PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
-    ClickCount := Data.ActionType == 2 ? 1 : 2
-    if (MoveMode == 2) {
-        ; 游戏视角（相对移动+点击）
-        if (isLogiMode) {
-            MC_MoveRSmooth(Integer(PosX), Integer(PosY), Speed)
-            Sleep(30)
-            if (!InitLogitechGHubNew())
-                return
-            IbClick("Left")
-        }
-        else {
-            SendInput("{Click " Round(PosX) " " Round(PosY) " 0 Relative}")
-        }
-    }
-    else if (MoveMode == 1) {
-        IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
-        if (IsHumanMouse && Data.ActionType == 1) {
-            CoordMode("Mouse", "Screen")
-            MouseGetPos(&curX, &curY)
-            hm := HumanMouse.GetInstance()
-            hm.SetParams({
-                IsEnabled: true,
-                Speed: Speed
-            })
-            hm.Move(curX + PosX, curY + PosY)
-        }
-        else if (Data.ActionType == 1) {
-            if (isLogiMode) {
-                MC_MoveRSmooth(Integer(PosX), Integer(PosY), Speed)
-            }
-            else {
-                MouseMove(PosX, PosY, Speed, "R")
-            }
-        }
-        else if (Data.ActionType == 2 || Data.ActionType == 3) {
-            if (isLogiMode) {
-                MC_MoveRSmooth(Integer(PosX), Integer(PosY), Speed)
-                Sleep(30)
-                if (!InitLogitechGHubNew())
-                    return
-                IbClick("Left", , , ClickCount)
-            }
-            else {
-                SetDefaultMouseSpeed(Speed)
-                Click(Format("{} {} {} Relative"), PosX, PosY, ClickCount)
-            }
-        }
-    }
-    else if (Data.ActionType == 1) {
-        IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
-        if (IsHumanMouse) {
-            hm := HumanMouse.GetInstance()
-            hm.SetParams({
-                IsEnabled: true,
-                Speed: Speed
-            })
-            hm.Move(PosX, PosY)
-        }
-        else {
-            if (isLogiMode) {
-                MC_MoveAbsSmooth(Round(PosX), Round(PosY), Speed)
-            }
-            else {
-                MouseMove(PosX, PosY, Speed)
-            }
-        }
-    }
-    else if (Data.ActionType == 2 || Data.ActionType == 3) {
-        if (isLogiMode) {
-            MC_MoveAbsSmooth(Round(PosX), Round(PosY), Speed)
-            if (!InitLogitechGHubNew())
-                return
-            IbClick("Left", , , ClickCount)
-        }
-        else {
-            SetDefaultMouseSpeed(Speed)
-            Click(Format("{} {} {}"), PosX, PosY, ClickCount)
-        }
-    }
+    ; ActionType: 1 移动 | 2 单击 | 3 双击
+    clickCount := (Data.ActionType == 1) ? 0 : (Data.ActionType == 2 ? 1 : 2)
+    MouseMoveByStrategy(keyMode, MoveMode, PosX, PosY, Speed, clickCount, IsHumanMouse)
 }
 
 OnOutput(tableItem, cmd, index) {
@@ -1222,41 +1142,8 @@ OnMouseMove(tableItem, cmd, index) {
 
     PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
-    SendMode("Event")
-    CoordMode("Mouse", "Screen")
-    isLogiMode := Integer(tableItem.ModeArr[index]) == 3
-    if (MoveMode == 2) {
-        ; 游戏视角（相对移动+点击）
-        if (isLogiMode) {
-            InitMouseControl()
-            MC_MoveRSmooth(Integer(PosX), Integer(PosY), Speed)
-            Sleep(30)
-            if (!InitLogitechGHubNew())
-                return
-            IbClick("Left")
-        }
-        else {
-            SendInput("{Click " Round(PosX) " " Round(PosY) " 0 Relative}")
-        }
-    }
-    else if (MoveMode == 1) {
-        if (isLogiMode) {
-            InitMouseControl()
-            MC_MoveRSmooth(Integer(PosX), Integer(PosY), Speed)
-        }
-        else {
-            MouseMove(PosX, PosY, Speed, "R")
-        }
-    }
-    else {
-        if (isLogiMode) {
-            InitMouseControl()
-            MC_MoveAbsSmooth(Round(PosX), Round(PosY), Speed)
-        }
-        else {
-            MouseMove(PosX, PosY, Speed)
-        }
-    }
+    keyMode := GetMacroKeyMode(tableItem, index)
+    MouseMoveByStrategy(keyMode, MoveMode, PosX, PosY, Speed, 0, false)
 }
 
 ; RMT 输入控制：键鼠/鼠标/键盘 启用与禁用（cmd 可为中文键或当前语言文本）

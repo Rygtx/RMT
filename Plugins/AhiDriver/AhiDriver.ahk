@@ -313,83 +313,161 @@ AhiSendCombo(key, modifiers*) {
     return true
 }
 
-; 鼠标点击（辅助函数，一般不直接用于宏系统）
-AhiClick(whichButton := "L", args*) {
+; 规范化鼠标键名（支持 L/R/M 缩写与 LButton 等完整名）
+AhiNormalizeMouseBtn(whichButton := "L") {
+    btnName := whichButton
+    if (btnName == "L")
+        return "LButton"
+    if (btnName == "R")
+        return "RButton"
+    if (btnName == "M")
+        return "MButton"
+    return btnName
+}
+
+; 鼠标点击（Interception）；clickCount 为点击次数
+AhiClick(whichButton := "L", clickCount := 1) {
     if (!InitAHI()) {
-        Click(whichButton, args*)
-        return
+        Click(whichButton, , , clickCount)
+        return false
     }
 
     global AHI_Driver, AHI_MouseId, AHI_MouseBtnMap
-
-    ; 支持完整按钮名或缩写
-    btnName := whichButton
-    if (btnName == "L")
-        btnName := "LButton"
-    else if (btnName == "R")
-        btnName := "RButton"
-    else if (btnName == "M")
-        btnName := "MButton"
-
+    btnName := AhiNormalizeMouseBtn(whichButton)
     btnNum := AHI_MouseBtnMap.Has(btnName) ? AHI_MouseBtnMap[btnName] : 0
+    clickCount := Max(1, Integer(clickCount))
 
-    AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 1)
-    AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 0)
+    loop clickCount {
+        AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 1)
+        AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 0)
+        if (A_Index < clickCount)
+            Sleep(50)
+    }
+    return true
 }
 
 ; 鼠标按下/释放（用于拖拽等）
 AhiMouseDown(whichButton := "L") {
     if (!InitAHI())
-        return
+        return false
 
     global AHI_Driver, AHI_MouseId, AHI_MouseBtnMap
-    
-    btnName := (whichButton == "L") ? "LButton" : ((whichButton == "R") ? "RButton" : "MButton")
+    btnName := AhiNormalizeMouseBtn(whichButton)
     btnNum := AHI_MouseBtnMap.Has(btnName) ? AHI_MouseBtnMap[btnName] : 0
-
     AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 1)
+    return true
 }
 
 AhiMouseUp(whichButton := "L") {
     if (!InitAHI())
-        return
+        return false
 
     global AHI_Driver, AHI_MouseId, AHI_MouseBtnMap
-    
-    btnName := (whichButton == "L") ? "LButton" : ((whichButton == "R") ? "RButton" : "MButton")
+    btnName := AhiNormalizeMouseBtn(whichButton)
     btnNum := AHI_MouseBtnMap.Has(btnName) ? AHI_MouseBtnMap[btnName] : 0
-
     AHI_Driver.SendMouseButtonEvent(AHI_MouseId, btnNum, 0)
+    return true
 }
 
-; 鼠标移动（相对）
+; ========== 鼠标移动（Interception，正式接口） ==========
+
+; 相对移动
+AhiMoveR(x, y) {
+    if (!InitAHI())
+        return false
+    global AHI_Driver, AHI_MouseId
+    AHI_Driver.SendMouseMoveRelative(AHI_MouseId, Integer(x), Integer(y))
+    return true
+}
+
+; 绝对移动到屏幕坐标（分片相对闭环，兼容多屏/大位移）
+AhiMoveAbs(targetX, targetY) {
+    if (!InitAHI())
+        return false
+
+    global AHI_Driver, AHI_MouseId
+    CoordMode("Mouse", "Screen")
+    targetX := Integer(targetX)
+    targetY := Integer(targetY)
+    maxStep := 200
+
+    Loop 800 {
+        MouseGetPos(&curX, &curY)
+        dx := targetX - curX
+        dy := targetY - curY
+        if (Abs(dx) <= 1 && Abs(dy) <= 1)
+            return true
+        stepX := Max(-maxStep, Min(maxStep, dx))
+        stepY := Max(-maxStep, Min(maxStep, dy))
+        AHI_Driver.SendMouseMoveRelative(AHI_MouseId, stepX, stepY)
+    }
+    return true
+}
+
+; 带速度的绝对移动（speed 含义同 AHK MouseMove：0 瞬移，越大越快）
+AhiMoveAbsSmooth(targetX, targetY, speed := 0) {
+    if (!InitAHI())
+        return false
+    if (speed <= 0 || speed >= 100)
+        return AhiMoveAbs(targetX, targetY)
+
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&curX, &curY)
+    targetX := Integer(targetX)
+    targetY := Integer(targetY)
+    dx := targetX - curX
+    dy := targetY - curY
+    dist := Sqrt(dx * dx + dy * dy)
+    if (dist < 2)
+        return true
+
+    stepCount := Max(1, Round(dist * (100 - speed) / 1500))
+    stepDelay := Max(1, Round((100 - speed) / 10))
+    Loop Round(stepCount) {
+        nextX := Round(curX + dx * A_Index / stepCount)
+        nextY := Round(curY + dy * A_Index / stepCount)
+        if (!AhiMoveAbs(nextX, nextY))
+            return false
+        Sleep(stepDelay)
+    }
+    return AhiMoveAbs(targetX, targetY)
+}
+
+; 带速度的相对移动
+AhiMoveRSmooth(relX, relY, speed := 0) {
+    if (!InitAHI())
+        return false
+    relX := Integer(relX)
+    relY := Integer(relY)
+    if (speed <= 0 || speed >= 100)
+        return AhiMoveR(relX, relY)
+
+    dist := Sqrt(relX * relX + relY * relY)
+    if (dist < 2)
+        return AhiMoveR(relX, relY)
+
+    stepCount := Max(1, Round(dist * (100 - speed) / 1500))
+    stepDelay := Max(1, Round((100 - speed) / 10))
+    stepX := relX / stepCount
+    stepY := relY / stepCount
+    remainingX := relX
+    remainingY := relY
+
+    Loop Round(stepCount) - 1 {
+        sx := Round(stepX), sy := Round(stepY)
+        AhiMoveR(sx, sy)
+        remainingX -= sx
+        remainingY -= sy
+        Sleep(stepDelay)
+    }
+    return AhiMoveR(Round(remainingX), Round(remainingY))
+}
+
+; 兼容旧名
 AhiMouseMove(x, y, speed := 0) {
-    if (!InitAHI()) {
-        MouseMove(x, y, speed)
-        return
-    }
-
-    global AHI_Driver, AHI_MouseId
-    if (speed > 0) {
-        steps := Max(1, speed)
-        dx := x / steps
-        dy := y / steps
-        Loop steps {
-            AHI_Driver.SendMouseMoveRelative(AHI_MouseId, Round(dx), Round(dy))
-            Sleep(10)
-        }
-    } else {
-        AHI_Driver.SendMouseMoveRelative(AHI_MouseId, x, y)
-    }
+    return AhiMoveRSmooth(x, y, speed)
 }
 
-; 鼠标移动到绝对位置
 AhiMouseMoveTo(x, y) {
-    if (!InitAHI()) {
-        MouseMove(x, y)
-        return
-    }
-
-    global AHI_Driver, AHI_MouseId
-    AHI_Driver.MoveCursor(x, y, "Screen", AHI_MouseId)
+    return AhiMoveAbs(x, y)
 }
