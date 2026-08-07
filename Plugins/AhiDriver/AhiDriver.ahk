@@ -22,10 +22,127 @@ global AHI_MouseBtnMap := Map(
     "XButton2", 4    ; 侧键2 → BUTTON_5 (INTERCEPTION_MOUSE_BUTTON_5_DOWN = 0x100)
 )
 
+; AHI 安装目录（含 install.ps1 / 安装卸载.bat）
+GetAHIPluginDir() {
+    if (IsSet(AHIPluginDir) && DirExist(AHIPluginDir))
+        return AHIPluginDir
+    cand := A_WorkingDir "\Plugins\AHI"
+    if DirExist(cand)
+        return cand
+    cand := A_WorkingDir "\..\Plugins\AHI"
+    if DirExist(cand)
+        return cand
+    return A_WorkingDir "\Plugins\AHI"
+}
+
+; 读取文件 ProductName（用于判断 keyboard.sys / mouse.sys 是否为 Interception）
+GetFileProductName(path) {
+    if !FileExist(path)
+        return ""
+    size := DllCall("version\GetFileVersionInfoSizeW", "wstr", path, "uint*", 0)
+    if !size
+        return ""
+    buf := Buffer(size)
+    if !DllCall("version\GetFileVersionInfoW", "wstr", path, "uint", 0, "uint", size, "ptr", buf)
+        return ""
+    if !DllCall("version\VerQueryValueW", "ptr", buf, "wstr", "\VarFileInfo\Translation", "ptr*", &pTrans := 0, "uint*", &len := 0) || !pTrans
+        return ""
+    lang := Format("{:04X}{:04X}", NumGet(pTrans, 0, "UShort"), NumGet(pTrans, 2, "UShort"))
+    if !DllCall("version\VerQueryValueW", "ptr", buf, "wstr", "\StringFileInfo\" lang "\ProductName", "ptr*", &pName := 0, "uint*", &nLen := 0) || !pName
+        return ""
+    return StrGet(pName, "UTF-16")
+}
+
+; 是否已安装完整 Interception 驱动（文件 + UpperFilters 钩子）
+IsInterceptionInstalled() {
+    kbdSys := A_WinDir "\System32\drivers\keyboard.sys"
+    mouSys := A_WinDir "\System32\drivers\mouse.sys"
+    if (GetFileProductName(kbdSys) != "Interception" || GetFileProductName(mouSys) != "Interception")
+        return false
+
+    kbdClass := "{4D36E96B-E325-11CE-BFC1-08002BE10318}"
+    mouClass := "{4D36E96F-E325-11CE-BFC1-08002BE10318}"
+    try {
+        kbdFilters := RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Class\" kbdClass, "UpperFilters")
+        mouFilters := RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Class\" mouClass, "UpperFilters")
+    } catch {
+        return false
+    }
+    ; REG_MULTI_SZ 读出为换行分隔
+    hasKbd := false, hasMou := false
+    for part in StrSplit(kbdFilters, "`n", "`r") {
+        if (Trim(part) = "keyboard") {
+            hasKbd := true
+            break
+        }
+    }
+    for part in StrSplit(mouFilters, "`n", "`r") {
+        if (Trim(part) = "mouse") {
+            hasMou := true
+            break
+        }
+    }
+    return hasKbd && hasMou
+}
+
+; 未安装 Interception 时提示；返回 true 表示用户点了「自动安装」
+ShowInterceptionInstallTip() {
+    chosen := ""
+    tipText := GetLang("使用AHI需要安装interception") "`n`n"
+        . GetLang("（Plugins/AHI/安装卸载bat 可以手动操作）")
+
+    g := Gui("+AlwaysOnTop -MinimizeBox", GetLang("提示"))
+    try
+        g.SetFont("S10 W550 Q2", MainSoftData.FontType)
+    catch
+        g.SetFont("S10")
+    g.Add("Text", "x20 y18 w340 h60", tipText)
+    btnInstall := g.Add("Button", "x20 y90 w150 h30 Default", GetLang("自动安装"))
+    btnCancel := g.Add("Button", "x190 y90 w150 h30", GetLang("取消"))
+    btnInstall.OnEvent("Click", (*) => (chosen := "install", g.Destroy()))
+    btnCancel.OnEvent("Click", (*) => (chosen := "cancel", g.Destroy()))
+    g.OnEvent("Close", (*) => (chosen := "cancel", g.Destroy()))
+    g.Show("w380 h140 Center")
+    hwnd := g.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+
+    if (chosen != "install")
+        return false
+
+    ahiDir := GetAHIPluginDir()
+    installPs1 := ahiDir "\install.ps1"
+    if !FileExist(installPs1) {
+        MsgBox(GetLang("未找到 Interception 安装脚本") "`n" installPs1, GetLang("提示"), 48)
+        return false
+    }
+
+    ps := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    if !FileExist(ps)
+        ps := "powershell.exe"
+    cmd := Format('"{1}" -NoProfile -ExecutionPolicy Bypass -File "{2}" -Action install -NoPause', ps, installPs1)
+    exitCode := RunWait(cmd, ahiDir)
+    if (exitCode = 0) {
+        MsgBox(GetLang("Interception 安装完成，请立即重启电脑后再使用 AHI 按键类型"), GetLang("提示"), 64)
+    } else {
+        MsgBox(GetLang("Interception 安装失败，可手动运行 Plugins/AHI/安装卸载.bat"), GetLang("提示"), 48)
+    }
+    return true
+}
+
 ; 延迟初始化函数（首次使用时调用）
 InitAHI() {
+    static hasTipNoInterception := false
+
     if (IsObject(AHI_Driver)) {
         return true
+    }
+
+    if (!IsInterceptionInstalled()) {
+        if (!hasTipNoInterception) {
+            hasTipNoInterception := true
+            ShowInterceptionInstallTip()
+        }
+        return false
     }
 
     try {
@@ -37,11 +154,10 @@ InitAHI() {
             "❌ AHI 驱动加载失败！`n`n"
             "错误信息: " err.Message "`n`n"
             "请检查：`n"
-            "1. 是否已安装 Interception 驱动？`n"
-            "2. Plugins\AhiDriver\x64\interception.dll 是否存在？`n"
+            "1. 是否已安装 Interception 驱动并已重启？`n"
+            "2. Plugins\AhiDriver 下 interception.dll / AutoHotInterception.dll 是否存在？`n"
             "3. 是否以管理员权限运行？`n`n"
-            "驱动下载地址:`n"
-            "https://github.com/oblitum/Interception/releases",
+            "也可手动运行 Plugins\AHI\安装卸载.bat",
             "AHI 错误", 16
         )
         return false

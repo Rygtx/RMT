@@ -335,6 +335,11 @@ function New-Release {
         # 复制 AHK-XAML DLL
         Write-Log "复制 AHK-XAML DLL..." "Gray"
         Copy-XamlDlls -ReleaseDir $releaseDir
+
+        # 复制 AHI（Interception 安装包）与 AhiDriver
+        Write-Log "复制 AHI / AhiDriver..." "Gray"
+        Copy-AHI -ReleaseDir $releaseDir
+        Copy-AhiDriver -ReleaseDir $releaseDir
     }
 
     if ($Type -eq "x32" -or $Type -eq "both") {
@@ -386,6 +391,11 @@ function New-Release {
         # 复制 AHK-XAML DLL
         Write-Log "复制 AHK-XAML DLL..." "Gray"
         Copy-XamlDlls -ReleaseDir $releaseDir
+
+        # 复制 AHI（Interception 安装包）与 AhiDriver
+        Write-Log "复制 AHI / AhiDriver..." "Gray"
+        Copy-AHI -ReleaseDir $releaseDir
+        Copy-AhiDriver -ReleaseDir $releaseDir
     }
 
     Write-Section "创建发行包到桌面"
@@ -500,6 +510,67 @@ function Copy-XamlDlls {
         Write-Log "  已复制: AHK-XAML/lib/dep/WpfAnimatedGif/WpfAnimatedGif.dll" "Gray"
     } else {
         Write-Log "  [WARN] 未找到: AHK-XAML/lib/dep/WpfAnimatedGif/WpfAnimatedGif.dll" "Yellow"
+    }
+}
+
+function Copy-AHI {
+    param([string]$ReleaseDir)
+
+    $srcDir = Join-Path $PSScriptRoot "Plugins\AHI"
+    $dstDir = Join-Path $ReleaseDir "Plugins\AHI"
+
+    if (-not (Test-Path $srcDir)) {
+        Write-Log "  [WARN] AHI 源目录不存在: $srcDir" "Yellow"
+        return
+    }
+
+    if (Test-Path $dstDir) {
+        Remove-Item $dstDir -Recurse -Force
+    }
+    Copy-Item -Path $srcDir -Destination $dstDir -Recurse -Force
+    # 不把本机安装日志打进发行包
+    $logFile = Join-Path $dstDir "install-log.txt"
+    if (Test-Path $logFile) {
+        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
+    }
+    Write-Log "  已复制: Plugins/AHI" "Gray"
+}
+
+function Copy-AhiDriver {
+    param([string]$ReleaseDir)
+
+    $srcDir = Join-Path $PSScriptRoot "Plugins\AhiDriver"
+    $dstDir = Join-Path $ReleaseDir "Plugins\AhiDriver"
+
+    if (-not (Test-Path $srcDir)) {
+        Write-Log "  [WARN] AhiDriver 源目录不存在: $srcDir" "Yellow"
+        return
+    }
+
+    if (Test-Path $dstDir) {
+        Remove-Item $dstDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
+
+    # 运行时只需 DLL；ahk 源文件已编译进主程序/Worker
+    $files = @(
+        "AutoHotInterception.dll",
+        "x64\interception.dll",
+        "x86\interception.dll"
+    )
+    foreach ($rel in $files) {
+        $src = Join-Path $srcDir $rel
+        $dst = Join-Path $dstDir $rel
+        if (Test-Path $src) {
+            $parent = Split-Path $dst -Parent
+            if (-not (Test-Path $parent)) {
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            }
+            Copy-Item $src -Destination $dst -Force
+            Write-Log "  已复制: AhiDriver/$rel" "Gray"
+        } else {
+            Write-Log "  [WARN] 未找到: AhiDriver/$rel" "Yellow"
+        }
     }
 }
 

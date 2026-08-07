@@ -262,6 +262,11 @@ AddToolUI(index) {
     con := AddTableControl("Button", Format("x{} y{} w{}", posX + 120, posY - 3, 130), GetLang("打开监视器"), tableItem)
     con.OnEvent("Click", (*) => MyVarListenGui.ShowGui())
 
+    con := AddTableControl("Button", Format("x{} y{} w{}", posX + 400, posY - 3, 100), GetLang("文件校验"), tableItem)
+    con.OnEvent("Click", (*) => SelfCheckMissingFiles())
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 510, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickFileCheckHelpBtn)
+
     posY += 35
     AddTableControl("Text", Format("x{} y{}", posX + 20, posY), GetLang("鼠标信息："), tableItem)
 

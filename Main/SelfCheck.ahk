@@ -1,11 +1,6 @@
 #Requires AutoHotkey v2.0
 
 SelfCheckMissingFiles() {
-    static _done := false
-    if (_done)
-        return
-    _done := true
-
     version := RegExReplace(RMT_VERSION, "^(\d+\.\d+).*", "$1")
     arch := A_PtrSize == 8 ? "x64" : "x86"
     bitArch := A_PtrSize == 8 ? "64bit" : "32bit"
@@ -81,8 +76,10 @@ SelfCheckMissingFiles() {
         allMissing.Push(["Images\Soft\_ico_bundle", "ico.zip"])
 
     totalMissing := allMissing.Length
-    if (totalMissing == 0)
+    if (totalMissing == 0) {
+        MsgBox(GetLang("资源文件校验通过，未发现缺失文件"), GetLang("RMT 资源自检"), 64)
         return
+    }
 
     fileListStr := ""
     showCount := Min(allMissing.Length, 5)
@@ -185,7 +182,7 @@ SelfCheckMissingFiles() {
             }
         }
 
-        cancelMsg := "下载已取消。`n已成功下载 " successCount "/" total " 个文件。`n剩余文件将在下次启动时继续下载。"
+        cancelMsg := "下载已取消。`n已成功下载 " successCount "/" total " 个文件。`n可再次点击「文件校验」继续下载。"
         if (stillCritical)
             cancelMsg .= "`n`n存在关键文件未下载完成，软件可能无法正常工作。`n`n请在QQ群 837661891 或者项目仓库寻求帮助"
         MsgBox(cancelMsg, "RMT 资源自检", 64)

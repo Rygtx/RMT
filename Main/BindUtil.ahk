@@ -331,6 +331,16 @@ OnClickContinuousTriggerHelpBtn(*) {
     MsgBox(str, GetLang("连续触发说明"))
 }
 
+OnClickFileCheckHelpBtn(*) {
+    str1 := GetLang("文件校验：检查运行所需的插件、模型、图标、音频等资源文件是否齐全。")
+    str2 := GetLang("若发现缺失，可一键从 GitHub 资源仓库自动下载补全（需联网）。")
+    str3 := GetLang("适用场景：安装包不完整、杀毒误删、自行替换/删除插件文件后功能异常等。")
+    str4 := GetLang("提示：此检查不会在启动时自动执行，需要时在「工具」页手动点击「文件校验」。")
+
+    str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
+    MsgBox(str, GetLang("文件校验说明"))
+}
+
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr, MyUIMacroGui, MyWorkPool
     Gdip_Shutdown(MyPToken)
