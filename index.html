@@ -216,7 +216,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 <tr>
 <td>🎮 <strong>按键模拟方式</strong></td>
-<td>- <strong>AHK Send</strong>：通用方式，适合办公软件与大多数游戏（管理员权限可以让更多游戏有效）<br> - <strong>keybd_event</strong>：系统接口方式，适合老软件或游戏（需管理员权限）<br> - 罗技：调用 罗技驱动 模拟按键（需管理员权限并且运行过G HUB）。<br> ⚠️ Tip:罗技的鼠标功能需要使用旧G HUB版本（2022.2.1154及以前版本） <br> ⚠️ <em>keybd_event 与 罗技按键可作为触发键，切勿触发自身以避免死循环</em></td>
+<td>- <strong>AHK Send</strong>：通用方式，适合办公软件与大多数游戏（管理员权限可以让更多游戏有效）<br> - <strong>keybd_event</strong>：系统接口方式，适合老软件或游戏（需管理员权限）<br> - 罗技：调用罗技驱动模拟按键（需管理员权限，并使用 G HUB 2022.2.1154 及以前版本）。<br> ⚠️ Tip:罗技按键类型（含键盘与鼠标）仅支持 G HUB 2022.2.1154 及以前版本 <br> ⚠️ <em>keybd_event 与 罗技按键可作为触发键，切勿触发自身以避免死循环</em></td>
 </tr>
 <tr>
 <td>🚫 <strong>禁止宏</strong></td>
@@ -1248,12 +1248,12 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 <li>把若梦兔软件添加到安全软件的白名单中</li>
 </ol>
 <hr>
-<h2>鼠标按键无效</h2>
-<p>按键类型设置为罗技时，鼠标按键需要使用G HUB旧版本（2022.2.1154及以前版本）<br><strong>解决方法：</strong></p>
+<h2>罗技按键无效（键盘 / 鼠标）</h2>
+<p>按键类型设置为罗技时，键盘与鼠标功能均需使用 G HUB 2022.2.1154 及以前版本<br><strong>解决方法：</strong></p>
 <ul>
-<li>安装GHUB旧版本（群文件可以下载）</li>
-<li>运行禁用GHUB更新Bat（群文件可以下载）<blockquote>
-<p>提示：GHUB软件中禁用更新设置偶尔失效，如果GHUB更新，鼠标按键将无效</p>
+<li>安装 G HUB 旧版本（群文件可以下载）</li>
+<li>运行禁用 G HUB 更新 Bat（群文件可以下载）<blockquote>
+<p>提示：G HUB 软件中禁用更新设置偶尔失效；若被升级到新版本，罗技模式下键盘与鼠标功能均可能无效</p>
 </blockquote>
 </li>
 </ul>
@@ -2024,6 +2024,14 @@ ExecuteMacroCmdOnce (单条指令执行)
     <div class="page hidden" id="page6"><div class="content"><h1>更新日志</h1>
 <h2>RMTv2.0待更新内容</h2>
 <p><a href="https://github.com/owhs/ahk-xaml">https://github.com/owhs/ahk-xaml</a><br>ahk-xaml对Win7兼容，框架效率比webview更好<br>使用ahk-xaml替换当前ahkUI</p>
+<h2>RMTv1.2F22更新内容</h2>
+<h3>新增</h3>
+<p>开关选项新增「自动松开修饰键」（默认开启）：组合键触发宏前先松开修饰键，避免宏内按键被修饰键污染；支持 <code>Ctrl &amp; A</code> 等新格式<br>开关选项新增「连续触发」（默认开启）：关闭后，按下 / 开关 / 长按须先松开触发键才能再次触发</p>
+<h3>优化</h3>
+<p>罗技按键初始化：优先使用旧版 G HUB / LGS 的 <code>Logitech</code> 发送类型，失败再回退 <code>LogitechGHubNew</code>；初始化成功后再检测 G HUB / LGS 是否在运行，未运行时提示并支持一键运行本机 <code>lghub.exe</code><br>罗技相关提示文案统一：键盘与鼠标均需 G HUB 2022.2.1154 及以前版本<br>罗技模式滚轮改为调用 <code>IbSendMouseWheel</code>，提升上/下滚轮稳定性<br>罗技鼠标绝对移动（<code>MC_MoveAbs</code>）：改用 DLL <code>move_Abs</code>，并在跨屏/大位移时分片相对闭环修正<br>搜索 Pro 图片路径：存在同名用户变量则用变量值，否则按文本路径搜索；去掉强制「图片文件必须存在」校验<br>开关选项排列调整：开机自启 / 管理员启动 / 仅前台运行宏；自动松开修饰键 / 连续触发 / 无变量提醒；模态子窗口 / 分割线<br>窗口热键管理重构：区分全局热键与窗口级热键（<code>HotIfWinActive</code>）；宏编辑器等界面快捷键改为窗口级，失焦后不再全局占键（#248）<br>文件读写-读取 Excel「指定区域-行 / 指定区域-列」：终止行/列允许等于起始；须至少一侧终止大于起始（禁止单格）；单行或单列区域输出一维数组，行列均跨格时输出二维数组；完善防呆提示<br>数组跨进程同步：整串序列化保留嵌套结构，避免二维数组被压成一维</p>
+<h3>修复</h3>
+<p>修复宏复制粘贴时多个「移动Pro」等外部配置指令被分配成同一时间戳序列码的问题；粘贴改为走指令序号自增，避免互相覆盖<br>修复组合键「自动松开修饰键」对未按下的 RAlt（AltGr）发抬起，导致记录里出现幽灵 Ctrl 的问题<br>修复多 XAML 窗口同时打开时进程闪退（进程内宿主误杀自身 / 路径比对过严）<br>修复界面宏浮窗关闭后污染全局样式，导致其它 XAML 窗口无法再打开<br>修复界面宏右键关闭后仍自动弹出，以及标题栏菜单被浮窗顶住的问题<br>修复同键绑定下：禁用的菜单宏仍弹出轮盘、界面宏（macroType=3）被误当成菜单宏的问题；界面宏热键走统一触发绑定<br>修复开关触发、无限循环宏在无「间隔」紧凑指令（如连续搜索）时无法关闭；停止时强制结束对应 Worker 并重建<br>修复强制停止 Worker 后环缓冲已释放仍被读取导致的 Critical Error（Invalid memory read/write）<br>修复设置页数值编辑框输入过程中因空串/非数字直接 <code>Integer()</code> 报错</p>
+<hr>
 <h2>RMTv1.2F21更新内容</h2>
 <h3>新增</h3>
 <p>图形节点编辑器：如果 / 搜索 / 搜索Pro / 如果Pro 分支与循环体支持「内联展开」指令列表为可编辑节点，并可收缩回写</p>
