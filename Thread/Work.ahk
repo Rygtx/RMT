@@ -5,7 +5,7 @@
 #Include "..\Gui\CustomInputGui.ahk"
 #Include "..\Gui\InputBtnGui.ahk"
 #Include WorkUtil.ahk
-#Include WrokGlobalUtil.ahk
+#Include WorkGlobalUtil.ahk
 
 LoadMainSetting()           ;加载配置
 InitWorkFilePath()          ;初始化文件路径
