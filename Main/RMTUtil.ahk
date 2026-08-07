@@ -573,7 +573,7 @@ SetItemPauseState(tableIndex, itemIndex, state, excludeIdx := 0) {
     else if (LastColorState == 2 && state == 0)
         SetTableItemState(tableIndex, itemIndex, 1)
 
-    MyWorkPool.BroadcastEx(excludeIdx, "PauseState", tableIndex, itemIndex, state)
+    MyWorkPool.BroadcastEx(excludeIdx, "PS", tableIndex, itemIndex, state)
 }
 
 ;恢复意外退出残留的脏状态，后面要换成热重载就会要
