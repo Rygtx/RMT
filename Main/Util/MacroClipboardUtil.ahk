@@ -316,12 +316,14 @@ FindDependentSerials(dataObj) {
 ; ============================================================================
 
 ; 批量生成唯一的序列码（避免与现有配置及同批次内其他配置冲突）
+; 优先走 GetCMDSerialStr 自增，与新建「移动Pro」等指令一致；禁止同秒时间戳撞号
 GenerateUniqueSerialBatch(baseSerial, usedSerials) {
-    if (baseSerial == "") {
-        return "Item" A_Now
-    }
+    if (!IsObject(usedSerials))
+        usedSerials := Map()
 
-    ; 优化：使用单次遍历拆分（替代2次RegExReplace）
+    if (baseSerial == "")
+        return MakeUniqueSerialCandidate("Item", usedSerials)
+
     textOnly := ""
     numbersOnly := ""
     loop parse baseSerial {
@@ -331,41 +333,60 @@ GenerateUniqueSerialBatch(baseSerial, usedSerials) {
         else
             textOnly .= ch
     }
+    if (textOnly == "")
+        textOnly := "Item"
 
-    if (numbersOnly == "" || !IsNumber(numbersOnly)) {
-        baseSerial := textOnly "1"
-        textOnly := textOnly
+    ; 已知指令类型：直接用全局序号自增（移动Pro74/83/93 粘贴时各拿新号）
+    if (MySoftData.DataFileMap.Has(textOnly)) {
+        loop 1000 {
+            candidate := GetCMDSerialStr(textOnly)
+            if (!usedSerials.Has(candidate))
+                return candidate
+        }
+    }
+
+    if (numbersOnly == "" || !IsNumber(numbersOnly))
         numbersOnly := "1"
-    }
 
-    maxAttempt := 100
-    loop maxAttempt {
+    ; 若 SerialMap 已有该类型，从当前 CurNum 起跳，减少无效探测
+    if (IsSet(SerialMap) && SerialMap.Has(textOnly) && SerialMap[textOnly].CurNum > Integer(numbersOnly))
+        numbersOnly := String(SerialMap[textOnly].CurNum)
+
+    loop 10000 {
         candidate := textOnly numbersOnly
-
-        if (usedSerials.Has(candidate)) {
-            currentNum := Integer(numbersOnly)
-            numbersOnly := (currentNum + 1) ""
-            continue
+        if (!usedSerials.Has(candidate) && !SerialExistsInDataFile(textOnly, candidate)) {
+            try SetSerialByArr([candidate])
+            return candidate
         }
-
-        try {
-            cmd := RegExReplace(candidate, "\d+")
-            DataFile := MySoftData.DataFileMap[cmd]
-            if (DataFile != "") {
-                existingData := IniRead(DataFile, IniSection, candidate, "")
-                if (existingData != "") {
-                    currentNum := Integer(numbersOnly)
-                    numbersOnly := (currentNum + 1) ""
-                    continue
-                }
-            }
-        } catch as e {
-        }
-
-        return candidate
+        numbersOnly := String(Integer(numbersOnly) + 1)
     }
 
-    return textOnly A_Now
+    return MakeUniqueSerialCandidate(textOnly, usedSerials)
+}
+
+; 判断序列码是否已在对应配置文件中占用
+SerialExistsInDataFile(cmdType, serialStr) {
+    try {
+        if (!MySoftData.DataFileMap.Has(cmdType))
+            return false
+        DataFile := MySoftData.DataFileMap[cmdType]
+        if (DataFile == "" || !FileExist(DataFile))
+            return false
+        return IniRead(DataFile, IniSection, serialStr, "") != ""
+    } catch {
+        return false
+    }
+}
+
+; 兜底：时间戳+随机，并避开 usedSerials
+MakeUniqueSerialCandidate(textOnly, usedSerials) {
+    loop 1000 {
+        candidate := textOnly FormatTime(, "yyyyMMddHHmmss") Random(100, 999)
+        if (!usedSerials.Has(candidate) && !SerialExistsInDataFile(textOnly, candidate))
+            return candidate
+        Sleep(1)
+    }
+    return textOnly FormatTime(, "yyyyMMddHHmmss") Random(1000, 9999) A_TickCount
 }
 
 

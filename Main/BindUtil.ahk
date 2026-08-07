@@ -312,6 +312,25 @@ OnClickKeyDownDownHelpBtn(*) {
     MsgBox(str, GetLang("按下时按下说明"))
 }
 
+OnClickAutoLoosenModifierHelpBtn(*) {
+    str1 := GetLang("开启后：当触发键为「修饰键 + 普通键」（如 Ctrl + A）时，触发宏前会先松开修饰键，再执行宏逻辑。")
+    str2 := GetLang("这样可避免修饰键仍被按住，导致宏里发送的按键变成组合键（例如本意发 A，实际变成 Ctrl+A）。")
+    str3 := GetLang("关闭后：不自动松开修饰键，保持物理按键原样。")
+    str4 := GetLang("提示：触发键以 ~ 开头（穿透）时，不会自动松开修饰键。")
+
+    str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
+    MsgBox(str, GetLang("自动松开修饰键说明"))
+}
+
+OnClickContinuousTriggerHelpBtn(*) {
+    str1 := GetLang("开启后：按下、开关、长按类型在按住触发键期间可以连续触发。")
+    str2 := GetLang("关闭后：按下、开关、长按类型必须先松开触发键，才能再次触发。")
+    str3 := GetLang("提示：松开、松止、双击类型不受此选项影响。")
+
+    str := Format("{}`n{}`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("连续触发说明"))
+}
+
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr, MyUIMacroGui, MyWorkPool
     Gdip_Shutdown(MyPToken)

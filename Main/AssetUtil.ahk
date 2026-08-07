@@ -524,6 +524,8 @@ LoadMainSetting() {
     MainSoftData.CheckForeground := IniRead(IniFile, IniSection, "CheckForeground", false)
     MainSoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 3)
     MainSoftData.KeyDownDownType := IniRead(IniFile, IniSection, "KeyDownDown", 1)
+    MainSoftData.AutoLoosenModifier := !!IniRead(IniFile, IniSection, "AutoLoosenModifier", true)
+    MainSoftData.ContinuousTrigger := !!IniRead(IniFile, IniSection, "ContinuousTrigger", true)
     MainSoftData.AgreeAgreement := IniRead(IniFile, IniSection, "AgreeAgreement", false)
     MySoftData.WinPosX := IniRead(IniFile, IniSection, "WinPosX", 0)
     MySoftData.WinPosY := IniRead(IniFile, IniSection, "WinPosY", 0)
@@ -1498,11 +1500,73 @@ IsComboKey(keyCombo) {
     return InStr(keyCombo, " & ")
 }
 
+; 是否为修饰键名（含左右侧）
+IsModifierKeyName(keyName) {
+    static ModMap := Map(
+        "Ctrl", 1, "LCtrl", 1, "RCtrl", 1, "Control", 1, "LControl", 1, "RControl", 1,
+        "Alt", 1, "LAlt", 1, "RAlt", 1,
+        "Shift", 1, "LShift", 1, "RShift", 1,
+        "Win", 1, "LWin", 1, "RWin", 1)
+    return ModMap.Has(keyName)
+}
+
+; 模拟松开指定按键
+ReleaseKeyByName(key) {
+    if (key == "" || key == "None")
+        return
+    ; 泛化 Ctrl/Alt/Shift/Win：映射到左右键，但只松开实际按下的一侧
+    ; 注意：不可对未按下的 RAlt 发 KEYUP——RAlt(AltGr) 在许多布局下等价于 Ctrl+Alt，会冒出幽灵 Ctrl
+    keys := []
+    switch key {
+        case "Ctrl", "Control":
+            keys := ["LCtrl", "RCtrl"]
+        case "LControl":
+            keys := ["LCtrl"]
+        case "RControl":
+            keys := ["RCtrl"]
+        case "Alt":
+            keys := ["LAlt", "RAlt"]
+        case "Shift":
+            keys := ["LShift", "RShift"]
+        case "Win":
+            keys := ["LWin", "RWin"]
+        default:
+            keys := [key]
+    }
+    for k in keys {
+        if (!GetKeyState(k, "P"))
+            continue
+        try {
+            VK := GetKeyVK(k)
+            SC := GetKeySC(k)
+            flags := 0x2  ; KEYEVENTF_KEYUP
+            if (k == "RAlt" || k == "RCtrl")
+                flags |= 0x1  ; KEYEVENTF_EXTENDEDKEY
+            DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", flags, "UPtr", 0)
+        }
+    }
+}
+
+; 触发宏前松开组合键中的修饰键（支持 ^a 与 Ctrl & A 两种格式）
 LoosenModifyKey(keyCombo) {
+    keyCombo := Trim(String(keyCombo))
+    keyCombo := LTrim(keyCombo, "~")
+    if (keyCombo == "")
+        return
+
+    ; 新格式：Ctrl & A / LShift & F1
+    if (InStr(keyCombo, " & ")) {
+        for part in StrSplit(keyCombo, " & ") {
+            name := LTrim(Trim(part), "~")
+            if (IsModifierKeyName(name))
+                ReleaseKeyByName(name)
+        }
+        return
+    }
+
+    ; 旧格式：^a / <+!b
     modifiers := []
     modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]
-
-    ; 检查是否以修饰键开头
     loop {
         hasAdd := false
         for prefix in modPrefixes {
@@ -1517,50 +1581,63 @@ LoosenModifyKey(keyCombo) {
             break
     }
 
-    ; 检查所有修饰键是否按下
     for mod in modifiers {
         key := ""
         switch mod {
-            case "^":
-                key := "Ctrl"
-            case "<^":
-                key := "LCtrl"
-            case ">^":
-                key := "RCtrl"
-            case "!":
-                key := "Alt"
-            case "<!":
-                key := "LAlt"
-            case ">!":
-                key := "RAlt"
-            case "+":
-                key := "Shift"
-            case "<+":
-                key := "LShift"
-            case ">+":
-                key := "RShift"
-            case "#":
-                key := "Win"
-            case "<#":
-                key := "LWin"
-            case ">#":
-                key := "RWin"
+            case "^": key := "Ctrl"
+            case "<^": key := "LCtrl"
+            case ">^": key := "RCtrl"
+            case "!": key := "Alt"
+            case "<!": key := "LAlt"
+            case ">!": key := "RAlt"
+            case "+": key := "Shift"
+            case "<+": key := "LShift"
+            case ">+": key := "RShift"
+            case "#": key := "Win"
+            case "<#": key := "LWin"
+            case ">#": key := "RWin"
         }
-        if (key != "") {
-            VK := GetKeyVK(key)
-            SC := GetKeySC(key)
-            DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", 0x2, "UPtr", 0)
-        }
+        if (key != "")
+            ReleaseKeyByName(key)
     }
+}
 
+; 检查单个物理键是否按下（含手柄键）
+IsPhysicalKeyPressed(mainKey) {
+    mainKey := LTrim(Trim(mainKey), "~")
+    if (mainKey == "")
+        return true
+
+    isJoyKey := RegExMatch(mainKey, "Joy")
+    if (isJoyKey) {
+        isJoyAxis := RegExMatch(mainKey, "Min") || RegExMatch(mainKey, "Max")
+        joyName := isJoyAxis ? SubStr(mainKey, 1, 4) : mainKey
+        loop 4 {
+            if (GetKeyState(A_Index joyName))
+                return true
+        }
+        return false
+    }
+    return !!GetKeyState(mainKey, "P")
 }
 
 AreKeysPressed(keyCombo) {
-    ; 初始化存储修饰键的数组
+    keyCombo := LTrim(Trim(String(keyCombo)), "~")
+    if (keyCombo == "")
+        return false
+
+    ; 新格式：Ctrl & A
+    if (InStr(keyCombo, " & ")) {
+        for part in StrSplit(keyCombo, " & ") {
+            if (!IsPhysicalKeyPressed(part))
+                return false
+        }
+        return true
+    }
+
+    ; 旧格式：^a / <+!b
     modifiers := []
     modPrefixes := ["^", "<^", ">^", "!", "<!", ">!", "+", "<+", ">+", "#", "<#", ">#"]
-
-    ; 检查是否以修饰键开头
     loop {
         hasAdd := false
         for prefix in modPrefixes {
@@ -1575,10 +1652,7 @@ AreKeysPressed(keyCombo) {
             break
     }
 
-    ; 剩余部分是主键
     mainKey := keyCombo
-
-    ; 检查所有修饰键是否按下
     for mod in modifiers {
         switch mod {
             case "^": if (!GetKeyState("Ctrl"))
@@ -1587,7 +1661,6 @@ AreKeysPressed(keyCombo) {
                 return false
             case ">^": if !GetKeyState("RCtrl")
                 return false
-
             case "!": if !(GetKeyState("Alt"))
                 return false
             case "<!": if !GetKeyState("LAlt")
@@ -1606,30 +1679,13 @@ AreKeysPressed(keyCombo) {
                 return false
             case ">#": if !GetKeyState("RWin")
                 return false
-
-            default: return false  ; 未知修饰键
+            default: return false
         }
     }
 
-    isJoyKey := RegExMatch(mainKey, "Joy")
-    if (mainKey == "") {
+    if (mainKey == "")
         return true
-    }
-    if (isJoyKey) {
-        isJoyAxis := RegExMatch(mainKey, "Min") || RegExMatch(mainKey, "Max")
-        joyName := isJoyAxis ? SubStr(mainKey, 1, 4) : mainKey
-
-        loop 4 {
-            state := GetKeyState(A_Index joyName)
-            if (state)
-                return true
-        }
-    }
-    else if (GetKeyState(mainKey, "P")) {  ; 检查主键（如果有）
-        return true
-    }
-
-    return false
+    return IsPhysicalKeyPressed(mainKey)
 }
 
 GetRecordTriggerKeyMap() {

@@ -20,6 +20,7 @@ class TriggerKeyData {
 
         this.LastKeyDownTime := 0  ;上次按下时间（用于双击检测）
         this.DblClickInterval := 300  ;双击间隔时间（毫秒）
+        this.NeedReleaseBeforeRetrigger := false  ; 连续触发关闭时：需先松开才能再次触发
 
         ; 缓存相关字段（性能优化）
         this.cacheTime := 0          ;上次更新缓存的时间戳
@@ -104,10 +105,14 @@ class TriggerKeyData {
         isDblClick := (currentTime - this.LastKeyDownTime) <= this.DblClickInterval && this.LastKeyDownTime != 0
         this.LastKeyDownTime := currentTime
 
-        for index, value in this.DownArr {
-            if (index == 1 && SubStr(value.GetTK(), 1, 1) != "~")
-                LoosenModifyKey(value.GetTK())
+        ; 连续触发关闭时：按下/开关/长按需先松开触发键才能再次触发
+        blockRetrigger := !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
 
+        for index, value in this.DownArr {
+            if (blockRetrigger)
+                continue
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
             value.Action()
         }
 
@@ -116,6 +121,10 @@ class TriggerKeyData {
         }
 
         for index, value in this.TogArr {
+            if (blockRetrigger)
+                continue
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
             value.Action()
         }
 
@@ -126,11 +135,17 @@ class TriggerKeyData {
             }
         }
 
-        this.SetHoldTimeChecker()
+        if (!blockRetrigger)
+            this.SetHoldTimeChecker()
+
+        if (!MainSoftData.ContinuousTrigger
+            && (this.DownArr.Length > 0 || this.TogArr.Length > 0 || this.HoldArr.Length > 0))
+            this.NeedReleaseBeforeRetrigger := true
     }
 
     OnTriggerKeyUp() {
         this.UpdataArr()
+        this.NeedReleaseBeforeRetrigger := false
 
         for index, value in this.LoosenArr {
             value.Action()
@@ -181,8 +196,13 @@ class TriggerKeyData {
                 keyCombo := joyMap[keyCombo]
         }
 
-        if (AreKeysPressed(keyCombo))
+        if (AreKeysPressed(keyCombo)) {
+            if (MainSoftData.AutoLoosenModifier && SubStr(info.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(info.GetTK())
             info.Action()
+            if (!MainSoftData.ContinuousTrigger)
+                this.NeedReleaseBeforeRetrigger := true
+        }
     }
 }
 

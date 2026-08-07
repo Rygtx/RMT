@@ -449,7 +449,7 @@ AddSettingUI(index) {
     con.OnEvent("Change", (ctrl, info) => MainSoftData.SoftBGColor := ctrl.Value)
 
     posY += 40
-    con := AddTableControl("GroupBox", Format("x{} y{} w890 h110", posX + 10, posY), GetLang("开关选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h150", posX + 10, posY), GetLang("开关选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
     posY += 30
@@ -470,17 +470,30 @@ AddSettingUI(index) {
     Con.OnEvent("Click", OnClickCheckForegroundHelpBtn)
 
     posY += 40
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("无变量提醒"), tableItem)
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("自动松开修饰键"), tableItem)
+    con.Value := MainSoftData.AutoLoosenModifier
+    con.OnEvent("Click", (ctrl, info) => MainSoftData.AutoLoosenModifier := !!ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 155, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickAutoLoosenModifierHelpBtn)
+
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("连续触发"), tableItem)
+    con.Value := MainSoftData.ContinuousTrigger
+    con.OnEvent("Click", (ctrl, info) => MainSoftData.ContinuousTrigger := !!ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 400, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickContinuousTriggerHelpBtn)
+
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("无变量提醒"), tableItem)
     con.Value := MainSoftData.NoVariableTip
     con.OnEvent("Click", (ctrl, info) => MainSoftData.NoVariableTip := ctrl.Value)
 
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("模态子窗口"), tableItem)
+    posY += 40
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 25, posY), GetLang("模态子窗口"), tableItem)
     con.Value := MainSoftData.IsModalSubGui
     con.OnEvent("Click", (ctrl, info) => MainSoftData.IsModalSubGui := ctrl.Value)
-    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 415, posY - 5), "?", tableItem)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 125, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickModalSubGuiHelpBtn)
 
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("分割线"), tableItem)
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 315, posY), GetLang("分割线"), tableItem)
     con.Value := MainSoftData.ShowSplitLine
     con.OnEvent("Click", (ctrl, info) => MainSoftData.ShowSplitLine := ctrl.Value)
 

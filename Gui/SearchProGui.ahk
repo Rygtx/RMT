@@ -679,11 +679,6 @@ class SearchProGui {
             MsgBox(GetLang("这条指令不完整，请删除"))
             return false
         }
-
-        if (this.Data.SearchImagePath != "" && !FileExist(this.Data.SearchImagePath)) {
-            MsgBox(Format(GetLang("{} 图片不存在`n如果是软件位置发生改变，请点击若梦兔-配置管理-配置校准"), this.Data.SearchImagePath))
-            return false
-        }
         return true
     }
 
@@ -720,7 +715,8 @@ class SearchProGui {
 
         if (isImage) {
             if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text)
-            && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)) {
+            && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)
+            && this.Data.SearchImagePath != "" && FileExist(this.Data.SearchImagePath)) {
                 searchWidth := this.EndPosXCon.Text - this.StartPosXCon.Text
                 searchHeight := this.EndPosYCon.Text - this.StartPosYCon.Text
                 size := GetImageSize(this.Data.SearchImagePath)

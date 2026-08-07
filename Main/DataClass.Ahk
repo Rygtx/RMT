@@ -169,6 +169,8 @@ class MainConfig {
 
         ; ========== 按键选项 ==========
         this.KeyDownDownType := 1       ; 按下时按下处理 (1=自动松开, 2=忽略重复按下, 3=允许重复按下)
+        this.AutoLoosenModifier := true ; 组合键触发前自动松开修饰键
+        this.ContinuousTrigger := true  ; 按住触发键可连续触发（关则需松开后再触发）
 
         ; ========== 屏幕截图 ==========
         this.ScreenShotType := 3        ; 截图方式 (1=微软截图, 2=RMT截图, 3=SC截图)

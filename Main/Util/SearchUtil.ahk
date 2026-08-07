@@ -8,6 +8,37 @@ SearchOnTrigger(tableItem, cmdStr, index) {
     return SearchExecute(tableItem, Data, index)
 }
 
+; 搜索图片路径解析：存在同名用户变量 → 用变量值；否则把配置文本当作路径
+ResolveSearchImagePath(tableItem, index, pathText) {
+    pathText := Trim(String(pathText))
+    if (pathText == "")
+        return ""
+
+    resolved := ""
+    if (TryGetUserDefinedVarValue(&resolved, tableItem, index, pathText))
+        return Trim(String(resolved))
+    return pathText
+}
+
+; 仅查用户定义变量（局部/全局），不含数字、内置变量等特殊解析
+TryGetUserDefinedVarValue(&Value, tableItem, index, varName) {
+    varName := Trim(String(varName))
+    if (varName == "")
+        return false
+    if (IsObject(tableItem) && tableItem.VariableMapArr.Length >= index) {
+        TableVariableMap := tableItem.VariableMapArr[index]
+        if (TableVariableMap.Has(varName)) {
+            Value := TableVariableMap[varName]
+            return true
+        }
+    }
+    if (MySoftData.VariableMap.Has(varName)) {
+        Value := MySoftData.VariableMap[varName]
+        return true
+    }
+    return false
+}
+
 SearchExecute(tableItem, Data, index) {
     if (Data.SearchCount == -1) {
         WaitIfPaused(tableItem, index)
@@ -62,11 +93,8 @@ SearchOnce(tableItem, Data, index) {
     Text := Data.SearchText
     TryGetTabVarValue(&Text, tableItem, index, Data.SearchText, false)
 
-    ; 执行搜索
-    ImagePath := GetReplaceVarText(tableItem, index, Data.SearchImagePath)
-    if (!ValidateCmdPath(&Data, "SearchImagePath", GetLang("选择搜索图片"), "PNG Files (*.png)", tableItem, index))
-        return false
-    ImagePath := Data.SearchImagePath
+    ; 图片路径：若存在同名用户变量则用变量值，否则按文本路径使用（不做 {var} 优先替换，也不强制 FileExist）
+    ImagePath := ResolveSearchImagePath(tableItem, index, Data.SearchImagePath)
     ResXList := [], ResYList := [], ResHwndList := []
     found := DoSearch(Data, X1, Y1, X2, Y2, Text, ImagePath, &ResX, &ResY, &ResXList, &ResYList, &ResHwndList)
 

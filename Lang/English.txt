@@ -407,6 +407,17 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 开关=Switch
 开关      变量名=Switch      Var Name
 开关选项=Toggle Options
+自动松开修饰键=Auto Release Modifiers
+连续触发=Continuous Trigger
+自动松开修饰键说明=Auto Release Modifiers Help
+连续触发说明=Continuous Trigger Help
+开启后：当触发键为「修饰键 + 普通键」（如 Ctrl + A）时，触发宏前会先松开修饰键，再执行宏逻辑。=When on: for modifier+key triggers (e.g. Ctrl+A), release modifiers before running the macro.
+这样可避免修饰键仍被按住，导致宏里发送的按键变成组合键（例如本意发 A，实际变成 Ctrl+A）。=Prevents held modifiers from turning macro keys into combos (e.g. intended A becomes Ctrl+A).
+关闭后：不自动松开修饰键，保持物理按键原样。=When off: keep physical modifier state unchanged.
+提示：触发键以 ~ 开头（穿透）时，不会自动松开修饰键。=Note: triggers starting with ~ (passthrough) will not auto-release modifiers.
+开启后：按下、开关、长按类型在按住触发键期间可以连续触发。=When on: Press/Toggle/Hold can retrigger while the trigger key is held.
+关闭后：按下、开关、长按类型必须先松开触发键，才能再次触发。=When off: Press/Toggle/Hold require releasing the trigger key before retriggering.
+提示：松开、松止、双击类型不受此选项影响。=Note: Release / Release-Stop / Double-click are unaffected.
 功能选项=Feature Options
 首选编辑器=Preferred Editor
 图形节点=Graph Node

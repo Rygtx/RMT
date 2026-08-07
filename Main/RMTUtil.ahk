@@ -68,6 +68,8 @@ OnSaveSetting(*) {
     CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
     CheckAndAddDirty("ScreenShotType", MainSoftData.ScreenShotType)
     CheckAndAddDirty("KeyDownDown", MainSoftData.KeyDownDownType)
+    CheckAndAddDirty("AutoLoosenModifier", MainSoftData.AutoLoosenModifier ? 1 : 0)
+    CheckAndAddDirty("ContinuousTrigger", MainSoftData.ContinuousTrigger ? 1 : 0)
     CheckAndAddDirty("Theme", MainSoftData.Theme)
 
     ; 工具设置
