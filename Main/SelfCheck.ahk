@@ -1,6 +1,13 @@
 #Requires AutoHotkey v2.0
 
 SelfCheckMissingFiles() {
+    ; 带 F 后缀的测试版（如 1.2F23）无对应资源 tag，不提供自动下载
+    if (RegExMatch(RMT_VERSION, "i)\d+\.\d+F")) {
+        MsgBox(GetLang("带 F 后缀的测试版本不支持文件校验自动下载") "`n"
+            . GetLang("资源仓库仅对应正式版本 tag（如 v1.2_x64）"), GetLang("RMT 资源自检"), 64)
+        return
+    }
+
     version := RegExReplace(RMT_VERSION, "^(\d+\.\d+).*", "$1")
     arch := A_PtrSize == 8 ? "x64" : "x86"
     bitArch := A_PtrSize == 8 ? "64bit" : "32bit"

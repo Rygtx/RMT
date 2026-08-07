@@ -336,8 +336,9 @@ OnClickFileCheckHelpBtn(*) {
     str2 := GetLang("若发现缺失，可一键从 GitHub 资源仓库自动下载补全（需联网）。")
     str3 := GetLang("适用场景：安装包不完整、杀毒误删、自行替换/删除插件文件后功能异常等。")
     str4 := GetLang("提示：此检查不会在启动时自动执行，需要时在「工具」页手动点击「文件校验」。")
+    str5 := GetLang("注意：带 F 后缀的测试版本此功能不会生效（资源仓库仅对应正式版本 tag）。")
 
-    str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
+    str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
     MsgBox(str, GetLang("文件校验说明"))
 }
 
