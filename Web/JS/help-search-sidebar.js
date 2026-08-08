@@ -15,19 +15,22 @@
   const pageHTML = pages.map(page => page.innerHTML);
   const pageData = pages.map((page, index) => {
     const titleEl = page.querySelector('h1,h2,h3');
-    const tabText = tabs[index] ? tabs[index].textContent.replace(/\s+/g, ' ').trim() : '';
+    const tab = tabs.find(t => Number(t.dataset.index) === index) || tabs[index];
+    const tabText = tab ? tab.textContent.replace(/\s+/g, ' ').trim() : '';
+    const route = page.dataset.route || '';
+    const group = page.dataset.group || '';
     const title = (titleEl ? titleEl.textContent : tabText || `第 ${index + 1} 页`).replace(/\s+/g, ' ').trim();
     const text = page.textContent.replace(/\s+/g, ' ').trim();
-    const searchable = !(/更新日志|开发指南/.test(tabText));
-    const shortTitle = tabText.includes(' ') ? tabText.slice(tabText.indexOf(' ') + 1).trim() : title;
+    const searchable = !(/更新日志|开发指南/.test(route) || /更新日志|开发指南/.test(group) || /更新日志|开发指南/.test(tabText));
+    const shortTitle = group ? `${group} / ${tabText || title}` : (tabText || title);
     return { index, title, shortTitle, text, lowerText: text.toLowerCase(), searchable };
   });
+  // 已拆分页：整页作为一条结果；未拆分的整页文档仍按 h2 分段
   const pageSectionInfo = pages.map((page) => {
     const contentEl = page.querySelector('.content');
     if (!contentEl) return { h1Range: null, sections: [] };
     const fullText = contentEl.textContent.replace(/\s+/g, ' ').trim();
     const h1El = contentEl.querySelector('h1');
-    const h2Elements = Array.from(contentEl.querySelectorAll('h2'));
     let h1Range = null;
     let searchOffset = 0;
     if (h1El) {
@@ -38,6 +41,22 @@
         searchOffset = h1Range.end;
       }
     }
+
+    // 侧栏子页（有 data-group）已按二级标题拆分，不再按页内 h2 聚合
+    if (page.dataset.group) {
+      const heading = (h1El ? h1El.textContent : page.dataset.route || '').replace(/\s+/g, ' ').trim();
+      return {
+        h1Range,
+        sections: [{
+          heading,
+          headingStart: h1Range ? h1Range.start : 0,
+          headingEnd: h1Range ? h1Range.end : 0,
+          sectionEnd: fullText.length
+        }]
+      };
+    }
+
+    const h2Elements = Array.from(contentEl.querySelectorAll('h2'));
     const sections = [];
     h2Elements.forEach((h2, i) => {
       const h2Text = h2.textContent.replace(/\s+/g, ' ').trim();
@@ -82,20 +101,22 @@
 
   function buildOutline() {
     if (!outlineBox || !pages[activePageIndex]) return;
-    const headings = Array.from(pages[activePageIndex].querySelectorAll('.content h2'))
+    // 拆分子页后正文多为 h3，整页文档仍以 h2 为主
+    const headings = Array.from(pages[activePageIndex].querySelectorAll('.content h2, .content h3'))
       .filter(heading => heading.textContent.trim());
     outlineBox.innerHTML = '';
+    // 没有可跳转标题时整块隐藏，不占右侧空间
+    if (!headings.length) {
+      outlineBox.hidden = true;
+      outlineBox.classList.add('is-empty');
+      return;
+    }
+    outlineBox.hidden = false;
+    outlineBox.classList.remove('is-empty');
     const title = document.createElement('div');
     title.className = 'outline-title';
     title.textContent = '目录大纲';
     outlineBox.appendChild(title);
-    if (!headings.length) {
-      const empty = document.createElement('div');
-      empty.className = 'outline-empty';
-      empty.textContent = '当前页面没有可跳转标题';
-      outlineBox.appendChild(empty);
-      return;
-    }
     headings.forEach((heading, index) => {
       const level = heading.tagName.toLowerCase();
       const text = heading.textContent.replace(/\s+/g, ' ').trim();
@@ -231,6 +252,17 @@
     return query && !searchConfig.error ? searchConfig : null;
   }
 
+  function findTabByIndex(index) {
+    return tabs.find(tab => Number(tab.dataset.index) === index) || null;
+  }
+
+  function expandGroupForPage(index) {
+    const group = pages[index] && pages[index].dataset.group;
+    if (group && typeof window.expandNavGroup === 'function') {
+      window.expandNavGroup(group, true);
+    }
+  }
+
   function switchPageSilently(index, activeMatchIndex = -1) {
     if (!pages[index]) return;
     const samePage = index === activePageIndex;
@@ -240,7 +272,9 @@
       pages.forEach(page => page.classList.add('hidden'));
       tabs.forEach(tab => tab.classList.remove('active'));
       pages[index].classList.remove('hidden');
-      if (tabs[index]) tabs[index].classList.add('active');
+      const tab = findTabByIndex(index);
+      if (tab) tab.classList.add('active');
+      expandGroupForPage(index);
     }
     const searchConfig = getActiveSearchConfig();
     if (searchConfig) {
@@ -257,23 +291,29 @@
     buildOutline();
   }
 
+  function closeSearchResults(statusText) {
+    resultsBox.classList.remove('visible');
+    if (statusText) statusBox.textContent = statusText;
+  }
+
   function goToResult(result, isPreview) {
     focusedResult = { pageIndex: result.pageIndex, pageMatchIndex: result.pageMatchIndex };
     if (isPreview) {
       switchPageSilently(result.pageIndex, result.pageMatchIndex);
-    } else if (result.pageIndex === activePageIndex) {
-      const marks = pages[result.pageIndex].querySelectorAll('mark.doc-search-mark');
-      marks.forEach(m => m.classList.remove('doc-search-active-mark'));
-      if (result.pageMatchIndex >= 0 && result.pageMatchIndex < marks.length) {
-        marks[result.pageMatchIndex].classList.add('doc-search-active-mark');
-      }
-      buildOutline();
     } else {
+      // 正式跳转必须走 showPage，确保只显示对应分页并展开侧栏
       suppressPreviewCancel = false;
+      previewState = null;
       window.showPage(result.pageIndex);
+      expandGroupForPage(result.pageIndex);
+      const tab = findTabByIndex(result.pageIndex);
+      if (tab && typeof tab.scrollIntoView === 'function') {
+        tab.scrollIntoView({ block: 'nearest' });
+      }
+      closeSearchResults(`已定位：${result.title}`);
     }
-    focusedResult = null;
     scrollToMatch(result.pageIndex, result.pageMatchIndex, isPreview);
+    if (!isPreview) focusedResult = null;
   }
 
   function isSameResult(a, b) {
@@ -409,7 +449,9 @@
       item.type = 'button';
       item.className = 'search-result-item';
       const cleanHeading = result.sectionHeading ? result.sectionHeading.replace(/^RMT（若梦兔）[-—–]?\s*/, '') : '';
-      const headingLabel = cleanHeading ? ` - ${escapeHTML(cleanHeading)}` : '';
+      // 拆分子页的标题已在 result.title 中，避免重复拼接
+      const titleAlreadyHasHeading = cleanHeading && result.title.includes(cleanHeading);
+      const headingLabel = cleanHeading && !titleAlreadyHasHeading ? ` - ${escapeHTML(cleanHeading)}` : '';
       const badge = result.isHeadingMatch ? ' <span class="search-badge">标题匹配</span>' : '';
       item.innerHTML = `<div class="search-result-title">${escapeHTML(result.title)}${headingLabel}${badge}</div><div class="search-result-snippet">${makeSnippet(result.text, result.matchIndex, result.matchText)}</div>`;
       item.addEventListener('mouseenter', () => startPreview(result));
@@ -418,7 +460,8 @@
       item.addEventListener('blur', endPreview);
       item.addEventListener('click', () => {
         clearPreviewTimer();
-        if (commitPreview(result)) return;
+        // 无论是否处于预览，点击都正式跳到对应分页（不再停留在连续预览态）
+        commitPreview(result);
         previewState = null;
         goToResult(result, false);
       });

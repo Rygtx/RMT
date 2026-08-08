@@ -252,18 +252,22 @@ function Pack-HelpDoc {
     Write-Log "Node.js $(node -v) 打包中..." "Gray"
     Push-Location $WebDir
     try {
-        $null = Start-Process -FilePath "node" -ArgumentList "SingleHtml.js" -NoNewWindow -Wait -PassThru
+        $proc = Start-Process -FilePath "node" -ArgumentList "SingleHtml.js" -NoNewWindow -Wait -PassThru
+        if ($proc.ExitCode -ne 0) {
+            Write-Log "  [ERROR] SingleHtml.js 退出码: $($proc.ExitCode)" "Red"
+        }
     }
     finally { Pop-Location }
 
-    $OutputFile = Join-Path $PSScriptRoot "index.html"
-    if (Test-Path $OutputFile) {
-        $size = [math]::Round((Get-Item $OutputFile).Length / 1MB, 2)
-        Write-Log "[OK] 帮助文档打包成功 (${size} MB)" "Green"
-        return $true
+    $indexHtml = Join-Path $PSScriptRoot "index.html"
+    if (-not (Test-Path $indexHtml)) {
+        Write-Log "帮助文档打包失败：未生成 index.html" "Red"
+        return $false
     }
-    Write-Log "帮助文档打包失败" "Red"
-    return $false
+
+    $size = [math]::Round((Get-Item $indexHtml).Length / 1MB, 2)
+    Write-Log "[OK] 帮助文档打包成功 (${size} MB)：index.html" "Green"
+    return $true
 }
 
 # ============================================================
@@ -308,12 +312,8 @@ function New-Release {
         }
         Copy-Item -Path "$PSScriptRoot\Images" -Destination "$releaseDir\Images" -Force -Recurse -ErrorAction SilentlyContinue
 
-        # 复制帮助文档（index.html）
-        $helpSrc = Join-Path $PSScriptRoot "index.html"
-        if (Test-Path $helpSrc) {
-            Copy-Item $helpSrc -Destination (Join-Path $releaseDir "index.html") -Force
-            Write-Log "  已复制: index.html" "Gray"
-        }
+        # 复制帮助文档
+        Copy-HelpDocs -ReleaseDir $releaseDir
 
         # 删除旧 Work.exe
         Remove-OldFiles -Dir $releaseThread -Filter "Work.exe"
@@ -368,12 +368,8 @@ function New-Release {
         }
         Copy-Item -Path "$PSScriptRoot\Images" -Destination "$releaseDir\Images" -Force -Recurse -ErrorAction SilentlyContinue
 
-        # 复制帮助文档（index.html）
-        $helpSrc = Join-Path $PSScriptRoot "index.html"
-        if (Test-Path $helpSrc) {
-            Copy-Item $helpSrc -Destination (Join-Path $releaseDir "index.html") -Force
-            Write-Log "  已复制: index.html" "Gray"
-        }
+        # 复制帮助文档
+        Copy-HelpDocs -ReleaseDir $releaseDir
 
         # 删除旧 Work.exe
         Remove-OldFiles -Dir $releaseThread -Filter "Work.exe"
@@ -469,6 +465,18 @@ function New-Release {
         Write-Log "to $rmtReleaseDir\RMTv${version}_x32.zip" "White"
     }
     return $true
+}
+
+function Copy-HelpDocs {
+    param([string]$ReleaseDir)
+
+    $src = Join-Path $PSScriptRoot "index.html"
+    if (Test-Path $src) {
+        Copy-Item $src -Destination (Join-Path $ReleaseDir "index.html") -Force
+        Write-Log "  已复制: index.html" "Gray"
+    } else {
+        Write-Log "  [WARN] 未找到帮助文档: index.html" "Yellow"
+    }
 }
 
 function Copy-OpenCV {

@@ -126,11 +126,11 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 <tr>
 <td>🔄 <strong>重载</strong></td>
-<td>重新加载当前配置，撤销未保存的修改。</td>
+<td>重新加载当前配置，撤销未保存的修改（图形节点编辑器中的修改不会撤销）。</td>
 </tr>
 <tr>
 <td>💾 <strong>应用并保存</strong></td>
-<td>保存并立即应用所有修改，未点击前修改配置不会生效。</td>
+<td>保存并立即应用所有修改；未点击前，修改的配置不会生效。</td>
 </tr>
 </tbody></table>
 <hr>
@@ -145,7 +145,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </thead>
 <tbody><tr>
 <td>⌨️ <strong>按键宏</strong></td>
-<td>通过快捷键触发宏，支持单键与组合键（如 <code>Ctrl + C</code>）。</td>
+<td>通过快捷键触发宏，支持手柄、键鼠以及它们的组合键（如 <code>Ctrl + C</code>）。</td>
 </tr>
 <tr>
 <td>🔤 <strong>字串宏</strong></td>
@@ -153,15 +153,19 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 <tr>
 <td>🧭 <strong>菜单宏</strong></td>
-<td>通过快捷键呼出菜单轮，再由菜单按钮触发对应宏。</td>
+<td>通过快捷键呼出菜单轮盘，再由菜单按钮触发对应宏（可用 <code>F1</code>～<code>F8</code> 快捷触发）。</td>
+</tr>
+<tr>
+<td>🪟 <strong>界面宏</strong></td>
+<td>激活窗口时在界面上显示悬浮按钮，也可通过快捷键进行开关控制。</td>
 </tr>
 <tr>
 <td>⏰ <strong>定时宏</strong></td>
-<td>按时间触发宏，支持间隔、每日、每周、每月等方式。</td>
+<td>按时间触发宏，支持单次、软件启动时，以及秒 / 分钟 / 小时 / 天 / 周 / 月等自定义间隔。</td>
 </tr>
 <tr>
-<td>🧩 <strong>宏模块</strong></td>
-<td>可被其他宏调用的宏片段，支持嵌套与变量继承。</td>
+<td>🧩 <strong>宏</strong></td>
+<td>可被其他宏调用的宏片段。</td>
 </tr>
 <tr>
 <td>🎮 <strong>按键替换</strong></td>
@@ -169,7 +173,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 <tr>
 <td>🛠️ <strong>工具</strong></td>
-<td>辅助功能集合，如截图、录制、取色、窗口信息等。</td>
+<td>辅助功能集合，如变量监视器、文件校验、截图、录制、取色、窗口信息等。</td>
 </tr>
 <tr>
 <td>⚙️ <strong>设置</strong></td>
@@ -189,7 +193,66 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 </tbody></table>
 <hr>
-<h2>⚙️ 宏配置</h2>
+<h2>📦 宏模块</h2>
+<p>对宏进行分类管理：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📝 <strong>备注</strong></td>
+<td>对模块进行说明，便于后续管理与维护。</td>
+</tr>
+<tr>
+<td>🪟 <strong>前台</strong></td>
+<td>模块下所有配置只在设定的窗口中触发；置空则在所有窗口皆可触发。</td>
+</tr>
+<tr>
+<td>➕ <strong>新增宏</strong></td>
+<td>在模块最下方增加一条宏配置。</td>
+</tr>
+<tr>
+<td>📋 <strong>粘贴宏</strong></td>
+<td>需先点击宏配置中的「复制」，再点击「粘贴」，可将复制的宏内容添加到新增宏配置中。</td>
+</tr>
+<tr>
+<td>📁 <strong>新增模块</strong></td>
+<td>在当前模块下方新增一个模块。</td>
+</tr>
+<tr>
+<td>🗑️ <strong>删除模块</strong></td>
+<td>删除当前模块（不可恢复）。</td>
+</tr>
+<tr>
+<td>🚫 <strong>禁用（模块）</strong></td>
+<td>禁用当前模块下所有宏配置的手动触发（仍可通过宏操作调用触发）。</td>
+</tr>
+<tr>
+<td>📋 <strong>复制</strong></td>
+<td>复制当前宏内容，可在模块上粘贴使用。</td>
+</tr>
+<tr>
+<td>🚫 <strong>禁用（宏）</strong></td>
+<td>禁用当前宏配置，不参与触发与执行。</td>
+</tr>
+<tr>
+<td>🗑️ <strong>删除</strong></td>
+<td>删除当前宏配置（不可恢复）。</td>
+</tr>
+<tr>
+<td>⌨️ <strong>菜单触发键</strong></td>
+<td>配置当前模块菜单轮盘的触发按键。</td>
+</tr>
+<tr>
+<td>🪟 <strong>面板触发键</strong></td>
+<td>配置当前模块界面浮窗的控制开关。</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>🎯 宏配置</h2>
 <p>用于定义单条宏的触发方式与执行行为：</p>
 <table>
 <thead>
@@ -199,44 +262,150 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </tr>
 </thead>
 <tbody><tr>
-<td>🎯 <strong>触发键</strong></td>
-<td>设置宏的触发按键与方式：<br> - <strong>按下</strong>：按下即触发，未松开可重复触发<br> - <strong>松开</strong>：松开时触发<br> - <strong>松止</strong>：按下触发，松开终止<br> - <strong>开关</strong>：首次触发，再次终止<br> - <strong>长按</strong>：持续按下到指定时间后触发</td>
+<td>📝 <strong>宏名称</strong></td>
+<td>对宏用途进行说明，便于管理与维护。</td>
 </tr>
 <tr>
-<td>📜 <strong>宏指令</strong></td>
-<td>定义宏的执行指令流程。</td>
-</tr>
-<tr>
-<td>🎛️ <strong>触发键编辑</strong></td>
+<td>⌨️ <strong>触发键编辑</strong></td>
 <td>打开触发键设置界面，进行可视化配置。</td>
 </tr>
 <tr>
-<td>🗂️ <strong>宏指令编辑</strong></td>
-<td>打开宏指令编辑器，编辑执行内容。</td>
+<td>🖼️ <strong>触发键编辑（菜单宏 / 界面宏）</strong></td>
+<td>打开扇区或界面按钮上的图标设置。</td>
 </tr>
 <tr>
-<td>🎮 <strong>按键模拟方式</strong></td>
-<td>- <strong>AHK Send</strong>：通用方式，适合办公软件与大多数游戏（管理员权限可以让更多游戏有效）<br> - <strong>keybd_event</strong>：系统接口方式，适合老软件或游戏（需管理员权限）<br> - 罗技：调用罗技驱动模拟按键（需管理员权限，并使用 G HUB 2022.2.1154 及以前版本）。<br> ⚠️ Tip:罗技按键类型（含键盘与鼠标）仅支持 G HUB 2022.2.1154 及以前版本 <br> ⚠️ <em>keybd_event 与 罗技按键可作为触发键，切勿触发自身以避免死循环</em></td>
+<td>⏰ <strong>触发键编辑（定时）</strong></td>
+<td>打开定时设置界面。</td>
 </tr>
 <tr>
-<td>🚫 <strong>禁止宏</strong></td>
-<td>禁用当前宏配置，不参与触发与执行。</td>
-</tr>
-<tr>
-<td>🗑️ <strong>删除宏</strong></td>
-<td>删除当前宏配置（不可恢复）。</td>
+<td>🎯 <strong>触发类型</strong></td>
+<td>设置宏的触发按键与方式：<br>• <strong>按下</strong>：按下即触发，未松开可重复触发<br>• <strong>松开</strong>：松开时触发<br>• <strong>松止</strong>：按下持续触发，松开后终止<br>• <strong>开关</strong>：首次触发开始，再次触发终止<br>• <strong>长按</strong>：持续按下到指定时间后触发<br>• <strong>双击</strong>：双击触发键后触发</td>
 </tr>
 <tr>
 <td>🔁 <strong>循环次数</strong></td>
-<td>设置宏的重复执行次数。</td>
+<td>设置宏的重复执行次数（可下拉选择「无限」）。</td>
 </tr>
 <tr>
-<td>🪟 <strong>前台限制</strong></td>
-<td>仅在指定前台窗口生效（留空表示全局）。</td>
+<td>🎹 <strong>宏设置 · 按键类型</strong></td>
+<td>• <strong>AHK Send</strong>：通用方式，适合办公软件与大多数游戏（管理员权限可让更多游戏有效）<br>• <strong>keybd_event</strong>：系统接口方式，适合老软件或游戏（需管理员权限）<br>• <strong>罗技</strong>：调用罗技驱动模拟按键（需管理员权限，并使用 G HUB 2022.2.1154 及以前版本）<br>• <strong>AHI</strong>：调用 Interception 驱动模拟按键（需管理员权限，并安装 Interception）<br>⚠️ <em>keybd_event、罗技和 AHI 的按键可作为宏的触发按键，切勿自己触发自己导致死循环</em></td>
 </tr>
 <tr>
-<td>📝 <strong>备注</strong></td>
-<td>对宏用途进行说明，便于管理与维护。</td>
+<td>🔊 <strong>宏设置 · 开始提示音</strong></td>
+<td>• <strong>无</strong>：不播放提示音<br>• <strong>触发提示</strong>：触发时提示，循环触发会多次提示<br>• <strong>循环首次提示</strong>：触发时提示，循环触发不再提示</td>
+</tr>
+<tr>
+<td>🔊 <strong>宏设置 · 结束提示音</strong></td>
+<td>• <strong>无</strong>：不播放提示音<br>• <strong>结束提示</strong>：宏结束时提示，循环多次结束就多次提示<br>• <strong>循环结束提示</strong>：结束时提示，循环结束不再多次提示</td>
+</tr>
+<tr>
+<td>✏️ <strong>宏指令编辑</strong></td>
+<td>打开宏指令编辑器，编辑宏内容。</td>
+</tr>
+<tr>
+<td>📋 <strong>复制</strong></td>
+<td>复制当前宏内容，可在模块上粘贴使用。</td>
+</tr>
+<tr>
+<td>🚫 <strong>禁用</strong></td>
+<td>禁用当前宏配置，不参与触发与执行。</td>
+</tr>
+<tr>
+<td>🗑️ <strong>删除</strong></td>
+<td>删除当前宏配置（不可恢复）。</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📂 配置管理</h2>
+<p>对配置进行分类管理：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📥 <strong>迁入配置文件夹</strong></td>
+<td>选择旧版本或同版本若梦兔（假定叫 A）的 <code>Setting</code> 文件夹，把 A 中所有配置覆盖同步到当前软件。<br>⚠️ <em>当前软件的所有配置会自动备份到 <code>SettingOld</code> 目录下</em></td>
+</tr>
+<tr>
+<td>✏️ <strong>重命名</strong></td>
+<td>修改当前配置名称。</td>
+</tr>
+<tr>
+<td>🔧 <strong>配置校准</strong></td>
+<td>迁入或重命名后若配置异常，可尝试使用该功能修复。</td>
+</tr>
+<tr>
+<td>➕ <strong>新增配置</strong></td>
+<td>新增一个配置。</td>
+</tr>
+<tr>
+<td>📦 <strong>导入配置</strong></td>
+<td>选择一个 <code>.rmt</code> 文件导入配置（共享仓库可下载）。</td>
+</tr>
+<tr>
+<td>🔀 <strong>合并导入</strong></td>
+<td>选择一个 <code>.rmt</code> 文件或本地已有的配置，合并到当前配置中。</td>
+</tr>
+<tr>
+<td>📂 <strong>加载配置</strong></td>
+<td>切换到选中的配置。</td>
+</tr>
+<tr>
+<td>🗑️ <strong>删除配置</strong></td>
+<td>删除选中的配置。</td>
+</tr>
+<tr>
+<td>📄 <strong>使用说明</strong></td>
+<td>共享仓库的配置要求必须填写；导入的 <code>.rmt</code> 文件配置可以查看说明。</td>
+</tr>
+<tr>
+<td>📤 <strong>导出配置</strong></td>
+<td>将选中的配置导出为 <code>.rmt</code> 文件，可共享上传、方便配置分享。</td>
+</tr>
+<tr>
+<td>🌐 <strong>打开仓库</strong></td>
+<td>打开共享仓库，可以下载学习案例，或他人已经共享的游戏相关配置。</td>
+</tr>
+<tr>
+<td>☁️ <strong>共享上传</strong></td>
+<td>选择本地的 <code>.rmt</code> 文件上传到服务器，经过审核后同步到共享仓库中。</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>🛠️ 软件工具</h2>
+<p>文件校验、信息获取等辅助功能：</p>
+<table>
+<thead>
+<tr>
+<th>设置项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>👁️ <strong>变量监视器</strong></td>
+<td>可以实时查看全局变量的值，以便问题排查。</td>
+</tr>
+<tr>
+<td>✅ <strong>文件校验</strong></td>
+<td>为避免系统或人为误删除，可校验缺失资源并补齐。</td>
+</tr>
+<tr>
+<td>🖱️ <strong>鼠标信息</strong></td>
+<td>获取当前鼠标下详细信息：屏幕坐标、窗口坐标、窗口标题、进程名等等。</td>
+</tr>
+<tr>
+<td>📌 <strong>窗口置顶</strong></td>
+<td>软件主窗口置顶。</td>
+</tr>
+<tr>
+<td>⏺️ <strong>指令录制</strong></td>
+<td>录制手柄（需要额外配置）、键鼠操作，自动生成宏配置。</td>
+</tr>
+<tr>
+<td>🔤 <strong>图片文本提取</strong></td>
+<td>提取图片中的文字。</td>
 </tr>
 </tbody></table>
 <hr>
@@ -251,47 +420,51 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 </thead>
 <tbody><tr>
 <td>⏱️ <strong>点击时间浮动（%）</strong></td>
-<td>📊 按键点击时间的浮动范围。例如：设为 10，原 50ms → 最终 45~55ms。</td>
+<td>按键点击时间的浮动范围。例如：设为 10，原 50ms → 最终约 45～55ms。</td>
 </tr>
 <tr>
-<td>⏳ <strong>每次间隔时间浮动（%）</strong></td>
-<td>📉 多次点击、多次搜索、多次提取间隔浮动范围。例如：设为 10，原 500ms → 实际 450~550ms。</td>
+<td>⏳ <strong>每次间隔浮动（%）</strong></td>
+<td>多次点击、多次搜索、多次提取间隔浮动范围。例如：设为 10，原 500ms → 实际约 450～550ms。</td>
 </tr>
 <tr>
-<td>⌛ <strong>间隔指令时间浮动（%）</strong></td>
-<td>📈 间隔指令的浮动范围。例如：设为 10，原 3000ms → 实际 2700~3300ms。</td>
+<td>⌛ <strong>间隔指令浮动（%）</strong></td>
+<td>间隔指令的浮动范围。例如：设为 10，原 3000ms → 实际约 2700～3300ms。</td>
 </tr>
 <tr>
-<td>📐 <strong>坐标 X 浮动（px）</strong></td>
-<td>↔️ 模拟点击时 X 坐标的浮动范围。例如：设为 30，原 X=900 → 实际 870~930。</td>
+<td>↔️ <strong>坐标 X 浮动（px）</strong></td>
+<td>模拟点击时 X 坐标的浮动范围。例如：设为 30，原 X=900 → 实际约 870～930。</td>
 </tr>
 <tr>
-<td>📐 <strong>坐标 Y 浮动（px）</strong></td>
-<td>↕️ 模拟点击时 Y 坐标的浮动范围。例如：设为 50，原 Y=400 → 实际 350~450。</td>
+<td>↕️ <strong>坐标 Y 浮动（px）</strong></td>
+<td>模拟点击时 Y 坐标的浮动范围。例如：设为 50，原 Y=400 → 实际约 350～450。</td>
 </tr>
 <tr>
-<td>🧵 <strong>多线程数（-1~10）</strong></td>
-<td>🌀 -1 和大于 0 时启用多线程。</td>
+<td>🧵 <strong>多线程数（-1～10）</strong></td>
+<td><code>-1</code>：动态多线程；<code>0</code>：单线程；<code>n</code>：多线程固定为 n。</td>
 </tr>
 <tr>
-<td>⚡ <strong>开机自动启动</strong></td>
-<td>💻 开机时自动运行软件。</td>
+<td>⚡ <strong>开机自启</strong></td>
+<td>开机时自动运行软件。</td>
 </tr>
 <tr>
-<td>👀 <strong>指令显示</strong></td>
-<td>📺 执行指令时在窗口中显示。</td>
+<td>🛡️ <strong>管理员启动</strong></td>
+<td>软件运行后提权为管理员。</td>
 </tr>
 <tr>
-<td>🚨 <strong>无变量提醒</strong></td>
-<td>使用不存在变量时弹窗提示。</td>
+<td>⌨️ <strong>自动松开修饰键</strong></td>
+<td>修饰键 + 普通键触发宏时，自动松开修饰键。</td>
 </tr>
 <tr>
-<td>📍 <strong>菜单轮位置固定</strong></td>
-<td>菜单轮呼出时保持固定位置。</td>
+<td>🔁 <strong>连续触发</strong></td>
+<td>按下、开关、长按可以按住连续触发。</td>
 </tr>
 <tr>
-<td>── <strong>分割线显示</strong></td>
-<td>在宏配置之间显示分割线。</td>
+<td>💬 <strong>无变量提醒</strong></td>
+<td>当使用不存在的变量时弹窗提示。</td>
+</tr>
+<tr>
+<td>🪟 <strong>模态子窗口</strong></td>
+<td>只有关闭子窗口才能操作主窗口。</td>
 </tr>
 <tr>
 <td>🌐 <strong>语言 / Lang</strong></td>
@@ -302,15 +475,46 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 <td>设置界面字体。</td>
 </tr>
 <tr>
+<td>🧩 <strong>首选编辑器</strong></td>
+<td>设置宏内容为空时打开的编辑器类型。</td>
+</tr>
+<tr>
 <td>📸 <strong>截图方式</strong></td>
-<td>设置截图实现方式。</td>
+<td>设置截图实现方式；当截图报错时请切换其他截图方式。</td>
+</tr>
+<tr>
+<td>🎮 <strong>手柄类型</strong></td>
+<td>设置手柄宏的按键类型。</td>
 </tr>
 <tr>
 <td>⌨️ <strong>按下时按下</strong></td>
-<td>宏按键按下后再次按下特殊调整选项</td>
+<td>宏按键按下后再次按下时的特殊调整选项。</td>
+</tr>
+<tr>
+<td>🎨 <strong>主题</strong></td>
+<td>配置软件所有的颜色配比。</td>
+</tr>
+<tr>
+<td>⌨️ <strong>快捷键</strong></td>
+<td>修改软件所有的快捷按键。</td>
+</tr>
+<tr>
+<td>⏺️ <strong>指令录制</strong></td>
+<td>设置指令录制时的一些录制细节。</td>
+</tr>
+<tr>
+<td>🎡 <strong>轮盘</strong></td>
+<td>设置菜单轮盘大小、触发方式、显示位置。</td>
+</tr>
+<tr>
+<td>🪟 <strong>界面浮窗</strong></td>
+<td>设置界面宏的默认位置、大小等。</td>
+</tr>
+<tr>
+<td>📺 <strong>指令显示</strong></td>
+<td>设置宏执行时的内容显示位置等。</td>
 </tr>
 </tbody></table>
-<hr>
 </div></div>
     <div class="page hidden" id="page1"><div class="content"><h1>🚀 快速上手指南 - RMT（若梦兔）</h1>
 <p>本页介绍 RMT（若梦兔） 的基础使用方式，帮助你快速创建常见的按键宏操作。</p>
@@ -2025,18 +2229,20 @@ ExecuteMacroCmdOnce (单条指令执行)
 <h2>RMTv2.0待更新内容</h2>
 <p><a href="https://github.com/owhs/ahk-xaml">https://github.com/owhs/ahk-xaml</a><br>ahk-xaml对Win7兼容，框架效率比webview更好<br>使用ahk-xaml替换当前ahkUI</p>
 <h2>RMTv1.2F23更新内容</h2>
+<h3>新增</h3>
+<p>AHI 按键类型：首次使用前检测 Interception 驱动，未安装时提示并可一键自动安装（也可手动运行 <code>Plugins/AHI/安装卸载.bat</code>）；打包同步 <code>Plugins/AHI</code> 与 <code>AhiDriver</code> 到发行版<br>工具页新增「文件校验」：手动检查并补全缺失资源文件（不再启动时自动执行）；旁附问号说明；带 F 后缀的测试版本不支持自动下载</p>
 <h3>优化</h3>
-<p>AHI 模式鼠标移动正式化：选择 AHI 时，「移动 / 移动Pro / 搜索后移动点击」走 Interception（<code>AhiMoveR/Abs</code> 及平滑接口），点击走 <code>AhiClick</code>，不再回退 AHK <code>MouseMove</code><br>鼠标移动策略整合：移动 / 移动Pro / 搜索移动统一经 <code>MouseMoveUtil.ahk</code>，按「移动选项 + 当前按键类型」分发 AHK / 罗技 / AHI</p>
+<p>AHI 模式鼠标移动正式化：选择 AHI 时，「移动 / 移动Pro / 搜索后移动点击」走 Interception（<code>AhiMoveR/Abs</code> 及平滑接口），点击走 <code>AhiClick</code>，不再回退 AHK <code>MouseMove</code><br>鼠标移动策略整合：移动 / 移动Pro / 搜索移动统一经 <code>MouseMoveUtil.ahk</code>，按「移动选项 + 当前按键类型」分发 AHK / 罗技 / AHI；界面速度统一为 0~100（越大越快，100 瞬移），由策略层按后端换算<br>设置页「下拉框选项」顺序调整：语言 → 软件字体 → 首选编辑器<br>润色 <code>Web/软件介绍.md</code>：统一图标语义、修正错用图标与笔误，并理顺各章节措辞</p>
 <h3>修复</h3>
-<p>修复罗技 / AHI 按键类型下移动速度与界面相反的问题（原先统一做 <code>100-speed</code> 只适合 AHK；现按后端分别换算，95 快、5 慢）<br>修复打包未包含 <code>MouseControl.dll</code>，导致发行版罗技模式鼠标移动无效；打包同步复制 <code>IbInputSimulator.dll</code> / <code>MouseControl.dll</code></p>
+<p>修复罗技 / AHI 按键类型下移动速度与界面相反的问题（原先统一做 <code>100-speed</code> 只适合 AHK）<br>修复打包未包含 <code>MouseControl.dll</code>，导致发行版罗技模式鼠标移动无效；打包同步复制 <code>IbInputSimulator.dll</code> / <code>MouseControl.dll</code>；文件校验可选列表补充 <code>MouseControl.dll</code><br>修复主进程暂停广播仍发送旧 opcode <code>PauseState</code>、Worker 无法暂停的问题（改为 <code>PS</code>）<br>修复 Worker 全局文件名拼写错误（<code>WrokGlobalUtil.ahk</code> → <code>WorkGlobalUtil.ahk</code>）</p>
 <hr>
 <h2>RMTv1.2F22更新内容</h2>
 <h3>新增</h3>
-<p>开关选项新增「自动松开修饰键」（默认开启）：组合键触发宏前先松开修饰键，避免宏内按键被修饰键污染；支持 <code>Ctrl &amp; A</code> 等新格式<br>开关选项新增「连续触发」（默认开启）：关闭后，按下 / 开关 / 长按须先松开触发键才能再次触发<br>AHI 按键类型：首次使用前检测 Interception 驱动，未安装时提示并可一键自动安装（也可手动运行 <code>Plugins/AHI/安装卸载.bat</code>）；打包同步 <code>Plugins/AHI</code> 与 <code>AhiDriver</code> 到发行版<br>工具页新增「文件校验」：手动检查并补全缺失资源文件（不再启动时自动执行）；旁附问号说明；带 F 后缀的测试版本不支持自动下载</p>
+<p>开关选项新增「自动松开修饰键」（默认开启）：组合键触发宏前先松开修饰键，避免宏内按键被修饰键污染；支持 <code>Ctrl &amp; A</code> 等新格式<br>开关选项新增「连续触发」（默认开启）：关闭后，按下 / 开关 / 长按须先松开触发键才能再次触发</p>
 <h3>优化</h3>
 <p>罗技按键初始化：优先使用旧版 G HUB / LGS 的 <code>Logitech</code> 发送类型，失败再回退 <code>LogitechGHubNew</code>；初始化成功后再检测 G HUB / LGS 是否在运行，未运行时提示并支持一键运行本机 <code>lghub.exe</code><br>罗技相关提示文案统一：键盘与鼠标均需 G HUB 2022.2.1154 及以前版本<br>罗技模式滚轮改为调用 <code>IbSendMouseWheel</code>，提升上/下滚轮稳定性<br>罗技鼠标绝对移动（<code>MC_MoveAbs</code>）：改用 DLL <code>move_Abs</code>，并在跨屏/大位移时分片相对闭环修正<br>搜索 Pro 图片路径：存在同名用户变量则用变量值，否则按文本路径搜索；去掉强制「图片文件必须存在」校验<br>开关选项排列调整：开机自启 / 管理员启动 / 仅前台运行宏；自动松开修饰键 / 连续触发 / 无变量提醒；模态子窗口 / 分割线<br>窗口热键管理重构：区分全局热键与窗口级热键（<code>HotIfWinActive</code>）；宏编辑器等界面快捷键改为窗口级，失焦后不再全局占键（#248）<br>文件读写-读取 Excel「指定区域-行 / 指定区域-列」：终止行/列允许等于起始；须至少一侧终止大于起始（禁止单格）；单行或单列区域输出一维数组，行列均跨格时输出二维数组；完善防呆提示<br>数组跨进程同步：整串序列化保留嵌套结构，避免二维数组被压成一维</p>
 <h3>修复</h3>
-<p>修复宏复制粘贴时多个「移动Pro」等外部配置指令被分配成同一时间戳序列码的问题；粘贴改为走指令序号自增，避免互相覆盖<br>修复组合键「自动松开修饰键」对未按下的 RAlt（AltGr）发抬起，导致记录里出现幽灵 Ctrl 的问题<br>修复多 XAML 窗口同时打开时进程闪退（进程内宿主误杀自身 / 路径比对过严）<br>修复界面宏浮窗关闭后污染全局样式，导致其它 XAML 窗口无法再打开<br>修复界面宏右键关闭后仍自动弹出，以及标题栏菜单被浮窗顶住的问题<br>修复同键绑定下：禁用的菜单宏仍弹出轮盘、界面宏（macroType=3）被误当成菜单宏的问题；界面宏热键走统一触发绑定<br>修复开关触发、无限循环宏在无「间隔」紧凑指令（如连续搜索）时无法关闭；停止时强制结束对应 Worker 并重建<br>修复强制停止 Worker 后环缓冲已释放仍被读取导致的 Critical Error（Invalid memory read/write）<br>修复设置页数值编辑框输入过程中因空串/非数字直接 <code>Integer()</code> 报错<br>修复主进程暂停广播仍发送旧 opcode <code>PauseState</code>、Worker 无法暂停的问题（改为 <code>PS</code>）<br>修复 Worker 全局文件名拼写错误（<code>WrokGlobalUtil.ahk</code> → <code>WorkGlobalUtil.ahk</code>）</p>
+<p>修复宏复制粘贴时多个「移动Pro」等外部配置指令被分配成同一时间戳序列码的问题；粘贴改为走指令序号自增，避免互相覆盖<br>修复组合键「自动松开修饰键」对未按下的 RAlt（AltGr）发抬起，导致记录里出现幽灵 Ctrl 的问题<br>修复多 XAML 窗口同时打开时进程闪退（进程内宿主误杀自身 / 路径比对过严）<br>修复界面宏浮窗关闭后污染全局样式，导致其它 XAML 窗口无法再打开<br>修复界面宏右键关闭后仍自动弹出，以及标题栏菜单被浮窗顶住的问题<br>修复同键绑定下：禁用的菜单宏仍弹出轮盘、界面宏（macroType=3）被误当成菜单宏的问题；界面宏热键走统一触发绑定<br>修复开关触发、无限循环宏在无「间隔」紧凑指令（如连续搜索）时无法关闭；停止时强制结束对应 Worker 并重建<br>修复强制停止 Worker 后环缓冲已释放仍被读取导致的 Critical Error（Invalid memory read/write）<br>修复设置页数值编辑框输入过程中因空串/非数字直接 <code>Integer()</code> 报错</p>
 <hr>
 <h2>RMTv1.2F21更新内容</h2>
 <h3>新增</h3>

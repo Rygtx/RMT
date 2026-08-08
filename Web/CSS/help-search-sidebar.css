@@ -11,7 +11,7 @@
 .search-toggle[data-tip]{position:relative}
 .search-toggle[data-tip]:hover::after,.search-toggle[data-tip]:focus-within::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:0;width:220px;padding:8px 10px;border:1px solid #384767;border-radius:6px;background:#f8fafc;color:#334155;font-size:12px;line-height:1.45;white-space:normal;box-shadow:0 8px 20px rgba(0,0,0,.28);z-index:40}
 .search-status{margin-top:7px;font-size:12px;line-height:1.45;color:#9fb0ca}
-.search-results{display:none;position:absolute;left:10px;right:10px;top:calc(100% - 1px);max-height:calc(100vh - 190px);overflow:auto;border:1px solid #2a3758;border-radius:7px;background:#10182d;box-shadow:0 12px 28px rgba(0,0,0,.34);z-index:30}
+.search-results{display:none;position:absolute;left:10px;right:10px;top:calc(100% - 1px);max-height:min(42vh,360px);overflow:auto;border:1px solid #2a3758;border-radius:7px;background:#10182d;box-shadow:0 12px 28px rgba(0,0,0,.34);z-index:30}
 .search-results.visible{display:block}
 .search-empty,.search-result-head{padding:8px 9px;font-size:12px;color:#9fb0ca;border-bottom:1px solid #263453}
 .search-result-item{display:block;width:100%;border:0;border-bottom:1px solid #263453;background:#10182d;text-align:left;padding:9px;cursor:pointer}
@@ -22,6 +22,7 @@
 .search-badge{display:inline-block;font-size:10.5px;font-weight:500;background:#4a6cf7;color:#fff;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px}
 .doc-search-active-mark{background:#ff7a45;color:#111827;box-shadow:0 0 0 2px rgba(255,122,69,.45)}
 .doc-outline{width:220px;flex:0 0 220px;background:#f8fafc;border-left:1px solid #dbe4f0;padding:16px 12px;overflow-y:auto}
+.doc-outline[hidden],.doc-outline.is-empty{display:none!important;width:0;flex:0 0 0;padding:0;border:0}
 .outline-title{font-size:13px;font-weight:700;color:#2c3e70;margin-bottom:10px}
 .outline-empty{font-size:12.5px;color:#64748b;line-height:1.6}
 .outline-link{display:block;width:100%;border:0;background:transparent;color:#475569;text-align:left;border-radius:6px;padding:6px 8px;margin:1px 0;font-size:12.5px;line-height:1.45;cursor:pointer}

@@ -8,6 +8,16 @@ const OUTPUTS = [
   path.join(ROOT_DIR, 'index.html')
 ];
 
+// 这些文档按二级标题拆成独立子页，侧栏可展开收缩
+const SPLIT_BY_H2 = new Set([
+  '软件介绍',
+  '快速上手',
+  '指令手册',
+  '常见问题',
+  '常见报错',
+  '更新日志'
+]);
+
 const iconMap = {
   '软件介绍': '📘',
   '快速上手': '🚀',
@@ -28,7 +38,7 @@ mdFiles.sort((a, b) => {
   if (ib !== -1) return 1;
   return na.localeCompare(nb);
 });
-const PAGES = mdFiles.map((f, i) => {
+const DOC_FILES = mdFiles.map((f, i) => {
   const name = path.basename(f, '.md');
   return { md: f, title: name, icon: iconMap[name] || defaultIcons[i % defaultIcons.length] };
 });
@@ -41,9 +51,9 @@ function fixImagePaths(mdContent) {
   return mdContent.replace(/!\[([^\]]*)\]\(\/RMT\/Web\/([^)]+)\)/g, '![$1]($2)');
 }
 
-function imageToBase64(relPath) {
-  const fullPath = path.join(WEB_DIR, relPath);
-  if (!fs.existsSync(fullPath)) return relPath;
+function imageToBase64(relPath, baseDir = WEB_DIR) {
+  const fullPath = path.isAbsolute(relPath) ? relPath : path.join(baseDir, relPath);
+  if (!fs.existsSync(fullPath)) return '';
   const buf = fs.readFileSync(fullPath);
   const ext = path.extname(fullPath).toLowerCase();
   const mimeMap = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
@@ -51,10 +61,97 @@ function imageToBase64(relPath) {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
+// 与宏编辑器指令图标一致（SubGuiConfig）
+const COMMAND_ICON_FILES = {
+  '间隔': 'Images/Soft/Interval.png',
+  '按键': 'Images/Soft/Key.png',
+  '搜索': 'Images/Soft/Search.png',
+  '搜索Pro': 'Images/Soft/SearchPro.png',
+  '移动': 'Images/Soft/Move.png',
+  '移动Pro': 'Images/Soft/MovePro.png',
+  '输入': 'Images/Soft/Input.png',
+  '输出': 'Images/Soft/Output.png',
+  '循环': 'Images/Soft/Loop.png',
+  '宏操作': 'Images/Soft/Sub.png',
+  '变量': 'Images/Soft/Var.png',
+  '变量提取': 'Images/Soft/Extract.png',
+  '如果': 'Images/Soft/If.png',
+  '如果Pro': 'Images/Soft/IfPro.png',
+  '运算': 'Images/Soft/Operation.png',
+  '运行': 'Images/Soft/Run.png',
+  '文件读写': 'Images/Soft/FileIO.png',
+  '文本处理': 'Images/Soft/TextOps.png',
+  '数组': 'Images/Soft/Arr.png',
+  'RMT指令': 'Images/Soft/rabit.png',
+  '后台鼠标': 'Images/Soft/Mouse.png',
+  '后台按键': 'Images/Soft/Key.png',
+  '窗口管理': 'Images/Soft/WindowManage.png',
+  '按键检测': 'Images/Soft/KeyCheck.png',
+  '注释': 'Images/Soft/Comment.png',
+  '抓图': 'Images/Soft/ScreenShot.png'
+};
+
+function getCommandNavParts(title) {
+  const m = String(title || '').match(/^(\d+)\s+(.+)$/);
+  const num = m ? m[1] : '';
+  const cmdName = m ? m[2].trim() : String(title || '').trim();
+  const rel = COMMAND_ICON_FILES[cmdName];
+  const dataUri = rel ? imageToBase64(rel, ROOT_DIR) : '';
+  const iconHtml = dataUri
+    ? `<img class="tab-cmd-icon" src="${dataUri}" alt="" width="16" height="16">`
+    : '';
+  return { num, cmdName, iconHtml };
+}
+
 function convertImagesInHtml(html) {
   return html.replace(/src="(Images\/[^"]+)"/g, (match, src) => {
-    return `src="${imageToBase64(src)}"`;
+    const dataUri = imageToBase64(src, WEB_DIR);
+    return dataUri ? `src="${dataUri}"` : match;
   });
+}
+
+function slugify(title) {
+  return String(title || '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[（）()【】\[\]：:、，,/\\]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/** 按 ## 二级标题拆分；首个 ## 之前的内容丢弃（不再生成「概述」页） */
+function splitMarkdownByH2(md) {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  const sections = [];
+  let current = null;
+
+  for (const line of lines) {
+    const m = line.match(/^##\s+(.+)\s*$/);
+    if (m) {
+      if (current) sections.push(current);
+      const title = m[1].trim();
+      current = {
+        title,
+        slug: slugify(title),
+        lines: [`# ${title}`, '']
+      };
+      continue;
+    }
+    if (current) current.lines.push(line);
+  }
+  if (current) sections.push(current);
+
+  return sections.map((s) => ({
+    title: s.title,
+    slug: s.slug,
+    md: s.lines.join('\n').trim()
+  }));
+}
+
+function mdToHtml(md) {
+  let text = fixImagePaths(md);
+  let htmlBody = marked.parse(text);
+  return convertImagesInHtml(htmlBody);
 }
 
 const markedSrc = readWebText('JS', 'marked.min.js');
@@ -68,21 +165,106 @@ vm.runInContext(markedSrc, ctx);
 const marked = ctx.exports;
 marked.setOptions({ gfm: true, breaks: true });
 
-const pageContents = PAGES.map(p => {
-  let md = fs.readFileSync(path.join(WEB_DIR, p.md), 'utf-8');
-  md = fixImagePaths(md);
-  let htmlBody = marked.parse(md);
-  htmlBody = convertImagesInHtml(htmlBody);
-  return { ...p, body: htmlBody };
-});
+// 扁平页面列表（与侧栏叶子节点一一对应，供搜索/跳转）
+const pageList = [];
+const navGroups = []; // 保持文档顺序的导航结构
 
-const navTabs = pageContents.map((p, i) =>
-  `<button class="tab${i === 0 ? ' active' : ''}" onclick="showPage(${i})">${p.icon} ${p.title}</button>`
-).join('\n        ');
+for (const doc of DOC_FILES) {
+  const rawMd = fs.readFileSync(path.join(WEB_DIR, doc.md), 'utf-8');
+  if (SPLIT_BY_H2.has(doc.title)) {
+    const parts = splitMarkdownByH2(rawMd);
+    const children = [];
+    for (const part of parts) {
+      const route = `${doc.title}/${part.slug}`;
+      const index = pageList.length;
+      pageList.push({
+        index,
+        group: doc.title,
+        groupIcon: doc.icon,
+        title: part.title,
+        slug: part.slug,
+        route,
+        body: mdToHtml(part.md)
+      });
+      const child = { index, title: part.title, route, num: '', cmdName: '', iconHtml: '' };
+      if (doc.title === '指令手册') {
+        Object.assign(child, getCommandNavParts(part.title));
+      }
+      children.push(child);
+    }
+    navGroups.push({
+      type: 'group',
+      title: doc.title,
+      icon: doc.icon,
+      children
+    });
+  } else {
+    const index = pageList.length;
+    const route = doc.title;
+    pageList.push({
+      index,
+      group: null,
+      groupIcon: doc.icon,
+      title: doc.title,
+      slug: slugify(doc.title),
+      route,
+      body: mdToHtml(rawMd)
+    });
+    navGroups.push({
+      type: 'leaf',
+      title: doc.title,
+      icon: doc.icon,
+      index,
+      route
+    });
+  }
+}
 
-const pageDivs = pageContents.map((p, i) =>
-  `<div class="page${i === 0 ? '' : ' hidden'}" id="page${i}"><div class="content">${p.body}</div></div>`
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const navHtml = navGroups.map((g) => {
+  if (g.type === 'leaf') {
+    return `<button type="button" class="tab" data-index="${g.index}" data-route="${escapeHtml(g.route)}" onclick="showPage(${g.index})"><span class="tab-icon">${g.icon}</span><span class="tab-text">${escapeHtml(g.title)}</span></button>`;
+  }
+  const kids = g.children.map((c) => {
+    // 指令手册：序号 图标 名称；其它分组保持原标题
+    let labelHtml = `<span class="tab-text">${escapeHtml(c.title)}</span>`;
+    if (g.title === '指令手册' && (c.num || c.iconHtml)) {
+      labelHtml = [
+        c.num ? `<span class="tab-num">${escapeHtml(c.num)}</span>` : '',
+        c.iconHtml || '',
+        `<span class="tab-text">${escapeHtml(c.cmdName || c.title)}</span>`
+      ].join('');
+    }
+    return `<button type="button" class="tab tab-sub${c.iconHtml || c.num ? ' has-cmd-icon' : ''}" data-index="${c.index}" data-route="${escapeHtml(c.route)}" data-group="${escapeHtml(g.title)}" onclick="showPage(${c.index})">${labelHtml}</button>`;
+  }).join('\n        ');
+  return `<div class="nav-group" data-group="${escapeHtml(g.title)}">
+        <button type="button" class="nav-group-toggle" data-group="${escapeHtml(g.title)}" onclick="toggleNavGroup('${escapeHtml(g.title)}')" aria-expanded="false">
+          <span class="tab-icon">${g.icon}</span><span class="tab-text">${escapeHtml(g.title)}</span><span class="nav-caret">▸</span>
+        </button>
+        <div class="nav-children" id="nav-group-${escapeHtml(g.title)}" hidden>
+        ${kids}
+        </div>
+      </div>`;
+}).join('\n      ');
+
+const pageDivs = pageList.map((p, i) =>
+  `<div class="page${i === 0 ? '' : ' hidden'}" id="page${i}" data-route="${escapeHtml(p.route)}" data-group="${escapeHtml(p.group || '')}"><div class="content">${p.body}</div></div>`
 ).join('\n    ');
+
+const pageMetaJson = JSON.stringify(pageList.map(p => ({
+  index: p.index,
+  title: p.title,
+  slug: p.slug,
+  route: p.route,
+  group: p.group
+})));
 
 const fullHtml = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -96,9 +278,23 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 .sidebar{width:200px;background:#1a1a2e;color:#e0e0e0;display:flex;flex-direction:column;flex-shrink:0;border-right:1px solid #2a2a4a}
 .sidebar h1{font-size:15px;padding:18px 16px 12px;background:#16213e;border-bottom:1px solid #2a2a4a;letter-spacing:1px}
 .nav{display:flex;flex-direction:column;padding:8px 6px;gap:2px;overflow-y:auto;flex:1}
-.nav button{text-align:left;padding:10px 14px;border:none;background:transparent;color:#b0b8c8;font-size:13.5px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav button{text-align:left;padding:10px 14px;border:none;background:transparent;color:#b0b8c8;font-size:13.5px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap;width:100%;display:flex;align-items:center;gap:6px}
 .nav button:hover{background:#2a2a5a;color:#fff}
 .nav button.active{background:#4a6cf7;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(74,108,247,.3)}
+.nav-group{display:flex;flex-direction:column;gap:1px}
+.nav-group-toggle{font-weight:600;color:#d7def0}
+.nav-group-toggle .nav-caret{margin-left:auto;font-size:11px;opacity:.75;transition:transform .15s}
+.nav-group.open .nav-group-toggle .nav-caret{transform:rotate(90deg)}
+.nav-group.open .nav-group-toggle{color:#fff;background:#222b4d}
+.nav-children{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 0}
+.nav-children[hidden]{display:none!important}
+.tab-sub{padding:7px 10px 7px 28px!important;font-size:12.5px!important;color:#9aa6bf}
+.tab-sub.has-cmd-icon{padding-left:12px!important;gap:6px}
+.tab-sub .tab-text{overflow:hidden;text-overflow:ellipsis}
+.tab-num{flex-shrink:0;min-width:1.4em;font-variant-numeric:tabular-nums;opacity:.9}
+.tab-cmd-icon{width:16px;height:16px;flex-shrink:0;object-fit:contain;border-radius:3px}
+.tab-icon{flex-shrink:0}
+.tab-text{overflow:hidden;text-overflow:ellipsis}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .content-area{flex:1;overflow-y:auto;padding:28px 40px;background:#fff}
 .content{max-width:860px;margin:0 auto;line-height:1.85;font-size:14.5px}
@@ -121,7 +317,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
 .content hr{border:none;border-top:2px solid #eee;margin:32px 0}
 .content strong{color:#1a1a2e}
 .hidden{display:none!important}
-@media(max-width:800px){.sidebar{width:56px}.sidebar h1{font-size:11px;padding:14px 6px;text-align:center}.nav button{padding:10px 6px;font-size:11px;text-align:center}.nav button span:last-child{display:none}}
+@media(max-width:800px){.sidebar{width:56px}.sidebar h1{font-size:11px;padding:14px 6px;text-align:center}.nav button{padding:10px 6px;font-size:11px;text-align:center}.tab-text,.nav-caret{display:none}.tab-sub{padding-left:6px!important}.nav-children{padding-left:0}}
 </style>
 <style>${searchCss}</style>
 <style>${vsCss}</style>
@@ -141,7 +337,7 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
     <div id="docSearchResults" class="search-results" aria-live="polite"></div>
   </div>
   <div class="nav">
-        ${navTabs}
+      ${navHtml}
       </div>
 </div>
 <div class="main">
@@ -149,21 +345,110 @@ body{font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#f5
       ${pageDivs}
     </div>
 </div>
-<aside id="docOutline" class="doc-outline" aria-label="目录大纲"></aside>
+<aside id="docOutline" class="doc-outline is-empty" hidden aria-label="目录大纲"></aside>
 
 <script>
 ${markedSrc}
 ${hljsSrc}
 marked.setOptions({gfm:true,breaks:true});
 
-function showPage(i){
-  document.querySelectorAll('.page').forEach(el=>el.classList.add('hidden'));
-  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
-  document.getElementById('page'+i).classList.remove('hidden');
-  document.querySelectorAll('.tab')[i].classList.add('active');
-  document.getElementById('contentArea').scrollTop=0;
-  hljs.highlightAll();
+const PAGE_META = ${pageMetaJson};
+
+function findNavGroup(groupName){
+  return Array.from(document.querySelectorAll('.nav-group')).find(function(el){
+    return el.getAttribute('data-group') === groupName;
+  }) || null;
 }
+
+function expandNavGroup(groupName, open){
+  if(!groupName) return;
+  const group = findNavGroup(groupName);
+  if(!group) return;
+  const children = group.querySelector('.nav-children');
+  const toggle = group.querySelector('.nav-group-toggle');
+  const shouldOpen = open === undefined ? !group.classList.contains('open') : !!open;
+  group.classList.toggle('open', shouldOpen);
+  if(children) children.hidden = !shouldOpen;
+  if(toggle) toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+function toggleNavGroup(groupName){
+  const group = findNavGroup(groupName);
+  const willOpen = group && !group.classList.contains('open');
+  expandNavGroup(groupName, willOpen);
+  if(willOpen && group){
+    const first = group.querySelector('.tab-sub');
+    if(first){
+      const idx = Number(first.dataset.index);
+      if(!Number.isNaN(idx)) showPage(idx, false);
+    }
+  }
+}
+
+function findPageIndexByRoute(route){
+  if(!route) return 0;
+  route = decodeURIComponent(route).replace(/^#/, '').trim();
+  if(!route) return 0;
+  let idx = PAGE_META.findIndex(p => p.route === route);
+  if(idx >= 0) return idx;
+  const slash = route.indexOf('/');
+  if(slash === -1){
+    idx = PAGE_META.findIndex(p => p.route === route || p.title === route || p.group === route);
+    if(idx >= 0) return idx;
+    idx = PAGE_META.findIndex(p => p.group === route);
+    return idx >= 0 ? idx : 0;
+  }
+  const group = route.slice(0, slash);
+  const key = route.slice(slash + 1);
+  idx = PAGE_META.findIndex(p => p.group === group && (p.slug === key || p.title === key));
+  if(idx >= 0) return idx;
+  idx = PAGE_META.findIndex(p => p.group === group && (p.slug.endsWith('-'+key) || p.title.endsWith(key) || p.title.includes(key)));
+  if(idx >= 0) return idx;
+  idx = PAGE_META.findIndex(p => p.group === group);
+  return idx >= 0 ? idx : 0;
+}
+
+function showPage(i, updateHash){
+  if(typeof updateHash === 'undefined') updateHash = true;
+  if(i < 0 || i >= PAGE_META.length) i = 0;
+  document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  const page = document.getElementById('page'+i);
+  if(page) page.classList.remove('hidden');
+  const tab = document.querySelector('.tab[data-index="'+i+'"]');
+  if(tab) tab.classList.add('active');
+  const meta = PAGE_META[i];
+  if(meta && meta.group) expandNavGroup(meta.group, true);
+  const area = document.getElementById('contentArea');
+  if(area) area.scrollTop = 0;
+  if(typeof hljs !== 'undefined') hljs.highlightAll();
+  if(updateHash && meta){
+    const nextHash = '#'+meta.route;
+    if(location.hash !== nextHash){
+      history.replaceState(null, '', nextHash);
+    }
+  }
+  if(typeof window.__onHelpPageChanged === 'function'){
+    try{ window.__onHelpPageChanged(i); }catch(e){}
+  }
+}
+
+function applyHashRoute(){
+  const hash = location.hash ? location.hash.slice(1) : '';
+  if(!hash){
+    showPage(0, false);
+    return;
+  }
+  showPage(findPageIndexByRoute(hash), false);
+}
+
+window.showPage = showPage;
+window.toggleNavGroup = toggleNavGroup;
+window.expandNavGroup = expandNavGroup;
+window.findPageIndexByRoute = findPageIndexByRoute;
+window.addEventListener('hashchange', applyHashRoute);
+window.addEventListener('DOMContentLoaded', applyHashRoute);
+applyHashRoute();
 </script>
 <script>
 ${searchScript}
@@ -174,8 +459,11 @@ ${searchScript}
 OUTPUTS.forEach(output => fs.writeFileSync(output, fullHtml, 'utf-8'));
 
 const sizeKB = Math.round(fs.statSync(OUTPUTS[0]).size / 1024);
+const groupCount = navGroups.filter(g => g.type === 'group').length;
 console.log('\n✅ 打包完成!');
 OUTPUTS.forEach(output => console.log(`   输出文件: ${output}`));
 console.log(`   文件大小: ${sizeKB} KB`);
-console.log(`   包含页面: ${PAGES.length} 个`);
+console.log(`   文档分组: ${navGroups.length}（其中可展开 ${groupCount}）`);
+console.log(`   内容页面: ${pageList.length} 个`);
+console.log('   直达示例: index.html#指令手册/按键');
 console.log('   双击即可在浏览器中打开，无需任何依赖\n');

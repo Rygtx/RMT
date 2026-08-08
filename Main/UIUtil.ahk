@@ -506,7 +506,7 @@ AddSettingUI(index) {
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
-    ; 顺序：语言、首选编辑器、软件字体 / 截图方式、手柄类型、按下时按下
+    ; 顺序：语言、软件字体、首选编辑器 / 截图方式、手柄类型、按下时按下
     ; 语言/Lang：方便不同语言用户都能找到切换入口
     posY += 30
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：", tableItem)
@@ -516,17 +516,17 @@ AddSettingUI(index) {
     con.Text := MainSoftData.Lang
     con.OnEvent("Change", (ctrl, info) => MainSoftData.Lang := ctrl.Text)
 
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("首选编辑器") "：", tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), GetLangArr(["逻辑树", "图形节点"]), tableItem)
-    con.Value := MainSoftData.PreferredMacroEditor
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.PreferredMacroEditor := Integer(ctrl.Value))
-
-    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("软件字体："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), [], tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("软件字体："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), [], tableItem)
     con.Delete()
     con.Add(MainSoftData.FontList)
     con.Text := MainSoftData.FontType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.FontType := ctrl.Text)
+
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("首选编辑器") "：", tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), GetLangArr(["逻辑树", "图形节点"]), tableItem)
+    con.Value := MainSoftData.PreferredMacroEditor
+    con.OnEvent("Change", (ctrl, info) => MainSoftData.PreferredMacroEditor := Integer(ctrl.Value))
 
     posY += 40
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("截图方式："), tableItem)
