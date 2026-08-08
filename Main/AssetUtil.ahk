@@ -1182,10 +1182,10 @@ KillSingleTableMacro(tableItem) {
     }
 }
 
-KillTableItemMacro(tableItem, index) {
-    if (tableItem.KilledArr.Length < index)
+; 松开宏项仍按住的按键（不修改 KilledArr）
+ReleaseTableItemHoldKeys(tableItem, index) {
+    if (tableItem.HoldKeyArr.Length < index)
         return
-    tableItem.KilledArr[index] := true
     HoldKeyMap := tableItem.HoldKeyArr[index].Clone()
     for key, value in HoldKeyMap {
         if (value == "Game") {
@@ -1196,6 +1196,9 @@ KillTableItemMacro(tableItem, index) {
         }
         else if (value == "Logic") {
             SendLogicKey(key, 0, tableItem, index)
+        }
+        else if (value == "AHI") {
+            SendAHIKey(key, 0, tableItem, index)
         }
         else if (value == "Joy") {
             SendJoyBtnKey(key, 0, tableItem, index)
@@ -1210,6 +1213,32 @@ KillTableItemMacro(tableItem, index) {
             SendGameMouseKey(key, 0, tableItem, index)
         }
     }
+    tableItem.HoldKeyArr[index] := Map()
+}
+
+; Worker 同步过来的按键按住状态（供主进程强杀后松开）
+SyncWorkerHoldKey(tableIndex, itemIndex, key, state, source := "") {
+    tableIndex := Integer(tableIndex)
+    itemIndex := Integer(itemIndex)
+    if (tableIndex < 1 || itemIndex < 1 || tableIndex > MySoftData.TableInfo.Length)
+        return
+    tableItem := MySoftData.TableInfo[tableIndex]
+    if (tableItem.HoldKeyArr.Length < itemIndex)
+        return
+    bucket := tableItem.HoldKeyArr[itemIndex]
+    if (Integer(state)) {
+        if (source != "")
+            bucket[key] := source
+    } else if (bucket.Has(key)) {
+        bucket.Delete(key)
+    }
+}
+
+KillTableItemMacro(tableItem, index) {
+    if (tableItem.KilledArr.Length < index)
+        return
+    tableItem.KilledArr[index] := true
+    ReleaseTableItemHoldKeys(tableItem, index)
 
     ; 如果是开关型按键宏，重置其开关状态
     if (tableItem.TriggerTypeArr.Length >= index && tableItem.TriggerTypeArr[index] == 4) {

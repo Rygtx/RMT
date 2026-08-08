@@ -4,6 +4,8 @@ OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     tableItem.KilledArr[index] := false
     tableItem.PauseArr[index] := false
     tableItem.ActionCount[index] := 0
+    if (tableItem.HoldKeyArr.Length >= index)
+        tableItem.HoldKeyArr[index] := Map()
     tableItem.VariableMapArr[index]["宏循环次数"] := 1
     tableItem.VariableMapArr[index]["循环次数"] := 0
     isContinue := MySoftData.ContinueKeyMap.Has(tableItem.TKArr[index]) && tableItem.LoopCountArr[index] == 1
@@ -60,6 +62,8 @@ OnFinishMacro(tableItem, macro, index) {
         tableItem.ToggleStateArr[index] := false
     }
 
+    ; 结束时兜底松开仍按住的键（漏配松开 / 中途打断）
+    ReleaseTableItemHoldKeys(tableItem, index)
     ReleaseAllCaches()
 
     itemState := tableItem.KilledArr[index] ? 3 : 0

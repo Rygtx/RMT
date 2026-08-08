@@ -75,13 +75,15 @@
     }
 
     InitWork() {
-        global MySoftData
+        global MySoftData, MyHoldKeyNotify
         global graphBranchesWaiting := false
         global graphBranchesAckReceived := false
         global graphBranchesAckKey := ""
         global workerTaskBusy := false
         global workerPendingTasks := []
         MySoftData.isWorker := true
+        ; 按键按住状态同步到主进程（供强杀后松开）
+        MyHoldKeyNotify := (tIdx, iIdx, key, state, source) => MsgSendHandler("HoldKey", tIdx, iIdx, key, state, source)
 
         OnError(WorkOnError)
         SetTimer(CheckParentProcess, 10000)
@@ -164,6 +166,7 @@
             "SetVari", "SV",
             "DelVari", "DV",
             "StopMacro", "ST",
+            "HoldKey", "HK",
             "TR_MACRO", "TR",
             "GraphMacroBranches", "GB",
             "ItemState", "IS",

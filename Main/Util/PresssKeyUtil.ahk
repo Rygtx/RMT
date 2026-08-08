@@ -6,19 +6,45 @@ GetHoldBucket(tableItem, index) {
     return tableItem.HoldKeyArr[index]
 }
 
-TrackDown(bucket, key, source) {
-    if !MySoftData.OnlyDownKeyMap.Has(key)
+; Worker 启动时挂上同步回调；主进程保持为空，避免引用 Worker 专有函数
+global MyHoldKeyNotify := ""
+
+; Worker 按下/抬起时同步到主进程，强杀 Worker 后主进程仍能松开残留按键
+NotifyHoldKeyChange(tableItem, index, key, state, source := "") {
+    global MyHoldKeyNotify
+    if (MyHoldKeyNotify = "" || !IsObject(tableItem) || index < 1)
+        return
+    try {
+        MyHoldKeyNotify.Call(tableItem.Index, index, key, state, source)
+    } catch {
+    }
+}
+
+TrackDown(bucket, key, source, tableItem := "", index := 0) {
+    if !MySoftData.OnlyDownKeyMap.Has(key) {
         bucket[key] := source
+        if (tableItem != "")
+            NotifyHoldKeyChange(tableItem, index, key, 1, source)
+    }
 }
 
-TrackUp(bucket, key) {
-    if !MySoftData.OnlyDownKeyMap.Has(key)
-        bucket.Delete(key)
+TrackUp(bucket, key, tableItem := "", index := 0) {
+    if !MySoftData.OnlyDownKeyMap.Has(key) {
+        if (bucket.Has(key))
+            bucket.Delete(key)
+        if (tableItem != "")
+            NotifyHoldKeyChange(tableItem, index, key, 0, "")
+    }
 }
 
-ClearDpadHoldState(bucket) {
-    for dpadKey in ["Up", "Down", "Left", "Right"]
+ClearDpadHoldState(bucket, tableItem := "", index := 0) {
+    for dpadKey in ["Up", "Down", "Left", "Right"] {
+        if (!bucket.Has(dpadKey))
+            continue
         bucket.Delete(dpadKey)
+        if (tableItem != "")
+            NotifyHoldKeyChange(tableItem, index, dpadKey, 0, "")
+    }
 }
 
 ResolveActionForKey(baseAction, key) {
@@ -127,9 +153,9 @@ SendNormalKey(Key, state, tableItem, index) {
 
     Send("{Blind}{" Key " " (state ? "down" : "up") "}")
     if state
-        TrackDown(bucket, Key, "Normal")
+        TrackDown(bucket, Key, "Normal", tableItem, index)
     else
-        TrackUp(bucket, Key)
+        TrackUp(bucket, Key, tableItem, index)
 }
 
 SendLogicKey(Key, state, tableItem, index) {
@@ -144,17 +170,17 @@ SendLogicKey(Key, state, tableItem, index) {
         if state
             DllCall("IbInputSimulator\IbSendMouseWheel", "Int", WheelDeltaMap[Key])
         if state
-            TrackDown(bucket, Key, "Logic")
+            TrackDown(bucket, Key, "Logic", tableItem, index)
         else
-            TrackUp(bucket, Key)
+            TrackUp(bucket, Key, tableItem, index)
         return
     }
 
     IbSend("{Blind}{" Key " " (state ? "down" : "up") "}")
     if state
-        TrackDown(bucket, Key, "Logic")
+        TrackDown(bucket, Key, "Logic", tableItem, index)
     else
-        TrackUp(bucket, Key)
+        TrackUp(bucket, Key, tableItem, index)
 }
 
 SendAHIKey(Key, state, tableItem, index) {
@@ -165,9 +191,9 @@ SendAHIKey(Key, state, tableItem, index) {
 
     AhiSendKey(Key, state)
     if state
-        TrackDown(bucket, Key, "AHI")
+        TrackDown(bucket, Key, "AHI", tableItem, index)
     else
-        TrackUp(bucket, Key)
+        TrackUp(bucket, Key, tableItem, index)
 }
 
 SendGameModeKey(Key, state, tableItem, index) {
@@ -207,9 +233,9 @@ SendGameModeKey(Key, state, tableItem, index) {
     DllCall("keybd_event", "UChar", VK, "UChar", SC, "UInt", flags, "UPtr", 0)
 
     if state
-        TrackDown(bucket, Key, "Game")
+        TrackDown(bucket, Key, "Game", tableItem, index)
     else
-        TrackUp(bucket, Key)
+        TrackUp(bucket, Key, tableItem, index)
 }
 
 SendGameMouseKey(key, state, tableItem, index) {
@@ -228,11 +254,11 @@ SendGameMouseKey(key, state, tableItem, index) {
 
     if state {
         DllCall("mouse_event", "UInt", info.Down, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
-        TrackDown(bucket, key, "GameMouse")
+        TrackDown(bucket, key, "GameMouse", tableItem, index)
     } else {
         if info.Up
             DllCall("mouse_event", "UInt", info.Up, "UInt", 0, "UInt", 0, "UInt", info.Data, "UInt", 0)
-        TrackUp(bucket, key)
+        TrackUp(bucket, key, tableItem, index)
     }
 }
 
@@ -255,9 +281,9 @@ SendJoyBtnKey(key, state, tableItem, index) {
         MyViGJoySetState("Btn", JoyBtnName, state)
 
     if state
-        TrackDown(bucket, key, "Joy")
+        TrackDown(bucket, key, "Joy", tableItem, index)
     else
-        TrackUp(bucket, key)
+        TrackUp(bucket, key, tableItem, index)
 }
 
 SendJoyAxisKey(key, state, tableItem, index) {
@@ -270,9 +296,9 @@ SendJoyAxisKey(key, state, tableItem, index) {
     MyViGJoySetState("Axis", axisName, outVal)
 
     if state
-        TrackDown(bucket, key, "JoyAxis")
+        TrackDown(bucket, key, "JoyAxis", tableItem, index)
     else
-        TrackUp(bucket, key)
+        TrackUp(bucket, key, tableItem, index)
 }
 
 SendJoyDpadKey(key, state, tableItem, index) {
@@ -284,9 +310,9 @@ SendJoyDpadKey(key, state, tableItem, index) {
     MyViGJoySetState("Dpad", dpadVal, 0)
 
     if state && (RealKey != "None")
-        TrackDown(bucket, key, "JoyDpad")
+        TrackDown(bucket, key, "JoyDpad", tableItem, index)
     else
-        ClearDpadHoldState(bucket)
+        ClearDpadHoldState(bucket, tableItem, index)
 }
 
 ; ------------------------------------------------------------

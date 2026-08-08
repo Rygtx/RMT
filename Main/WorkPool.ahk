@@ -280,12 +280,16 @@ class WorkPool {
         return toKill.Length
     }
 
-    ; 用户停止宏：杀进程 + 清理占用状态（不依赖 Worker 自行退出）
+    ; 用户停止宏：先协作松开按键，再杀进程；主进程再按同步到的 HoldKey 兜底松开
     ForceStopItem(tableIndex, itemIndex) {
         this.DrainItemTaskQueue(tableIndex, itemIndex)
         tableItem := MySoftData.TableInfo[tableIndex]
         if (tableItem.GraphBranchCountArr.Length >= itemIndex)
             tableItem.GraphBranchCountArr[itemIndex] := 0
+
+        ; Worker 内按下的键只存在于 Worker 进程；直接强杀会导致 R/T 等键卡住
+        this.RequestItemStop(tableIndex, itemIndex)
+        Sleep(80)
 
         killed := this.KillWorkersForItem(tableIndex, itemIndex)
         KillTableItemMacro(tableItem, itemIndex)
@@ -306,6 +310,17 @@ class WorkPool {
             tableItem.KilledArr[itemIndex] := false
         if (tableItem.IsWorkIndexArr.Length >= itemIndex)
             tableItem.IsWorkIndexArr[itemIndex] := 0
+        if (tableItem.HoldKeyArr.Length >= itemIndex)
+            tableItem.HoldKeyArr[itemIndex] := Map()
+    }
+
+    ; 协作式通知 Worker 停止并松开按键（强杀前尽量先走这一步）
+    RequestItemStop(tableIndex, itemIndex) {
+        payload := EncodeBatch(EncodeCommand("ST", tableIndex, itemIndex))
+        for idx, wd in this.usePool {
+            if (wd.tableIndex == tableIndex && wd.itemIndex == itemIndex)
+                this.PushTask(wd, MsgType.EVENT, 0, payload)
+        }
     }
 
     ;分配任务
@@ -900,6 +915,9 @@ class WorkPool {
                         MyErrorMsgBoxGui.ShowGui(args[1])
                     case "ST":
                         StopMacro(args[1], args[2])
+                    case "HK":
+                        ; Worker 同步按键按住状态：tableIndex, itemIndex, key, state, source
+                        SyncWorkerHoldKey(args[1], args[2], args[3], args[4], args.Length >= 5 ? args[5] : "")
                     case "GB":
                         tIdx := args[1]
                         iIdx := args[2]
