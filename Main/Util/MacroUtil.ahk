@@ -622,7 +622,8 @@ OnMMPro(tableItem, cmd, index) {
 }
 
 OnMMProOnce(tableItem, index, Data) {
-    Speed := 100 - Data.Speed
+    ; Speed 为界面速度 0~100（越大越快），由 MouseMoveUtil 按按键类型换算
+    Speed := Data.Speed
     MoveMode := ObjHasOwnProp(Data, "MouseMoveMode") ? Data.MouseMoveMode : 0
     keyMode := GetMacroKeyMode(tableItem, index)
     IsHumanMouse := ObjHasOwnProp(Data, "IsHumanMouse") ? Data.IsHumanMouse : 0
@@ -1137,7 +1138,8 @@ OnMouseMove(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     PosX := Integer(paramArr[2])
     PosY := Integer(paramArr[3])
-    Speed := paramArr.Length >= 4 ? 100 - Integer(paramArr[4]) : 0
+    ; 界面速度 0~100（越大越快），由 MouseMoveUtil 按按键类型换算
+    Speed := paramArr.Length >= 4 ? Integer(paramArr[4]) : 90
     MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
 
     PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)

@@ -218,7 +218,8 @@ SearchWinText(Data, hwndList, X1, Y1, X2, Y2, searchText, &ResXList, &ResYList, 
 HandleSearchResult(tableItem, Data, index, ImagePath, ResXList, ResYList, ResHwndList) {
     CoordMode("Mouse", "Screen")
     SendMode("Event")
-    Speed := 100 - Data.Speed
+    ; 界面速度 0~100（越大越快），由 MouseMoveUtil 按按键类型换算
+    Speed := Data.Speed
 
     isWin := Data.SearchType == 4 || Data.SearchType == 5 || Data.SearchType == 6
 

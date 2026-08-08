@@ -74,13 +74,15 @@ MC_MoveAbs(targetX, targetY) {
 
 ; 带速度的绝对移动（分步插值）
 ; targetX/Y: 目标屏幕坐标
-; speed: 0=瞬移, 1~99=速度（值越大越快，与AHK MouseMove的Speed含义一致）
+; speed: 1~99 越大越快，>=100 瞬移（0/负数按最慢处理，勿当瞬移）
 MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
     global MCDllPath
-    if (speed <= 0 || speed >= 100) {
+    if (speed >= 100) {
         MC_MoveAbs(targetX, targetY)
         return
     }
+    if (speed <= 0)
+        speed := 1
 
     CoordMode("Mouse", "Screen")
     MouseGetPos(&curX, &curY)
@@ -110,11 +112,14 @@ MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
 }
 
 ; 带速度的相对移动
+; speed: 1~99 越大越快，>=100 瞬移（0/负数按最慢处理）
 MC_MoveRSmooth(relX, relY, speed := 0) {
-    if (speed <= 0 || speed >= 100) {
+    if (speed >= 100) {
         MC_MoveR(relX, relY)
         return
     }
+    if (speed <= 0)
+        speed := 1
 
     dist := Sqrt(relX * relX + relY * relY)
     if (dist < 2)

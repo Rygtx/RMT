@@ -2024,6 +2024,12 @@ ExecuteMacroCmdOnce (单条指令执行)
     <div class="page hidden" id="page6"><div class="content"><h1>更新日志</h1>
 <h2>RMTv2.0待更新内容</h2>
 <p><a href="https://github.com/owhs/ahk-xaml">https://github.com/owhs/ahk-xaml</a><br>ahk-xaml对Win7兼容，框架效率比webview更好<br>使用ahk-xaml替换当前ahkUI</p>
+<h2>RMTv1.2F23更新内容</h2>
+<h3>优化</h3>
+<p>AHI 模式鼠标移动正式化：选择 AHI 时，「移动 / 移动Pro / 搜索后移动点击」走 Interception（<code>AhiMoveR/Abs</code> 及平滑接口），点击走 <code>AhiClick</code>，不再回退 AHK <code>MouseMove</code><br>鼠标移动策略整合：移动 / 移动Pro / 搜索移动统一经 <code>MouseMoveUtil.ahk</code>，按「移动选项 + 当前按键类型」分发 AHK / 罗技 / AHI</p>
+<h3>修复</h3>
+<p>修复罗技 / AHI 按键类型下移动速度与界面相反的问题（原先统一做 <code>100-speed</code> 只适合 AHK；现按后端分别换算，95 快、5 慢）<br>修复打包未包含 <code>MouseControl.dll</code>，导致发行版罗技模式鼠标移动无效；打包同步复制 <code>IbInputSimulator.dll</code> / <code>MouseControl.dll</code></p>
+<hr>
 <h2>RMTv1.2F22更新内容</h2>
 <h3>新增</h3>
 <p>开关选项新增「自动松开修饰键」（默认开启）：组合键触发宏前先松开修饰键，避免宏内按键被修饰键污染；支持 <code>Ctrl &amp; A</code> 等新格式<br>开关选项新增「连续触发」（默认开启）：关闭后，按下 / 开关 / 长按须先松开触发键才能再次触发<br>AHI 按键类型：首次使用前检测 Interception 驱动，未安装时提示并可一键自动安装（也可手动运行 <code>Plugins/AHI/安装卸载.bat</code>）；打包同步 <code>Plugins/AHI</code> 与 <code>AhiDriver</code> 到发行版<br>工具页新增「文件校验」：手动检查并补全缺失资源文件（不再启动时自动执行）；旁附问号说明；带 F 后缀的测试版本不支持自动下载</p>

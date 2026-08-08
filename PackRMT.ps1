@@ -340,6 +340,10 @@ function New-Release {
         Write-Log "复制 AHI / AhiDriver..." "Gray"
         Copy-AHI -ReleaseDir $releaseDir
         Copy-AhiDriver -ReleaseDir $releaseDir
+
+        # 复制罗技输入相关 DLL（按键 + 鼠标移动）
+        Write-Log "复制输入插件 DLL..." "Gray"
+        Copy-InputDlls -ReleaseDir $releaseDir
     }
 
     if ($Type -eq "x32" -or $Type -eq "both") {
@@ -396,6 +400,10 @@ function New-Release {
         Write-Log "复制 AHI / AhiDriver..." "Gray"
         Copy-AHI -ReleaseDir $releaseDir
         Copy-AhiDriver -ReleaseDir $releaseDir
+
+        # 复制罗技输入相关 DLL（按键 + 鼠标移动）
+        Write-Log "复制输入插件 DLL..." "Gray"
+        Copy-InputDlls -ReleaseDir $releaseDir
     }
 
     Write-Section "创建发行包到桌面"
@@ -570,6 +578,29 @@ function Copy-AhiDriver {
             Write-Log "  已复制: AhiDriver/$rel" "Gray"
         } else {
             Write-Log "  [WARN] 未找到: AhiDriver/$rel" "Yellow"
+        }
+    }
+}
+
+# 罗技按键(Ib) + 罗技鼠标移动(MouseControl)
+function Copy-InputDlls {
+    param([string]$ReleaseDir)
+
+    $dstDir = Join-Path $ReleaseDir "Plugins"
+    New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
+
+    $files = @(
+        "IbInputSimulator.dll",
+        "MouseControl.dll"
+    )
+    foreach ($name in $files) {
+        $src = Join-Path $PSScriptRoot "Plugins\$name"
+        $dst = Join-Path $dstDir $name
+        if (Test-Path $src) {
+            Copy-Item $src -Destination $dst -Force
+            Write-Log "  已复制: Plugins/$name" "Gray"
+        } else {
+            Write-Log "  [WARN] 未找到: Plugins/$name" "Yellow"
         }
     }
 }

@@ -404,12 +404,14 @@ AhiMoveAbs(targetX, targetY) {
     return true
 }
 
-; 带速度的绝对移动（speed 含义同 AHK MouseMove：0 瞬移，越大越快）
+; 带速度的绝对移动（1~99 越大越快，>=100 瞬移；0/负按最慢）
 AhiMoveAbsSmooth(targetX, targetY, speed := 0) {
     if (!InitAHI())
         return false
-    if (speed <= 0 || speed >= 100)
+    if (speed >= 100)
         return AhiMoveAbs(targetX, targetY)
+    if (speed <= 0)
+        speed := 1
 
     CoordMode("Mouse", "Screen")
     MouseGetPos(&curX, &curY)
@@ -433,14 +435,16 @@ AhiMoveAbsSmooth(targetX, targetY, speed := 0) {
     return AhiMoveAbs(targetX, targetY)
 }
 
-; 带速度的相对移动
+; 带速度的相对移动（1~99 越大越快，>=100 瞬移；0/负按最慢）
 AhiMoveRSmooth(relX, relY, speed := 0) {
     if (!InitAHI())
         return false
     relX := Integer(relX)
     relY := Integer(relY)
-    if (speed <= 0 || speed >= 100)
+    if (speed >= 100)
         return AhiMoveR(relX, relY)
+    if (speed <= 0)
+        speed := 1
 
     dist := Sqrt(relX * relX + relY * relY)
     if (dist < 2)

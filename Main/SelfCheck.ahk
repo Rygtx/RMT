@@ -41,6 +41,7 @@ SelfCheckMissingFiles() {
         "index.html", "index.html")
 
     optionalMap := Map(
+        "Plugins\MouseControl.dll", "MouseControl.dll",
         "MinTool\PlayAudio.vbs", "PlayAudio.vbs",
         "MinTool\CountDown.exe", "CountDown.exe")
 
