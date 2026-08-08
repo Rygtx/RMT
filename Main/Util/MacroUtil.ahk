@@ -1,4 +1,4 @@
-;按键宏命令
+﻿;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     MyMacroCount("Add")
     tableItem.KilledArr[index] := false
@@ -209,7 +209,8 @@ OnExVariableWrapper(tableItem, cmdStr, index) {
 OnRunFile(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
     Data := GetMacroCMDData(paramArr[1])
-    target := GetReplaceVarText(tableItem, index, Data.Target)
+    target := Data.Target
+    GetSmartReplaceVarText(tableItem, index, &target)
     options := ["Hide", "", "Min", "Max"]
 
     switch Data.Mode {
@@ -221,13 +222,15 @@ OnRunFile(tableItem, cmd, index) {
             MySetGlobalVariable([Data.SaveNameArr[1]], [exitCode], false)
 
         case 3:
-            stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
+            stdinText := Data.StdIn
+            GetSmartReplaceVarText(tableItem, index, &stdinText)
             _RunCommandNoWait(target, &Data, stdinText)
 
         case 4:
             stdout := ""
             stderr := ""
-            stdinText := GetReplaceVarText(tableItem, index, Data.StdIn)
+            stdinText := Data.StdIn
+            GetSmartReplaceVarText(tableItem, index, &stdinText)
             exitCode := _RunCommand(target, &Data, stdinText, &stdout, &stderr)
             MySetGlobalVariable(Data.SaveNameArr, [exitCode, stdout, stderr], false)
     }
@@ -305,6 +308,7 @@ _RunCommandNoWait(commandLine, &Data, stdinText) {
         ; 子程序已複製 stdin handle
         DllCall("Kernel32\CloseHandle", "Ptr", stdinRd)
         stdinRd := 0
+
 
         if (stdinText != "")
             _WriteTextToPipe(stdinWr, stdinText, Data.Encoding.In)
@@ -1796,4 +1800,161 @@ OnScreenShot(tableItem, cmd, index) {
     if (Data.ResultToggle) {
         MySetGlobalVariable([Data.ResultSaveName], [filePath], false)
     }
+}
+
+; ──────────────────────────────────────────────────────────────────────
+; 智能跳脫 / 還原 / 執行替換工具（供 RunGui 等使用）
+; ──────────────────────────────────────────────────────────────────────
+
+; 重複輸出字元/字串 count 次的小工具
+StrRepeatChar(ch, count) {
+    s := ""
+    Loop count
+        s .= ch
+    return s
+}
+
+IsSmartVar(content, varMap) {
+    if (content == "")
+        return false
+    return varMap.Has(content)
+        || (SubStr(content, 1, 1) == "ε" && MySoftData.GlobalArrMap.Has(SubStr(content, 2)))
+}
+
+; 在 text 的 pos 位置找出「連續同一括號字元」的區塊，並找到對應的內容與收尾位置。
+; 規則：開頭有 n 個連續 '{'，之後尋找第一個「連續 >= n 個 '}'」的位置，取其中前 n 個當作收尾，
+;       中間的內容視為純文字（不可再包含花括號，否則視為不成組，回傳 closeStart=0）。
+; 回傳：openCount(=n), content, closeStart（收尾 '}' 起始位置；0 表示找不到成組）
+_FindBraceGroup(text, pos, len) {
+    n := 1
+    while (SubStr(text, pos + n, 1) == "{")
+        n++
+    openEnd := pos + n
+    searchPos := openEnd
+    while (searchPos <= len) {
+        ch := SubStr(text, searchPos, 1)
+        if (ch == "}") {
+            runLen := 1
+            while (SubStr(text, searchPos + runLen, 1) == "}")
+                runLen++
+            if (runLen >= n)
+                return {n: n, content: SubStr(text, openEnd, searchPos - openEnd), closeStart: searchPos}
+            searchPos += runLen
+        } else if (ch == "{") {
+            break ; 內容中出現未預期的 '{'，視為不成組
+        } else {
+            searchPos++
+        }
+    }
+    return {n: n, content: "", closeStart: 0}
+}
+
+; 儲存前智能跳脫（介面格式 → 保存格式）：
+;   顯示 n 層，內容為「已知變量」 → 存成 2n-1 層
+;   顯示 n 層，內容為「非變量」   → 存成 2n   層
+;   例： {已知變量}->{已知變量}  {非變量}->{{非變量}}
+;        {{已知變量}}->{{{已知變量}}}  {{非變量}}->{{{{非變量}}}}
+SmartEscapeVarText(text) {
+    varArr := GetGuiVarArr(1)
+    varMap := Map()
+    for v in varArr
+        varMap[v] := true
+
+    result := ""
+    pos    := 1
+    len    := StrLen(text)
+
+    while (pos <= len) {
+        if (SubStr(text, pos, 1) == "{") {
+            g := _FindBraceGroup(text, pos, len)
+            if (g.closeStart) {
+                isKnown := IsSmartVar(g.content, varMap)
+                m := isKnown ? (2 * g.n - 1) : (2 * g.n)
+                result .= StrRepeatChar("{", m) . g.content . StrRepeatChar("}", m)
+                pos := g.closeStart + g.n
+                continue
+            }
+        }
+        result .= SubStr(text, pos, 1)
+        pos++
+    }
+    return result
+}
+
+; 介面顯示前還原（保存格式 → 介面格式），為 SmartEscapeVarText 的精確反函式：
+;   存有 m 層，內容為「已知變量」 → n = (m+1)/2
+;   存有 m 層，內容為「非變量」   → n = m/2
+UnescapeVarText(text) {
+    varArr := GetGuiVarArr(1)
+    varMap := Map()
+    for v in varArr
+        varMap[v] := true
+
+    result := ""
+    pos    := 1
+    len    := StrLen(text)
+
+    while (pos <= len) {
+        if (SubStr(text, pos, 1) == "{") {
+            g := _FindBraceGroup(text, pos, len)
+            if (g.closeStart) {
+                isKnown := IsSmartVar(g.content, varMap)
+                nCalc := (g.n + (isKnown ? 1 : 0)) / 2
+                if (nCalc = Floor(nCalc)) {
+                    n := nCalc
+                    result .= StrRepeatChar("{", n) . g.content . StrRepeatChar("}", n)
+                } else {
+                    ; 層數不符預期規律（可能是手動編輯過的異常資料），原樣保留避免破壞資料
+                    result .= SubStr(text, pos, g.closeStart + g.n - pos)
+                }
+                pos := g.closeStart + g.n
+                continue
+            }
+        }
+        result .= SubStr(text, pos, 1)
+        pos++
+    }
+    return result
+}
+
+; 解析變量並執行實際替換（作用於「保存格式」文字）：
+; 對每一組連續 m 層大括號：
+;   pairs   := m // 2   → 需要保護、最終要還原為字面大括號的層數
+;   hasReal := m 是奇數 → 表示中間還剩一層「真正要替換的 {內容}」
+; （根據 SmartEscapeVarText 的編碼規則，m 為奇數必然是「已知變量」，偶數必然是「非變量」，
+;   因此這裡不必再查 varMap，直接依奇偶數判斷即可）
+GetSmartReplaceVarText(tableItem, index, &text) {
+    static ESC_OPEN  := Chr(0xE001)   ; 佔位符：代表字面量 {
+    static ESC_CLOSE := Chr(0xE002)   ; 佔位符：代表字面量 }
+
+    result := ""
+    pos    := 1
+    len    := StrLen(text)
+
+    while (pos <= len) {
+        if (SubStr(text, pos, 1) == "{") {
+            g := _FindBraceGroup(text, pos, len)
+            if (g.closeStart) {
+                pairs   := g.n // 2
+                hasReal := Mod(g.n, 2) = 1
+
+                result .= StrRepeatChar(ESC_OPEN, pairs)
+                result .= hasReal ? "{" g.content "}" : g.content
+                result .= StrRepeatChar(ESC_CLOSE, pairs)
+
+                pos := g.closeStart + g.n
+                continue
+            }
+        }
+        result .= SubStr(text, pos, 1)
+        pos++
+    }
+    text := result
+
+    ; 呼叫底層進行單層 {變量} 替換（此時剩下的單層 {內容} 保證是已知變量）
+    text := GetReplaceVarText(tableItem, index, text)
+
+    ; 還原跳脫的字面量花括號
+    text := StrReplace(text, ESC_OPEN,  "{")
+    text := StrReplace(text, ESC_CLOSE, "}")
 }
