@@ -1939,7 +1939,16 @@ GetSmartReplaceVarText(tableItem, index, &text) {
                 hasReal := Mod(g.n, 2) = 1
 
                 result .= StrRepeatChar(ESC_OPEN, pairs)
-                result .= hasReal ? "{" g.content "}" : g.content
+
+                if (hasReal) {
+                    if (TryGetTabVarValue(&varValue, tableItem, index, g.content, false))
+                        result .= varValue
+                    else
+                        result .= "{" g.content "}"  ; 找不到值：維持原樣，行為與舊版 GetReplaceVarText 一致
+                } else {
+                    result .= g.content
+                }
+
                 result .= StrRepeatChar(ESC_CLOSE, pairs)
 
                 pos := g.closeStart + g.n
@@ -1950,9 +1959,6 @@ GetSmartReplaceVarText(tableItem, index, &text) {
         pos++
     }
     text := result
-
-    ; 呼叫底層進行單層 {變量} 替換（此時剩下的單層 {內容} 保證是已知變量）
-    text := GetReplaceVarText(tableItem, index, text)
 
     ; 還原跳脫的字面量花括號
     text := StrReplace(text, ESC_OPEN,  "{")
