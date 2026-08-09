@@ -273,29 +273,35 @@ class TriggerKeyGui {
             modifyKeyArr := []
         }
 
+        ; 修饰键前缀（! ^ + #）
+        modifierPrefix := ""
         for index, value in modifyKeyArr {
-            triggerKey .= this.ModifyKeyMap.Get(value)
+            modifierPrefix .= this.ModifyKeyMap.Get(value)
         }
 
+        ; 按键部分
+        keyPart := ""
         if (hasJoy) {
             if (joyKeyArr.Length == 2) {
-                triggerKey .= joyKeyArr[1] " & " joyKeyArr[2]
+                keyPart .= joyKeyArr[1] " & " joyKeyArr[2]
             }
             else if (joyKeyArr.Length == 1) {
-                triggerKey .= joyKeyArr[1]
+                keyPart .= joyKeyArr[1]
             }
         }
         else {
             if (allNormalKeys.Length == 2) {
-                prefix1 := keepOriginal ? "~" : ""
-                prefix2 := keepOriginal ? "~" : ""
-                triggerKey .= prefix1 allNormalKeys[1] " & " prefix2 allNormalKeys[2]
+                keyPart .= allNormalKeys[1] " & " allNormalKeys[2]
             }
             else if (allNormalKeys.Length == 1) {
-                prefix := keepOriginal ? "~" : ""
-                triggerKey .= prefix allNormalKeys[1]
+                keyPart .= allNormalKeys[1]
             }
         }
+
+        ; 保留触发键原本功能：~ 必须在最前面，即 ~!f 而非 !~f
+        if (keepOriginal)
+            triggerKey .= "~"
+        triggerKey .= modifierPrefix keyPart
 
         return triggerKey
     }

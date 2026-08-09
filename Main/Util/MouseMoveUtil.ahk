@@ -6,9 +6,48 @@
 ; keyMode : 1 默认(AHK) | 2 游戏(AHK键) | 3 罗技 | 4 AHI
 ; moveMode: 0 绝对 | 1 相对 | 2 游戏视角（相对位移；罗技/AHI 会再点一下左键，AHK 仅相对移动）
 ;
-; 速度约定（与编辑器一致）：uiSpeed 0~100，越大越快，100 为瞬移
+; 速度约定（与编辑器一致）：uiSpeed 0~100，越大越快，仅 100 为瞬移
 ; - AHK MouseMove / SetDefaultMouseSpeed：需转为 0 最快 ~ 100 最慢
-; - 罗技 / AHI 平滑：越大越快，>=100 瞬移
+; - 罗技 / AHI 平滑：按步长+延时插值，90 应为快速滑动而非瞬移
+
+; ========== 诊断日志 ==========
+; 输出到 Log\MouseMoveDebug.log，用于排查位移偏差问题
+global _mmLogInit := false
+global _mmLogPath := ""
+
+_MouseMoveLogInit() {
+    global _mmLogInit, _mmLogPath
+    if (_mmLogInit)
+        return
+    try {
+        logDir := A_WorkingDir "\Log"
+        if !DirExist(logDir)
+            DirCreate(logDir)
+        _mmLogPath := logDir "\MouseMoveDebug.log"
+        _mmLogInit := true
+    }
+}
+
+MouseMoveLog(tag, msg) {
+    global _mmLogInit, _mmLogPath
+    if (!_mmLogInit)
+        _MouseMoveLogInit()
+    if (_mmLogPath == "")
+        return
+    try {
+        modeStr := "?" ; fallback
+        FileAppend(FormatTime(, "HH:mm:ss") "." SubStr(A_TickCount, -2) " [" tag "] " msg "`n"
+            , _mmLogPath, "UTF-8")
+    }
+}
+
+; keyMode → 可读名称
+_MM_KM_NAME := Map(1, "AHK", 2, "AHK-Game", 3, "Logitech", 4, "AHI")
+_MM_ModeName(mode) => (mode == 0 ? "Abs" : (mode == 1 ? "Rel" : "GameView"))
+
+_MM_KeyModeName(km) {
+    return _MM_KM_NAME.Has(Integer(km)) ? _MM_KM_NAME[Integer(km)] : "KM" km
+}
 
 ; 从宏项读取按键类型
 GetMacroKeyMode(tableItem, index) {
@@ -86,12 +125,22 @@ MouseMoveAbsByKeyMode(keyMode, x, y, speed := 90, isHuman := false) {
         hm.Move(x, y)
         return true
     }
+
+    MouseGetPos(&startX, &startY)
     if (keyMode == 3) {
         MC_MoveAbsSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
+        MouseGetPos(&endX, &endY)
+        MouseMoveLog("ABS", Format("{} target=({},{}) start=({},{}) end=({},{}) dXY=({},{}) eXY=({},{}) speed={}"
+            , _MM_KeyModeName(keyMode), x, y, startX, startY, endX, endY
+            , x - startX, y - startY, x - endX, y - endY, uiSpeed))
         return true
     }
     if (keyMode == 4) {
         AhiMoveAbsSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
+        MouseGetPos(&endX, &endY)
+        MouseMoveLog("ABS", Format("{} target=({},{}) start=({},{}) end=({},{}) dXY=({},{}) eXY=({},{}) speed={}"
+            , _MM_KeyModeName(keyMode), x, y, startX, startY, endX, endY
+            , x - startX, y - startY, x - endX, y - endY, uiSpeed))
         return true
     }
     MouseMove(x, y, UiSpeedToAhkSpeed(uiSpeed))
@@ -113,12 +162,22 @@ MouseMoveRelByKeyMode(keyMode, x, y, speed := 90, isHuman := false) {
         hm.Move(curX + x, curY + y)
         return true
     }
+
+    MouseGetPos(&startX, &startY)
     if (keyMode == 3) {
         MC_MoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
+        MouseGetPos(&endX, &endY)
+        MouseMoveLog("REL", Format("{} delta=({},{}) start=({},{}) end=({},{}) expect=({},{}) err=({},{}) speed={}"
+            , _MM_KeyModeName(keyMode), x, y, startX, startY, endX, endY
+            , startX + x, startY + y, (startX + x) - endX, (startY + y) - endY, uiSpeed))
         return true
     }
     if (keyMode == 4) {
         AhiMoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
+        MouseGetPos(&endX, &endY)
+        MouseMoveLog("REL", Format("{} delta=({},{}) start=({},{}) end=({},{}) expect=({},{}) err=({},{}) speed={}"
+            , _MM_KeyModeName(keyMode), x, y, startX, startY, endX, endY
+            , startX + x, startY + y, (startX + x) - endX, (startY + y) - endY, uiSpeed))
         return true
     }
     MouseMove(x, y, UiSpeedToAhkSpeed(uiSpeed), "R")
