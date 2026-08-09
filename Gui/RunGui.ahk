@@ -261,7 +261,8 @@ class RunGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
 
-        this.PathTextCon.Value := this.Data.Target
+        ; 還原跳脫的花括號供介面顯示（{{xxx}} → {xxx}）
+        this.PathTextCon.Value := UnescapeVarText(this.Data.Target)
 
         DLVariableArr := GetGuiVarArr(1)
         this.VariCon.Delete()
@@ -270,7 +271,7 @@ class RunGui {
 
         this.RunModeCon.Value := this.Data.Mode
         this.OptionCon.Value := ObjHasOwnProp(this.Data, "Option") ? this.Data.Option + 1 : 2
-        this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? this.Data.StdIn : ""
+        this.StdInCon.Value := ObjHasOwnProp(this.Data, "StdIn") ? UnescapeVarText(this.Data.StdIn) : ""
 
         ; Load encoding - default to UTF-8
         this.EncInCon.Text  := (ObjHasOwnProp(this.Data, "Encoding") && ObjHasOwnProp(this.Data.Encoding, "In"))  ? this.Data.Encoding.In  : "UTF-8"
@@ -454,7 +455,8 @@ class RunGui {
     }
 
     SaveRunData() {
-        this.Data.Target := GetLangStr(this.PathTextCon.Value, 2)
+        ; 智能跳脫：{非變量} → {{非變量}}，{已知變量} 保持原樣
+        this.Data.Target := SmartEscapeVarText(GetLangStr(this.PathTextCon.Value, 2))
         this.Data.Mode := this.RunModeCon.Value
         this.Data.Option := this.OptionCon.Value - 1
 
@@ -472,14 +474,14 @@ class RunGui {
             if (ObjHasOwnProp(this.Data, "Encoding"))
                 this.Data.DeleteProp("Encoding")
         } else if (this.Data.Mode == 3) {
-            this.Data.StdIn := this.StdInCon.Value
+            this.Data.StdIn := SmartEscapeVarText(this.StdInCon.Value)
              if (ObjHasOwnProp(this.Data, "SaveNameArr"))
                 this.Data.DeleteProp("SaveNameArr")
             enc := {}
             enc.In  := this.EncInCon.Text
             this.Data.Encoding := enc
         } else if (this.Data.Mode == 4) {
-            this.Data.StdIn := this.StdInCon.Value
+            this.Data.StdIn := SmartEscapeVarText(this.StdInCon.Value)
             this.Data.SaveNameArr := [this.SaveNameConArr[1].Text, this.SaveNameConArr[2].Text, this.SaveNameConArr[3].Text]
             enc := {}
             enc.In  := this.EncInCon.Text
