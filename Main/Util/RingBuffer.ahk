@@ -123,7 +123,6 @@ global IPC_REC := Chr(2)
 global IPC_ESC := Chr(3)
 
 EscapeIPC(str) {
-    str := StrReplace(str, IPC_ESC, IPC_ESC IPC_ESC)
     str := StrReplace(str, IPC_SEP, IPC_ESC IPC_SEP)
     str := StrReplace(str, IPC_REC, IPC_ESC IPC_REC)
     return str
@@ -133,7 +132,6 @@ UnescapeIPC(str) {
     if InStr(str, IPC_ESC) {
         str := StrReplace(str, IPC_ESC IPC_REC, IPC_REC)
         str := StrReplace(str, IPC_ESC IPC_SEP, IPC_SEP)
-        str := StrReplace(str, IPC_ESC IPC_ESC, IPC_ESC)
     }
     return str
 }
