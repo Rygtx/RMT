@@ -1973,7 +1973,7 @@ GetSmartReplaceVarText(tableItem, index, &text) {
         varValue := ""
 
         ; 直接使用 TryGetTabVarValue
-        if (TryGetTabVarValue(&varValue, tableItem, index, varName, false)) {
+        if (TryGetTabVarValue(&varValue, tableItem, index, varName, true)) {
             result .= varValue
         } else {
             ; 非變量，原樣保留
