@@ -290,8 +290,8 @@ class RunGui {
     }
 
     GetCommandStr() {
-        textOnly := RegExReplace(this.Data.SerialStr, "\d+")
-        numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
+        textOnly := RTrim(this.Data.SerialStr, "0123456789")
+        numbersOnly := SubStr(this.Data.SerialStr, StrLen(textOnly) + 1)
         commandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         commandStr := CorrectRemark(commandStr, this.RemarkCon.Value)
         return commandStr
@@ -307,7 +307,7 @@ class RunGui {
         if (fileString == "")
             return
 
-        this.PathTextCon.Value := fileString
+        this.PathTextCon.Value := '"' fileString '"'
     }
 
     OpenStdInEditor() {
