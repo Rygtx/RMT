@@ -21,6 +21,7 @@ ReadExcel(Data, tableItem, index) {
     HasCol := TryGetTabVarValue(&Col, tableItem, index, Data.ColVar, true)
     if (!HasRow || !HasCol)
         return
+    Row := Integer(Row), Col := Integer(Col)
 
     switch Data.OperMode {
         case "单元格":
@@ -40,6 +41,7 @@ ReadExcel(Data, tableItem, index) {
             HasColEnd := TryGetTabVarValue(&ColEnd, tableItem, index, Data.ColEndVar, true)
             if (!HasRowEnd || !HasColEnd)
                 return
+            RowEnd := Integer(RowEnd), ColEnd := Integer(ColEnd)
             err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
             if (err != "") {
                 MsgBox(err)
@@ -53,6 +55,7 @@ ReadExcel(Data, tableItem, index) {
             HasColEnd := TryGetTabVarValue(&ColEnd, tableItem, index, Data.ColEndVar, true)
             if (!HasRowEnd || !HasColEnd)
                 return
+            RowEnd := Integer(RowEnd), ColEnd := Integer(ColEnd)
             err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
             if (err != "") {
                 MsgBox(err)
@@ -95,6 +98,7 @@ WriteExcel(Data, tableItem, index) {
     hasColValue := TryGetTabVarValue(&ColValue, tableItem, index, Data.ColVar)
     if (!hasRowValue || !hasColValue)
         return
+    RowValue := Integer(RowValue), ColValue := Integer(ColValue)
 
     switch Data.OperMode {
         case "单元格":
