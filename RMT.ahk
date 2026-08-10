@@ -1,6 +1,5 @@
 #Requires AutoHotkey v2.0
-; DllCall("SetProcessDPIAware")
-global RMT_VERSION := "1.2F23"
+global RMT_VERSION := "1.2F24"
 #Include Main\SelfCheck.ahk
 #Include Main\AssetUtil.ahk
 #Include Main\GlobalUtil.ahk

@@ -97,10 +97,15 @@ MC_MoveAbs(targetX, targetY) {
 }
 
 ; 平滑移动步进参数
-; 步长上限 50：避免单次 driver 调用值过大被 Windows 鼠标加速曲线放大
-; speed>=100 走瞬移分支，不进入此函数
+; speed: 1~100 越大越快
+; 90+ 高速段：步长指数增长，90=46, 91=46*1.3, 92=46*1.3^2, ..., 100=46*1.3^10
 MC_SmoothStepParams(speed, &maxStep, &stepDelay) {
-    speed := Max(1, Min(99, Integer(speed)))
+    speed := Max(1, Min(100, Integer(speed)))
+    if (speed >= 90) {
+        maxStep := Round(46 * (1.3 ** (speed - 90)))
+        stepDelay := 1
+        return
+    }
     factor := speed / 100.0
     ; 步长范围 2~50
     maxStep := Max(2, Min(50, Round(2 + 50 * (factor ** 1.2))))
@@ -110,7 +115,7 @@ MC_SmoothStepParams(speed, &maxStep, &stepDelay) {
 
 ; 带速度的绝对移动
 ; 内部始终拆分为小步长相对移动，不调用 move_Abs 以避免 DLL 在屏幕边缘坐标映射异常
-; speed: 1~99 越大越快，>=100 瞬移（也拆分为高速小步，避免单次大值）
+; speed: 1~100 越大越快（拆分为小步相对移动，避免单次大值）
 MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
     CoordMode("Mouse", "Screen")
 
@@ -133,7 +138,7 @@ MC_MoveAbsSmooth(targetX, targetY, speed := 0) {
 
 ; 相对移动（平滑，闭环校正 + 自适应步长）
 ;   - 步长随剩余距离等比衰减：≤5px→1，否则≤1/3，上限 maxStep
-;   - speed: 1~99 越大越快，≥100 瞬移
+;   - speed: 1~100 越大越快
 MC_MoveRSmooth(relX, relY, speed := 0) {
     CoordMode("Mouse", "Screen")
     MouseGetPos(&startX, &startY)
@@ -142,11 +147,9 @@ MC_MoveRSmooth(relX, relY, speed := 0) {
 
     if (speed <= 0)
         speed := 1
-    useSpeed := Min(99, Max(1, Integer(speed)))
+    useSpeed := Min(100, Max(1, Integer(speed)))
 
     MC_SmoothStepParams(useSpeed, &maxStep, &stepDelay)
-    if (speed >= 100)
-        stepDelay := 1
 
     stepCount := 0
     stuckCount := 0
