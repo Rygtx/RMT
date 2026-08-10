@@ -1929,6 +1929,67 @@ GetReplaceVarText(tableItem, tableIndex, text) {
     return ResText
 }
 
+; ──────────────────────────────────────────────────────────────────────
+; 解析變量並執行實際替換（作用於「存儲格式」文字）
+;
+;   1. {var} -> var值
+;   2. /{    -> {
+;   3. /}    -> }
+; ──────────────────────────────────────────────────────────────────────
+GetSmartReplaceVarText(tableItem, index, &text) {
+    static ESC_L := Chr(0xE001)
+    static ESC_R := Chr(0xE002)
+
+    ; 先保護字面量花括號
+    text := StrReplace(text, "/{", ESC_L)
+    text := StrReplace(text, "/}", ESC_R)
+
+    result := ""
+    pos := 1
+    len := StrLen(text)
+
+    while (pos <= len) {
+        openPos := InStr(text, "{", false, pos)
+
+        if (!openPos) {
+            result .= SubStr(text, pos)
+            break
+        }
+
+        ; 加入 { 前面的文字
+        if (openPos > pos)
+            result .= SubStr(text, pos, openPos - pos)
+
+        ; 找對應的 }
+        closePos := InStr(text, "}", false, openPos + 1)
+
+        if (!closePos) {
+            ; 沒有完整的 {xxx}，原樣保留後面內容
+            result .= SubStr(text, openPos)
+            break
+        }
+
+        varName := SubStr(text, openPos + 1, closePos - openPos - 1)
+        varValue := ""
+
+        ; 直接使用 TryGetTabVarValue
+        if (TryGetTabVarValue(&varValue, tableItem, index, varName, true)) {
+            result .= varValue
+        } else {
+            ; 非變量，原樣保留
+            result .= SubStr(text, openPos, closePos - openPos + 1)
+        }
+
+        pos := closePos + 1
+    }
+
+    ; 還原一般花括號
+    result := StrReplace(result, ESC_L, "{")
+    result := StrReplace(result, ESC_R, "}")
+
+    text := result
+}
+
 TryGetVarValue(&Value, varName, variTip := true, tableVarMap := Map()) {
 
     if (RegExMatch(varName, "^[0-9A-Fa-f]{6}$")) {

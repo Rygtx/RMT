@@ -1481,3 +1481,61 @@ UnblockZoneIdentifier() {
         Run(fullCmd, , "Hide")
     }
 }
+
+; ──────────────────────────────────────────────────────────────────────
+; 儲存前智能跳脫（介面格式 → 存儲格式）
+;
+; 規則：
+;   1. 已有變量 {var} -> 保持 {var}
+;   2. 一般 {        -> /{
+;   3. 一般 }        -> /}
+; ──────────────────────────────────────────────────────────────────────
+SmartEscapeVarText(text) {
+    varMap := Map()
+    for v in GetGuiVarArr(1)
+        varMap[v] := true
+
+    result := ""
+    pos := 1
+    len := StrLen(text)
+
+    while (pos <= len) {
+        ch := SubStr(text, pos, 1)
+
+        if (ch = "{") {
+            endPos := InStr(text, "}", false, pos + 1)
+            if (endPos) {
+                content := SubStr(text, pos + 1, endPos - pos - 1)
+
+                ; 只保留 varMap 內的既有變量
+                if (content != "" && varMap.Has(content)) {
+                    result .= "{" . content . "}"
+                    pos := endPos + 1
+                    continue
+                }
+            }
+
+            ; 非變量 / 無法成組：跳脫
+            result .= "/{"
+        }
+        else if (ch = "}") {
+            result .= "/}"
+        }
+        else {
+            result .= ch
+        }
+
+        pos++
+    }
+
+    return result
+}
+
+; ──────────────────────────────────────────────────────────────────────
+; 介面顯示前還原（存儲格式 → 介面格式）
+; ──────────────────────────────────────────────────────────────────────
+UnescapeVarText(text) {
+    text := StrReplace(text, "/{", "{")
+    text := StrReplace(text, "/}", "}")
+    return text
+}
