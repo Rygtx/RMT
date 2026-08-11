@@ -556,9 +556,10 @@ class MacroEditGui {
         cleanItemText := StrReplace(itemText, "→", "")
         isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
         isContainer := itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi
-        ; 右鍵點普通指令時建立/保留多選；分支容器不參與複製多選。
-        if (!isContainer && !this.MultiSelectItems.Has(item))
-            this.SetSingleMultiSelection(item)
+        ; 右鍵點擊視為一次新的單選定位。
+        ; 不論目前 item 是否已在多選中，都必須清掉舊多選，
+        ; 否則「真／假／循環體／條件」再次點擊後按 Delete 仍會帶著舊多選一起刪除。
+        this.SetSingleMultiSelection(item)
         this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
         ; 清理→前缀用于菜单状态判断（→是运行时临时标记，不影响逻辑状态）
         cleanItemText := StrReplace(itemText, "→", "")
@@ -1393,7 +1394,8 @@ class MacroEditGui {
     }
 
     ; Delete 熱鍵與右鍵「刪除」共用這個入口。
-    ; 單選維持原本刪除邏輯，多選則一次刪除所有已勾選指令。
+    ; 真／假／循環體／條件可以參與多選；刪除時不能直接刪掉容器，
+    ; 而是依照單選的語義清空對應分支資料，再統一 RefreshTree。
     OnDeleteCmd() {
         this.ResetDebugState()
 
@@ -1403,7 +1405,7 @@ class MacroEditGui {
         if (selectedItems.Length == 0)
             return
 
-        ; 單選：使用原本完整的分支刪除邏輯。
+        ; 單選：使用完整的分支刪除邏輯。
         if (selectedItems.Length == 1) {
             this.CurItemID := selectedItems[1]
             this._DeleteSingleCmd(this.CurItemID)
@@ -1411,11 +1413,11 @@ class MacroEditGui {
             return
         }
 
-        ; 多選：GetMultiSelectedItems() 的項目必須在同一層級。
+        ; 多選項目必須位於同一層級。
         parentID := this.MacroTreeViewCon.GetParent(selectedItems[1])
         for itemID in selectedItems {
             if (this.MacroTreeViewCon.GetParent(itemID) != parentID) {
-                ; 舊狀態若存在跨層多選，退回目前項目的單選刪除，避免誤刪。
+                ; 舊狀態若存在跨層多選，退回目前項目的單選刪除。
                 this.SetSingleMultiSelection(this.CurItemID ? this.CurItemID : selectedItems[1])
                 this.CurItemID := this.CurItemID ? this.CurItemID : selectedItems[1]
                 this._DeleteSingleCmd(this.CurItemID)
@@ -1424,7 +1426,7 @@ class MacroEditGui {
             }
         }
 
-        ; 根層多選：TreeView item ID 不會因刪除其他根項而重建，倒序刪除即可。
+        ; 根層沒有「真／假／循環體／條件」容器，正常倒序刪除。
         if (parentID == 0) {
             loop selectedItems.Length {
                 itemID := selectedItems[selectedItems.Length - A_Index + 1]
@@ -1435,57 +1437,108 @@ class MacroEditGui {
             return
         }
 
-        ; 分支內多選：先一次刪除同一 Parent 下的所有選取子指令，最後只 Refresh 一次。
+        ; parentID 有兩種情況：
+        ; 1. parentID 是「真／假／循環體／條件」容器：selectedItems 是其中的普通指令。
+        ; 2. parentID 是根層的分支命令：selectedItems 是「真／假／循環體／條件」容器本身。
+        parentText := this.MacroTreeViewCon.GetText(parentID)
+        parentIsContainer := this.IsContainerNode(parentText)
+
+        if (parentIsContainer) {
+            realItemID := this.MacroTreeViewCon.GetParent(parentID)
+            if (!realItemID) {
+                this.CurItemID := 0
+                this.ClearMultiSelection()
+                return
+            }
+            realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
+        } else {
+            ; 分支命令本身就是 SaveCommandData 的 RealCommandStr，刷新它即可。
+            realItemID := parentID
+            realCommandStr := parentText
+        }
+
+        ; 同一 Parent 下若有「條件」容器，刪除前先保存原始 ItemNumber。
+        ; IfPro 刪除分支時會移除陣列元素，因此必須從後往前處理。
+        containerItems := []
+        normalItems := []
         for itemID in selectedItems {
+            try itemText := this.MacroTreeViewCon.GetText(itemID)
+            catch
+                continue
+
+            if (this.IsContainerNode(itemText))
+                containerItems.Push(itemID)
+            else
+                normalItems.Push(itemID)
+        }
+
+        ; 容器按 TreeView 順序由後往前處理，避免 IfPro 分支編號因前面刪除而位移。
+        loop containerItems.Length {
+            bestIndex := 1
+            bestNumber := this.GetItemNumber(containerItems[1])
+            idx := 2
+            while (idx <= containerItems.Length) {
+                number := this.GetItemNumber(containerItems[idx])
+                if (number > bestNumber) {
+                    bestIndex := idx
+                    bestNumber := number
+                }
+                idx += 1
+            }
+
+            itemID := containerItems.RemoveAt(bestIndex)
+            this.SaveCommandData(realCommandStr, "", itemID)
+        }
+
+        ; 一般子指令才直接 Delete；從後往前刪，避免 TreeView handle 互相影響。
+        loop normalItems.Length {
+            itemID := normalItems[normalItems.Length - A_Index + 1]
             try this.MacroTreeViewCon.Delete(itemID)
         }
 
-        macroStr := this.GetTreeMacroStr(parentID)
-        nodeItemText := this.MacroTreeViewCon.GetText(parentID)
-        isCondi := SubStr(nodeItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-        macroStr := macroStr == "" && isCondi ? "空条件" : macroStr
-
-        realItemID := this.MacroTreeViewCon.GetParent(parentID)
-        if (!realItemID) {
-            this.CurItemID := 0
-            this.ClearMultiSelection()
-            return
+        ; 如果 selectedItems 是容器本身，前面的 SaveCommandData 已逐個清空對應分支。
+        ; 如果 selectedItems 是容器內普通指令，則需要把剩餘宏重新寫回該容器。
+        if (parentIsContainer) {
+            macroStr := this.GetTreeMacroStr(parentID)
+            isCondi := SubStr(StrReplace(parentText, "→", ""), 1, StrLen(GetLang("条件"))) == GetLang("条件")
+            macroStr := macroStr == "" && isCondi ? "空条件" : macroStr
+            this.SaveCommandData(realCommandStr, macroStr, parentID)
         }
 
-        realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
-        this.SaveCommandData(realCommandStr, macroStr, parentID)
         this.RefreshTree(realItemID)
-
         this.CurItemID := 0
         this.ClearMultiSelection()
     }
 
-    ; 單一指令的原始刪除邏輯。由 OnDeleteCmd 統一呼叫。
+    ; 單一指令的刪除邏輯。容器節點不能直接 Delete，只能清空它所代表的分支。
     _DeleteSingleCmd(itemID) {
         if (!itemID)
             return
 
+        itemText := this.MacroTreeViewCon.GetText(itemID)
+        isContainer := this.IsContainerNode(itemText)
         ParentID := this.MacroTreeViewCon.GetParent(itemID)
+
+        ; 理論上根層不會出現容器；即使狀態異常，也不要直接刪除容器。
         if (ParentID == 0) {
-            this.MacroTreeViewCon.Delete(itemID)
+            if (!isContainer)
+                this.MacroTreeViewCon.Delete(itemID)
             return
         }
 
-        itemText := this.MacroTreeViewCon.GetText(itemID)
         NodeItemID := itemID
         RealItemID := ParentID
         macroStr := ""
-        isTrueOrFalse := itemText == GetLang("真") || itemText == GetLang("假")
-        isLoopBody := itemText == GetLang("循环体")
-        isCondi := SubStr(itemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-        if (!(isTrueOrFalse || isLoopBody || isCondi)) {
+
+        ; 普通指令：直接刪除，再將同層剩餘內容寫回父容器。
+        if (!isContainer) {
             this.MacroTreeViewCon.Delete(itemID)
             NodeItemID := ParentID
             RealItemID := this.MacroTreeViewCon.GetParent(NodeItemID)
             macroStr := this.GetTreeMacroStr(NodeItemID)
 
             NodeItemText := this.MacroTreeViewCon.GetText(NodeItemID)
-            isCondi := SubStr(NodeItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
+            isCondi := SubStr(StrReplace(NodeItemText, "→", ""), 1, StrLen(GetLang("条件"))) == GetLang("条件")
             macroStr := macroStr == "" && isCondi ? "空条件" : macroStr
         }
 
@@ -2012,14 +2065,10 @@ class MacroEditGui {
             itemText := this.MacroTreeViewCon.GetText(sourceItem)
             cleanText := StrReplace(itemText, "→", "")
 
-            isCondi := SubStr(cleanText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-            if (SubStr(cleanText, 1, 1) == "⎖"
-                || itemText == GetLang("真")
-                || itemText == GetLang("假")
-                || itemText == GetLang("循环体")
-                || isCondi) {
-                return
-            }
+            ; ⎖ 開頭的是資訊/控制節點，不參與多選。
+            ; 真／假／循環體／條件是可選取的容器節點。
+            if (SubStr(cleanText, 1, 1) == "⎖")
+                return 1
 
             ; Ctrl+Click / Shift+Click：進入多選模式，不啟動拖曳。
             ; 使用 Check 狀態作為可視化的多選標記。
@@ -2038,6 +2087,10 @@ class MacroEditGui {
             this.SetSingleMultiSelection(sourceItem)
             this.CurItemID := sourceItem
             this.MacroTreeViewCon.Modify(sourceItem, "Select")
+
+            ; 容器可以被選取，但不當成可拖曳的一般指令。
+            if (this.IsContainerNode(itemText))
+                return 1
 
             dragInfo := {name: itemText, gui: "", isMove: true, sourceItem: sourceItem}
         }
@@ -2275,7 +2328,12 @@ class MacroEditGui {
     IsContainerNode(itemText) {
         cleanItemText := StrReplace(itemText, "→", "")
         isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-        return (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi)
+        return (
+            cleanItemText == GetLang("真")
+            || cleanItemText == GetLang("假")
+            || cleanItemText == GetLang("循环体")
+            || isCondi
+        )
     }
 
     GetItemRect(TVCon, hItem) {
