@@ -551,19 +551,13 @@ class MacroEditGui {
             this.BranchContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
         }
 
+        ; 右鍵只設定「右鍵操作目標」，絕對不改變目前多選狀態。
+        ; MultiSelectItems / TreeView Select 狀態都保持原樣。
         this.CurItemID := item
         itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
         cleanItemText := StrReplace(itemText, "→", "")
         isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
-        isContainer := itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi
-        ; 右鍵點擊視為一次新的單選定位。
-        ; 不論目前 item 是否已在多選中，都必須清掉舊多選，
-        ; 否則「真／假／循環體／條件」再次點擊後按 Delete 仍會帶著舊多選一起刪除。
-        this.SetSingleMultiSelection(item)
-        this.MacroTreeViewCon.Modify(this.CurItemID, "Select")
         ; 清理→前缀用于菜单状态判断（→是运行时临时标记，不影响逻辑状态）
-        cleanItemText := StrReplace(itemText, "→", "")
-        isCondi := SubStr(cleanItemText, 1, StrLen(GetLang("条件"))) == GetLang("条件")
         if (cleanItemText == "" || SubStr(cleanItemText, 1, 1) == "⎖")
             return
         else if (itemText == GetLang("真") || itemText == GetLang("假") || itemText == GetLang("循环体") || isCondi) {
