@@ -1,5 +1,5 @@
 #Requires AutoHotkey v2.0
-global RMT_VERSION := "1.2F24"
+global RMT_VERSION := "1.2F25"
 #Include Main\SelfCheck.ahk
 #Include Main\AssetUtil.ahk
 #Include Main\GlobalUtil.ahk
