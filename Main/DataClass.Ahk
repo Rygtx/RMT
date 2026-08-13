@@ -236,7 +236,7 @@ class MainConfig {
         this.CMDLogAutoClear := 0       ; 自动清理 0=从不, 1=每天, 2=每周
 
         ; ========== 变量监视器 ==========
-        this.VarListenTop := false      ; 变量监视器窗口是否置顶
+        this.VarListenTop := true       ; 变量监视器窗口是否置顶（默认置顶）
         this.VarListenWidth := 400      ; 监视器窗口宽度
         this.VarListenHeight := 420     ; 监视器窗口高度
 

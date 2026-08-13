@@ -549,7 +549,7 @@ LoadMainSetting() {
     MainSoftData.CMDLogToFile := IniRead(IniFile, IniSection, "CMDLogToFile", false)
     MainSoftData.CMDLogFilePath := IniRead(IniFile, IniSection, "CMDLogFilePath", "")
     MainSoftData.CMDLogAutoClear := IniRead(IniFile, IniSection, "CMDLogAutoClear", 0)
-    MainSoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 0)
+    MainSoftData.VarListenTop := IniRead(IniFile, IniSection, "VarListenTop", 1)
     MainSoftData.VarListenWidth := IniRead(IniFile, IniSection, "VarListenWidth", 400)
     MainSoftData.VarListenHeight := IniRead(IniFile, IniSection, "VarListenHeight", 420)
     MySoftData.MacroTotalCount := IniRead(IniFile, IniSection, "MacroTotalCount", 0)

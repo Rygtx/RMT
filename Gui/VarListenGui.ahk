@@ -68,13 +68,13 @@ class VarListenGui {
         if (VarListenGui._opening)
             return
         VarListenGui._opening := true
+        this._topOn := !!MainSoftData.VarListenTop
         try {
             this._BuildAndShow()
         } finally {
             VarListenGui._opening := false
         }
 
-        this._topOn := !!MainSoftData.VarListenTop
         this._ApplyTopMost()
         IniWrite(true, IniFile, IniSection, "IsOpenListenVar")
         this.Refresh()
@@ -120,22 +120,48 @@ class VarListenGui {
             .Background("{DynamicResource InputBg}").CornerRadius("3")
         listGrid := listBorder.Add("Grid")
         listGrid.Rows("Auto", "*")
+        listGrid.IsSharedSizeScope("True")
 
+        ; 表头：变量名/类型/值，列间插入 GridSplitter 以便拖动调整列宽
         header := listGrid.Add("Grid").Grid_Row(0).Height(28).Background("{DynamicResource TitleBarColor}")
-        header.Cols("120", "60", "*")
+        hColDefs := header.Add("Grid.ColumnDefinitions")
+        hColDefs.Add("ColumnDefinition").Name("VarHeaderCol0").Width("120")
+        hColDefs.Add("ColumnDefinition").Width("7")
+        hColDefs.Add("ColumnDefinition").Name("VarHeaderCol1").Width("60")
+        hColDefs.Add("ColumnDefinition").Width("7")
+        hColDefs.Add("ColumnDefinition").Name("VarHeaderCol2").Width("*")
         header.Add("TextBlock").Text(GetLang("变量名")).Grid_Column(0)
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
             .VerticalAlignment("Center").Margin("8,0,0,0")
-        header.Add("TextBlock").Text(GetLang("类型")).Grid_Column(1)
+        header.Add("Border").Grid_Column(1).Width(1).HorizontalAlignment("Center")
+            .Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        header.Add("GridSplitter").Grid_Column(1).Width(7).HorizontalAlignment("Center").VerticalAlignment("Stretch")
+            .Background("Transparent").Cursor("SizeWE").ResizeBehavior("PreviousAndNext")
+        header.Add("TextBlock").Text(GetLang("类型")).Grid_Column(2)
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
             .VerticalAlignment("Center").HorizontalAlignment("Center")
-        header.Add("TextBlock").Text(GetLang("值")).Grid_Column(2)
+        header.Add("Border").Grid_Column(3).Width(1).HorizontalAlignment("Center")
+            .Background("{DynamicResource ControlBorder}").IsHitTestVisible("False")
+        header.Add("GridSplitter").Grid_Column(3).Width(7).HorizontalAlignment("Center").VerticalAlignment("Stretch")
+            .Background("Transparent").Cursor("SizeWE").ResizeBehavior("PreviousAndNext")
+        header.Add("TextBlock").Text(GetLang("值")).Grid_Column(4)
             .Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold")
             .VerticalAlignment("Center").Margin("8,0,0,0")
 
-        scroll := listGrid.Add("ScrollViewer").Grid_Row(1)
-            .VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
-        scroll.Add("StackPanel").Name("VarListPanel").Margin("2, 2, 2, 2")
+        ; 隐藏代理网格：把表头显式列宽桥接进 SharedSizeGroup，让行宽跟随表头拖拽（修复 GridSplitter 无法带动共享列宽的问题）
+        dummy := listGrid.Add("Grid").Grid_Row(0).Height(0).IsHitTestVisible("False")
+        dColDefs := dummy.Add("Grid.ColumnDefinitions")
+        dColDefs.Add("ColumnDefinition").Width("{Binding ElementName=VarHeaderCol0, Path=Width}").SharedSizeGroup("VCol1")
+        dColDefs.Add("ColumnDefinition").Width("{Binding ElementName=VarHeaderCol1, Path=Width}").SharedSizeGroup("VCol2")
+
+        ; 列表改用 ListBox：自带选中高亮，点击反馈明显
+        lb := listGrid.Add("ListBox").Grid_Row(1).Name("VarList")
+            .Background("Transparent").BorderThickness("0")
+            .ScrollViewer_HorizontalScrollBarVisibility("Disabled")
+            .ScrollViewer_VerticalScrollBarVisibility("Auto")
+            .HorizontalContentAlignment("Stretch")
+            .VirtualizingPanel_IsVirtualizing("False")
+        lb.InjectResources('<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="{TemplateBinding Background}" SnapsToDevicePixels="True"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlBg}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Bd" Property="Background" Value="#400078D7"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>')
 
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
@@ -174,6 +200,12 @@ class VarListenGui {
 
     OnWindowLoad(state, ctrl, event) {
         try {
+            ; 设置窗口图标（任务管理器里显示）
+            try {
+                hIcon := LoadPicture("Images\Soft\rabit.ico", "Icon1", &ImageType := 1)
+                if (hIcon)
+                    this.ui.Update("Window", "Icon", "HICON:" hIcon)
+            }
             themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
             ApplyXamlTheme(this.ui, themeName)
             this._applyingUI := true
@@ -293,7 +325,7 @@ class VarListenGui {
         for key in toDel
             this.ui.events.Delete(key)
 
-        this.ui.Update("VarListPanel", "ClearItems", "")
+        this.ui.Update("VarList", "ClearItems", "")
         this._rowKeys := []
 
         for key, value in MySoftData.VariableMap {
@@ -309,24 +341,28 @@ class VarListenGui {
     _AddRow(rowId, name, typeText, valueText, isArray) {
         ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
         rowName := "VarRow_" rowId
-        ; 偶数行用主题 ListAltBg（标题色半透明），奇数行透明
+        ; 偶数行用主题 ListAltBg（标题色半透明），奇数行透明；背景放在 ListBoxItem 上便于选中高亮覆盖
         bg := (Mod(rowId, 2) == 0) ? "{DynamicResource ListAltBg}" : "Transparent"
-        xaml := '<Grid ' ns ' Name="' rowName '" Height="28" Background="' bg '" Cursor="Hand" Margin="0,0,0,1">'
+        xaml := '<ListBoxItem ' ns ' Name="' rowName '" Background="' bg '" Cursor="Hand">'
+            . '<Grid Height="28" Margin="0,0,0,1">'
             . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="120"/>'
-            . '<ColumnDefinition Width="60"/>'
+            . '<ColumnDefinition Width="0" SharedSizeGroup="VCol1"/>'
+            . '<ColumnDefinition Width="7"/>'
+            . '<ColumnDefinition Width="0" SharedSizeGroup="VCol2"/>'
+            . '<ColumnDefinition Width="7"/>'
             . '<ColumnDefinition Width="*"/>'
             . '</Grid.ColumnDefinitions>'
             . '<TextBlock Grid.Column="0" Text="' this._XmlEsc(name) '" Foreground="{DynamicResource TextMain}"'
             . ' FontSize="12" VerticalAlignment="Center" Margin="8,0,4,0" TextTrimming="CharacterEllipsis"/>'
-            . '<TextBlock Grid.Column="1" Text="' this._XmlEsc(typeText) '" Foreground="{DynamicResource TextSub}"'
+            . '<TextBlock Grid.Column="2" Text="' this._XmlEsc(typeText) '" Foreground="{DynamicResource TextSub}"'
             . ' FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
-            . '<TextBlock Grid.Column="2" Text="' this._XmlEsc(valueText) '" Foreground="{DynamicResource TextMain}"'
+            . '<TextBlock Grid.Column="4" Text="' this._XmlEsc(valueText) '" Foreground="{DynamicResource TextMain}"'
             . ' FontSize="12" VerticalAlignment="Center" Margin="8,0,8,0" TextTrimming="CharacterEllipsis"/>'
             . '</Grid>'
+            . '</ListBoxItem>'
 
-        this.ui.Update("VarListPanel", "AddXamlItem", xaml)
-        ; Grid 无 MouseDoubleClick，用双击间隔识别
+        this.ui.Update("VarList", "AddXamlItem", xaml)
+        ; 双击用间隔识别（原逻辑），ListBoxItem 原生支持选中高亮
         this.ui.OnEvent(rowName, "PreviewMouseLeftButtonDown", ObjBindMethod(this, "OnRowClick", rowId))
         this.ui.Update(rowName, "BindEvent", "PreviewMouseLeftButtonDown")
     }
