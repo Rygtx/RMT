@@ -4,7 +4,7 @@
 ; 按「按键类型」(ModeArr) + 「移动模式」(绝对/相对/游戏视角) 分发到 AHK / 罗技 / AHI
 ;
 ; keyMode : 1 默认(AHK) | 2 游戏(AHK键) | 3 罗技 | 4 AHI
-; moveMode: 0 绝对 | 1 相对 | 2 游戏视角（相对位移；罗技/AHI 会再点一下左键，AHK 仅相对移动）
+; moveMode: 0 绝对 | 1 相对 | 2 游戏视角（相对位移，仅移动不点击）
 ;
 ; 速度约定（与编辑器一致）：uiSpeed 0~100，越大越快
 ; - AHK MouseMove / SetDefaultMouseSpeed：需转为 0 最快 ~ 100 最慢
@@ -184,7 +184,7 @@ MouseMoveRelByKeyMode(keyMode, x, y, speed := 90, isHuman := false) {
     return true
 }
 
-; 游戏视角：相对位移；罗技/AHI 额外点击左键（与历史行为一致）
+; 游戏视角：相对位移；仅移动，不点击（罗技/AHI/AHK 行为一致）
 MouseMoveGameViewByKeyMode(keyMode, x, y, speed := 90) {
     keyMode := Integer(keyMode)
     x := Integer(x), y := Integer(y)
@@ -194,13 +194,11 @@ MouseMoveGameViewByKeyMode(keyMode, x, y, speed := 90) {
 
     if (keyMode == 3) {
         MC_MoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
-        Sleep(30)
-        return MouseClickByKeyMode(3, 1)
+        return true
     }
     if (keyMode == 4) {
         AhiMoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
-        Sleep(30)
-        return MouseClickByKeyMode(4, 1)
+        return true
     }
     ; AHK：仅相对移动（不点击）
     SendInput("{Click " Round(x) " " Round(y) " 0 Relative}")
