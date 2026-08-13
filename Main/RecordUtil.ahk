@@ -529,21 +529,23 @@ RecordConsumeRI() {
 }
 
 OnRecordAddMacroStr(keyName, isDown, eventTime?) {
+    curTime := IsSet(eventTime) ? eventTime : A_TickCount
+    IsJoy := InStr(keyName, "Joy") || InStr(keyName, "Btn") || InStr(keyName, "Axis") || InStr(keyName, "Dpad")
+
     if (keyName == "WheelUp" || keyName == "WheelDown" || keyName == "WheelLeft" || keyName == "WheelRight") {
         if (MainSoftData.RecordMouse && isDown) {
-            curTime := IsSet(eventTime) ? eventTime : A_TickCount
-        span := curTime - MainSoftData.RecordLastTime
-        MainSoftData.RecordLastTime := curTime
-        MainSoftData.RecordMacroStr .= GetLang("间隔") "_" span ","
-        MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
+            span := curTime - MainSoftData.RecordLastTime
+            MainSoftData.RecordLastTime := curTime
+            MainSoftData.RecordMacroStr .= GetLang("间隔") "_" span ","
+            MainSoftData.RecordMacroStr .= GetLang("按键") "_" keyName "_" GetLang("按下") ","
         }
         return
     }
     else if (isDown) {
         if (MainSoftData.RecordHoldKeyMap.Has(keyName))
             return
-        ; 防弹跳：松开后 100ms 内再次按下视为抖动，跳过
-        if (ObjHasOwnProp(MainSoftData, "RecordKeyDebounce") && MainSoftData.RecordKeyDebounce.Has(keyName) && A_TickCount - MainSoftData.RecordKeyDebounce[keyName] < 100)
+        ; 防弹跳：仅手柄键需要消抖（键鼠硬件已消抖）；松开后 100ms 内再次按下视为抖动，跳过
+        if (IsJoy && ObjHasOwnProp(MainSoftData, "RecordKeyDebounce") && MainSoftData.RecordKeyDebounce.Has(keyName) && curTime - MainSoftData.RecordKeyDebounce[keyName] < 100)
             return
         MainSoftData.RecordHoldKeyMap[keyName] := true
     }
@@ -552,14 +554,12 @@ OnRecordAddMacroStr(keyName, isDown, eventTime?) {
         ; 防弹跳：记录松开时间，100ms 内不允许再次按下
         if (!ObjHasOwnProp(MainSoftData, "RecordKeyDebounce"))
             MainSoftData.RecordKeyDebounce := Map()
-        MainSoftData.RecordKeyDebounce[keyName] := A_TickCount
+        MainSoftData.RecordKeyDebounce[keyName] := curTime
     }
 
-    curTime := IsSet(eventTime) ? eventTime : A_TickCount
     span := curTime - MainSoftData.RecordLastTime
     keySymbol := isDown ? GetLang("按下") : GetLang("松开")
     MainSoftData.RecordLastTime := curTime
-    IsJoy := InStr(keyName, "Joy") || InStr(keyName, "Btn") || InStr(keyName, "Axis") || InStr(keyName, "Dpad")
     IsMouse := keyName == "LButton" || keyName == "RButton" || keyName == "MButton" || keyName == "XButton1" || keyName == "XButton2"
     IsKeyboard := !IsMouse && !IsJoy
 

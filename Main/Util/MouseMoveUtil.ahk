@@ -224,11 +224,13 @@ MouseMoveByStrategy(keyMode, moveMode, x, y, speed := 90, clickCount := 0, isHum
 
     ; AHK：带点击时用 Click 一步完成（含位移），避免相对位移执行两次
     if (clickCount > 0 && keyMode != 3 && keyMode != 4) {
+        SendMode("Event")
+        CoordMode("Mouse", "Screen")
         SetDefaultMouseSpeed(UiSpeedToAhkSpeed(uiSpeed))
         if (moveMode == 1)
-            Click(Format("{} {} {} Relative"), Integer(x), Integer(y), clickCount)
+            Click(Format("{} {} {} Relative", Integer(x), Integer(y), clickCount))
         else
-            Click(Format("{} {} {}"), Round(x), Round(y), clickCount)
+            Click(Format("{} {} {}", Round(x), Round(y), clickCount))
         return true
     }
 
@@ -265,7 +267,9 @@ SearchMouseActionByStrategy(keyMode, actionType, x, y, speed := 90, clickCount :
             return false
         return MouseClickByKeyMode(keyMode, n)
     }
+    SendMode("Event")
+    CoordMode("Mouse", "Screen")
     SetDefaultMouseSpeed(UiSpeedToAhkSpeed(uiSpeed))
-    Click(Format("{} {} {}"), Round(x), Round(y), n)
+    Click(Format("{} {} {}", Round(x), Round(y), n))
     return true
 }
