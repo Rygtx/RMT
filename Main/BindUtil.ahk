@@ -208,6 +208,11 @@ OnClickUIMacroPanelSettingBtn(*) {
     UIMacroPanelSettingGui.ShowGui()
 }
 
+OnClickCMDTipToggle(ctrl, info) {
+    MySoftData.CMDTip := ctrl.Value
+    SetCMDTipValue(ctrl.Value)
+}
+
 OnToolTextFilterScreenShot(*) {
     if (MainSoftData.ScreenShotType == 1) {
         SetClipboard("")

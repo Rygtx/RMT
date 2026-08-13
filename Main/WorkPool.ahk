@@ -538,6 +538,9 @@ class WorkPool {
 
     ; 将主线程的全部变量和数组状态同步到指定 Worker（用于动态创建的 Worker 初始化）
     SyncStateToWorker(wd) {
+        ; 同步指令显示状态：Worker 默认 false，需在就绪时拉取主进程当前值
+        this.PushTask(wd, MsgType.EVENT, 0, EncodeBatch(EncodeCommand("CT", MySoftData.CMDTip)))
+
         ; 序列化 VariableMap → [[name, value], ...]
         VarArr := []
         for name, value in MySoftData.VariableMap

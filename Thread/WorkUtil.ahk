@@ -349,7 +349,7 @@
                         if (MySoftData.VariableMap.Has(args[1]))
                             MySoftData.VariableMap.Delete(args[1])
                     case "CT":
-                        MySoftData.CMDTip := args[1]
+                        MySoftData.CMDTip := (args[1] == "1")
                     case "PS":
                         tableItem := MySoftData.TableInfo[args[1]]
                         tableItem.PauseArr[args[2]] := args[3]

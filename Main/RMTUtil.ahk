@@ -718,13 +718,15 @@ ExcuteRMTCMDAction(Cmd) {
             OnToolFreePaste()
         case "开启指令显示":
             MySoftData.CMDTip := true
-            MySoftData.CMDTip := true
             SetCMDTipValue(true)
+            if (UIControls.CMDTip)
+                UIControls.CMDTip.Value := true
             MyCMDTipGui.ShowGui("开启指令显示")
         case "关闭指令显示":
             MySoftData.CMDTip := false
-            MySoftData.CMDTip := false
             SetCMDTipValue(false)
+            if (UIControls.CMDTip)
+                UIControls.CMDTip.Value := false
             if (!IsObject(MyCMDTipGui.Gui))
                 return
 

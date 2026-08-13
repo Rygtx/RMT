@@ -573,7 +573,7 @@ AddSettingUI(index) {
     con := AddTableControl("CheckBox", Format("x{} y{} -Wrap w15", posX + 635, posY), "", tableItem)
     UIControls.CMDTip := con
     con.Value := MySoftData.CMDTip
-    con.OnEvent("Click", (ctrl, info) => MySoftData.CMDTip := ctrl.Value)
+    con.OnEvent("Click", OnClickCMDTipToggle)
     con := AddTableControl("Button", Format("x{} y{}", posX + 635 + 15, posY - 5), GetLang("指令显示"), tableItem)
     con.OnEvent("Click", (*) => CMDTipSettingGui.ShowGui())
 
