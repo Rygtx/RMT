@@ -423,8 +423,25 @@ SetGlobalArray(Name, Value, excludeIdx := 0) {
     MyWorkPool.BroadcastEx(excludeIdx, "SA", Name, GetArrayStr(Value))
 }
 
-CloneGlobalArray(SourceName, NewArrName, excludeIdx := 0) {
-    MySoftData.ArrayMap[NewArrName] := MySoftData.ArrayMap[SourceName].Clone()
+CloneGlobalArray(Source, NewArrName, excludeIdx := 0) {
+    if (IsObject(Source)) {
+        ; 单线程：克隆指令直接把源数组对象传进来，克隆后按对象同一性反查源数组名
+        MySoftData.ArrayMap[NewArrName] := Source.Clone()
+        SourceName := ""
+        for name, arr in MySoftData.ArrayMap {
+            if (arr == Source && name != NewArrName) {
+                SourceName := name
+                break
+            }
+        }
+        if (SourceName == "")
+            SourceName := NewArrName
+    }
+    else {
+        ; 多线程：master 收到 worker 的 CloneArray 广播，Source 是数组名字符串
+        MySoftData.ArrayMap[NewArrName] := MySoftData.ArrayMap[Source].Clone()
+        SourceName := Source
+    }
     MyVarListenGui.Refresh()
     MyWorkPool.BroadcastEx(excludeIdx, "CA", SourceName, NewArrName)
 }

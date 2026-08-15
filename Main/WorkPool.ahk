@@ -109,24 +109,21 @@ class WorkPool {
             this.shrinkTimerFunc := ""
         }
 
+        ; 先收集所有存活 Worker，避免遍历时改动 freePool/usePool/pending
+        allWorkers := []
         for idx, wd in this.freePool
-            this.PostMessage(WM_CLEAR_WORK, wd)
+            allWorkers.Push(wd)
         for idx, wd in this.usePool
-            this.PostMessage(WM_CLEAR_WORK, wd)
+            allWorkers.Push(wd)
         for idx, wd in this.pending
-            this.PostMessage(WM_CLEAR_WORK, wd)
+            allWorkers.Push(wd)
 
-        for idx, wd in this.freePool {
-            if (wd.hProc)
-                CloseHandle(wd.hProc)
-        }
-        for idx, wd in this.usePool {
-            if (wd.hProc)
-                CloseHandle(wd.hProc)
-        }
-        for idx, wd in this.pending {
-            if (wd.hProc)
-                CloseHandle(wd.hProc)
+        ; 优雅通知退出后，强制终止并显式释放共享内存/事件句柄：
+        ; 确保 Reload 前 RMT_TX_/RMT_RX_/RMT_EVT_ 等命名对象被彻底释放，
+        ; 避免新旧实例（Worker 进程）竞争同一命名共享内存/事件导致报错。
+        for wd in allWorkers {
+            this.PostMessage(WM_CLEAR_WORK, wd)
+            this.CleanUpWorker(wd, false, true)
         }
 
         this.freePool := Map()
@@ -577,6 +574,8 @@ class WorkPool {
         ; 必须先切断 tx/rx，正在执行的 ProcessWorkerRx 会因此立刻退出，不再 Pop
         shmTx := wd.shmTx
         shmRx := wd.shmRx
+        tx := wd.tx
+        rx := wd.rx
         hEvt := wd.hEvt
         hProc := wd.hProc
         wd.tx := 0
@@ -585,6 +584,13 @@ class WorkPool {
         wd.shmRx := 0
         wd.hEvt := 0
         wd.hProc := 0
+
+        ; 使残留的 RingBuffer 引用（如 ProcessWorkerRx 内暂停时捕获的 rb）失效，
+        ; 防止 Unmap 后再次 NumGet 读取已释放内存
+        if (tx)
+            tx.Invalidate()
+        if (rx)
+            rx.Invalidate()
 
         if (terminateProcess) {
             if (hProc)

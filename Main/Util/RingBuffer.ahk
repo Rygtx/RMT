@@ -17,16 +17,32 @@ class RingBuffer {
         this.bufPtr := ptr + 192
         this.cap := cap
         this.mask := cap - 1
+        this.valid := true
     }
 
-    GetHead() => NumGet(this.headPtr, "UInt")
-    SetHead(v) => NumPut("UInt", v, this.headPtr)
-    GetTail() => NumGet(this.tailPtr, "UInt")
-    SetTail(v) => NumPut("UInt", v, this.tailPtr)
-    IsEmpty() => this.GetHead() == this.GetTail()
+    ; 共享内存被 Unmap 前必须调用：之后任何读写都安全地退化为空/失败，
+    ; 避免 Worker 被强杀/重建时，残留引用读取已释放内存导致 invalid memory read/write。
+    Invalidate() {
+        this.valid := false
+    }
+
+    GetHead() => this.valid ? NumGet(this.headPtr, "UInt") : 0
+    SetHead(v) {
+        if (this.valid)
+            NumPut("UInt", v, this.headPtr)
+    }
+    GetTail() => this.valid ? NumGet(this.tailPtr, "UInt") : 0
+    SetTail(v) {
+        if (this.valid)
+            NumPut("UInt", v, this.tailPtr)
+    }
+    IsEmpty() => !this.valid || this.GetHead() == this.GetTail()
 
     ; Push: [Type][ID][hEvent][Len][Payload]
     Push(type, id, str := "", hEvent := 0) {
+        if (!this.valid)
+            return false
+
         len := (StrLen(str) + 1) * 2
         headerSize := 20
         total := (headerSize + len + 7) & ~7
@@ -62,6 +78,9 @@ class RingBuffer {
     }
 
     Pop(&type, &id, &str, &hEvent := 0) {
+        if (!this.valid)
+            return false
+
         head := this.GetHead()
         tail := this.GetTail()
 

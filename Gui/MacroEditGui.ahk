@@ -2030,10 +2030,20 @@ class MacroEditGui {
     }
 
     _OnLButtonDown(wParam, lParam, msg, hwnd) {
-        if (!this.Gui || !WinActive("ahk_id " this.Gui.Hwnd))
+        if (!this.Gui)
+            return
+        ; 控件可能在保存/重载期间被销毁，访问 .Hwnd 会抛 "The control is destroyed."
+        try
+            guiHwnd := this.Gui.Hwnd
+        catch
+            return
+        if (!WinActive("ahk_id " guiHwnd))
             return
 
-        hwndTV := this.MacroTreeViewCon.Hwnd
+        try
+            hwndTV := this.MacroTreeViewCon.Hwnd
+        catch
+            return
         isFromLeft := this.DragSourceMap.Has(hwnd)
         isFromTV := (hwnd == hwndTV)
 
@@ -2248,7 +2258,11 @@ class MacroEditGui {
         if (!this.Gui || !this.MacroTreeViewCon || !lParam)
             return
 
-        treeHwnd := this.MacroTreeViewCon.Hwnd
+        ; 控件可能在保存/重载期间被销毁，访问 .Hwnd 会抛 "The control is destroyed."
+        try
+            treeHwnd := this.MacroTreeViewCon.Hwnd
+        catch
+            return
         if (!treeHwnd)
             return
 
