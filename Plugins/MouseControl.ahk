@@ -4,7 +4,11 @@
 
 #Requires AutoHotkey v2.0
 
-global MCDllPath := A_ScriptDir "\Plugins\MouseControl.dll"
+; 主进程 A_ScriptDir 指向项目根目录，Worker(Work.exe) 位于 Thread 子目录，
+; 因此需回退一级定位 Plugins\MouseControl.dll，否则多线程下罗技鼠标移动无效
+global MCDllPath := FileExist(A_ScriptDir "\Plugins\MouseControl.dll")
+    ? A_ScriptDir "\Plugins\MouseControl.dll"
+    : A_ScriptDir "\..\Plugins\MouseControl.dll"
 global MCHandle := 0
 global MCIsInit := false
 
