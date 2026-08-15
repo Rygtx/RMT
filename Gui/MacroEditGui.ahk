@@ -190,7 +190,7 @@ class MacroEditGui {
         }
 
         ; 注册快捷键热键（仅编辑器前台时拦截，失焦时按键透传给其他程序；关闭时注销）
-        this._hkIds := WinHotkey.Register(["F5", "F6", "Delete"], ObjBindMethod(this, "_OnHotkey"), this.Gui.Hwnd)
+        this._hkIds := WinHotkey.Register(["F5", "F6", "Delete", "$^c", "$^v"], ObjBindMethod(this, "_OnHotkey"), this.Gui.Hwnd)
 
         ; 注册拖拽消息监听（先注销再注册，避免重复打开时叠多个处理器）
         OnMessage(0x0201, this._lbtnHandler, 0)
@@ -583,12 +583,28 @@ class MacroEditGui {
     }
 
     _OnHotkey(key) {
+        ; 去掉 ~ / $ 前缀后再比较（$ 用于防止 Send 再次触发自身热键）
+        key := LTrim(key, "~$")
         if (key == "F5")
             this.MenuHandler(GetLang("运行(F5)"))
         else if (key == "F6")
             this.MenuHandler(GetLang("单步运行(F6)"))
         else if (key == "Delete") {
             this.OnDeleteCmd()
+        }
+        else if (key == "^c") {
+            ; 逻辑树模式：复制选中指令；文本模式：交还编辑框原生复制
+            ; 非透传（无 ~）会吞掉按键，避免树控件收到 Ctrl+C 后响铃
+            if (!this.MacroTreeViewCon.Visible)
+                Send("^c")
+            else if (this.CurItemID)
+                this.ContentMenuHandler(GetLang("复制"))
+        }
+        else if (key == "^v") {
+            if (!this.MacroTreeViewCon.Visible)
+                Send("^v")
+            else if (this.CurItemID)
+                this.ContentMenuHandler(GetLang("粘贴"))
         }
     }
 
@@ -869,6 +885,12 @@ class MacroEditGui {
     }
 
     ContentMenuHandler(cmdStr, *) {
+        ; 右键菜单关闭后焦点可能落到主界面（菜单归主脚本所有，关闭时焦点不会自动回到编辑器），
+        ; 先激活编辑器，避免主界面覆盖逻辑树编辑器
+        XamlUiDiag("MenuHandler START cmd=" cmdStr " active=" WinGetID("A") " title=" WinGetTitle("A") " editor=" this.Gui.Hwnd, "focus")
+        try WinActivate("ahk_id " this.Gui.Hwnd)
+        XamlUiDiag("MenuHandler AFTER activate active=" WinGetID("A") " title=" WinGetTitle("A"), "focus")
+
         itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
         ; 清理→前缀用于状态判断
         cleanItemText := StrReplace(itemText, "→", "")
@@ -897,13 +919,58 @@ class MacroEditGui {
             }
             case "Skip":
             {
-                if (SubStr(cleanItemText, 1, 1) == "⭐") {
-                    MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                selectedItems := this.GetMultiSelectedItems()
+
+                ; 单条：沿用原逻辑，只处理右键项
+                if (selectedItems.Length <= 1) {
+                    if (SubStr(cleanItemText, 1, 1) == "⭐") {
+                        MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                        return
+                    }
+                    IsToSkip := SubStr(cleanItemText, 1, 2) != "🚫"
+                    CommandStr := IsToSkip ? "🚫" cleanItemText : SubStr(cleanItemText, 3)
+                    this.OnModifyCmd(CommandStr)
                     return
                 }
+
+                ; 多选：跳过/取消跳过应用到所有选中项
+                for itemID in selectedItems {
+                    text := this.MacroTreeViewCon.GetText(itemID)
+                    if (SubStr(StrReplace(text, "→", ""), 1, 1) == "⭐") {
+                        MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                        return
+                    }
+                }
+
+                this.ResetDebugState()
+                ; 根据右键项决定跳过/取消跳过方向（与菜单文案一致）
                 IsToSkip := SubStr(cleanItemText, 1, 2) != "🚫"
-                CommandStr := IsToSkip ? "🚫" cleanItemText : SubStr(cleanItemText, 3)
-                this.OnModifyCmd(CommandStr)
+                parentID := this.MacroTreeViewCon.GetParent(selectedItems[1])
+
+                ; 先逐项切换 🚫 前缀（跳过只是文本标记，改文本即可），再统一刷新父分支
+                for itemID in selectedItems {
+                    text := this.MacroTreeViewCon.GetText(itemID)
+                    clean := StrReplace(text, "→", "")
+                    hasSkip := SubStr(clean, 1, 2) == "🚫"
+                    if (hasSkip == IsToSkip)
+                        continue
+                    newCmd := IsToSkip ? "🚫" clean : SubStr(clean, 3)
+                    this.MacroTreeViewCon.Modify(itemID, , MySoftData.FormatCmdJoyDisplay(newCmd))
+                }
+
+                if (parentID == 0) {
+                    ; 根层：对分支命令重建子节点（跳过则隐藏子项）
+                    for itemID in selectedItems
+                        this.RefreshTree(itemID)
+                } else {
+                    ; 容器层：把修改后的子宏统一写回父分支数据，再刷新
+                    macroStr := this.GetTreeMacroStr(parentID)
+                    realItemID := this.MacroTreeViewCon.GetParent(parentID)
+                    realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
+                    this.SaveCommandData(realCommandStr, macroStr, parentID)
+                    this.RefreshTree(realItemID)
+                }
+                this.ClearMultiSelection()
             }
             case "Debug":
                 if (SubStr(cleanItemText, 1, 2) == "🚫") {
@@ -920,6 +987,7 @@ class MacroEditGui {
                 if (selectedItems.Length <= 1) {
                     newCmd := FullCopyCmd(cleanItemText)
                     SetClipboard(newCmd)
+                    Toast.Show(GetLang("已复制"))
                     return
                 }
 
@@ -941,10 +1009,13 @@ class MacroEditGui {
                 }
                 if (copyStr != "")
                     SetClipboard(copyStr)
+                Toast.Show(GetLang("已复制"))
             }
             case GetLang("粘贴"):
             {
                 this.PasteClipboardCommands(A_Clipboard)
+                if (Trim(A_Clipboard, " `t`r`n") != "")
+                    Toast.Show(GetLang("已粘贴"))
             }
             case GetLang("删除"):
             {
@@ -1125,6 +1196,8 @@ class MacroEditGui {
         CommandStr := this.MacroTreeViewCon.GetText(itemID)
         paramsArr := StrSplit(CommandStr, "_")
 
+        ; 重建分支时先禁用重绘，避免逐条删除/重建节点引起树形控件闪烁（与 InitTreeView 一致）
+        this.MacroTreeViewCon.Opt("-Redraw")
         subItem := this.MacroTreeViewCon.GetChild(itemID)
         while (subItem) {
             this.MacroTreeViewCon.Delete(subItem)
@@ -1132,6 +1205,7 @@ class MacroEditGui {
         }
         this.TreeAddBranch(itemID, CommandStr)
         this.TreeExpand(itemID, 2)
+        this.MacroTreeViewCon.Opt("+Redraw")
     }
 
     TreeAddBranch(root, cmdStr) {

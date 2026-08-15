@@ -10,6 +10,7 @@
 #Include ..\Plugins\AHK-XAML\lib\XAML_Adv_Components.ahk
 #Include ..\Plugins\AHK-XAML\lib\XAML_Dialog.ahk
 #Include ..\Plugins\AHK-XAML\lib\AXML.ahk
+#Include Util\ToastUtil.ahk
 #Include RMTUtil.ahk
 #Include WorkPool.ahk
 #Include UIUtil.ahk

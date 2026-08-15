@@ -31,7 +31,9 @@ class WinHotkey {
                     continue
                 }
                 try {
-                    Hotkey(k, callback)
+                    ; 带 "On" 注册：关闭时用 Hotkey(..., "Off") 注销后，仅传回调不会重新启用，
+                    ; 需显式 "On" 才能在再次打开编辑器时恢复热键
+                    Hotkey(k, callback, "On")
                     WinHotkey._ahkHkEntries[token] := { key: k, winTitle: winTitle }
                     ids.Push(token)
                 }
