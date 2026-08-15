@@ -329,7 +329,7 @@ class ArrayGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             switch this.Data.Type {
                 case "创建":
                     Remark := Format(GetLang("创建{}"), this.Data.Name)

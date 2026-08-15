@@ -336,6 +336,15 @@ OnClickContinuousTriggerHelpBtn(*) {
     MsgBox(str, GetLang("连续触发说明"))
 }
 
+OnClickSharedCopyHelpBtn(*) {
+    str1 := GetLang("开启后：逻辑树编辑器右键菜单会在「复制」下方新增「共享复制」条目。")
+    str2 := GetLang("共享复制会原样复制指令文本（不重新分配内部序列号）")
+    str3 := GetLang("指令修改，相同序列号的指令会同步修改内容")
+
+    str := Format("{}`n{}`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("共享复制说明"))
+}
+
 OnClickFileCheckHelpBtn(*) {
     str1 := GetLang("文件校验：检查运行所需的插件、模型、图标、音频等资源文件是否齐全。")
     str2 := GetLang("若发现缺失，可一键从 GitHub 资源仓库自动下载补全（需联网）。")

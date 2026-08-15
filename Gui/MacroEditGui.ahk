@@ -531,6 +531,8 @@ class MacroEditGui {
             this.ContextMenu.Add(GetLang("插入指令"), subMenu)
 
             this.ContextMenu.Add(GetLang("复制"), (*) => this.ContentMenuHandler(GetLang("复制")))
+            if (MainSoftData.SharedCopy)
+                this.ContextMenu.Add(GetLang("共享复制"), (*) => this.ContentMenuHandler("SharedCopy"))
             this.ContextMenu.Add(GetLang("粘贴"), (*) => this.ContentMenuHandler(GetLang("粘贴")))
 
             this.ContextMenu.Add()  ; 分隔线
@@ -1006,6 +1008,34 @@ class MacroEditGui {
                     cmd := FullCopyCmd(text)
                     if (cmd != "")
                         copyStr .= (copyStr == "" ? "" : ",") cmd
+                }
+                if (copyStr != "")
+                    SetClipboard(copyStr)
+                Toast.Show(GetLang("已复制"))
+            }
+            case "SharedCopy":
+            {
+                ; 共享复制：原样复制指令文本，不重新分配内部序列号，方便分享到其他宏/其他设备
+                selectedItems := this.GetMultiSelectedItems()
+                if (selectedItems.Length <= 1) {
+                    SetClipboard(cleanItemText)
+                    Toast.Show(GetLang("已复制"))
+                    return
+                }
+
+                copyStr := ""
+                for itemID in selectedItems {
+                    try {
+                        text := this.MacroTreeViewCon.GetText(itemID)
+                    } catch {
+                        continue
+                    }
+                    text := StrReplace(text, "⭐", "")
+                    text := StrReplace(text, "→", "")
+                    if (text == "" || SubStr(text, 1, 1) == "⎖")
+                        continue
+                    if (text != "")
+                        copyStr .= (copyStr == "" ? "" : ",") text
                 }
                 if (copyStr != "")
                     SetClipboard(copyStr)

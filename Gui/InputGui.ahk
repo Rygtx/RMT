@@ -205,7 +205,7 @@ class InputGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             Remark := this.TypeCon.Text
         }
         CommandStr := CorrectRemark(CommandStr, Remark)

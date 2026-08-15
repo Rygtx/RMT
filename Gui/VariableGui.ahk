@@ -324,7 +324,8 @@ class VariableGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
+            Remark := ""
             loop 4 {
                 if (this.ToggleConArr[A_Index].Value) {
                     CurVarRemark := this.VariableConArr[A_Index].Text

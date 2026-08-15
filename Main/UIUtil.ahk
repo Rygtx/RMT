@@ -502,8 +502,14 @@ AddSettingUI(index) {
     con.Value := MainSoftData.ShowSplitLine
     con.OnEvent("Click", (ctrl, info) => MainSoftData.ShowSplitLine := ctrl.Value)
 
+    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("共享复制"), tableItem)
+    con.Value := MainSoftData.SharedCopy
+    con.OnEvent("Click", (ctrl, info) => MainSoftData.SharedCopy := !!ctrl.Value)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 725, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickSharedCopyHelpBtn)
+
     posY += 40
-    con := AddTableControl("GroupBox", Format("x{} y{} w890 h100", posX + 10, posY), GetLang("下拉框选项"), tableItem)
+    con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
     ; 顺序：语言、软件字体、首选编辑器 / 截图方式、手柄类型、按下时按下
@@ -547,6 +553,12 @@ AddSettingUI(index) {
     con.OnEvent("Change", (ctrl, info) => MainSoftData.KeyDownDownType := ctrl.Value)
     Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 831, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickKeyDownDownHelpBtn)
+
+    posY += 40
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令备注") "：", tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), GetLangArr(["不生成", "自动生成", "覆盖生成"]), tableItem)
+    con.Value := MainSoftData.RemarkAutoType
+    con.OnEvent("Change", (ctrl, info) => MainSoftData.RemarkAutoType := Integer(ctrl.Value))
 
     posY += 40
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h110", posX + 10, posY), GetLang("功能选项"), tableItem)

@@ -119,7 +119,7 @@ class OperationGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             Remark := GetLang("更新")
             loop 4 {
                 if (this.ToggleConArr[A_Index].Value) {

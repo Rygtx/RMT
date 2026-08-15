@@ -414,7 +414,7 @@ class FileIOGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             Remark := this.OperTypeCon.Text
         }
         CommandStr := CorrectRemark(CommandStr, Remark)

@@ -70,6 +70,8 @@ OnSaveSetting(*) {
     CheckAndAddDirty("KeyDownDown", MainSoftData.KeyDownDownType)
     CheckAndAddDirty("AutoLoosenModifier", MainSoftData.AutoLoosenModifier ? 1 : 0)
     CheckAndAddDirty("ContinuousTrigger", MainSoftData.ContinuousTrigger ? 1 : 0)
+    CheckAndAddDirty("SharedCopy", MainSoftData.SharedCopy)
+    CheckAndAddDirty("RemarkAutoType", MainSoftData.RemarkAutoType)
     CheckAndAddDirty("Theme", MainSoftData.Theme)
 
     ; 工具设置
@@ -1366,6 +1368,15 @@ CorrectRemark(CommandStr, Remark) {
         CommandStr .= "_" Remark
     }
     return CommandStr
+}
+
+; 指令备注是否应自动生成：1=不生成；2=仅备注为空时生成；3=强制生成（覆盖已有备注）
+ShouldAutoGenerateRemark(Remark) {
+    if (MainSoftData.RemarkAutoType == 1)
+        return false
+    if (MainSoftData.RemarkAutoType == 3)
+        return true
+    return (Remark == "")
 }
 
 OnTriggerSepcialItemMacro(MacroStr) {

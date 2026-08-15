@@ -536,8 +536,12 @@ LoadMainSetting() {
     MainSoftData.FontType := IniRead(IniFile, IniSection, "FontType", "微软雅黑")
     MainSoftData.JoyType := IniRead(IniFile, IniSection, "JoyType", "Xbox")
     MainSoftData.PreferredMacroEditor := Integer(IniRead(IniFile, IniSection, "PreferredMacroEditor", 1))
+    MainSoftData.SharedCopy := !!IniRead(IniFile, IniSection, "SharedCopy", false)
     if (MainSoftData.PreferredMacroEditor != 1 && MainSoftData.PreferredMacroEditor != 2)
         MainSoftData.PreferredMacroEditor := 1
+    MainSoftData.RemarkAutoType := Integer(IniRead(IniFile, IniSection, "RemarkAutoType", 3))
+    if (MainSoftData.RemarkAutoType != 1 && MainSoftData.RemarkAutoType != 2 && MainSoftData.RemarkAutoType != 3)
+        MainSoftData.RemarkAutoType := 3
     ; CMD 默认：宽按 DPI 缩放，高 300，X = 屏幕宽 - 显示宽（物理像素 / -DPIScale）
     defCMDWidth := GetDefaultCMDTipWidth()
     MainSoftData.CMDWidth := IniRead(IniFile, IniSection, "CMDWidth", defCMDWidth)

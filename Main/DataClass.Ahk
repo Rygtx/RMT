@@ -188,6 +188,8 @@ class MainConfig {
         ; ========== 宏编辑器 ==========
         ; 新建空宏时的首选编辑器：1=逻辑树，2=图形节点
         this.PreferredMacroEditor := 1
+        this.SharedCopy := false        ; 逻辑树编辑器右键菜单显示「共享复制」（原样复制，不重新分配序列号）
+        this.RemarkAutoType := 3        ; 指令备注自动生成 (1=不生成, 2=自动生成, 3=覆盖生成)
 
         ; ========== 提示选项 ==========
         this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒

@@ -238,7 +238,7 @@ class SubMacroGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
             IntervarlStr := MainSoftData.Lang == "中文" ? "" : " "
             MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
