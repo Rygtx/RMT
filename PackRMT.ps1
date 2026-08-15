@@ -275,7 +275,7 @@ function Pack-HelpDoc {
 # ============================================================
 
 function New-Release {
-    param([string]$Type) # "x64" or "x32" or "both"
+    param([string]$Type) # "x64" or "x86" or "both"
 
     Write-Section "创建发行版"
     Write-Log "模式: $Type" "Cyan"
@@ -346,9 +346,9 @@ function New-Release {
         Copy-InputDlls -ReleaseDir $releaseDir
     }
 
-    if ($Type -eq "x32" -or $Type -eq "both") {
-        Write-Step 2 "生成 ReleaseX32"
-        $releaseDir = Join-Path $PSScriptRoot "ReleaseX32"
+    if ($Type -eq "x86" -or $Type -eq "both") {
+        Write-Step 2 "生成 ReleaseX86"
+        $releaseDir = Join-Path $PSScriptRoot "ReleaseX86"
         $releaseThread = Join-Path $releaseDir "Thread"
 
         # 创建目录
@@ -423,22 +423,22 @@ function New-Release {
         Copy-Item -Path "$PSScriptRoot\ReleaseX64\*" -Destination $destX64 -Recurse -Force
     }
 
-    if ($Type -eq "x32" -or $Type -eq "both") {
-        $destX32 = Join-Path $versionDir "RMTv${version}_x32"
-        New-Item -ItemType Directory -Path $destX32 -Force | Out-Null
-        Write-Log "复制 ReleaseX32 to $destX32 ..." "Gray"
-        Copy-Item -Path "$PSScriptRoot\ReleaseX32\*" -Destination $destX32 -Recurse -Force
+    if ($Type -eq "x86" -or $Type -eq "both") {
+        $destX86 = Join-Path $versionDir "RMTv${version}_x86"
+        New-Item -ItemType Directory -Path $destX86 -Force | Out-Null
+        Write-Log "复制 ReleaseX86 to $destX86 ..." "Gray"
+        Copy-Item -Path "$PSScriptRoot\ReleaseX86\*" -Destination $destX86 -Recurse -Force
     }
 
     Write-Section "压缩发行包"
     if ($Type -eq "x64" -or $Type -eq "both") {
         Compress-ReleaseZip -SourceDir (Join-Path $versionDir "RMTv${version}_x64") -ZipPath (Join-Path $rmtReleaseDir "RMTv${version}_x64.zip")
     }
-    if ($Type -eq "x32" -or $Type -eq "both") {
-        Compress-ReleaseZip -SourceDir (Join-Path $versionDir "RMTv${version}_x32") -ZipPath (Join-Path $rmtReleaseDir "RMTv${version}_x32.zip")
+    if ($Type -eq "x86" -or $Type -eq "both") {
+        Compress-ReleaseZip -SourceDir (Join-Path $versionDir "RMTv${version}_x86") -ZipPath (Join-Path $rmtReleaseDir "RMTv${version}_x86.zip")
     }
 
-    # 删除 ReleaseX64/ReleaseX32 下的 RMT*.exe
+    # 删除 ReleaseX64/ReleaseX86 下的 RMT*.exe
     Write-Section "清理临时文件"
     if ($Type -eq "x64" -or $Type -eq "both") {
         Write-Log "删除 ReleaseX64 下的 RMT*.exe..." "Gray"
@@ -447,9 +447,9 @@ function New-Release {
             Write-Log "  已删除: $($_.Name)" "Yellow"
         }
     }
-    if ($Type -eq "x32" -or $Type -eq "both") {
-        Write-Log "删除 ReleaseX32 下的 RMT*.exe..." "Gray"
-        Get-ChildItem (Join-Path $PSScriptRoot "ReleaseX32") -Filter "RMT*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($Type -eq "x86" -or $Type -eq "both") {
+        Write-Log "删除 ReleaseX86 下的 RMT*.exe..." "Gray"
+        Get-ChildItem (Join-Path $PSScriptRoot "ReleaseX86") -Filter "RMT*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
             Remove-Item $_.FullName -Force
             Write-Log "  已删除: $($_.Name)" "Yellow"
         }
@@ -458,11 +458,11 @@ function New-Release {
     Write-Section "发行版创建完成"
     Write-Log "to $versionDir\RMTv${version}_x64" "White"
     if ($Type -eq "both") {
-        Write-Log "to $versionDir\RMTv${version}_x32" "White"
+        Write-Log "to $versionDir\RMTv${version}_x86" "White"
     }
     Write-Log "to $rmtReleaseDir\RMTv${version}_x64.zip" "White"
     if ($Type -eq "both") {
-        Write-Log "to $rmtReleaseDir\RMTv${version}_x32.zip" "White"
+        Write-Log "to $rmtReleaseDir\RMTv${version}_x86.zip" "White"
     }
     return $true
 }
@@ -692,7 +692,7 @@ function Main {
 
     # 步骤 7: 询问是否生成发行版
     Write-Step 7 "生成发行版"
-    $choice = Ask-Choice "请选择发行版类型:" @("不生成", "测试版 (仅 X64)", "正式版 (X64 + X32)")
+    $choice = Ask-Choice "请选择发行版类型:" @("不生成", "测试版 (仅 X64)", "正式版 (X64 + X86)")
 
     if ($choice -eq 2) {
         if (-not (New-Release -Type "x64")) {
