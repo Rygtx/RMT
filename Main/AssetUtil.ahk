@@ -1194,6 +1194,8 @@ ReleaseTableItemHoldKeys(tableItem, index) {
     if (tableItem.HoldKeyArr.Length < index)
         return
     HoldKeyMap := tableItem.HoldKeyArr[index].Clone()
+    GraphPoolLog("ReleaseHoldKeys", Format("tab={1} item={2} count={3} keys=[{4}]"
+        , tableItem.Index, index, HoldKeyMap.Count, HoldKeyMap.Count ? "..." : ""))
     for key, value in HoldKeyMap {
         if (value == "Game") {
             SendGameModeKey(key, 0, tableItem, index)
@@ -1244,6 +1246,8 @@ SyncWorkerHoldKey(tableIndex, itemIndex, key, state, source := "") {
 KillTableItemMacro(tableItem, index) {
     if (tableItem.KilledArr.Length < index)
         return
+    GraphPoolLog("KillTableItemMacro", Format("tab={1} item={2} trig={3}", tableItem.Index, index
+        , tableItem.TriggerTypeArr.Length >= index ? tableItem.TriggerTypeArr[index] : -1))
     tableItem.KilledArr[index] := true
     ReleaseTableItemHoldKeys(tableItem, index)
 

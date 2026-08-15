@@ -137,6 +137,7 @@ HandleRepeatedKeyDown(key, tableItem, index, Action) {
 
     switch MainSoftData.KeyDownDownType {
         case 1:  ; auto release first
+            GraphPoolLog("RepeatedKeyDown", Format("tab={1} item={2} key={3} 已按下→先松开", tableItem.Index, index, key))
             Action(key, 0, tableItem, index)
         case 2:  ; ignore later press
             return true
@@ -151,6 +152,8 @@ HandleRepeatedKeyDown(key, tableItem, index, Action) {
 SendNormalKey(Key, state, tableItem, index) {
     bucket := GetHoldBucket(tableItem, index)
 
+    GraphPoolLog("SendNormalKey", Format("tab={1} item={2} key={3} state={4}"
+        , tableItem.Index, index, Key, state))
     Send("{Blind}{" Key " " (state ? "down" : "up") "}")
     if state
         TrackDown(bucket, Key, "Normal", tableItem, index)

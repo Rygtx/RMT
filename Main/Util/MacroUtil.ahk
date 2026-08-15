@@ -62,8 +62,14 @@ OnFinishMacro(tableItem, macro, index) {
         tableItem.ToggleStateArr[index] := false
     }
 
-    ; 结束时兜底松开仍按住的键（漏配松开 / 中途打断）
-    ReleaseTableItemHoldKeys(tableItem, index)
+    ; 结束时兜底松开仍按住的键：仅终止或开关触发类型需要松开；
+    ; 按下/松开/双击/长按正常结束时保持按键按住，不在此松开
+    needRelease := tableItem.KilledArr[index] || tableItem.TriggerTypeArr[index] == 4
+    GraphPoolLog("OnFinishMacro", Format("tab={1} item={2} killed={3} trig={4} hold={5} needRelease={6}"
+        , tableItem.Index, index, tableItem.KilledArr[index], tableItem.TriggerTypeArr[index]
+        , tableItem.HoldKeyArr.Length >= index ? tableItem.HoldKeyArr[index].Count : -1, needRelease))
+    if (needRelease)
+        ReleaseTableItemHoldKeys(tableItem, index)
     ReleaseAllCaches()
 
     itemState := tableItem.KilledArr[index] ? 3 : 0
