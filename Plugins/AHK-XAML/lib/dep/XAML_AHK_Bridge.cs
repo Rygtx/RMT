@@ -62,6 +62,8 @@ public class AhkWpfEngine
     public static extern IntPtr SetCursor(IntPtr hCursor);
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+    [DllImport("user32.dll")]
+    public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct MARGINS
@@ -1307,6 +1309,23 @@ public class AhkWpfEngine
         if (isDaemon)
         {
             win.Show();
+            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
+            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
+            if (!win.AllowsTransparency && win.Opacity < 1)
+            {
+                try
+                {
+                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        int ex = GetWindowLong(hwnd, -20);
+                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
+                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
+                        win.Resources["_NativeAlphaPending"] = true;
+                    }
+                }
+                catch { }
+            }
         }
         else
         {
@@ -1925,6 +1944,23 @@ public class AhkWpfEngine
         if (isDaemon)
         {
             win.Show();
+            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
+            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
+            if (!win.AllowsTransparency && win.Opacity < 1)
+            {
+                try
+                {
+                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        int ex = GetWindowLong(hwnd, -20);
+                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
+                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
+                        win.Resources["_NativeAlphaPending"] = true;
+                    }
+                }
+                catch { }
+            }
         }
         else
         {
@@ -2357,6 +2393,52 @@ public class AhkWpfEngine
                 return;
             }
 
+            // KeyCapture：通用按键捕获（Hotkey 控件用）。控件聚焦时按下任意键，映射成 AHK 键名发回。
+            if (eventName == "KeyCapture")
+            {
+                if (ctrl is UIElement)
+                {
+                    UIElement ue = (UIElement)ctrl;
+                    ue.PreviewKeyDown += (s, e) =>
+                    {
+                        string ahkKey = KeyToAhkName(e);
+                        if (ahkKey != "")
+                        {
+                            e.Handled = true;
+                            SendToAhkAsync("EVENT|" + winId + "|" + ctrlName + "|KeyCapture|" + LengthPrefix(ahkKey) + "\n");
+                        }
+                    };
+                }
+                return;
+            }
+
+            // PreviewMouseLeftButtonDown：双击树条目时置 Handled，阻止 TreeViewItem 默认展开/折叠切换
+            if (eventName == "PreviewMouseLeftButtonDown")
+            {
+                if (ctrl is UIElement)
+                {
+                    ((UIElement)ctrl).PreviewMouseLeftButtonDown += (s, e) =>
+                    {
+                        if (e.ClickCount >= 2)
+                        {
+                            DependencyObject orig = e.OriginalSource as DependencyObject;
+                            bool onExpander = false;
+                            while (orig != null && !(orig is System.Windows.Controls.TreeViewItem) && !(orig is System.Windows.Controls.TreeView))
+                            {
+                                if (orig is System.Windows.Controls.Primitives.ToggleButton)
+                                    onExpander = true;   // 点在展开箭头上
+                                orig = System.Windows.Media.VisualTreeHelper.GetParent(orig);
+                            }
+                            // 双击条目内容才阻止展开切换；双击箭头让它正常每次切换
+                            if (orig is System.Windows.Controls.TreeViewItem && !onExpander)
+                                e.Handled = true;
+                        }
+                        DumpStateWithArgs(ctrlName, eventName, e);
+                    };
+                }
+                return;
+            }
+
             var evt = ctrl.GetType().GetEvent(eventName);
             if (evt == null)
             {
@@ -2560,8 +2642,10 @@ public class AhkWpfEngine
     private static string LengthPrefix(string val)
     {
         if (val == null) val = "";
-        int byteLen = Encoding.UTF8.GetByteCount(val);
-        return byteLen + ":" + val;
+        // 转义 \r\n 为 &#x0D;/&#x0A;，避免多行值把按 \n 拆行的载荷截断（AHK DecodeValue 侧对称还原）
+        string escaped = val.Replace("\r", "&#x0D;").Replace("\n", "&#x0A;");
+        int byteLen = Encoding.UTF8.GetByteCount(escaped);
+        return byteLen + ":" + escaped;
     }
 
     // Reusable helper: extract the current value of a named control.
@@ -2578,6 +2662,27 @@ public class AhkWpfEngine
             }
         }
         return sb.ToString();
+    }
+
+    // 遍历 TreeView 可视树，收集所有已实现（可见）的 TreeViewItem
+    private void CollectTreeViewItems(DependencyObject parent, System.Collections.Generic.List<System.Windows.Controls.TreeViewItem> result)
+    {
+        if (parent is System.Windows.Controls.TreeViewItem)
+            result.Add((System.Windows.Controls.TreeViewItem)parent);
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < n; i++)
+            CollectTreeViewItems(System.Windows.Media.VisualTreeHelper.GetChild(parent, i), result);
+    }
+
+    // 收集 ListBox 里所有已实现（可见）的 ListBoxItem（逻辑树卡片，Items 里直接是 ListBoxItem）
+    private void CollectListBoxItems(System.Windows.Controls.ListBox lb, System.Collections.Generic.List<System.Windows.Controls.ListBoxItem> result)
+    {
+        foreach (object item in lb.Items)
+        {
+            var lbi = item as System.Windows.Controls.ListBoxItem;
+            if (lbi != null)
+                result.Add(lbi);
+        }
     }
 
     private string GetControlValue(string trackName)
@@ -2608,10 +2713,148 @@ public class AhkWpfEngine
         // --- Suffix queries (rich component data) ---
         if (suffix != null)
         {
+            // HitTest:x;y —— 在指定控件上命中测试（坐标相对该控件），向上找 TreeViewItem，
+            // 返回 "Tag|top/bottom"（top=光标在上半，bottom=下半；供插入上/下判定）
+            if (suffix.StartsWith("HitTest:"))
+            {
+                string[] hxy = suffix.Substring("HitTest:".Length).Split(';');
+                double hx, hy;
+                if (hxy.Length == 2
+                    && double.TryParse(hxy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hx)
+                    && double.TryParse(hxy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hy))
+                {
+                    var rootVisual = c as System.Windows.Media.Visual;
+                    if (rootVisual != null)
+                    {
+                        var hitRes = System.Windows.Media.VisualTreeHelper.HitTest(rootVisual, new System.Windows.Point(hx, hy));
+                        DependencyObject dep = hitRes != null ? hitRes.VisualHit as DependencyObject : null;
+                        // ListBox 卡片命中：找 ListBoxItem，isExpander=命中 Arrow_* 命名元素（展开箭头）
+                        if (c is System.Windows.Controls.ListBox)
+                        {
+                            bool isCardExpander = false;
+                            while (dep != null && !(dep is System.Windows.Controls.ListBoxItem) && !(dep is System.Windows.Controls.ListBox))
+                            {
+                                var fe = dep as System.Windows.FrameworkElement;
+                                if (fe != null && fe.Name != null && fe.Name.StartsWith("Arrow_"))
+                                    isCardExpander = true;
+                                dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                            }
+                            var lbi = dep as System.Windows.Controls.ListBoxItem;
+                            if (lbi != null && lbi.Tag != null)
+                            {
+                                try
+                                {
+                                    var origin = lbi.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                    val = lbi.Tag.ToString() + "|" + (hy < origin.Y + lbi.ActualHeight / 2.0 ? "top" : "bottom") + "|" + (isCardExpander ? "1" : "0")
+                                        + "|" + origin.Y.ToString(inv) + "|" + lbi.ActualHeight.ToString(inv);
+                                }
+                                catch
+                                {
+                                    val = lbi.Tag.ToString() + "|" + (isCardExpander ? "1" : "0") + "|0|0";
+                                }
+                            }
+                            else if (dep is System.Windows.Controls.ListBox)
+                            {
+                                // 卡片间空隙/空白区：按 Y 找包含该点的卡片
+                                var items = new System.Collections.Generic.List<System.Windows.Controls.ListBoxItem>();
+                                CollectListBoxItems((System.Windows.Controls.ListBox)dep, items);
+                                foreach (var it in items)
+                                {
+                                    try
+                                    {
+                                        var itOrigin = it.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                        if (hy >= itOrigin.Y && hy < itOrigin.Y + it.ActualHeight)
+                                        {
+                                            var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                            val = it.Tag.ToString() + "|" + (hy < itOrigin.Y + it.ActualHeight / 2.0 ? "top" : "bottom") + "|0"
+                                                + "|" + itOrigin.Y.ToString(inv) + "|" + it.ActualHeight.ToString(inv);
+                                            break;
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                            return val;
+                        }
+                        // 命中 ToggleButton = 展开箭头（需与条目内容区分：点箭头只折叠，不选择/不双击）
+                        bool isExpander = false;
+                        // 停在 TreeViewItem（命中条目）或 TreeView（命中树但不在条目上，行间/空白区）
+                        while (dep != null && !(dep is System.Windows.Controls.TreeViewItem) && !(dep is System.Windows.Controls.TreeView))
+                        {
+                            if (dep is System.Windows.Controls.Primitives.ToggleButton)
+                                isExpander = true;
+                            dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                        }
+                        var tvi = dep as System.Windows.Controls.TreeViewItem;
+                        if (tvi != null && tvi.Tag != null)
+                        {
+                            try
+                            {
+                                // 相对被命中的控件（win 或 tree）换算纵向位置，与 hy 同坐标系
+                                var origin = tvi.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                val = tvi.Tag.ToString() + "|" + (hy < origin.Y + tvi.ActualHeight / 2.0 ? "top" : "bottom") + "|" + (isExpander ? "1" : "0")
+                                    + "|" + origin.Y.ToString(inv) + "|" + tvi.ActualHeight.ToString(inv);
+                            }
+                            catch
+                            {
+                                val = tvi.Tag.ToString() + "|" + (isExpander ? "1" : "0") + "|0|0";
+                            }
+                        }
+                        else if (dep is System.Windows.Controls.TreeView)
+                        {
+                            // 行间/条目行空白区（文字右侧）：按 Y 找包含该点的条目（相邻行无间隙，总能命中一行）
+                            var items = new System.Collections.Generic.List<System.Windows.Controls.TreeViewItem>();
+                            CollectTreeViewItems((System.Windows.Controls.TreeView)dep, items);
+                            foreach (var it in items)
+                            {
+                                try
+                                {
+                                    var itOrigin = it.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                    if (hy >= itOrigin.Y && hy < itOrigin.Y + it.ActualHeight)
+                                    {
+                                        var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                        val = it.Tag.ToString() + "|" + (hy < itOrigin.Y + it.ActualHeight / 2.0 ? "top" : "bottom") + "|0"
+                                            + "|" + itOrigin.Y.ToString(inv) + "|" + it.ActualHeight.ToString(inv);
+                                        break;
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                }
+                return val;
+            }
+            // IsOverTree:x;y —— 命中测试点是否落在 TreeView 内（空白树区也算），用于拖放"出树即取消"
+            if (suffix.StartsWith("IsOverTree:"))
+            {
+                string[] hxy = suffix.Substring("IsOverTree:".Length).Split(';');
+                double hx, hy;
+                if (hxy.Length == 2
+                    && double.TryParse(hxy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hx)
+                    && double.TryParse(hxy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hy))
+                {
+                    var rootVisual = c as System.Windows.Media.Visual;
+                    if (rootVisual != null)
+                    {
+                        var hitRes = System.Windows.Media.VisualTreeHelper.HitTest(rootVisual, new System.Windows.Point(hx, hy));
+                        DependencyObject dep = hitRes != null ? hitRes.VisualHit as DependencyObject : null;
+                        while (dep != null && !(dep is System.Windows.Controls.TreeView) && !(dep is System.Windows.Controls.ListBox))
+                            dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                        val = (dep is System.Windows.Controls.TreeView || dep is System.Windows.Controls.ListBox) ? "1" : "";
+                    }
+                }
+                return val;
+            }
             switch (suffix)
             {
                 case "CaretIndex":
                     if (c is TextBox) val = ((TextBox)c).CaretIndex.ToString();
+                    break;
+                case "FirstVisibleLine":
+                    if (c is TextBox) val = ((TextBox)c).GetFirstVisibleLineIndex().ToString();
                     break;
                 case "Count":
                     if (c is ItemsControl) val = ((ItemsControl)c).Items.Count.ToString();
@@ -3154,11 +3397,87 @@ public class AhkWpfEngine
                 var sb = new StringBuilder("EVENT|" + winId + "|" + cName + "|" + eName + "|" + LengthPrefix(coords) + "\n");
                 sb.Append(cName + "=" + LengthPrefix(coords) + "\n");
                 sb.Append("DragCoords=" + LengthPrefix(coords) + "\n");
+                if (e is System.Windows.Input.MouseButtonEventArgs)
+                    sb.Append("ClickCount=" + LengthPrefix(((System.Windows.Input.MouseButtonEventArgs)e).ClickCount.ToString()) + "\n");
                 SendToAhkAsync(sb.ToString());
                 return;
             }
         }
         DumpState(cName, eName);
+    }
+
+    // 把 WPF Key 映射成 AHK 键名（与 KeyGui 按键网格 value 一致）
+    private static string KeyToAhkName(System.Windows.Input.KeyEventArgs e)
+    {
+        var key = (e.Key == System.Windows.Input.Key.System) ? e.SystemKey : e.Key;
+        if (key >= System.Windows.Input.Key.A && key <= System.Windows.Input.Key.Z)
+            return key.ToString().ToLowerInvariant();
+        if (key >= System.Windows.Input.Key.D0 && key <= System.Windows.Input.Key.D9)
+            return key.ToString().Substring(1); // "D1" -> "1"
+        switch (key)
+        {
+            case System.Windows.Input.Key.Escape: return "Esc";
+            case System.Windows.Input.Key.F1: case System.Windows.Input.Key.F2: case System.Windows.Input.Key.F3:
+            case System.Windows.Input.Key.F4: case System.Windows.Input.Key.F5: case System.Windows.Input.Key.F6:
+            case System.Windows.Input.Key.F7: case System.Windows.Input.Key.F8: case System.Windows.Input.Key.F9:
+            case System.Windows.Input.Key.F10: case System.Windows.Input.Key.F11: case System.Windows.Input.Key.F12:
+                return key.ToString();
+            case System.Windows.Input.Key.Space: return "Space";
+            case System.Windows.Input.Key.Enter: return "Enter";
+            case System.Windows.Input.Key.Back: return "BS";
+            case System.Windows.Input.Key.Tab: return "Tab";
+            case System.Windows.Input.Key.Oem3: return "`";
+            case System.Windows.Input.Key.OemMinus: return "-";
+            case System.Windows.Input.Key.OemPlus: return "=";
+            case System.Windows.Input.Key.OemOpenBrackets: return "[";
+            case System.Windows.Input.Key.OemCloseBrackets: return "]";
+            case System.Windows.Input.Key.OemBackslash: return "\\";
+            case System.Windows.Input.Key.OemSemicolon: return ";";
+            case System.Windows.Input.Key.OemQuotes: return "'";
+            case System.Windows.Input.Key.OemComma: return ",";
+            case System.Windows.Input.Key.OemPeriod: return ".";
+            case System.Windows.Input.Key.OemQuestion: return "/";
+            case System.Windows.Input.Key.Left: return "Left";
+            case System.Windows.Input.Key.Right: return "Right";
+            case System.Windows.Input.Key.Up: return "Up";
+            case System.Windows.Input.Key.Down: return "Down";
+            case System.Windows.Input.Key.Insert: return "Ins";
+            case System.Windows.Input.Key.Delete: return "Del";
+            case System.Windows.Input.Key.Home: return "Home";
+            case System.Windows.Input.Key.End: return "End";
+            case System.Windows.Input.Key.PageUp: return "PgUp";
+            case System.Windows.Input.Key.PageDown: return "PgDn";
+            case System.Windows.Input.Key.NumLock: return "NumLock";
+            case System.Windows.Input.Key.NumPad0: return "Numpad0";
+            case System.Windows.Input.Key.NumPad1: return "Numpad1";
+            case System.Windows.Input.Key.NumPad2: return "Numpad2";
+            case System.Windows.Input.Key.NumPad3: return "Numpad3";
+            case System.Windows.Input.Key.NumPad4: return "Numpad4";
+            case System.Windows.Input.Key.NumPad5: return "Numpad5";
+            case System.Windows.Input.Key.NumPad6: return "Numpad6";
+            case System.Windows.Input.Key.NumPad7: return "Numpad7";
+            case System.Windows.Input.Key.NumPad8: return "Numpad8";
+            case System.Windows.Input.Key.NumPad9: return "Numpad9";
+            case System.Windows.Input.Key.Divide: return "NumpadDiv";
+            case System.Windows.Input.Key.Multiply: return "NumpadMult";
+            case System.Windows.Input.Key.Subtract: return "NumpadSub";
+            case System.Windows.Input.Key.Add: return "NumpadAdd";
+            case System.Windows.Input.Key.Decimal: return "NumpadDot";
+            case System.Windows.Input.Key.LeftShift: return "LShift";
+            case System.Windows.Input.Key.RightShift: return "RShift";
+            case System.Windows.Input.Key.LeftCtrl: return "LCtrl";
+            case System.Windows.Input.Key.RightCtrl: return "RCtrl";
+            case System.Windows.Input.Key.LeftAlt: return "LAlt";
+            case System.Windows.Input.Key.RightAlt: return "RAlt";
+            case System.Windows.Input.Key.LWin: return "LWin";
+            case System.Windows.Input.Key.RWin: return "RWin";
+            case System.Windows.Input.Key.Apps: return "AppsKey";
+            case System.Windows.Input.Key.CapsLock: return "CapsLock";
+            case System.Windows.Input.Key.PrintScreen: return "PrintScreen";
+            case System.Windows.Input.Key.Scroll: return "ScrollLock";
+            case System.Windows.Input.Key.Pause: return "Pause";
+        }
+        return "";
     }
 
     private System.Collections.Generic.Dictionary<string, DateTime> lastEventSendTimes = new System.Collections.Generic.Dictionary<string, DateTime>();
@@ -4208,6 +4527,59 @@ public class AhkWpfEngine
                         Console.WriteLine("XamlParse Error: " + ex.Message);
                     }
                 }
+                else if (parts[1] == "InsertXamlItem" && ctrl is ItemsControl)
+                {
+                    // 在指定索引插入卡片 XAML（value = "<index>|<xaml>"），用于逻辑树增量增删
+                    _controlCache.Clear();
+                    try
+                    {
+                        string[] idxXaml = parts[2].Split(new[] { '|' }, 2);
+                        int insertIdx;
+                        if (idxXaml.Length == 2 && int.TryParse(idxXaml[0], out insertIdx))
+                        {
+                            object element = XamlReader.Parse(idxXaml[1]);
+                            var visited = new System.Collections.Generic.HashSet<object>();
+                            Action<object> regNames = null;
+                            regNames = new Action<object>((object obj) =>
+                            {
+                                if (obj == null || !visited.Add(obj)) return;
+                                var fe = obj as FrameworkElement;
+                                if (fe != null && !string.IsNullOrEmpty(fe.Name))
+                                {
+                                    try
+                                    {
+                                        var ns = NameScope.GetNameScope(win);
+                                        if (ns != null) { try { ns.UnregisterName(fe.Name); } catch { } ns.RegisterName(fe.Name, fe); }
+                                        else { try { win.UnregisterName(fe.Name); } catch { } win.RegisterName(fe.Name, fe); }
+                                    }
+                                    catch { }
+                                }
+                                var dobj = obj as DependencyObject;
+                                if (dobj != null)
+                                {
+                                    foreach (object child in System.Windows.LogicalTreeHelper.GetChildren(dobj)) regNames(child);
+                                    var cc = dobj as System.Windows.Controls.ContentControl;
+                                    if (cc != null && cc.Content != null) regNames(cc.Content);
+                                    var dec = dobj as System.Windows.Controls.Decorator;
+                                    if (dec != null && dec.Child != null) regNames(dec.Child);
+                                    var panel = dobj as System.Windows.Controls.Panel;
+                                    if (panel != null) { foreach (UIElement c in panel.Children) regNames(c); }
+                                    var ic = dobj as ItemsControl;
+                                    if (ic != null) { foreach (object item in ic.Items) regNames(item); }
+                                }
+                            });
+                            regNames(element);
+                            if (insertIdx < 0) insertIdx = 0;
+                            if (insertIdx > ((ItemsControl)ctrl).Items.Count) insertIdx = ((ItemsControl)ctrl).Items.Count;
+                            ((ItemsControl)ctrl).Items.Insert(insertIdx, element);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { System.IO.File.AppendAllText(GetLogPath("AhkWpfDebug.log"), "XamlParse Error in InsertXamlItem:\n" + ex.ToString() + "\n\n"); } catch { }
+                        Console.WriteLine("XamlParse Error: " + ex.Message);
+                    }
+                }
                 else if (parts[1] == "SelectByTag" && ctrl is TreeView)
                 {
                     string tagHash = parts[2];
@@ -4239,6 +4611,20 @@ public class AhkWpfEngine
                     {
                         result.IsSelected = true;
                         result.BringIntoView();
+                    }
+                }
+                else if (parts[1] == "SelectByTag" && ctrl is ListBox)
+                {
+                    // 逻辑树卡片：按 Tag 找到卡片并滚到可见（不设 SelectedItem，选中视觉由勾选标记承担）
+                    string tagHash = parts[2];
+                    foreach (object item in ((ListBox)ctrl).Items)
+                    {
+                        var lbi = item as ListBoxItem;
+                        if (lbi != null && lbi.Tag != null && lbi.Tag.ToString() == tagHash)
+                        {
+                            ((ListBox)ctrl).ScrollIntoView(lbi);
+                            break;
+                        }
                     }
                 }
                 else if (parts[1] == "Document" && ctrl is RichTextBox)
@@ -4331,6 +4717,11 @@ public class AhkWpfEngine
                         {
                             var lbi = (System.Windows.Controls.ListBoxItem)item;
                             match = (lbi.Content != null && lbi.Content.ToString() == parts[2]);
+                        }
+                        if (!match && item is FrameworkElement)
+                        {
+                            var fe = (FrameworkElement)item;
+                            match = (fe.Tag != null && fe.Tag.ToString() == parts[2]);
                         }
                         if (match)
                         {
@@ -6621,6 +7012,12 @@ public class AhkWpfEngine
                     else if (ctrl is System.Windows.Controls.ScrollViewer)
                         ((System.Windows.Controls.ScrollViewer)ctrl).ScrollToEnd();
                 }
+                else if (parts[1] == "ScrollToLine" && ctrl is System.Windows.Controls.TextBox)
+                {
+                    int ln;
+                    if (int.TryParse(parts[2], out ln))
+                        ((System.Windows.Controls.TextBox)ctrl).ScrollToLine(ln);
+                }
                 else if (parts[1] == "LineUp")
                 {
                     if (ctrl is System.Windows.Controls.TextBox)
@@ -6776,6 +7173,23 @@ public class AhkWpfEngine
                         else if (pt == "Geometry") val = System.Windows.Media.Geometry.Parse(parts[2]);
                         else val = Convert.ChangeType(parts[2], prop.PropertyType);
                         prop.SetValue(ctrl, val, null);
+                        // 创建时原生隐藏的窗口：AHK 置 Opacity 时恢复可见（清除 WS_EX_LAYERED alpha）
+                        if (ctrl == win && parts[1] == "Opacity" && win.Resources.Contains("_NativeAlphaPending"))
+                        {
+                            try
+                            {
+                                win.Resources.Remove("_NativeAlphaPending");
+                                IntPtr wHwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                                if (wHwnd != IntPtr.Zero)
+                                {
+                                    SetLayeredWindowAttributes(wHwnd, 0, 255, 0x2);
+                                    // 恢复正常窗口（去掉 WS_EX_LAYERED），避免持续 layered 丢阴影
+                                    int ex = GetWindowLong(wHwnd, -20);
+                                    SetWindowLong(wHwnd, -20, new IntPtr(ex & ~0x80000));
+                                }
+                            }
+                            catch { }
+                        }
                         // AHK 收起临时拖线时同步复位拖线状态机
                         if (parts[1] == "Visibility" && ctrl == tempConnection && val is Visibility
                             && (Visibility)val == Visibility.Collapsed)

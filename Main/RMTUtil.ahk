@@ -23,6 +23,10 @@ OnSaveSetting(*) {
     if (!isValid)
         return
 
+    ; 先取窗口位置再隐藏，用户感知窗口立即关闭；后续保存/Reload 在隐藏窗口下进行
+    SaveCurWinPos()
+    MainSoftData.MyGui.Hide()
+
     OnKillAllMacro()
 
     if (MyWorkPool != "") {
@@ -100,8 +104,6 @@ OnSaveSetting(*) {
     CheckAndAddDirty("HasSaved", true)
     CheckAndAddDirty("IsReload", true)
 
-    SaveCurWinPos()
-
     ; CMD窗口设置
     CheckAndAddDirty("CMDPosX", MainSoftData.CMDPosX)
     CheckAndAddDirty("CMDPosY", MainSoftData.CMDPosY)
@@ -167,8 +169,7 @@ OnEditCMDTipGui() {
 }
 
 OnTabValueChanged(*) {
-    tableItem := MySoftData.TableInfo[MainSoftData.TabCtrl.Value]
-    MySlider.SwitchTab(tableItem)
+    ; 滑块已删除；当前页索引由 MainWin.OnTabChanged 同步到 MainSoftData.TableIndex
 }
 
 SwapTableContent(tableItem, indexA, indexB) {
@@ -547,16 +548,7 @@ SetTableItemState(tableIndex, itemIndex, State) {
 }
 
 RefreshItemColorUI(tableIndex, itemIndex) {
-    tableItem := MySoftData.TableInfo[tableIndex]
-    State := tableItem.ColorStateArr[itemIndex]
-    isVisible := State != 0
-
-    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
-    if (ItemUsePool.Has(itemIndex)) {
-        ItemConObj := ItemUsePool[itemIndex]
-        ItemConObj.ColorCon.Value := GetItemColorValue(State)
-        ItemConObj.ColorCon.Visible := isVisible
-    }
+    MyMainWin.UpdateItemColor(tableIndex, itemIndex)
 }
 
 CancelTableItemStopState(tableIndex, itemIndex) {

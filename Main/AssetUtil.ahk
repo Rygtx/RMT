@@ -706,17 +706,29 @@ ApplyXamlTheme(ui, themeName, iniPath := "", useAppWinTheme := true) {
         themeData := ""
         try themeData := IniRead(iniPath, themeName)
         if (themeData != "") {
+            ; 合并为一次 BatchUpdate：theme 资源 ~30 条，逐条 Update 是 30 次同步 IPC 往返（拖慢开窗）
+            batch := []
             Loop Parse, themeData, "`n", "`r" {
                 parts := StrSplit(A_LoopField, "=", " `t", 2)
                 if (parts.Length == 2) {
                     key := Trim(parts[1])
                     val := Trim(parts[2])
-                    if (key == "Window_DWM")
-                        ui.Update("Window", "DWM", val)
+                    if (key == "Window_DWM") {
+                        ; 不透明窗口铺实色 BgColor，Mica 不可见且首帧闪紫：backdrop 置 0，保留 dark 模式
+                        if (ui.HasProp("xaml") && InStr(ui.xaml, 'AllowsTransparency="True"'))
+                            batch.Push({ControlName: "Window", PropertyName: "DWM", Value: val})
+                        else {
+                            dwmParts := StrSplit(val, ",", " `t")
+                            dwmDark := dwmParts.Length > 1 ? dwmParts[2] : "0"
+                            batch.Push({ControlName: "Window", PropertyName: "DWM", Value: "0," dwmDark})
+                        }
+                    }
                     else if (InStr(key, "Resource_") == 1)
-                        ui.Update("Resource", SubStr(key, 10), val)
+                        batch.Push({ControlName: "Resource", PropertyName: SubStr(key, 10), Value: val})
                 }
             }
+            if (batch.Length > 0 && ui.HasMethod("BatchUpdate"))
+                ui.BatchUpdate(batch)
         }
     }
     if (useAppWinTheme)

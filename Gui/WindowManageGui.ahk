@@ -29,7 +29,7 @@ class WindowManageGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -192,7 +192,7 @@ class WindowManageGui {
         this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
@@ -207,7 +207,7 @@ class WindowManageGui {
         this.SureBtnAction.Call(CommandStr)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.OnClose()

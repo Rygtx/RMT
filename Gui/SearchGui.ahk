@@ -30,7 +30,7 @@ class SearchGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -193,7 +193,7 @@ class SearchGui {
         this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
@@ -338,7 +338,7 @@ class SearchGui {
         this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()

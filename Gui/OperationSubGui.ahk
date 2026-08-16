@@ -34,7 +34,7 @@ class OperationSubGui {
 
         if (this.Gui != "" && this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
         this.Gui.Show()
@@ -112,7 +112,7 @@ class OperationSubGui {
     OnClose(*) {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
@@ -263,7 +263,7 @@ class OperationSubGui {
         action(this.Index, expression)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()

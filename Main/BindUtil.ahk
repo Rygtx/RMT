@@ -209,8 +209,9 @@ OnClickUIMacroPanelSettingBtn(*) {
 }
 
 OnClickCMDTipToggle(ctrl, info) {
-    MySoftData.CMDTip := ctrl.Value
-    SetCMDTipValue(ctrl.Value)
+    v := MyMainWin.ui.Query("ChkCMDTip") == "True"
+    MySoftData.CMDTip := v
+    SetCMDTipValue(v)
 }
 
 OnToolTextFilterScreenShot(*) {

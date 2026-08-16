@@ -1429,6 +1429,9 @@ class XAMLHost {
             ; This eliminates the Engine|Ready -> XAML_PAYLOAD round-trip entirely
             eventBindings := this._BuildEventBindings()
             cleanXaml := StrReplace(this.xaml, "%resources%", "")
+            ; 非透明窗口：窗口级背景铺实色 BgColor，避免首帧先闪 DWM 玻璃边框（Win11 下偏紫/系统色）
+            if (!InStr(this.xaml, 'AllowsTransparency="True"'))
+                cleanXaml := StrReplace(cleanXaml, 'Background="Transparent"', 'Background="{DynamicResource BgColor}"')
             inlinePayload := cleanXaml "`n---AHK-XAML-EVENTS---`n" eventBindings
             payload := "CREATE_WINDOW_INLINE|" this.id "|" trackedCsv "|" A_ScriptName "|" String(this.ownerHwnd) "|" inlinePayload
 
@@ -1715,7 +1718,9 @@ class XAMLHost {
                 return ""
             ; Count how many chars span byteLen UTF-8 bytes
             charCount := XAMLHost.UTF8BytesToCharCount(rawAfterColon, byteLen)
-            return SubStr(rawAfterColon, 1, charCount)
+            val := SubStr(rawAfterColon, 1, charCount)
+            ; 还原 LengthPrefix 里转义的 \r\n（与桥接侧对称）
+            return StrReplace(StrReplace(val, "&#x0A;", "`n"), "&#x0D;", "`r")
         }
         ; Fallback: legacy base64 (safe to remove after long-term testing)
         return XAMLHost.Base64Decode(encoded)
@@ -2275,7 +2280,7 @@ XAML_TEMPLATE := '
             ResizeMode="%ResizeMode%"
             WindowStyle="None" AllowsTransparency="False" Background="Transparent"
             WindowStartupLocation="CenterScreen"
-            TextElement.Foreground="{DynamicResource TextMain}" FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif">
+            TextElement.Foreground="{DynamicResource TextMain}" TextElement.FontSize="13">
         
         <WindowChrome.WindowChrome>
             <WindowChrome GlassFrameThickness="-1" CaptionHeight="%CaptionHeight%" CornerRadius="{DynamicResource WindowRadius}" />

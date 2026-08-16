@@ -1391,20 +1391,20 @@ SyncBootStartRegistry() {
 }
 
 OnBootStartChanged(ctrl, *) {
-    MainSoftData.IsBootStart := !!ctrl.Value
+    MainSoftData.IsBootStart := MyMainWin.ui.Query("ChkBootStart") == "True"
     ok := ApplyBootStartRegistry(MainSoftData.IsBootStart)
     IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
     if (!ok) {
         ; 注册表未能与选项对齐时回滚勾选，避免界面已关、实际仍自启
         MainSoftData.IsBootStart := !MainSoftData.IsBootStart
-        try ctrl.Value := MainSoftData.IsBootStart
+        try MyMainWin.ui.Update("ChkBootStart", "IsChecked", MainSoftData.IsBootStart ? "True" : "False")
         IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
         MsgBox(GetLang("开机自启设置失败，请检查是否被安全软件拦截，或勿通过兼容性强制管理员运行。"), GetLang("提示"), 48)
     }
 }
 
 OnAdminStartChanged(ctrl, *) {
-    MainSoftData.IsAdminStart := !!ctrl.Value
+    MainSoftData.IsAdminStart := MyMainWin.ui.Query("ChkAdminStart") == "True"
     IniWrite(MainSoftData.IsAdminStart ? 1 : 0, IniFile, IniSection, "IsAdminStart")
     if (MainSoftData.IsBootStart)
         ApplyBootStartRegistry(true)

@@ -58,7 +58,7 @@ class CompareProEditItemGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -197,7 +197,7 @@ class CompareProEditItemGui {
     OnClose(*) {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
@@ -303,7 +303,7 @@ class CompareProEditItemGui {
         this.SureBtnAction := ""
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()

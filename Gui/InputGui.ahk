@@ -1,190 +1,284 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
+
+; =====================================================================
+; 输入编辑器 —— XAML 迁移版（独立实现）
+; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
+; =====================================================================
 
 class InputGui {
     __new() {
         this.ParentTile := ""
+        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
+        this._closed := true
+        this._batch := []
+        this._batching := false
+        this.Data := ""
+        this.SerialStr := ""
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
-            if (this.OwnerHwnd != "") {
-                this.Gui.Opt("+Owner" this.OwnerHwnd)
-            }
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
-
+        global MySoftData
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
-
-        this.Init(cmd)
+        this._batching := true
+        try this.Init(cmd)
+        finally {
+            this._flushBatch()
+        }
         this.RefreshConVisable()
     }
 
-    AddGui() {
-        MyGui := Gui(, this.ParentTile GetLang("输入编辑器"))
-        this.Gui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+    }
+
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
+    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
+    _ComboPush(comboName, propertyName, value) {
+        if (this._batching)
+            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
+        else
+            this.ui.Update(comboName, propertyName, value)
+    }
+
+    _flushBatch() {
+        this._batching := false
+        if (IsObject(this.ui) && this._batch.Length > 0) {
+            this.ui.BatchUpdate(this._batch)
+            this._batch := []
         }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+    }
 
-        PosX := 10
-        PosY := 10
-        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80, 20), GetLang("快捷方式："))
-        PosX += 80
-        con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
-        con.Enabled := false
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        title := this.ParentTile GetLang("输入编辑器")
+        this._title := title
+        titleHeight := "30"
 
-        PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
-        btnCon.OnEvent("Click", (*) => this.TriggerMacro())
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*")
 
-        PosX += 120
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
-        PosX += 50
-        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        PosX := 20
-        PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("输入类型:"))
-        PosX += 80
-        TypeArr := GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 130), TypeArr)
-        this.TypeCon.OnEvent("Change", this.OnRefreshType.Bind(this))
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
+        body.Rows("32", "36", "34", "*", "52")
+        body.Cols("80", "150", "60", "150")
 
-        PosX := 20
-        PosY += 40
-        this.InterConArr := []
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("交互时:"))
-        this.InterConArr.Push(con)
-        PosX += 80
-        TypeArr := GetLangArr(["暂停当前宏", "暂停所有宏"])
-        this.PauseTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 130), TypeArr)
-        this.InterConArr.Push(this.PauseTypeCon)
+        ; 行0：快捷方式 + 执行指令 + 备注
+        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
+        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
+        row0.Add("TextBox").Name("HotkeyText").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
+        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("10,0,0,0")
+        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        row0.Add("TextBox").Name("RemarkCon").Width(130).Height(24).MinHeight(24).Margin("4,0,0,0")
 
-        PosX := 280
-        this.CancelConArr := []
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("取消时:"))
-        this.CancelConArr.Push(con)
-        PosX += 80
-        TypeArr := GetLangArr(["终止当前宏", "终止所有宏"])
-        this.CancelTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5", PosX, PosY - 3, 130), TypeArr)
-        this.CancelConArr.Push(this.CancelTypeCon)
+        ; 行1：输入类型
+        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
+        row1.Add("TextBlock").Text(GetLang("输入类型:")).VerticalAlignment("Center")
+        tc := row1.Add("ComboBox").Name("TypeCombo").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["弹窗", "状态", "继续", "继续&取消"])
+            tc.Add("ComboBoxItem").Content(t)
 
-        PosX := 10
-        PosY += 40
-        this.ResultConArr := []
-        Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 490, 70), GetLang("结果保存"))
-        this.ResultConArr.Push(Con)
+        ; 行2：交互时 + 取消时（取消时按类型显隐）
+        row2 := body.Add("StackPanel").Grid_Row(2).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
+        row2.Add("TextBlock").Text(GetLang("交互时:")).VerticalAlignment("Center")
+        pt := row2.Add("ComboBox").Name("PauseTypeCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["暂停当前宏", "暂停所有宏"])
+            pt.Add("ComboBoxItem").Content(t)
+        cancelRow := row2.Add("StackPanel").Name("CancelRow").Orientation("Horizontal").Margin("18,0,0,0")
+        cancelRow.Add("TextBlock").Text(GetLang("取消时:")).VerticalAlignment("Center")
+        ct := cancelRow.Add("ComboBox").Name("CancelTypeCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["终止当前宏", "终止所有宏"])
+            ct.Add("ComboBoxItem").Content(t)
 
-        PosX := 20
-        PosY += 35
-        Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("变量："))
-        this.ResultConArr.Push(Con)
+        ; 行3：结果保存 GroupBox
+        resultGroup := body.Add("GroupBox").Grid_Row(3).Grid_ColumnSpan(4).Name("ResultGroup").Header(GetLang("结果保存"))
+            .Margin("0,2,0,2").BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
+        resInner := resultGroup.Add("StackPanel").Orientation("Horizontal").Margin("12,8")
+        resInner.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center")
+        resInner.Add("ComboBox").Name("SaveNameCombo").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
 
-        PosX += 50
-        this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
-        this.ResultConArr.Push(this.SaveNameCon)
+        ; 行4：确定
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
 
-        PosY += 50
-        PosX := 210
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
-        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="510" Height="282" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
-        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(510, 275)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 510, 275))
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefreshType"))
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                if (this.OwnerHwnd != "")
+                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
+        } finally {
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    _SetDDL(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        for i, it in items {
+            if (it == text) {
+                this._ComboPush(comboName, "SelectedIndex", String(i - 1))
+                return
+            }
+        }
+        this._ComboPush(comboName, "SelectedIndex", "0")
+    }
+
+    _SetCombo(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        this._ComboPush(comboName, "Text", text)
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("输入")
-        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
         this.DLArrayArr := GetGuiArrNameArr()
 
-        this.TypeCon.Text := GetLang(this.Data.Type)
-        this.PauseTypeCon.Text := GetLang(this.Data.PauseType)
-        this.CancelTypeCon.Text := GetLang(this.Data.CancelType)
-        this.SaveNameCon.Text := this.Data.SaveName
-        SetDLConValue(this.SaveNameCon, GetGuiVarArr(), this.SaveNameCon.Text)
+        this._SetDDL("TypeCombo", GetLangArr(["弹窗", "状态", "继续", "继续&取消"]), GetLang(this.Data.Type))
+        this._SetDDL("PauseTypeCombo", GetLangArr(["暂停当前宏", "暂停所有宏"]), GetLang(this.Data.PauseType))
+        this._SetDDL("CancelTypeCombo", GetLangArr(["终止当前宏", "终止所有宏"]), GetLang(this.Data.CancelType))
+        this._SetCombo("SaveNameCombo", GetGuiVarArr(), this.Data.SaveName)
     }
 
-    OnRefreshType(*) {
+    OnRefreshType(state := "", ctrl := "", event := "") {
         this.RefreshConVisable()
     }
 
     RefreshConVisable() {
-        IsPopUp := this.TypeCon.Text == GetLang("弹窗")
-        IsState := this.TypeCon.Text == GetLang("状态")
-        IsGoOn := this.TypeCon.Text == GetLang("继续")
-        IsGoOnAndCancel := this.TypeCon.Text == GetLang("继续&取消")
+        if (!IsObject(this.ui))
+            return
+        typeText := this.ui.Query("TypeCombo")
+        IsPopUp := typeText == GetLang("弹窗")
+        IsState := typeText == GetLang("状态")
+        IsGoOn := typeText == GetLang("继续")
+        IsGoOnAndCancel := typeText == GetLang("继续&取消")
 
         HasInter := IsPopUp || IsState || IsGoOn || IsGoOnAndCancel
         HasCancel := IsGoOnAndCancel
         HasRes := IsPopUp || IsState
 
-        this.SetConArrVisible(this.InterConArr, HasInter)
-        this.SetConArrVisible(this.CancelConArr, HasCancel)
-        this.SetConArrVisible(this.ResultConArr, HasRes)
+        ; 交互时恒显示；取消时/结果保存按类型
+        this.ui.Update("CancelRow", "Visibility", HasCancel ? "Visible" : "Collapsed")
+        this.ui.Update("ResultGroup", "Visibility", HasRes ? "Visible" : "Collapsed")
     }
 
-    SetConArrVisible(ConArr, Visible) {
-        loop ConArr.Length {
-            ConArr[A_Index].Visible := Visible
-        }
-    }
-
-    OnClickSureBtn() {
-        valid := this.CheckIfValid()
-        if (!valid)
+    OnClickSureBtn(state, ctrl, event) {
+        if (!this.CheckIfValid())
             return
         this.SaveData()
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
-
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
-        }
-        this.Gui.Hide()
-    }
-
-    OnGuiClose() {
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
-        }
-        this.Gui.Hide()
+        this._CloseWindow()
     }
 
     CheckIfValid() {
-        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
+        if (!CheckVarNameIfValid(this.ui.Query("SaveNameCombo")))
             return false
-
         return true
     }
 
-    TriggerMacro() {
+    TriggerMacro(state := "", ctrl := "", event := "") {
         this.SaveData()
         CommandStr := this.GetCommandStr()
         OnTriggerSepcialItemMacro(CommandStr)
 
-        IsPopUp := this.TypeCon.Text == GetLang("弹窗")
-        IsState := this.TypeCon.Text == GetLang("状态")
+        typeText := this.ui.Query("TypeCombo")
+        IsPopUp := typeText == GetLang("弹窗")
+        IsState := typeText == GetLang("状态")
         HasRes := IsPopUp || IsState
         if (HasRes) {
             Res := ""
@@ -197,28 +291,27 @@ class InputGui {
                 MsgBox(tip1 "`n" tip2)
             }
         }
-
     }
 
     GetCommandStr() {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        Remark := this.RemarkCon.Value
+        Remark := this.ui.Query("RemarkCon")
         if (Remark == "") {
-            Remark := this.TypeCon.Text
+            Remark := this.ui.Query("TypeCombo")
         }
         CommandStr := CorrectRemark(CommandStr, Remark)
         return CommandStr
     }
 
     SaveData() {
-        this.Data.Type := GetLangKey(this.TypeCon.Text)
-        this.Data.PauseType := GetLangKey(this.PauseTypeCon.Text)
-        this.Data.CancelType := GetLangKey(this.CancelTypeCon.Text)
-        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
+        this.Data.Type := GetLangKey(this.ui.Query("TypeCombo"))
+        this.Data.PauseType := GetLangKey(this.ui.Query("PauseTypeCombo"))
+        this.Data.CancelType := GetLangKey(this.ui.Query("CancelTypeCombo"))
+        this.Data.SaveName := GetVarName(this.ui.Query("SaveNameCombo"))
 
-        if (this.SaveNameCon.Visible) {
+        if (this.ui.Query("ResultGroup>Visibility") != "Collapsed") {
             MySoftData.GlobalVariMap[this.Data.SaveName] := true
         }
         SaveMacroCMDData(this.Data)

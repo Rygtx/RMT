@@ -31,7 +31,7 @@ class CompareGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -239,7 +239,7 @@ class CompareGui {
         this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
@@ -339,7 +339,7 @@ class CompareGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
         this.Gui.Hide()
