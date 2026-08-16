@@ -101,7 +101,15 @@ class MacroSettingGui {
     }
 
     OnSureBtnClick() {
-        this.tableItem.ModeArr[this.itemIndex] := this.TKTypeCon.Value
+        mode := this.TKTypeCon.Value
+        ; 改成罗技(3)/AHI(4)时检查对应驱动是否已安装，未安装则弹出安装提示（运行时检测逻辑保持不变）
+        if (mode == 3) {
+            InitLogitechGHubNew()
+        } else if (mode == 4) {
+            if (!IsInterceptionInstalled())
+                ShowInterceptionInstallTip()
+        }
+        this.tableItem.ModeArr[this.itemIndex] := mode
         this.tableItem.StartTipSoundArr[this.itemIndex] := this.StartTipCon.Value
         this.tableItem.EndTipSoundArr[this.itemIndex] := this.EndTipCon.Value
         this.OnGuiClose()

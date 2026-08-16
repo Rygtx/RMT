@@ -62,3 +62,8 @@
 [2026-08-07 23:00:40] 键盘 UpperFilters = keyboard, kbdclass
 [2026-08-07 23:00:40] 鼠标 UpperFilters = mouse, mouclass
 [2026-08-07 23:00:40] 状态 文件=True 钩子=True 服务=True 完整=True
+[2026-08-16 15:51:36] 开始：修复/补全安装
+[2026-08-16 15:51:36] 状态 文件=True 钩子=False 服务=False 完整=False
+[2026-08-16 15:51:36] 键盘 UpperFilters = keyboard, kbdclass
+[2026-08-16 15:51:36] 鼠标 UpperFilters = mouse, mouclass
+[2026-08-16 15:51:36] 状态 文件=True 钩子=True 服务=True 完整=True
