@@ -15,6 +15,9 @@ FindWinColor(ResXPtr, ResYPtr, colorStr, hwnd, X1, Y1, X2, Y2, matchThreshold) {
 }
 
 ReleaseAllCaches() {
+    ; OpenCV DLL 未加载时直接 DllCall 会抛 "Failed to load DLL"（例如本宏只用颜色/文本/本地识图搜索，从未用到 OpenCV）
+    if (!DllCall("GetModuleHandle", "Str", "RMT_OpenCV.dll", "Ptr"))
+        return
     DllCall("RMT_OpenCV.dll\ReleaseAllCaches", "Cdecl")
 }
 

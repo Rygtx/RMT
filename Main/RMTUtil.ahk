@@ -253,7 +253,9 @@ PluginInit() {
 
     OpenCvPath := dllDir "\RMT_OpenCV.dll"
     IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
-    DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
+    hOpenCv := DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
+    if (!hOpenCv)  ; 加载失败不抛异常，这里记录到日志，否则后续 DllCall 会报“Failed to load DLL”
+        JoyDebugLog(Format("LoadLibrary failed OpenCvPath={1} A_LastError={2}", OpenCvPath, A_LastError), "init")
     DllCall("LoadLibrary", "Str", IBPath)
 
     RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
