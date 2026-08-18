@@ -1734,6 +1734,28 @@ class MacroEditGui {
         return 0
     }
 
+    ; 粘貼到真/假/循環體/條件容器節點內部：把指令追加到該分支末尾並回寫。
+    ; 容器節點不能像普通指令一樣在同層級插入，否則 GetParent 取到根後 GetText(0) 報錯。
+    PasteIntoContainer(containerID, cmds) {
+        realItemID := this.MacroTreeViewCon.GetParent(containerID)
+        if (!realItemID)
+            return
+
+        realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
+        macroStr := this.GetTreeMacroStr(containerID)
+
+        for _, cmdStr in cmds {
+            cmdStr := Trim(cmdStr, " `t`r`n")
+            if (cmdStr == "")
+                continue
+            macroStr := (macroStr == "" ? "" : macroStr ",") cmdStr
+        }
+
+        this.SaveCommandData(realCommandStr, macroStr, containerID)
+        this.RefreshTree(realItemID)
+        this.CurItemID := 0
+    }
+
     ; 將剪貼簿中的單條或多條宏指令逐條貼上。
     PasteClipboardCommands(ClipboardStr) {
         ClipboardStr := Trim(ClipboardStr, " `t`r`n")
@@ -1744,15 +1766,29 @@ class MacroEditGui {
         if (cmds.Length == 0)
             return
 
+        anchorID := this.CurItemID
+        if (!anchorID)
+            return
+
+        anchorText := ""
+        try anchorText := this.MacroTreeViewCon.GetText(anchorID)
+        anchorText := StrReplace(anchorText, "→", "")
+
+        ; ⎖ 開頭的是資訊/控制顯示節點（循環次數、繼續/退出條件、流程控制），不允許粘貼。
+        if (SubStr(anchorText, 1, 1) == "⎖")
+            return
+
+        ; 真/假/循環體/條件 容器節點：粘貼到容器內部（追加到該分支），而非與容器同層級。
+        if (this.IsContainerNode(anchorText)) {
+            this.PasteIntoContainer(anchorID, cmds)
+            return
+        }
+
         ; 單條直接走原本的插入流程。
         if (cmds.Length == 1) {
             this.OnNextInsertCmd(cmds[1])
             return
         }
-
-        anchorID := this.CurItemID
-        if (!anchorID)
-            return
 
         parentID := this.MacroTreeViewCon.GetParent(anchorID)
 

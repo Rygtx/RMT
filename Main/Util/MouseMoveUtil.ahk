@@ -4,7 +4,7 @@
 ; 按「按键类型」(ModeArr) + 「移动模式」(绝对/相对/游戏视角) 分发到 AHK / 罗技 / AHI
 ;
 ; keyMode : 1 默认(AHK) | 2 游戏(AHK键) | 3 罗技 | 4 AHI
-; moveMode: 0 绝对 | 1 相对 | 2 游戏视角（相对位移，仅移动不点击）
+; moveMode: 0 绝对 | 1 相对 | 2 游戏视角（相对位移，仅移动不点击，与按键类型无关）
 ;
 ; 速度约定（与编辑器一致）：uiSpeed 0~100，越大越快
 ; - AHK MouseMove / SetDefaultMouseSpeed：需转为 0 最快 ~ 100 最慢
@@ -184,24 +184,11 @@ MouseMoveRelByKeyMode(keyMode, x, y, speed := 90, isHuman := false) {
     return true
 }
 
-; 游戏视角：相对位移；仅移动，不点击（罗技/AHI/AHK 行为一致）
+; 游戏视角：相对位移，仅移动不点击；固定走 mouse_event，与按键类型无关
 MouseMoveGameViewByKeyMode(keyMode, x, y, speed := 90) {
-    keyMode := Integer(keyMode)
     x := Integer(x), y := Integer(y)
-    uiSpeed := NormalizeUiMouseSpeed(speed)
-    SendMode("Event")
-    CoordMode("Mouse", "Screen")
-
-    if (keyMode == 3) {
-        MC_MoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
-        return true
-    }
-    if (keyMode == 4) {
-        AhiMoveRSmooth(x, y, UiSpeedToDriverSpeed(uiSpeed))
-        return true
-    }
-    ; AHK：仅相对移动（不点击）
-    SendInput("{Click " Round(x) " " Round(y) " 0 Relative}")
+    ; MOUSEEVENTF_MOVE = 0x0001：相对移动（游戏通常通过 Raw Input 读取）
+    DllCall("mouse_event", "UInt", 0x0001, "UInt", x, "UInt", y, "UInt", 0, "UPtr", 0)
     return true
 }
 
@@ -214,11 +201,13 @@ MouseMoveByStrategy(keyMode, moveMode, x, y, speed := 90, clickCount := 0, isHum
     moveMode := Integer(moveMode)
     clickCount := Integer(clickCount)
     uiSpeed := NormalizeUiMouseSpeed(speed)
-    if (!EnsureMouseBackend(keyMode))
-        return false
 
+    ; 游戏视角与按键类型无关，直接走 mouse_event，无需初始化罗技/AHI 后端
     if (moveMode == 2)
         return MouseMoveGameViewByKeyMode(keyMode, x, y, uiSpeed)
+
+    if (!EnsureMouseBackend(keyMode))
+        return false
 
     ; AHK：带点击时用 Click 一步完成（含位移），避免相对位移执行两次
     if (clickCount > 0 && keyMode != 3 && keyMode != 4) {

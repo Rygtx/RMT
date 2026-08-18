@@ -53,6 +53,7 @@ class WorkPool {
         this.dynamicMaxLimit := 16
         this.corePoolSize := MainSoftData.DynamicCorePoolSize
         this.elasticTimeout := MainSoftData.ElasticTimeout * 1000
+        this.stopTimeoutMs := 150      ; 协作终止等待超时(ms)，超时后强杀进程重建
 
         this.freePool := Map()        ; idx -> WorkerData，空闲可用的 Worker
         this.usePool := Map()         ; idx -> WorkerData，正在执行任务的 Worker
@@ -277,23 +278,55 @@ class WorkPool {
         return toKill.Length
     }
 
-    ; 用户停止宏：先协作松开按键，再杀进程；主进程再按同步到的 HoldKey 兜底松开
+    ; 用户停止宏：按 MainSoftData.MacroStopType 选择终止策略。
+    ; 智能终止(1)：协作式终止（置 Killed + ST 通知 Worker），Worker 完成后回发 FINISH 确认；
+    ;   超过 this.stopTimeoutMs 仍未确认（如 Worker 卡在搜图 DllCall）则强制杀进程重建。
+    ; 强制终止(2)：不等待协作退出，直接杀进程重建，响应更快但频繁重建较耗资源。
     ForceStopItem(tableIndex, itemIndex) {
         this.DrainItemTaskQueue(tableIndex, itemIndex)
         tableItem := MySoftData.TableInfo[tableIndex]
         if (tableItem.GraphBranchCountArr.Length >= itemIndex)
             tableItem.GraphBranchCountArr[itemIndex] := 0
 
-        ; Worker 内按下的键只存在于 Worker 进程；直接强杀会导致 R/T 等键卡住
-        this.RequestItemStop(tableIndex, itemIndex)
-        Sleep(80)
-
-        killed := this.KillWorkersForItem(tableIndex, itemIndex)
+        ; 1) 标记终止：主进程 KilledArr（供 FINISH 时判定终态 3）+ ST 通知 Worker 侧置 KilledArr 并松开按键
         KillTableItemMacro(tableItem, itemIndex)
+
+        if (MainSoftData.MacroStopType == 2) {
+            ; 强制终止：直接杀进程重建，不等待 Worker 协作退出
+            killed := this.KillWorkersForItem(tableIndex, itemIndex)
+            GraphPoolLog("停止宏-强制终止", Format("tab={1} item={2} 强杀Worker={3} 忙碌=[{4}]"
+                , tableIndex, itemIndex, killed, this.GetBusyWorkerIds()))
+        } else {
+            this.RequestItemStop(tableIndex, itemIndex)
+            GraphPoolLog("停止宏-请求终止", Format("tab={1} item={2} 超时阈值={3}ms 忙碌=[{4}]"
+                , tableIndex, itemIndex, this.stopTimeoutMs, this.GetBusyWorkerIds()))
+
+            ; 2) 等待 Worker 回发 FINISH 确认终止（FINISH 处理后 Worker 离开 usePool）
+            start := A_TickCount
+            loop {
+                try this.PollWorkerRx()
+                if (!this.HasItemWork(tableIndex, itemIndex))
+                    break
+                if (A_TickCount - start >= this.stopTimeoutMs)
+                    break
+                Sleep(10)
+            }
+            elapsed := A_TickCount - start
+
+            ; 3) 超时仍未确认 → 强制杀进程重建
+            if (this.HasItemWork(tableIndex, itemIndex)) {
+                killed := this.KillWorkersForItem(tableIndex, itemIndex)
+                GraphPoolLog("停止宏-强杀", Format("tab={1} item={2} 协作超时={3}ms 强杀Worker={4} 忙碌=[{5}]"
+                    , tableIndex, itemIndex, elapsed, killed, this.GetBusyWorkerIds()))
+            } else {
+                GraphPoolLog("停止宏-协作终止", Format("tab={1} item={2} 确认耗时={3}ms 未杀进程 忙碌=[{4}]"
+                    , tableIndex, itemIndex, elapsed, this.GetBusyWorkerIds()))
+            }
+        }
+
         if (tableItem.IsWorkIndexArr.Length >= itemIndex)
             tableItem.IsWorkIndexArr[itemIndex] := 0
         SetTableItemState(tableIndex, itemIndex, 3)
-        GraphPoolLog("ForceStopItem", Format("tab={1} item={2} 终止Worker数={3}", tableIndex, itemIndex, killed))
     }
 
     ; 新一次宏触发前：清队列、强停残留 Worker、重置状态

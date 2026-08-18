@@ -317,6 +317,15 @@ OnClickKeyDownDownHelpBtn(*) {
     MsgBox(str, GetLang("按下时按下说明"))
 }
 
+OnClickMacroStopHelpBtn(*) {
+    str1 := GetLang("智能终止：优先以协作方式让宏自行退出，设 150ms 期限，逾期未退出则强制结束。")
+    str2 := GetLang("强制终止：直接结束线程并创建新线程，不等待宏自行退出。")
+    str3 := GetLang("提示：强制终止响应更快，但频繁结束、创建线程会消耗较多资源，建议保持智能终止。")
+
+    str := Format("{}`n`n{}`n`n{}", str1, str2, str3)
+    MsgBox(str, GetLang("宏终止方式说明"))
+}
+
 OnClickAutoLoosenModifierHelpBtn(*) {
     str1 := GetLang("开启后：当触发键为「修饰键 + 普通键」（如 Ctrl + A）时，触发宏前会先松开修饰键，再执行宏逻辑。")
     str2 := GetLang("这样可避免修饰键仍被按住，导致宏里发送的按键变成组合键（例如本意发 A，实际变成 Ctrl+A）。")

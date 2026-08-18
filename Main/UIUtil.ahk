@@ -560,6 +560,13 @@ AddSettingUI(index) {
     con.Value := MainSoftData.RemarkAutoType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.RemarkAutoType := Integer(ctrl.Value))
 
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("宏终止方式："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), GetLangArr(["智能终止", "强制终止"]), tableItem)
+    con.Value := MainSoftData.MacroStopType
+    con.OnEvent("Change", (ctrl, info) => MainSoftData.MacroStopType := Integer(ctrl.Value))
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 511, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickMacroStopHelpBtn)
+
     posY += 40
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h110", posX + 10, posY), GetLang("功能选项"), tableItem)
     tableItem.AllGroup.Push(con)

@@ -464,12 +464,71 @@ class MergeUtil {
         return moduleGroups
     }
 
+    ; 源配置依赖序列码收集：与 MacroClipboardUtil.FindDependentSerials 字段集一致，
+    ; 但改用字符串解析提取（ExtractSerialFromCmdDirect）。合并源配置时依赖序列码尚未写入
+    ; 当前目标配置，用 ExtractSerialFromCmd 会因「目标文件里查不到」而漏掉，或带出备注后缀
+    ; （如 搜索Pro66_检索怪物 → 整串），导致后续 FindSerialTypeFromSource 读不到配置。
+    static FindDependentSerialsFromSource(dataObj) {
+        depSerials := []
+        if (!IsObject(dataObj))
+            return depSerials
+
+        fieldsToCheck := ["MacroArr", "TrueMacroArr", "FalseMacroArr",
+                           "StartMacroArr", "EndMacroArr",
+                           "DefaultMacro", "SubMacro", "LoopBody",
+                           "TrueMacro", "FalseMacro",
+                           "NodeArr", "EmptyNode", "NextNodeArr", "CurCMD"]
+
+        PushDep(serial) {
+            if (serial != "")
+                depSerials.Push(serial)
+        }
+
+        for fieldName in fieldsToCheck {
+            try {
+                if (!ObjAccess(dataObj, [fieldName]))
+                    continue
+                fieldValue := ObjAccess(dataObj, [fieldName])
+                if (fieldValue == "")
+                    continue
+
+                if (IsObject(fieldValue)) {
+                    for item in fieldValue {
+                        if (item != "")
+                            PushDep(MergeUtil.ExtractSerialFromCmdDirect(GetCmdStr(String(item))))
+                    }
+                } else if (fieldName == "CurCMD") {
+                    PushDep(MergeUtil.ExtractSerialFromCmdDirect(GetCmdStr(String(fieldValue))))
+                } else {
+                    cmdList := SplitMacro(fieldValue)
+                    for cmdStr in cmdList
+                        PushDep(MergeUtil.ExtractSerialFromCmdDirect(GetCmdStr(String(cmdStr))))
+                }
+            } catch as e {
+                continue
+            }
+        }
+
+        return depSerials
+    }
+
     static CollectSourceConfigs(sourceSettingDir, sourceSerials) {
         collectedConfigs := Map()
 
         sourceDataFileMap := MergeUtil.BuildSourceDataFileMap(sourceSettingDir)
 
+        ; 队列式递归收集依赖链：
+        ;   图形开始节点 → NodeArr(图形节点) → CurCMD(搜索Pro) → TrueMacro(嵌套图形开始节点) → …
+        ; 必须把整条链全部收集并重映射序列码，否则合并后分支内指令（搜索Pro 真/假分支下的内容）全部丢失。
+        queue := []
         for serial, _ in sourceSerials {
+            if (serial != "" && !collectedConfigs.Has(serial))
+                queue.Push(serial)
+        }
+
+        qi := 1
+        while (qi <= queue.Length) {
+            serial := queue[qi++]
             if (serial == "" || collectedConfigs.Has(serial))
                 continue
 
@@ -484,19 +543,10 @@ class MergeUtil {
             configJson := JSON.stringify(Data, 0)
             collectedConfigs.Set(serial, Map("类型", cmdType, "配置", configJson))
 
-            depSerials := FindDependentSerials(Data)
+            depSerials := MergeUtil.FindDependentSerialsFromSource(Data)
             for depSerial in depSerials {
-                if (!collectedConfigs.Has(depSerial)) {
-                    depCmdType := MergeUtil.FindSerialTypeFromSource(depSerial, sourceDataFileMap)
-                    if (depCmdType != "") {
-                        depData := MergeUtil.ReadSourceConfigData(sourceSettingDir, depSerial, depCmdType,
-                            sourceDataFileMap)
-                        if (IsObject(depData)) {
-                            depJson := JSON.stringify(depData, 0)
-                            collectedConfigs.Set(depSerial, Map("类型", depCmdType, "配置", depJson))
-                        }
-                    }
-                }
+                if (depSerial != "" && !collectedConfigs.Has(depSerial))
+                    queue.Push(depSerial)
             }
         }
 

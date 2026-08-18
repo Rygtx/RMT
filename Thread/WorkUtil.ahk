@@ -388,6 +388,7 @@
                     case "ST":
                         tableItem := MySoftData.TableInfo[args[1]]
                         KillTableItemMacro(tableItem, args[2])
+                        GraphPoolLog("Worker收到终止指令", Format("tab={1} item={2}", args[1], args[2]))
                     case "GA":
                         global graphBranchesAckKey, graphBranchesAckReceived
                         key := args[1] "_" args[2]

@@ -520,6 +520,9 @@ LoadMainSetting() {
     MainSoftData.MutiThreadNum := IniRead(IniFile, IniSection, "MutiThreadNum", -1)
     MainSoftData.DynamicCorePoolSize := IniRead(IniFile, IniSection, "DynamicCorePoolSize", 2)
     MainSoftData.ElasticTimeout := IniRead(IniFile, IniSection, "ElasticTimeout", 30)
+    MainSoftData.MacroStopType := Integer(IniRead(IniFile, IniSection, "MacroStopType", 1))
+    if (MainSoftData.MacroStopType != 1 && MainSoftData.MacroStopType != 2)
+        MainSoftData.MacroStopType := 1
     MainSoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MainSoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)

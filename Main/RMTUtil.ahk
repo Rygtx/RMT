@@ -72,6 +72,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("ContinuousTrigger", MainSoftData.ContinuousTrigger ? 1 : 0)
     CheckAndAddDirty("SharedCopy", MainSoftData.SharedCopy)
     CheckAndAddDirty("RemarkAutoType", MainSoftData.RemarkAutoType)
+    CheckAndAddDirty("MacroStopType", MainSoftData.MacroStopType)
     CheckAndAddDirty("Theme", MainSoftData.Theme)
 
     ; 工具设置
@@ -538,11 +539,20 @@ CMDReport(CMDStr) {
 
 ;0默认状态 1运行 2暂停 3终止
 SetTableItemState(tableIndex, itemIndex, State) {
+    ; Worker 经 IPC 回发的 IS/PS 事件参数是字符串；Map 键类型敏感，若 ColorStateArr 混入
+    ; 字符串 "3"，GetItemColorValue 的整数键 Map 查不到，红色终止态将无法显示。统一转整数。
+    tableIndex := Integer(tableIndex)
+    itemIndex := Integer(itemIndex)
+    State := Integer(State)
+
     tableItem := MySoftData.TableInfo[tableIndex]
     LastState := tableItem.ColorStateArr[itemIndex]
 
-    if (LastState == 0 && (State == 2 || State == 3))
+    if (LastState == 0 && (State == 2 || State == 3)) {
+        ; 终止过程中宏已正常结束（状态已归 0），不再应用终止/暂停状态
+        GraphPoolLog("状态忽略-已正常结束", Format("tab={1} item={2} 收到状态={3} 当前=0", tableIndex, itemIndex, State))
         return
+    }
 
     if (State == 2 && LastState != 1)
         return

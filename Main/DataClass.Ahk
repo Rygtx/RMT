@@ -166,6 +166,7 @@ class MainConfig {
         this.MutiThreadNum := -1        ; 多线程数 (-1 = 动态调整)
         this.DynamicCorePoolSize := 3   ; 动态模式核心池大小
         this.ElasticTimeout := 30       ; 弹性 Worker 超时 (秒)
+        this.MacroStopType := 1         ; 宏终止方式 (1=智能终止, 2=强制终止)
 
         ; ========== 按键选项 ==========
         this.KeyDownDownType := 1       ; 按下时按下处理 (1=自动松开, 2=忽略重复按下, 3=允许重复按下)
