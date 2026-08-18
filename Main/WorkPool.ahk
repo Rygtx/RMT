@@ -3,6 +3,46 @@
 #Include Util\RingBuffer.ahk
 #Include Util\JsonUtil.ahk
 
+; 枚举系统中所有进程，返回 [{pid, name, parentPid}, ...]。
+; 用于残留 Worker 检测：找出父进程为当前主进程、但已不在线程池追踪中的 Work.exe。
+; 采用 Toolhelp32 快照（TH32CS_SNAPPROCESS），不依赖窗口可见性，headless Worker 也能枚举到。
+EnumProcesses() {
+    procs := []
+    ; TH32CS_SNAPPROCESS = 0x00000002
+    hSnap := DllCall("CreateToolhelp32Snapshot", "uint", 0x00000002, "uint", 0, "ptr")
+    if (!hSnap)
+        return procs
+
+    ; PROCESSENTRY32W 字段布局：
+    ;   dwSize(4) cntUsage(4) th32ProcessID(4) th32DefaultHeapID(A_PtrSize)
+    ;   th32ModuleID(4) cntThreads(4) th32ParentProcessID(4) pcPriClassBase(4) dwFlags(4) szExeFile[260]
+    structSize := 32 + A_PtrSize + 520
+    pidOffset := 8
+    parentOffset := 20 + A_PtrSize
+    nameOffset := 32 + A_PtrSize
+
+    entry := Buffer(structSize, 0)
+    NumPut("uint", structSize, entry, 0)   ; dwSize
+
+    if (!DllCall("Process32FirstW", "ptr", hSnap, "ptr", entry)) {
+        DllCall("CloseHandle", "ptr", hSnap)
+        return procs
+    }
+
+    loop {
+        pid := NumGet(entry, pidOffset, "uint")
+        parentPid := NumGet(entry, parentOffset, "uint")
+        name := StrGet(entry.Ptr + nameOffset, "utf-16")
+        if (pid)
+            procs.Push({ pid: pid, name: name, parentPid: parentPid })
+        if (!DllCall("Process32NextW", "ptr", hSnap, "ptr", entry))
+            break
+    }
+
+    DllCall("CloseHandle", "ptr", hSnap)
+    return procs
+}
+
 class TaskQueue {
     __New() {
         this.queue := []
@@ -69,6 +109,7 @@ class WorkPool {
         this.lostWorkerCheckRound := 0
         this.lostWorkerCheckFunc := ""
         this.rxPollFunc := ""
+        this.residualCheckFunc := ""
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -90,6 +131,10 @@ class WorkPool {
         }
         this.rxPollFunc := ObjBindMethod(this, "PollWorkerRx")
         SetTimer(this.rxPollFunc, 300)
+
+        ; 残留 Worker 清理：每 10 分钟枚举一次 Work.exe，强杀不在线程池追踪中的残留进程
+        this.residualCheckFunc := ObjBindMethod(this, "CheckResidualWorkers")
+        SetTimer(this.residualCheckFunc, 600000)
     }
 
     __Delete() {
@@ -108,6 +153,10 @@ class WorkPool {
         if (this.isDynamic && this.shrinkTimerFunc != "") {
             SetTimer(this.shrinkTimerFunc, 0)
             this.shrinkTimerFunc := ""
+        }
+        if (this.residualCheckFunc != "") {
+            SetTimer(this.residualCheckFunc, 0)
+            this.residualCheckFunc := ""
         }
 
         ; 先收集所有存活 Worker，避免遍历时改动 freePool/usePool/pending
@@ -164,8 +213,8 @@ class WorkPool {
         ; PROCESS_TERMINATE | PROCESS_DUP_HANDLE | SYNCHRONIZE，供强制停止时 TerminateProcess
         wd.hProc := DllCall("OpenProcess", "uint", 0x0001 | 0x0040 | 0x00100000, "int", false, "uint", pid, "ptr")
         this.workerMap[idx] := wd
-        GraphPoolLog("CreateWorker", Format("Worker#{1} 已启动 pending={2} maxSize={3}"
-            , idx, this.pending.Count, this.maxSize))
+        GraphPoolLog("CreateWorker", Format("Worker#{1} 已启动 pid={2} pending={3} maxSize={4}"
+            , idx, pid, this.pending.Count, this.maxSize))
     }
 
     GetActiveWorkerCount() {
@@ -643,6 +692,20 @@ class WorkPool {
             if (hProc)
                 CloseHandle(hProc)
         }
+
+        ; 残留诊断：解除追踪后短暂等待，若进程仍存活则记录（残留 Work.exe 的关键线索）。
+        ; 强杀(terminateProcess=true)为异步；缩容/重载(terminateProcess=false)依赖 WM_CLEAR_WORK 让 Worker
+        ; 自行退出，二者都留出短暂时间后仍未退出，才视为疑似残留。后续由 CheckResidualWorkers 兜底强杀。
+        if (wd.pid) {
+            waited := 0
+            while (waited < 200 && ProcessExist(wd.pid)) {
+                Sleep(10)
+                waited += 10
+            }
+            if (ProcessExist(wd.pid))
+                GraphPoolLog("Worker清理后仍存活", Format("Worker#{1} pid={2} 方式={3} 进程未退出"
+                    , wd.idx, wd.pid, terminateProcess ? "强杀" : "仅解除追踪"))
+        }
     }
 
     ScheduleRecreateWorker(reuseIdx, deadPid := 0) {
@@ -773,6 +836,50 @@ class WorkPool {
                 this.CleanUpWorker(wd)
                 shrunk++
             }
+        }
+    }
+
+    ; 残留 Worker 清理：每 10 分钟枚举一次 Work.exe 进程。
+    ; 若存在父进程为当前主进程、但已不在线程池（free/use/pending，均登记在 workerMap）追踪中的
+    ; 进程，说明其为历史强杀/缩容/重载过程中未真正退出的残留，直接强杀回收资源。
+    CheckResidualWorkers() {
+        tracked := Map()
+        for idx, wd in this.workerMap {
+            if (wd.pid)
+                tracked[wd.pid] := true
+        }
+
+        residual := []
+        for p in EnumProcesses() {
+            if (StrLower(p.name) != StrLower(this.workerExeName))
+                continue
+            ; 只清理归属当前主进程的 Worker，避免误杀其他 RMT 实例；父进程未知(0)按本实例处理
+            if (p.parentPid && p.parentPid != this.mainPID)
+                continue
+            if (tracked.Has(p.pid))
+                continue
+            residual.Push(p)
+        }
+
+        if (residual.Length == 0)
+            return
+
+        for p in residual {
+            GraphPoolLog("清理残留Worker", Format("pid={1} parent={2} 不在线程池追踪中 强杀", p.pid, p.parentPid))
+            this.ForceKillProcess(p.pid)
+        }
+        GraphPoolLog("残留Worker检查", Format("追踪={1} 发现残留={2} 已强杀", tracked.Count, residual.Length))
+    }
+
+    ; 按 PID 强杀进程（残留 Worker 清理用），TerminateProcess + ProcessClose 双保险
+    ForceKillProcess(pid) {
+        hProc := DllCall("OpenProcess", "uint", 0x0001, "int", false, "uint", pid, "ptr")
+        if (hProc) {
+            DllCall("TerminateProcess", "ptr", hProc, "uint", 1)
+            DllCall("CloseHandle", "ptr", hProc)
+        }
+        if (ProcessExist(pid)) {
+            try ProcessClose(pid)
         }
     }
 
