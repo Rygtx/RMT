@@ -65,21 +65,32 @@ OnGuiClose(*) {
     MyTargetGui._lbuttonCb := ""
 }
 
-RefreshGui() {
+; 读取保存的主窗口位置尺寸；旧格式 xπy 两段回退默认 1070×590，损坏/越界返回空数组
+; BuildAndShow 可见前置位 + RefreshGui 都复用，避免两处解析漂移
+GetLastWinPos() {
     LastWinPosStr := IniRead(IniFile, IniSection, "LastWinPos", "")
     WinPosArr := StrSplit(LastWinPosStr, "π")
-    IniWrite(false, IniFile, IniSection, "IsReload")
-
-    if (WinPosArr.Length == 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
+    if (WinPosArr.Length >= 2 && IsNumber(WinPosArr[1]) && IsNumber(WinPosArr[2])) {
         VirtualWidth := SysGet(78)
         VirtualHeight := SysGet(79)
-        isXValid := WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth
-        isYValid := WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight
-        if (isXValid && isYValid) {
-            MainSoftData.MyGui.Show(Format("x{} y{} w{} h{}", WinPosArr[1], WinPosArr[2], 1070, 590))
-            RefreshListenVarGui()
-            return
+        if (WinPosArr[1] > 0 && WinPosArr[1] < VirtualWidth && WinPosArr[2] > 0 && WinPosArr[2] < VirtualHeight) {
+            ; 旧格式 xπy 两段 → 默认 1070×590；新格式含 w/h（≥400×300 才采信，上界钳虚拟屏防存档超大值）
+            w := (WinPosArr.Length >= 4 && IsNumber(WinPosArr[3]) && WinPosArr[3] >= 400) ? Min(WinPosArr[3], VirtualWidth) : 1070
+            h := (WinPosArr.Length >= 4 && IsNumber(WinPosArr[4]) && WinPosArr[4] >= 300) ? Min(WinPosArr[4], VirtualHeight) : 590
+            return [WinPosArr[1], WinPosArr[2], w, h]
         }
+    }
+    return []
+}
+
+RefreshGui() {
+    IniWrite(false, IniFile, IniSection, "IsReload")
+
+    pos := GetLastWinPos()
+    if (pos.Length) {
+        MainSoftData.MyGui.Show(Format("x{} y{} w{} h{}", pos[1], pos[2], pos[3], pos[4]))
+        RefreshListenVarGui()
+        return
     }
 
     if (MainSoftData.LastShowMonth != A_Mon) {

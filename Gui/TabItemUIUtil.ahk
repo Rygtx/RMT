@@ -342,7 +342,12 @@ OnItemMoveUp(tableItem, index, *) {
     }
     MyMainWin.ReadTabValues(tableItem)
     SwapTableContent(tableItem, index, index - 1)
-    MyMainWin.RenderTab(tableItem)
+    ; Epic5 虚拟化：先换集合顺序再刷两行（VM 槽位数据随模型更新）
+    if (MyMainWin._useVirtual.Has(tableItem.Index))
+        MyMainWin._vl.MoveRow(tableItem.Index, index, index - 1)
+    ; 增量：只刷新被交换两行，不整列表重建（滚动位置不复位）
+    MyMainWin.RefreshItemRow(tableItem.Index, index - 1)
+    MyMainWin.RefreshItemRow(tableItem.Index, index)
 }
 
 OnItemMoveDown(tableItem, index, *) {
@@ -353,12 +358,21 @@ OnItemMoveDown(tableItem, index, *) {
     }
     MyMainWin.ReadTabValues(tableItem)
     SwapTableContent(tableItem, index, index + 1)
-    MyMainWin.RenderTab(tableItem)
+    if (MyMainWin._useVirtual.Has(tableItem.Index))
+        MyMainWin._vl.MoveRow(tableItem.Index, index, index + 1)
+    ; 增量：只刷新被交换两行，不整列表重建（滚动位置不复位）
+    MyMainWin.RefreshItemRow(tableItem.Index, index + 1)
+    MyMainWin.RefreshItemRow(tableItem.Index, index)
 }
 
 OnFoldFrontInfoEdit(tableItem, foldIndex, *) {
     foldInfo := tableItem.FoldInfo
-    frontCtrl := CtrlAdapter("FoldFront_" tableItem.Index "_" foldIndex, MyMainWin.ui, "Text")
+    if (MyMainWin._useVirtual.Has(tableItem.Index)) {
+        ; Epic5：fold 头 TextBox 在 DataTemplate 内无命名控件，读模型（点按钮前 LostFocus 已 VL_CHANGE 写回）
+        frontCtrl := { Value: foldInfo.FrontInfoArr[foldIndex] }
+    } else {
+        frontCtrl := CtrlAdapter("FoldFront_" tableItem.Index "_" foldIndex, MyMainWin.ui, "Text")
+    }
     SureAction() {
         newInfo := frontCtrl.Value
         oldInfo := foldInfo.FrontInfoArr[foldIndex]
@@ -374,7 +388,16 @@ OnFoldBtnClick(tableItem, foldIndex, *) {
     foldInfo := tableItem.FoldInfo
     MyMainWin.ReadTabValues(tableItem)
     foldInfo.FoldStateArr[foldIndex] := !foldInfo.FoldStateArr[foldIndex]
-    MyMainWin.RenderTab(tableItem)
+    t := tableItem.Index
+    if (MyMainWin._useVirtual.Has(t)) {
+        ; Epic5：折叠 = 集合移除行组 + 视口锚定（1 IPC），不重建整表
+        MyMainWin._vl.FoldToggle(t, foldIndex, foldInfo.FoldStateArr[foldIndex])
+        return
+    }
+    ; A: 折叠只切整组容器 Visibility + 图标文字，不重建整表（千条级展开/折叠瞬间完成，滚动位置保留）
+    ;    Update 路径不解 XAML 实体（仅解 &#x0A;/&#x0D;），须传实际字符非实体串，否则图标变字面 &#xE76C;
+    MyMainWin.ui.Update("FoldItems_" t "_" foldIndex, "Visibility", foldInfo.FoldStateArr[foldIndex] ? "Collapsed" : "Visible")
+    MyMainWin.ui.Update("FoldGlyph_" t "_" foldIndex, "Text", foldInfo.FoldStateArr[foldIndex] ? Chr(0xE76C) : Chr(0xE70D))
 }
 
 OnFlodTKEditClick(tableItem, foldIndex, *) {

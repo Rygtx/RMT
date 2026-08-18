@@ -125,6 +125,10 @@ class MainWin {
         this._linkQueue := []
         ; 每页已渲染的宏条目索引（供 RefreshItemColorUI 判断是否需更新色点）
         this.RenderedItems := Map()
+        ; Epic5 虚拟列表：tab1 试点走 _vl 渲染，其余走旧路径；阶段C 全开时移除 _useVirtual 分流
+        this._vl := ""
+        this._useVirtual := Map()
+        this._useVirtual[1] := true
     }
 
     BuildAndShow() {
@@ -177,8 +181,20 @@ class MainWin {
             if (idx <= 7) {
                 ; 宏/模块显示区：自适应剩余空间，外层边框包裹
                 bd := tabItem.Add("Border").BorderThickness("1").BorderBrush("{DynamicResource InputStroke}").CornerRadius("4").Margin("4,2,4,4").Padding("2,2")
-                sv := bd.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Auto")
-                sv.Add("StackPanel").Name("FoldList_" idx).Margin("4,2,4,2")
+                if (this._useVirtual.Has(idx)) {
+                    ; Epic5 虚拟列表：ListBox + DataTemplate + VirtualizingStackPanel(Recycling)，
+                    ; 行模板注入 Window.Resources，由 _vl.Init 一次 VL_INIT 填充
+                    vg := bd.Add("Grid")
+                    vg.Add("ListBox").Name("FoldList_" idx).SelectionMode("Single").BorderThickness("0").Background("Transparent")
+                        .Margin("4,2,4,2")
+                        .VirtualizingPanel_IsVirtualizing("True").VirtualizingPanel_VirtualizationMode("Recycling")
+                        .VirtualizingPanel_CacheLength("2,2").VirtualizingPanel_CacheLengthUnit("Page")
+                    ; 吸顶折叠头 overlay（sticky header）：滚动时当前模块头钉在列表顶部
+                    vg.Add("ContentControl").Name("VLSticky_" idx).VerticalAlignment("Top").HorizontalAlignment("Stretch").Visibility("Collapsed").Margin("4,2,4,2")
+                } else {
+                    sv := bd.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Auto")
+                    sv.Add("StackPanel").Name("FoldList_" idx).Margin("4,2,4,2")
+                }
             } else {
                 sv := tabItem.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled")
                 sv.Add("StackPanel").Name("Panel_" idx).Margin("8,6,8,10")
@@ -198,9 +214,24 @@ class MainWin {
             . '</Grid></ControlTemplate></Setter.Value></Setter>'
             . '</Style>'
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        tmp := StrReplace(tmp, "%resources%", tabStyle)
+        tmp := StrReplace(tmp, "%resources%", tabStyle . this._BuildVListTemplates())
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" Width="1070" Height="590" Opacity="0"')
+        ; 首帧即定死保存位置：模板 CenterScreen 会让 WPF 强制居中并覆盖后续 WinMove → 先默认位置闪一帧。
+        ; 改 Manual + 注入 Left/Top/Width/Height（AHK 逻辑坐标 = WPF DIP，125% DPI 下物理 132,126 已实测吻合，无单位错位）。
+        ; LastWinPos 无效时保持 CenterScreen 1070×590 居中默认。
+        pos := GetLastWinPos()
+        startLoc := 'WindowStartupLocation="CenterScreen"'
+        wh := 'Width="1070" Height="590"'
+        if (pos.Length) {
+            ; AHK 进程 DPI aware，WinGetPos/LastWinPos 是物理像素；XAML 注入按 DIP 解释，须换算（实测 125% 屏偏右下 26px）
+            ; ponytail: 用 GetDpiForSystem 单值；跨屏不同 DPI 时可能偏差，待真机多屏再按 per-monitor 换算
+            scale := DllCall("GetDpiForSystem", "UInt") / 96.0
+            x := Round(pos[1] / scale), y := Round(pos[2] / scale), w := Round(pos[3] / scale), h := Round(pos[4] / scale)
+            startLoc := 'WindowStartupLocation="Manual" Left="' x '" Top="' y '"'
+            wh := 'Width="' w '" Height="' h '"'
+        }
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' title '" ' wh ' Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'WindowStartupLocation="CenterScreen"', startLoc)
 
         ; ---- 壳级事件（初始 XAML 内，经 eventBindings 绑定） ----
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
@@ -227,9 +258,17 @@ class MainWin {
             Sleep(50)
         }
 
-        ; 动态内容（静态页 + 宏列表）在窗口就绪后填充
-        this.PopulateAll()
+        ; 窗口就绪立即显示（不透明等待 PopulateAll），内容异步后台填充，缩短首帧感知时间
+        this._vl := VirtualListHost(this.ui)
         try this.ui.Update("Window", "Opacity", "1")
+        SetTimer(ObjBindMethod(this, "_PopulateAsync"), -1)
+    }
+
+    ; 异步填充：BuildAndShow 不阻塞首帧，窗口先显示再后台 PopulateAll
+    _PopulateAsync() {
+        this.PopulateAll()
+        ; 原生 Gui.Show() 会激活窗口；XAML 显示路径不激活，重载时若他窗聚焦会落在后面
+        try WinActivate(this.ui.wpfHwnd)
     }
 
     PopulateAll() {
@@ -238,9 +277,11 @@ class MainWin {
         this.BuildHelpTab()
         this.BuildRewardTab()
         this.BuildThankTab()
-        loop 7 {
-            this.RenderTab(MySoftData.TableInfo[A_Index])
-        }
+        ; 惰性渲染：只渲染当前 tab（旧路径全量渲染 7 tab 是启动 1.3s 的主因），切 tab 时由 OnTabChanged 补渲染
+        this._renderedTabs := Map()
+        cur := MainSoftData.TableIndex
+        this._renderedTabs[cur] := true
+        this.RenderTab(MySoftData.TableInfo[cur])
     }
 
     OnWindowLoad(state, ctrl, event) {
@@ -250,7 +291,16 @@ class MainWin {
         } catch as e {
             XamlUiDiag("MainWin OnWindowLoad err: " e.Message, "MainWin")
         } finally {
-            try this.ui.Update("Window", "Opacity", "1")
+            ; BuildAndShow 已把 StartupLocation 改 Manual，此处 WinMove（物理像素）不会被 WPF 布局覆盖；
+            ; 位置尺寸定好后恢复可见（窗口全程透明至此）
+            try {
+                ; Loaded 事件可能被 PopulateAll 阻塞而晚到：用户若已双击标题栏最大化，
+                ; 此时 WinMove 会把窗口压回保存尺寸。最大化状态下跳过。
+                mmx := WinGetMinMax("ahk_id " this.ui.wpfHwnd)
+                pos := GetLastWinPos()
+                if (pos.Length && mmx != 1)
+                    WinMove(pos[1], pos[2], pos[3], pos[4], this.ui.wpfHwnd)
+            }
         }
     }
 
@@ -286,17 +336,27 @@ class MainWin {
         MainSoftData.TableIndex := idx
         try MainSoftData.TabCtrl._value := idx
         OnTabValueChanged()
+        ; 惰性渲染：该 tab 尚未构建过则首次切换时渲染（启动只渲染当前 tab）
+        if (!this._renderedTabs.Has(idx)) {
+            this._renderedTabs[idx] := true
+            this.RenderTab(MySoftData.TableInfo[idx])
+        }
     }
 
     LoadLeftBarValues() {
         this.ui.Update("TxtCurSetting", "Text", MySoftData.CurSettingName)
         this.ui.Update("ChkSuspend", "IsChecked", MainSoftData.IsSuspend ? "True" : "False")
         this.ui.Update("ChkPause", "IsChecked", MainSoftData.IsPause ? "True" : "False")
+        ; BindUtil 读写侧栏开关状态，须挂 CtrlAdapter 否则 SuspendToggle/PauseToggle 是空串
+        UIControls.SuspendToggle := CtrlAdapter("ChkSuspend", this.ui, "IsChecked")
+        UIControls.PauseToggle := CtrlAdapter("ChkPause", this.ui, "IsChecked")
     }
 
     ; ============ 宏列表渲染 ============
     ReadTabValues(tableItem) {
         t := tableItem.Index
+        if (this._useVirtual.Has(t))
+            return  ; Epic5：VL_CHANGE 已逐字段写回模型，此处 no-op
         fi := tableItem.FoldInfo
         ; 收集所有需读取的控件名，单次批量 Query（一次 daemon 往返），替代逐项轮询
         names := []
@@ -359,21 +419,42 @@ class MainWin {
 
     RenderTab(tableItem) {
         t := tableItem.Index
+        if (this._useVirtual.Has(t)) {
+            ; Epic5：1 次 VL_INIT 填充虚拟列表（模型已由 VL_CHANGE 保持，视图全量重建成本 O(1) IPC）
+            this._vl.Init(t, tableItem)
+            return
+        }
         this.RenderedItems[t] := Map()
         listName := "FoldList_" t
         this.ui.Update(listName, "ClearItems", "")
         fi := tableItem.FoldInfo
+        ; B: 每模块 1 次 AddXamlItem 批量渲染（整组一个根 StackPanel），不再逐行 N 次桥接往返。
+        ;    注意不能增量逐批加子项：StackPanel 每加一个子项就全量重测量（增量 = O(n²)），整组一次加 = O(n)。
+        ; A: 折叠行也全渲染进 FoldItems_<t>_<f> 子容器，折叠切换只切容器 Visibility 不重建（千条级折叠/展开瞬间，滚动位置保留）
+        ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
         for f, spanStr in fi.IndexSpanArr {
-            this.ui.Update(listName, "AddXamlItem", this._BuildFoldTitleRow(t, f))
-            if (fi.FoldStateArr[f])
-                continue
+            vis := fi.FoldStateArr[f] ? ' Visibility="Collapsed"' : ""
+            xaml := '<StackPanel ' ns '>'
+                . this._BuildFoldTitleRow(t, f)
+                . '<StackPanel Name="FoldItems_' t '_' f '"' vis '>'
+            span := StrSplit(spanStr, "-")
+            if (IsInteger(span[1]) && IsInteger(span[2])) {
+                loop span[2] - span[1] + 1 {
+                    i := span[1] + A_Index - 1
+                    xaml .= this._BuildItemRow(t, i)
+                    this.RenderedItems[t][i] := true
+                }
+            }
+            xaml .= '</StackPanel></StackPanel>'
+            this.ui.Update(listName, "AddXamlItem", xaml)
+        }
+        ; 绑定须在 AddXamlItem 之后（控件已存在）
+        for f, spanStr in fi.IndexSpanArr {
             span := StrSplit(spanStr, "-")
             if (!IsInteger(span[1]) || !IsInteger(span[2]))
                 continue
             loop span[2] - span[1] + 1 {
                 i := span[1] + A_Index - 1
-                this.ui.Update(listName, "AddXamlItem", this._BuildItemRow(t, i))
-                this.RenderedItems[t][i] := true
                 this._BindItemRow(t, i)
             }
         }
@@ -390,7 +471,7 @@ class MainWin {
             . '<StackPanel>'
             . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center">'
             . '<Button Name="FoldBtn_' t '_' f '" Width="24" Height="26" MinHeight="26" Cursor="Hand" Margin="0,0,6,0" Padding="0" Background="Transparent" BorderThickness="0">'
-            . '<TextBlock Text="' foldGlyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource TextMain}" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+            . '<TextBlock Name="FoldGlyph_' t '_' f '" Text="' foldGlyph '" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource TextMain}" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
             . '</Button>'
             . '<TextBlock Text="' GetLang("备注：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
             . '<TextBox Name="FoldRemark_' t '_' f '" Text="' this._XmlEsc(fi.RemarkArr[f]) '" Width="120" Height="26" MinHeight="26" Padding="4,0" Margin="2,0,8,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
@@ -448,7 +529,7 @@ class MainWin {
         xaml := '<Grid ' ns ' Margin="0,1,0,1">'
             . '<Grid.ColumnDefinitions>'
             . '<ColumnDefinition Width="20"/><ColumnDefinition Width="26"/><ColumnDefinition Width="150"/>'
-            . '<ColumnDefinition Width="88"/><ColumnDefinition Width="72"/><ColumnDefinition Width="62"/>'
+            . '<ColumnDefinition Width="100"/><ColumnDefinition Width="72"/><ColumnDefinition Width="82"/>'
             . '<ColumnDefinition Width="58"/><ColumnDefinition Width="58"/>'
             . '<ColumnDefinition Width="22"/><ColumnDefinition Width="22"/><ColumnDefinition Width="60"/>'
             . '<ColumnDefinition Width="48"/><ColumnDefinition Width="48"/>'
@@ -536,11 +617,41 @@ class MainWin {
     }
 
     UpdateItemColor(t, i) {
+        if (this._useVirtual.Has(t)) {
+            this._vl.UpdateColor(t, i)
+            return
+        }
         if (!this._IsRendered(t, i))
             return
         state := MySoftData.TableInfo[t].ColorStateArr[i]
         colorHex := state == 1 ? "#2E7D32" : state == 2 ? "#F9A825" : state == 3 ? "#C62828" : "Transparent"
         this.ui.Update("Color_" t "_" i, "Background", colorHex)
+    }
+
+    ; 增量刷新单行显示值：结构操作（上/下移）后只刷被交换两行，不整列表重建（滚动位置自然保留）。
+    ; 槽位不变、事件绑 (tableItem, index) 闭包不重建，故仅更新各控件值即可。
+    RefreshItemRow(t, i) {
+        if (this._useVirtual.Has(t)) {
+            this._vl.RefreshRow(t, i)
+            return
+        }
+        if (!this._IsRendered(t, i))
+            return
+        tableItem := MySoftData.TableInfo[t]
+        isTiming := CheckIsTimingMacroTable(t)
+        isUI := GetTableSymbol(t) == "UI"
+        tkStr := isTiming ? GetLang("定时") : FormatHotkeyDisplay(MySoftData.FormatJoyTriggerKey(tableItem.TKArr[i]))
+        tkStr := tkStr == "" ? GetLang("编辑") : tkStr
+        loopStr := tableItem.LoopCountArr[i] == "-1" ? GetLang("无限") : tableItem.LoopCountArr[i]
+        tkTypeIdx := tableItem.TriggerTypeArr[i] - 1
+        if (isUI)
+            tkTypeIdx := 3
+        this.ui.Update("Remark_" t "_" i, "Text", tableItem.RemarkArr[i])
+        this.ui.Update("TKBtn_" t "_" i, "Content", tkStr)
+        this.ui.Update("TKType_" t "_" i, "SelectedIndex", String(tkTypeIdx))
+        this.ui.Update("Loop_" t "_" i, "Text", loopStr)
+        this.ui.Update("Forbid_" t "_" i, "IsChecked", tableItem.ForbidArr[i] ? "True" : "False")
+        this.UpdateItemColor(t, i)
     }
 
     _XmlEsc(s) {
@@ -552,6 +663,86 @@ class MainWin {
         s := StrReplace(s, "`n", "&#10;")
         s := StrReplace(s, "`r", "&#10;")
         return s
+    }
+
+    ; ============ Epic5 虚拟列表模板（注入 Window.Resources，VLTemplateSelector 按行类型取用） ============
+    ; 复刻 _BuildItemRow / _BuildFoldTitleRow 列结构，字面值换 {Binding}，控件加 Tag 供容器级事件路由。
+    ; 折叠头 TK 行文案固定「菜单触发键：」（模板共享，UI 表同文案，阶段C 如需区分再拆模板）。
+    _BuildVListTemplates() {
+        row := '<DataTemplate x:Key="RmtMacroRow">'
+            . '<Grid Margin="0,1,0,1">'
+            . '<Grid.ColumnDefinitions>'
+            . '<ColumnDefinition Width="20"/><ColumnDefinition Width="26"/><ColumnDefinition Width="150"/>'
+            . '<ColumnDefinition Width="100"/><ColumnDefinition Width="72"/><ColumnDefinition Width="82"/>'
+            . '<ColumnDefinition Width="58"/><ColumnDefinition Width="58"/>'
+            . '<ColumnDefinition Width="22"/><ColumnDefinition Width="22"/><ColumnDefinition Width="60"/>'
+            . '<ColumnDefinition Width="48"/><ColumnDefinition Width="48"/>'
+            . '</Grid.ColumnDefinitions>'
+            . '<Border Grid.Column="0" Width="12" Height="12" CornerRadius="6" Background="{Binding ColorHex}" VerticalAlignment="Center" HorizontalAlignment="Center"/>'
+            . '<TextBlock Grid.Column="1" Text="{Binding SeqNo}" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
+            . '<TextBox Grid.Column="2" Tag="Remark" Text="{Binding Remark}" Height="26" MinHeight="26" Padding="4,0" Margin="0,0,6,0" VerticalContentAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<Button Grid.Column="3" Tag="TKBtn" Content="{Binding TKStr}" IsEnabled="{Binding TKBtnEnabled}" Height="26" MinHeight="26" Margin="0,0,4,0" Cursor="Hand" Padding="4,0"/>'
+            . '<ComboBox Grid.Column="4" Tag="TKType" SelectedIndex="{Binding TKType}" IsEnabled="{Binding TKTypeEnabled}" Height="26" MinHeight="26" Margin="0,0,4,0">'
+            . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
+            . '</ComboBox>'
+            . '<ComboBox Grid.Column="5" Tag="Loop" Text="{Binding LoopText}" IsEditable="True" IsEnabled="{Binding LoopEnabled}" Height="26" MinHeight="26" Margin="0,0,4,0">'
+            . '<ComboBoxItem Content="' GetLang("无限") '"/>'
+            . '</ComboBox>'
+            . '<Button Grid.Column="6" Tag="Setting" Content="' GetLang("设置") '" Height="26" MinHeight="26" Margin="0,0,4,0" Cursor="Hand" Padding="6,0"/>'
+            . '<Button Grid.Column="7" Tag="Edit" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Margin="0,0,4,0" Cursor="Hand" Padding="6,0"/>'
+            . '<Button Grid.Column="8" Tag="Pre" Content="&#x2191;" Height="26" MinHeight="26" Width="20" Padding="0" Cursor="Hand" FontSize="14"/>'
+            . '<Button Grid.Column="9" Tag="Next" Content="&#x2193;" Height="26" MinHeight="26" Width="20" Padding="0" Cursor="Hand" FontSize="14"/>'
+            . this._VlCheckBox("Forbid", "10")
+            . '<Button Grid.Column="11" Tag="Copy" Content="' GetLang("复制") '" Height="26" MinHeight="26" Cursor="Hand" Padding="4,0"/>'
+            . '<Button Grid.Column="12" Tag="Del" Content="' GetLang("删除") '" Height="26" MinHeight="26" Cursor="Hand" Padding="4,0"/>'
+            . '</Grid></DataTemplate>'
+        fold := '<DataTemplate x:Key="RmtFoldHeader">'
+            . '<Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorder}" Background="{DynamicResource DropdownBg}" Margin="0,2,0,4" Padding="6,4">'
+            . '<StackPanel>'
+            . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center">'
+            . '<Button Tag="FoldBtn" Width="24" Height="26" MinHeight="26" Cursor="Hand" Margin="0,0,6,0" Padding="0" Background="Transparent" BorderThickness="0" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource TextMain}">'
+            . '<Button.Style><Style TargetType="Button">'
+            . '<Setter Property="Content" Value="&#xE70D;"/>'
+            . '<Style.Triggers><DataTrigger Binding="{Binding Folded}" Value="True"><Setter Property="Content" Value="&#xE76C;"/></DataTrigger></Style.Triggers>'
+            . '</Style></Button.Style>'
+            . '</Button>'
+            . '<TextBlock Text="' GetLang("备注：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
+            . '<TextBox Tag="FoldRemark" Text="{Binding FoldRemark}" Width="120" Height="26" MinHeight="26" Padding="4,0" Margin="2,0,8,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<TextBlock Text="' GetLang("前台:") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
+            . '<TextBox Tag="FoldFront" Text="{Binding FoldFront}" Width="120" Height="26" MinHeight="26" Padding="4,0" Margin="2,0,8,0" VerticalContentAlignment="Center" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource InputText}" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputStroke}" BorderThickness="1"/>'
+            . '<Button Tag="FoldFrontBtn" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Padding="6,0" Margin="0,0,4,0"/>'
+            . '<Button Tag="FoldAdd" Content="' GetLang("新增宏") '" Height="26" MinHeight="26" Padding="6,0" Margin="0,0,4,0"/>'
+            . '<Button Tag="FoldPaste" Content="' GetLang("粘贴宏") '" Height="26" MinHeight="26" Padding="6,0" Margin="0,0,4,0"/>'
+            . '<Button Tag="FoldAddMod" Content="' GetLang("新增模块") '" Height="26" MinHeight="26" Padding="6,0" Margin="0,0,4,0"/>'
+            . '<Button Tag="FoldDelMod" Content="' GetLang("删除模块") '" Height="26" MinHeight="26" Padding="6,0" Margin="0,0,4,0"/>'
+            . this._VlCheckBox("FoldForbid", "")
+            . '</StackPanel>'
+            . '<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0" Visibility="{Binding ShowTKRowVisibility}">'
+            . '<TextBlock Text="' GetLang("菜单触发键：") '" VerticalAlignment="Center" Foreground="{DynamicResource TextSub}"/>'
+            . '<ComboBox Tag="FoldTKType" SelectedIndex="{Binding FoldTKType}" IsEnabled="{Binding FoldTKTypeEnabled}" Width="70" Height="26" MinHeight="26" Margin="2,0,10,0">'
+            . '<ComboBoxItem Content="' GetLang("按下") '"/><ComboBoxItem Content="' GetLang("松开") '"/><ComboBoxItem Content="' GetLang("松止") '"/><ComboBoxItem Content="' GetLang("开关") '"/><ComboBoxItem Content="' GetLang("长按") '"/><ComboBoxItem Content="' GetLang("双击") '"/>'
+            . '</ComboBox>'
+            . '<TextBox Tag="FoldTK" Text="{Binding FoldTK}" Width="100" Height="26" VerticalContentAlignment="Center" TextAlignment="Center"/>'
+            . '<Button Tag="FoldTKEdit" Content="' GetLang("编辑") '" Height="26" MinHeight="26" Padding="8,0" Margin="6,0,0,0"/>'
+            . '</StackPanel>'
+            . '</StackPanel></Border></DataTemplate>'
+        return row . fold
+    }
+
+    ; 行/折叠头共用 CheckBox（自定义勾选模板，Tag 兼作绑定路径）
+    _VlCheckBox(tag, col) {
+        colAttr := col == "" ? "" : ' Grid.Column="' col '"'
+        return '<CheckBox' colAttr ' Tag="' tag '" Content="' GetLang("禁用") '" IsChecked="{Binding ' tag '}" HorizontalAlignment="Left" Margin="2,0,0,0" VerticalAlignment="Center">'
+            . '<CheckBox.Template><ControlTemplate TargetType="CheckBox">'
+            . '<BulletDecorator Background="Transparent" Cursor="Hand">'
+            . '<BulletDecorator.Bullet><Border x:Name="Border" Width="18" Height="18" Background="{DynamicResource ControlBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="3"><Path x:Name="CheckMark" Visibility="Collapsed" Data="M 4 9 L 7 12 L 13 5" Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeLineJoin="Round"/></Border></BulletDecorator.Bullet>'
+            . '<ContentPresenter Margin="4,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" RecognizesAccessKey="True"/>'
+            . '</BulletDecorator>'
+            . '<ControlTemplate.Triggers>'
+            . '<Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/></Trigger>'
+            . '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlBorder}"/></Trigger>'
+            . '</ControlTemplate.Triggers>'
+            . '</ControlTemplate></CheckBox.Template></CheckBox>'
     }
 
     ; ============ 工具页 ============

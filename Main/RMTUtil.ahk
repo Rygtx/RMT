@@ -34,6 +34,15 @@ OnSaveSetting(*) {
         MyWorkPool := ""
     }
 
+    ; Epic5：虚拟化列表保存前兜底提交实体化行全字段（覆盖纯键盘后未失焦路径）。
+    ; VL_COMMIT_ALL 回传经 SetTimer(-1) 异步写模型，Sleep(-1) 处理 pending timer 后再读，防丢
+    for t in [1, 2, 3, 4, 5, 6, 7] {
+        if (MyMainWin._useVirtual.Has(t)) {
+            MyMainWin._vl.CommitAll(t)
+            Sleep(-1)
+        }
+    }
+
     loop MainSoftData.TabNameArr.Length {
         tableItem := MySoftData.TableInfo[A_Index]
         RecycleTabItem(tableItem)
@@ -155,7 +164,7 @@ CheckAllValueSettingValid() {
 SaveCurWinPos() {
     MyGui := MainSoftData.MyGui
     MyGui.GetPos(&x, &y, &w, &h)
-    IniWrite(Format("{}π{}", x, y), IniFile, IniSection, "LastWinPos")
+    IniWrite(Format("{}π{}π{}π{}", x, y, w, h), IniFile, IniSection, "LastWinPos")
 
     ListenGui := MyVarListenGui.Gui
     if (MyVarListenGui.Gui != "") {

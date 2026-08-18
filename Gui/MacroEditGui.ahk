@@ -363,7 +363,7 @@ class MacroEditGui {
         combo.Add("ComboBoxItem").Content(GetLang("逻辑树")).Tag("1")
         combo.Add("ComboBoxItem").Content(GetLang("文本")).Tag("2")
         leftStack.Add("CheckBox").Name("RecordTog").Content(GetLang("指令录制")).VerticalAlignment("Center").Margin("12,0,0,0")
-        leftStack.Add("TextBlock").Name("RecordHotkeyText").Text(MainSoftData.ToolRecordMacroHotKey).Opacity("0.6").VerticalAlignment("Center").Margin("6,0,0,0")
+        leftStack.Add("TextBlock").Name("RecordHotkeyText").Text(FormatHotkeyDisplay(MainSoftData.ToolRecordMacroHotKey)).Opacity("0.6").VerticalAlignment("Center").Margin("6,0,0,0")
         toolRow.Add("Button").Grid_Column(1).Name("BtnGraphNode").Content(GetLang("图形节点")).Height(28).MinHeight(28).Padding("10,3").Margin("6,0,0,0")
 
         ; 当前宏指令行

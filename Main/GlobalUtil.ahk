@@ -13,6 +13,7 @@
 #Include RMTUtil.ahk
 #Include WorkPool.ahk
 #Include MainWindowXaml.ahk
+#Include VirtualListHost.ahk
 #Include UIUtil.ahk
 #Include TimingUtil.ahk
 #Include WindowHotkeyManager.ahk
