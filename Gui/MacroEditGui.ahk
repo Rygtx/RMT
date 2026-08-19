@@ -373,10 +373,10 @@ class MacroEditGui {
         this.InitMacroText(MacroStr)
 
         this.ClearMultiSelection()
-        firstItem := this.MacroTreeViewCon.GetNext(0)
+        firstItem := 0
+        try firstItem := this.MacroTreeViewCon.GetNext(0)
         this.MacroTreeViewCon.Focus()
-        if (firstItem)
-            this.SetMultiSelected(firstItem, true)
+        this._SelectCurrent(firstItem)
     }
 
     Backspace() {
@@ -893,7 +893,13 @@ class MacroEditGui {
         try WinActivate("ahk_id " this.Gui.Hwnd)
         XamlUiDiag("MenuHandler AFTER activate active=" WinGetID("A") " title=" WinGetTitle("A"), "focus")
 
-        itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+        ; 无有效选中节点时（如刚删除后），复制/粘贴/删除等快捷键不应报错
+        if (!this.CurItemID)
+            return
+        try
+            itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+        catch
+            return
         ; 清理→前缀用于状态判断
         cleanItemText := StrReplace(itemText, "→", "")
         paramsArr := StrSplit(cmdStr, "_")
@@ -1403,6 +1409,7 @@ class MacroEditGui {
             root := this.MacroTreeViewCon.Add(displayStr, 0, iconStr)
             this.TreeAddBranch(root, CommandStr)
             this.LastItemID := root
+            this._SelectCurrent(root)
         }
         else {
             MacroStr := this.GetMacroStr()
@@ -1507,7 +1514,6 @@ class MacroEditGui {
         if (selectedItems.Length == 1) {
             this.CurItemID := selectedItems[1]
             this._DeleteSingleCmd(this.CurItemID)
-            this.ClearMultiSelection()
             return
         }
 
@@ -1519,7 +1525,6 @@ class MacroEditGui {
                 this.SetSingleMultiSelection(this.CurItemID ? this.CurItemID : selectedItems[1])
                 this.CurItemID := this.CurItemID ? this.CurItemID : selectedItems[1]
                 this._DeleteSingleCmd(this.CurItemID)
-                this.ClearMultiSelection()
                 return
             }
         }
@@ -1530,8 +1535,9 @@ class MacroEditGui {
                 itemID := selectedItems[selectedItems.Length - A_Index + 1]
                 try this.MacroTreeViewCon.Delete(itemID)
             }
-            this.CurItemID := 0
-            this.ClearMultiSelection()
+            firstID := 0
+            try firstID := this.MacroTreeViewCon.GetNext(0)
+            this._SelectCurrent(firstID)
             return
         }
 
@@ -1544,8 +1550,9 @@ class MacroEditGui {
         if (parentIsContainer) {
             realItemID := this.MacroTreeViewCon.GetParent(parentID)
             if (!realItemID) {
-                this.CurItemID := 0
-                this.ClearMultiSelection()
+                firstID := 0
+                try firstID := this.MacroTreeViewCon.GetNext(0)
+                this._SelectCurrent(firstID)
                 return
             }
             realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
@@ -1604,8 +1611,7 @@ class MacroEditGui {
         }
 
         this.RefreshTree(realItemID)
-        this.CurItemID := 0
-        this.ClearMultiSelection()
+        this._SelectCurrent(realItemID)
     }
 
     ; 單一指令的刪除邏輯。容器節點不能直接 Delete，只能清空它所代表的分支。
@@ -1613,7 +1619,20 @@ class MacroEditGui {
         if (!itemID)
             return
 
-        itemText := this.MacroTreeViewCon.GetText(itemID)
+        try
+            itemText := this.MacroTreeViewCon.GetText(itemID)
+        catch {
+            ; 節點已失效（例如剛被刪除）：清空選中，避免快捷鍵反覆報錯
+            this._SelectCurrent(0)
+            return
+        }
+
+        ; 刪除前記錄同層鄰居，供刪除後轉移選中
+        nextID := 0
+        prevID := 0
+        try nextID := this.MacroTreeViewCon.GetNext(itemID)
+        try prevID := this.MacroTreeViewCon.GetPrev(itemID)
+
         isContainer := this.IsContainerNode(itemText)
         ParentID := this.MacroTreeViewCon.GetParent(itemID)
 
@@ -1621,6 +1640,7 @@ class MacroEditGui {
         if (ParentID == 0) {
             if (!isContainer)
                 this.MacroTreeViewCon.Delete(itemID)
+            this._SelectAfterDelete(0, nextID, prevID)
             return
         }
 
@@ -1643,6 +1663,39 @@ class MacroEditGui {
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, NodeItemID)
         this.RefreshTree(RealItemID)
+
+        ; RefreshTree 會重建分支，舊鄰居失效，改選中父分支節點
+        this._SelectAfterDelete(RealItemID, 0, 0)
+    }
+
+    ; 刪除節點後轉移選中：優先下一個同層，其次上一個同層，最後父級；都沒有則清空
+    _SelectAfterDelete(parentID, nextID, prevID) {
+        target := 0
+        for _, id in [nextID, prevID, parentID] {
+            if (!id)
+                continue
+            try {
+                txt := this.MacroTreeViewCon.GetText(id)
+                if (txt != "" && SubStr(txt, 1, 1) != "⎖") {
+                    target := id
+                    break
+                }
+            } catch {
+                continue
+            }
+        }
+        this._SelectCurrent(target)
+    }
+
+    ; 把節點設為目前選中項（單選狀態 + 原生高亮）；itemID 為 0 時清空選中
+    _SelectCurrent(itemID) {
+        this.CurItemID := itemID
+        if (!itemID) {
+            this.ClearMultiSelection()
+            return
+        }
+        this.SetSingleMultiSelection(itemID)
+        try this.MacroTreeViewCon.Modify(itemID, "Select")
     }
 
     ;插入指令
@@ -1656,6 +1709,7 @@ class MacroEditGui {
         newItemID := this.MacroTreeViewCon.Add(displayStr, ParentID, Seq " " iconStr)
         if (ParentID == 0) {
             this.TreeAddBranch(newItemID, CommandStr)
+            this._SelectCurrent(newItemID)
             return
         }
 
@@ -1695,8 +1749,7 @@ class MacroEditGui {
 
         if (ParentID == 0) {
             this.TreeAddBranch(newItemID, CommandStr)
-            this.CurItemID := newItemID
-            this.MacroTreeViewCon.Modify(newItemID, "Select")
+            this._SelectCurrent(newItemID)
             return newItemID
         }
 
@@ -1724,8 +1777,7 @@ class MacroEditGui {
                 childID := this.MacroTreeViewCon.GetNext(childID)
             }
             if (foundID) {
-                this.CurItemID := foundID
-                this.MacroTreeViewCon.Modify(foundID, "Select")
+                this._SelectCurrent(foundID)
                 return foundID
             }
         }
@@ -1805,7 +1857,7 @@ class MacroEditGui {
                     firstInserted := insertedID
             }
             if (firstInserted)
-                this.MacroTreeViewCon.Modify(firstInserted, "Select")
+                this._SelectCurrent(firstInserted)
             return
         }
 
@@ -1858,11 +1910,8 @@ class MacroEditGui {
         ; 找到插入區段最後一條，讓後續操作仍停在貼上的內容附近。
         targetIndex := anchorIndex + cmds.Length
         targetID := this.GetNthCommandChild(newParentID, targetIndex)
-        if (targetID) {
-            this.CurItemID := targetID
-            this.MultiSelectAnchor := targetID
-            this.MacroTreeViewCon.Modify(targetID, "Select")
-        }
+        if (targetID)
+            this._SelectCurrent(targetID)
     }
 
     ; 取得 parent 的第 N 個直接子節點（1-based）。
@@ -2447,7 +2496,7 @@ class MacroEditGui {
             return
 
         ; 多選項目：整行高亮，而不是只靠 CheckBox。
-        ; 使用亮藍背景 + 白色文字，滑鼠移開後仍保持。
+        ; 使用橙色背景 + 白色文字，滑鼠移開後仍保持。
         NumPut("UInt", 0xFFFFFF, lParam, clrTextOffset)
         NumPut("UInt", 0x2D6CDF, lParam, clrTextBkOffset)
 
