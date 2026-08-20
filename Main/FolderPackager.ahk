@@ -131,6 +131,12 @@ class FolderPackager {
             if (result == "No")
                 return
 
+            global RMT_Http, RMT_HasDotNet
+            if (!RMT_HasDotNet || RMT_Http == "") {
+                MsgBox(GetLang("缺少.NET环境，无法使用共享上传功能"))
+                return
+            }
+
             result := RMT_Http.UploadFile(selectedFile)
             MsgBox(result)
         }

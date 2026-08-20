@@ -101,6 +101,7 @@ vjoy加载失败，请安装或卸载后重新安装vjoy，然后尝试使用手
 主页=Home
 交互时:=On Interaction:
 今日上传次数太多=Daily limit reached
+缺少.NET环境，无法使用共享上传功能=Missing .NET Framework. Shared upload is unavailable.
 从图片提取文本=Select Image
 仓库配置=Repo Config
 以上都不是=None

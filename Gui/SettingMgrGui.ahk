@@ -376,8 +376,12 @@ class SettingMgrGui {
     }
 
     OnRMTUploadBtnClick(state, ctrl, event) {
-        IsForbid := RMT_Http.IsForbid()
-        if (IsForbid) {
+        global RMT_Http, RMT_HasDotNet, RMT_IsForbidUpdate
+        if (!RMT_HasDotNet || RMT_Http == "") {
+            MsgBox(GetLang("缺少.NET环境，无法使用共享上传功能"))
+            return
+        }
+        if (RMT_IsForbidUpdate) {
             MsgBox(Format("{}`n{}`n{}", GetLang("因为以下原因配置无法上传："), GetLang("服务器没有启动"), GetLang("今日上传次数太多")))
             return
         }

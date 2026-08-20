@@ -210,62 +210,109 @@ PluginInit() {
     global MyEnglishOcr := 0   ; 懒加载：首次使用时才初始化
     global MyPToken := Gdip_Startup()
 
+    InitViGEmPlugin()
+    InitNativePlugins()
+    InitRMTHttpPlugin()
+    SetTimer(CheckOcrIdle, 60000)   ;60秒后，释放Ocr资源
+    XAMLHost.Prewarm()
+}
+
+InitViGEmPlugin() {
     JoyDebugLog(Format("PluginInit HasJoyMacro={} MutiThreadNum={} WorkPoolEnabled={} IsAdmin={} Script={}"
         , MySoftData.HasJoyMacro, MainSoftData.MutiThreadNum, WorkPoolEnabled(), A_IsAdmin, A_ScriptFullPath), "init")
-    if (MySoftData.HasJoyMacro) {
-        isPS5 := MainSoftData.JoyType = "PS5"
-        ; 快照当前 DI 设备，用于识别虚拟手柄的 DI 索引
-        diBefore := Map()
-        loop 10 {
-            n := GetKeyState(A_Index "JoyName")
-            if (n != "")
-                diBefore[A_Index] := n
-        }
-        global ViGJoy := isPS5 ? ViGEmDS4() : ViGEmXb360()
-        ; 通过 DI 快照差异检测虚拟手柄的 DI 索引
-        global VirtualJoyDiIdx := -1
-        try {
-            loop 10 {
-                n := GetKeyState(A_Index "JoyName")
-                if (n != "" && !diBefore.Has(A_Index)) {
-                    VirtualJoyDiIdx := A_Index
-                    break
-                }
-            }
-        }
-        try instOk := (IsSet(ViGJoy) && ViGJoy.Instance != "")
-        catch
-            instOk := false
-        try xidx := ViGJoy.ViGJoyXInputIdx
-        catch
-            xidx := "?"
-        JoyDebugLog(Format("PluginInit {} created InstanceOK={} XInputIdx={} DiIdx={} DllPath={}"
-            , isPS5 ? "ViGEmDS4" : "ViGEmXb360", instOk, xidx, VirtualJoyDiIdx
-            , IsSet(ViGEmDllPath) ? ViGEmDllPath : "(unset)"), "init")
-    } else {
+    if (!MySoftData.HasJoyMacro) {
         JoyDebugLog("PluginInit skip ViGEm (HasJoyMacro=false); will lazy-create on first Joy send", "init")
+        return
     }
 
-    ; 构建包含 DLL 文件的目录路径（根据进程位数自动选择 x86 或 x64）
+    isPS5 := MainSoftData.JoyType = "PS5"
+    diBefore := SnapshotJoyDeviceMap()
+    global ViGJoy := isPS5 ? ViGEmDS4() : ViGEmXb360()
+    global VirtualJoyDiIdx := FindNewJoyDeviceIndex(diBefore)
+
+    try instOk := (IsSet(ViGJoy) && ViGJoy.Instance != "")
+    catch
+        instOk := false
+    try xidx := ViGJoy.ViGJoyXInputIdx
+    catch
+        xidx := "?"
+    JoyDebugLog(Format("PluginInit {} created InstanceOK={} XInputIdx={} DiIdx={} DllPath={}"
+        , isPS5 ? "ViGEmDS4" : "ViGEmXb360", instOk, xidx, VirtualJoyDiIdx
+        , IsSet(ViGEmDllPath) ? ViGEmDllPath : "(unset)"), "init")
+}
+
+SnapshotJoyDeviceMap() {
+    diBefore := Map()
+    loop 10 {
+        n := GetKeyState(A_Index "JoyName")
+        if (n != "")
+            diBefore[A_Index] := n
+    }
+    return diBefore
+}
+
+FindNewJoyDeviceIndex(diBefore) {
+    try {
+        loop 10 {
+            n := GetKeyState(A_Index "JoyName")
+            if (n != "" && !diBefore.Has(A_Index))
+                return A_Index
+        }
+    }
+    return -1
+}
+
+InitNativePlugins() {
     archDir := (A_PtrSize = 4) ? "x86" : "x64"
     dllDir := A_ScriptDir "\Plugins\OpenCV\" archDir
-    ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
     DllCall("SetDllDirectory", "Str", dllDir)
 
     OpenCvPath := dllDir "\RMT_OpenCV.dll"
     IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
-    hOpenCv := DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
-    if (!hOpenCv)  ; 加载失败不抛异常，这里记录到日志，否则后续 DllCall 会报“Failed to load DLL”
+    hOpenCv := DllCall("LoadLibrary", "Str", OpenCvPath, "Ptr")
+    if (!hOpenCv)
         JoyDebugLog(Format("LoadLibrary failed OpenCvPath={1} A_LastError={2}", OpenCvPath, A_LastError), "init")
     DllCall("LoadLibrary", "Str", IBPath)
+}
 
-    RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
-    RMT_ASM := CLR_LoadLibrary(RMTPath)   ;加载RMT程序集
-    global RMT_Http := RMT_ASM.CreateInstance("RMT.Http")     ; 创建对象实例
+InitRMTHttpPlugin() {
+    global RMT_Http := ""
+    global RMT_IsForbidUpdate := false
+    global RMT_HasDotNet := HasDotNetFramework()
+    if (!RMT_HasDotNet)
+        return
 
-    SetTimer(CheckOcrIdle, 60000)   ;60秒后，释放Ocr资源
+    try {
+        RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
+        RMT_ASM := CLR_LoadLibrary(RMTPath)
+        RMT_Http := RMT_ASM.CreateInstance("RMT.Http")
+        ApplyRMTServerStatus(RMT_Http.GetStatus())
+    } catch {
+        RMT_Http := ""
+        RMT_HasDotNet := false
+    }
+}
 
-    XAMLHost.Prewarm()
+ApplyRMTServerStatus(statusStr) {
+    global RMT_IsForbidUpdate
+    if (statusStr = "")
+        return
+    try {
+        statusObj := JSON.parse(statusStr)
+        if (statusObj.Has("isForbidUpdate"))
+            RMT_IsForbidUpdate := !!statusObj["isForbidUpdate"]
+    }
+}
+
+HasDotNetFramework() {
+    try {
+        fwDir := EnvGet("SystemRoot") "\Microsoft.NET\Framework" (A_PtrSize = 8 ? "64" : "")
+        loop files fwDir "\*", "D" {
+            if (FileExist(A_LoopFilePath "\mscorlib.dll") && StrCompare(A_LoopFileName, "v4.0") >= 0)
+                return true
+        }
+    }
+    return false
 }
 
 OnToolAlwaysOnTop(*) {
