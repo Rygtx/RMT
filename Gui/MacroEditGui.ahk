@@ -605,7 +605,8 @@ class MacroEditGui {
         else if (key == "^v") {
             if (!this.MacroTreeViewCon.Visible)
                 Send("^v")
-            else if (this.CurItemID)
+            else
+                ; 空树/无选中时也允许粘贴到根层
                 this.ContentMenuHandler(GetLang("粘贴"))
         }
     }
@@ -893,7 +894,15 @@ class MacroEditGui {
         try WinActivate("ahk_id " this.Gui.Hwnd)
         XamlUiDiag("MenuHandler AFTER activate active=" WinGetID("A") " title=" WinGetTitle("A"), "focus")
 
-        ; 无有效选中节点时（如刚删除后），复制/粘贴/删除等快捷键不应报错
+        ; 粘贴：允许空树/无选中（追加到根层）；其它操作仍需有效节点
+        if (cmdStr == GetLang("粘贴")) {
+            this.PasteClipboardCommands(A_Clipboard)
+            if (Trim(A_Clipboard, " `t`r`n") != "")
+                Toast.Show(GetLang("已粘贴"))
+            return
+        }
+
+        ; 无有效选中节点时（如刚删除后），复制/删除等快捷键不应报错
         if (!this.CurItemID)
             return
         try
@@ -1046,12 +1055,6 @@ class MacroEditGui {
                 if (copyStr != "")
                     SetClipboard(copyStr)
                 Toast.Show(GetLang("已复制"))
-            }
-            case GetLang("粘贴"):
-            {
-                this.PasteClipboardCommands(A_Clipboard)
-                if (Trim(A_Clipboard, " `t`r`n") != "")
-                    Toast.Show(GetLang("已粘贴"))
             }
             case GetLang("删除"):
             {
@@ -1809,6 +1812,7 @@ class MacroEditGui {
     }
 
     ; 將剪貼簿中的單條或多條宏指令逐條貼上。
+    ; 無選中/空樹：追加到根層末尾（等同添加指令）。
     PasteClipboardCommands(ClipboardStr) {
         ClipboardStr := Trim(ClipboardStr, " `t`r`n")
         if (ClipboardStr == "")
@@ -1819,12 +1823,29 @@ class MacroEditGui {
             return
 
         anchorID := this.CurItemID
-        if (!anchorID)
-            return
-
         anchorText := ""
-        try anchorText := this.MacroTreeViewCon.GetText(anchorID)
+        if (anchorID) {
+            try anchorText := this.MacroTreeViewCon.GetText(anchorID)
+            catch
+                anchorID := 0
+        }
         anchorText := StrReplace(anchorText, "→", "")
+
+        ; 無有效錨點（空樹或刪光後）：逐條追加到根層
+        if (!anchorID) {
+            firstInserted := 0
+            for _, cmdStr in cmds {
+                cmdStr := Trim(cmdStr, " `t`r`n")
+                if (cmdStr == "")
+                    continue
+                this.OnAddCmd(cmdStr)
+                if (!firstInserted && this.CurItemID)
+                    firstInserted := this.CurItemID
+            }
+            if (firstInserted)
+                this._SelectCurrent(firstInserted)
+            return
+        }
 
         ; ⎖ 開頭的是資訊/控制顯示節點（循環次數、繼續/退出條件、流程控制），不允許粘貼。
         if (SubStr(anchorText, 1, 1) == "⎖")
