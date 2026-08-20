@@ -1333,3 +1333,8 @@ class MacroGraphStartNode{
 ; 预声明全局变量，实际赋值在 Main/GlobalUtil.ahk 中
 ; (DataClass.ahk 在 include 链中最先加载，需在此声明以消除 #Warn)
 global MainSoftData
+
+; MyMainWin 预声明（实际赋值在 Main/MainWindowXaml.ahk:1084）
+; 消除 MacroUtil/RMTUtil/BindUtil 等先于 MainWindowXaml 解析的函数内
+; global MyMainWin 声明触发的编译期 #Warn UseUnsetGlobal 警告
+global MyMainWin

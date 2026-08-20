@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 #SingleInstance Off
 #NoTrayIcon
@@ -19,6 +19,9 @@ global LangDir := A_WorkingDir "\..\Lang"
 global MyChineseOcr := 0  ; 懒加载：首次使用时才初始化
 global MyEnglishOcr := 0   ; 懒加载：首次使用时才初始化
 global MyPToken := Gdip_Startup()
+; Worker 无 UI：MyMainWin 仅主程序实例化（Main/MainWindowXaml.ahk:1084），
+; 此处伪赋值占位，避免 Worker 编译期 #Warn UseUnsetGlobal 警告（MacroUtil 引用处有 IsObject 保护）
+global MyMainWin := ""
 global MyInputGui := CustomInputGui()
 global MyInputBtnGui := InputBtnGui()
 global MyStopMacro := WorkStopMacro

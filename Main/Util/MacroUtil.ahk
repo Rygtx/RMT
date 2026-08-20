@@ -1,4 +1,4 @@
-﻿;按键宏命令
+;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     MyMacroCount("Add")
     tableItem.KilledArr[index] := false
@@ -1391,6 +1391,10 @@ SyncBootStartRegistry() {
 }
 
 OnBootStartChanged(ctrl, *) {
+    global MyMainWin
+    ; Worker 无 UI：MyMainWin 为 "" 占位（见 WorkGlobalUtil），仅主程序实例化后走真实逻辑
+    if (!IsObject(MyMainWin))
+        return
     MainSoftData.IsBootStart := MyMainWin.ui.Query("ChkBootStart") == "True"
     ok := ApplyBootStartRegistry(MainSoftData.IsBootStart)
     IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
@@ -1404,6 +1408,10 @@ OnBootStartChanged(ctrl, *) {
 }
 
 OnAdminStartChanged(ctrl, *) {
+    global MyMainWin
+    ; Worker 无 UI：MyMainWin 为 "" 占位（见 WorkGlobalUtil），仅主程序实例化后走真实逻辑
+    if (!IsObject(MyMainWin))
+        return
     MainSoftData.IsAdminStart := MyMainWin.ui.Query("ChkAdminStart") == "True"
     IniWrite(MainSoftData.IsAdminStart ? 1 : 0, IniFile, IniSection, "IsAdminStart")
     if (MainSoftData.IsBootStart)

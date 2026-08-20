@@ -557,6 +557,7 @@ SetTableItemState(tableIndex, itemIndex, State) {
 }
 
 RefreshItemColorUI(tableIndex, itemIndex) {
+    global MyMainWin
     MyMainWin.UpdateItemColor(tableIndex, itemIndex)
 }
 

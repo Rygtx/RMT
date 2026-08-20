@@ -1077,8 +1077,8 @@ SaveTableItemMacro(index) {
 }
 
 GetSavedTableItemInfo(index) {
-    Saved := MainSoftData.MyGui.Submit()
-
+    ; XAML 版：数据统一从 tableItem 读取（RecycleTabItem/ReadTabValues 已同步控件值），
+    ; 原生 Gui.Submit() 回读语义已废弃（GuiAdapter.Submit 为 no-op），不再调用
     TKArrStr := ""
     HoldTimeArrStr := ""
     ModeArrStr := ""

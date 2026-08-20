@@ -126,6 +126,10 @@ RefreshListenVarGui(isForce := false) {
 
 RefreshToolUI() {
     global MainSoftData
+    ; XAML 版：Tool*Ctrl 由异步 BuildToolTab 赋值（_PopulateAsync），窗口显示瞬间鼠标移动
+    ; 可能先触发本函数（BindUtil 鼠标钩子），控件未赋值时直接跳过，避免对不存在属性赋值抛错
+    if (!MainSoftData.HasProp("ToolMousePosCtrl") || !IsObject(MainSoftData.ToolMousePosCtrl))
+        return
     MainSoftData.ToolMousePosCtrl.Value := MainSoftData.PosStr
     MainSoftData.ToolProcessNameCtrl.Value := MainSoftData.ProcessName
     MainSoftData.ToolProcessTileCtrl.Value := MainSoftData.ProcessTile

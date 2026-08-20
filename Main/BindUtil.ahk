@@ -209,6 +209,7 @@ OnClickUIMacroPanelSettingBtn(*) {
 }
 
 OnClickCMDTipToggle(ctrl, info) {
+    global MyMainWin
     v := MyMainWin.ui.Query("ChkCMDTip") == "True"
     MySoftData.CMDTip := v
     SetCMDTipValue(v)

@@ -18,3 +18,5 @@ todo
 .claude/
 _bmad/
 _bmad-output/
+.self/
+.dsh/
