@@ -398,6 +398,16 @@ OnFoldBtnClick(tableItem, foldIndex, *) {
     ;    Update 路径不解 XAML 实体（仅解 &#x0A;/&#x0D;），须传实际字符非实体串，否则图标变字面 &#xE76C;
     MyMainWin.ui.Update("FoldItems_" t "_" foldIndex, "Visibility", foldInfo.FoldStateArr[foldIndex] ? "Collapsed" : "Visible")
     MyMainWin.ui.Update("FoldGlyph_" t "_" foldIndex, "Text", foldInfo.FoldStateArr[foldIndex] ? Chr(0xE76C) : Chr(0xE70D))
+    ; 展开折叠：补绑组内行事件（渲染时折叠态行跳过了 BindEvent，_Bind 清旧再挂幂等）
+    if (!foldInfo.FoldStateArr[foldIndex]) {
+        span := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
+        if (IsInteger(span[1]) && IsInteger(span[2])) {
+            loop span[2] - span[1] + 1 {
+                i := span[1] + A_Index - 1
+                MyMainWin._BindItemRow(t, i)
+            }
+        }
+    }
 }
 
 OnFlodTKEditClick(tableItem, foldIndex, *) {

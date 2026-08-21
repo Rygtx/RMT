@@ -127,10 +127,15 @@ class MainWin {
         this._linkQueue := []
         ; 每页已渲染的宏条目索引（供 RefreshItemColorUI 判断是否需更新色点）
         this.RenderedItems := Map()
-        ; Epic5 虚拟列表：tab1 试点走 _vl 渲染，其余走旧路径；阶段C 全开时移除 _useVirtual 分流
+        ; Epic5 虚拟列表：宏/模块显示区（tab1-7）全走 _vl 渲染（模板已支持全部表类型：
+        ; Normal/String/Menu/UI/Timing/SubMacro/Replace 的标志行 + IsEnabled 绑定），
+        ; 结构操作（增删/折叠/上下移）只发 VL_INIT/VL_FOLD/VL_MOVE 增量命令，不再整表重建，
+        ; 消除旧路径新增宏/折叠的界面闪烁与千条级卡顿；tab8-12 非宏页走 Panel_ 不受影响
         this._vl := ""
         this._useVirtual := Map()
-        this._useVirtual[1] := true
+        loop 7 {
+            this._useVirtual[A_Index] := true
+        }
     }
 
     BuildAndShow() {
@@ -451,9 +456,13 @@ class MainWin {
             this.ui.Update(listName, "AddXamlItem", xaml)
         }
         ; 绑定须在 AddXamlItem 之后（控件已存在）
+        ; 折叠态行隐藏且事件不可达：跳过 BindEvent（千条级折叠组省 ~9×N 次桥接往返），
+        ; 展开折叠时由 OnFoldBtnClick 补绑（_Bind 清旧再挂，幂等）
         for f, spanStr in fi.IndexSpanArr {
             span := StrSplit(spanStr, "-")
             if (!IsInteger(span[1]) || !IsInteger(span[2]))
+                continue
+            if (fi.FoldStateArr[f])
                 continue
             loop span[2] - span[1] + 1 {
                 i := span[1] + A_Index - 1
