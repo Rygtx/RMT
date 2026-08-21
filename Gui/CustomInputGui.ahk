@@ -139,7 +139,10 @@ class CustomInputGui {
     }
 
     OnSureBtnClick(state, ctrl, event) {
+        gui_dbg := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
+        FileAppend "OnSureBtnClick fired`n", gui_dbg
         this.OnSure()
+        FileAppend "after OnSure`n", gui_dbg
         this.OnHide()
         this._CloseWindow()
     }
@@ -151,9 +154,13 @@ class CustomInputGui {
     }
 
     OnSure() {
+        gui_dbg := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
+        FileAppend "OnSure enter SureAction=" (this.SureAction != "" ? "set" : "empty") "`n", gui_dbg
         if (this.SureAction != "") {
             Action := this.SureAction
+            FileAppend "OnSure Action ok`n", gui_dbg
             Action(this.ui.Query("ContentCon"))
+            FileAppend "OnSure Action done`n", gui_dbg
             this.SureAction := ""
         }
     }

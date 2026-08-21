@@ -68,6 +68,7 @@ class WorkPool {
         this.lostWorkerCheckRound := 0
         this.lostWorkerCheckFunc := ""
         this.rxPollFunc := ""
+        this._inputGuis := Map()      ; 活动输入弹窗实例（key=req）：每个 Worker 请求独立实例，支持并发弹窗
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -157,9 +158,11 @@ class WorkPool {
         this.pending[idx] := wd
 
         Run(Format('"{}" {} {} {}'
+            ; parentHwnd 必须用主进程窗口（A_ScriptHwnd）：XAML 迁移后 MyGui.Hwnd 是 daemon 进程窗口，
+            ; Worker PostMessage 到它收不到主进程 OnMessage，导致 Worker→主进程消息（MsgSendHandler/输入请求）全部失效
             , this.workerExe
             , idx
-            , MainSoftData.MyGui.Hwnd
+            , A_ScriptHwnd
             , this.mainPID), , , &pid)
 
         wd.pid := pid
@@ -882,6 +885,13 @@ class WorkPool {
                         MsgBoxContent(args[1])
                     case "TT":
                         ToolTipContent(args[1])
+                    case "IP":
+                        ; Worker 请求输入框：创建独立实例弹窗（不同宏/Worker 并发，互不阻塞；共享主进程 daemon）
+                        ; 异步创建：避免在消息轮询/OnMessage 上下文同步 XAMLHost（主进程单线程会与 daemon 回传互堵）
+                        SetTimer((*) => this._ShowInputDialog(wd, false, args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""), -10)
+                    case "IB":
+                        ; Worker 请求输入按钮条：创建独立实例，结果回传对应 Worker
+                        SetTimer((*) => this._ShowInputDialog(wd, true, args.Length >= 1 ? args[1] : "1"), -10)
                     case "MC":
                         MacroCount(args[1])
                     case "JY":
@@ -938,11 +948,79 @@ class WorkPool {
         }
     }
 
+    ; Worker 输入弹窗：每个请求创建独立实例（不同宏/Worker 并发弹窗，互不阻塞；共享主进程 daemon）
+    _ShowInputDialog(wd, isBtn, args*) {
+        req := { wd: wd, done: false }
+        this._inputGuis[req] := true   ; 追踪活动实例
+        GraphPoolLog("输入请求处理", Format("wd=#{1} type={2}", wd.idx, isBtn ? "btn" : "input"))
+        try {
+            if (isBtn) {
+                ; 输入按钮条：独立 InputBtnGui 实例（原生 GUI）
+                gui := InputBtnGui()
+                req.gui := gui
+                gui.TrueAction := (*) => this._SendInputResult(req, "IBR", "true")
+                gui.FalseAction := (*) => this._SendInputResult(req, "IBR", "false")
+                gui.ContinueAction := (*) => this._SendInputResult(req, "IBR", "continue")
+                gui.CancelAction := (*) => this._SendInputResult(req, "IBR", "cancel")
+                gui.HideAction := (*) => this._SendInputResult(req, "IBR", "cancel")
+                gui.ShowGui(Integer(args[1]))
+            } else {
+                ; XAML 输入框：独立 CustomInputGui 实例（复用主进程 daemon，多窗口并发）
+                gui := CustomInputGui()
+                req.gui := gui
+                gui.SureAction := (val) => this._SendInputResult(req, "IPR", "1", val)
+                gui.HideAction := (*) => this._SendInputResult(req, "IPR", "0", "")
+                gui.CloseAction := (*) => this._SendInputResult(req, "IPR", "0", "")
+                gui.ShowGui(args[1], args.Length >= 2 ? args[2] : "")
+            }
+        } catch as e {
+            GraphPoolLog("输入弹窗异常", Format("err={1} wd=#{2}", e.Message, wd.idx))
+            this._SendInputResult(req, "IPR", "0", "")
+        }
+    }
+
+    ; 回传输入结果给对应 Worker（同一请求只回传一次）；窗口由实例自身的关闭流程处理
+    _SendInputResult(req, opcode, args*) {
+        dbgl := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
+        FileAppend "SendInputResult op=" opcode " done=" req.done "`n", dbgl
+        if (req.done)
+            return
+        req.done := true
+        FileAppend "after done=true`n", dbgl
+        this._inputGuis.Delete(req)
+        FileAppend "after delete`n", dbgl
+        try req.gui := ""
+        catch
+        FileAppend "after gui clear`n", dbgl
+        try {
+            FileAppend "SIR payload-start wd.tx=" (IsObject(req.wd.tx) ? "obj" : "empty") " wd.idx=" req.wd.idx "`n", dbgl
+            payload := EncodeBatch(EncodeCommand(opcode, args*))
+            FileAppend "SIR encoded len=" StrLen(payload) "`n", dbgl
+            ok := this.PushTask(req.wd, MsgType.EVENT, 0, payload)
+            FileAppend "SIR pushed ok=" ok "`n", dbgl
+            argStr := ""
+            for a in args
+                argStr .= (argStr != "" ? "," : "") a
+            FileAppend "SIR before graphlog`n", dbgl
+            GraphPoolLog("输入回传", Format("wd=#{1} op={2} args=[{3}] push={4}", req.wd.idx, opcode, argStr, ok))
+            FileAppend "SIR graphlog done`n", dbgl
+        } catch as e {
+            FileAppend "SIR catch: " e.Message " @line " e.Line "`n", dbgl
+            GraphPoolLog("输入回传失败", Format("err={1} wd=#{2}", e.Message, req.wd.idx))
+        }
+    }
+
     PushTask(wd, type, id, payload) {
         if (wd.tx.Push(type, id, payload)) {
-            if (wd.hEvt)
-                DllCall("SetEvent", "ptr", wd.hEvt)
-            this.PostMessage(WM_MASTER_TO_WORKER, wd)
+            dbgl := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
+            if (wd.hEvt) {
+                rr := DllCall("SetEvent", "ptr", wd.hEvt)
+                FileAppend "PT SetEvent ret=" rr " hEvt=" wd.hEvt "`n", dbgl
+            } else {
+                FileAppend "PT SetEvent SKIP hEvt=0`n", dbgl
+            }
+            pmOk := this.PostMessage(WM_MASTER_TO_WORKER, wd)
+            FileAppend "PT PostMessage ret=" pmOk " hwnd=" wd.hwnd "`n", dbgl
             return true
         }
         return false
