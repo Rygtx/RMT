@@ -18,11 +18,16 @@ SetToolTextDisplay(text) {
         UIControls.ToolText.Value := text
 }
 
+; 编译包显示架构后缀；.ahk 调试运行不带 x64/x86
+global RMT_VERSION_DISPLAY := A_IsCompiled
+    ? (RMT_VERSION "_" (A_PtrSize = 8 ? "x64" : "x86"))
+    : RMT_VERSION
+
 ;窗口&UI刷新
 InitUI() {
     global MySoftData
     MyGui := Gui()
-    MyGui.Title := "RMTv" RMT_VERSION
+    MyGui.Title := "RMTv" RMT_VERSION_DISPLAY
     MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
     isValidCollor := RegExMatch(MainSoftData.SoftBGColor, "^([0-9A-Fa-f]{6})$")
     BGColor := isValidCollor ? MainSoftData.SoftBGColor : "f0f0f0"
