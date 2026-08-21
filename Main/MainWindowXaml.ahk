@@ -95,6 +95,8 @@ class GuiAdapter {
             }
         }
         WinShow(hwnd)
+        ; 与原生 Gui.Show 语义一致：显示即激活（托盘「显示窗口」/最小化启动恢复都走这里）
+        try WinActivate(hwnd)
     }
     Hide() {
         WinHide(this.ui.wpfHwnd)

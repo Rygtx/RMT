@@ -19,8 +19,10 @@
         if (evtName) {
             global hEvt := DllCall("OpenEventW", "uint", 0x00100002, "int", false, "ptr", StrPtr(evtName), "ptr")
         }
-        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_dbg.txt"
-        FileAppend "HandleWorkOpenArg idx=" workIndex " parentHwnd=" parentHwnd " parentPID=" parentPID " hEvt=" hEvt "`n", wdbg
+        ; 调试日志按 Worker 索引分文件：多 Worker 并发启动写同一文件会锁冲突报错 (32)
+        ; 且在 OnError 注册前（InitWork 之前），FileAppend 异常会直接弹窗卡死启动，故必须 try 保护
+        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_" workIndex ".txt"
+        try FileAppend "HandleWorkOpenArg idx=" workIndex " parentHwnd=" parentHwnd " parentPID=" parentPID " hEvt=" hEvt "`n", wdbg
     }
 
     InitWorkFilePath() {
@@ -113,8 +115,8 @@
         hArr := Buffer(A_PtrSize)
         NumPut("ptr", hEvt, hArr)
 
-        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_dbg.txt"
-        FileAppend "WaitAndProcessTasks enter hEvt=" hEvt "`n", wdbg
+        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_" workIndex ".txt"
+        try FileAppend "WaitAndProcessTasks enter hEvt=" hEvt "`n", wdbg
 
         while (true) {
             if (!workerTaskBusy && !tx.IsEmpty()) {
@@ -248,8 +250,8 @@
     }
 
     OnMasterToWorker(wParam, lParam, msg, hwnd) {
-        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_dbg.txt"
-        FileAppend "OnMasterToWorker fired wParam=" wParam "`n", wdbg
+        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_" workIndex ".txt"
+        try FileAppend "OnMasterToWorker fired wParam=" wParam "`n", wdbg
         CheckTxBuffer()
     }
 
@@ -259,8 +261,8 @@
 
     CheckTxBuffer() {
         global tx, workIndex, graphBranchesWaiting, workerTaskBusy, workerPendingTasks
-        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_dbg.txt"
-        FileAppend "CheckTxBuffer enter empty=" tx.IsEmpty() " graphWait=" graphBranchesWaiting "`n", wdbg
+        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_" workIndex ".txt"
+        try FileAppend "CheckTxBuffer enter empty=" tx.IsEmpty() " graphWait=" graphBranchesWaiting "`n", wdbg
         if (graphBranchesWaiting)
             return
         loop {
@@ -333,8 +335,8 @@
 
     OnEventMessage(cmd) {
         global _workerInputResult
-        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_dbg.txt"
-        FileAppend "OnEventMessage enter cmd=" SubStr(cmd, 1, 80) " len=" StrLen(cmd) "`n", wdbg
+        wdbg := "C:\Users\yun\Desktop\rmt\_verify\worker_start_" workIndex ".txt"
+        try FileAppend "OnEventMessage enter cmd=" SubStr(cmd, 1, 80) " len=" StrLen(cmd) "`n", wdbg
         if (SubStr(cmd, 1, 2) != "R1")
             return
 
@@ -361,13 +363,13 @@
                         ; 赋值前置：FileAppend 失败（日志文件锁冲突）不得影响功能
                         if (!IsObject(_workerInputResult))
                             _workerInputResult := [args[1], args.Length >= 2 ? args[2] : ""]
-                        worker_recv_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_dbg.txt"
+                        worker_recv_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_" workIndex ".txt"
                         try FileAppend "worker_recv IPR args1=" args[1] " has2=" (args.Length >= 2 ? "y" : "n") "`n", worker_recv_dbg
                     case "IBR":
                         ; 主进程回传按钮条结果：[button]（true/false/continue/cancel）
                         if (!IsObject(_workerInputResult))
                             _workerInputResult := [args[1]]
-                        worker_recv_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_dbg.txt"
+                        worker_recv_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_" workIndex ".txt"
                         try FileAppend "worker_recv IBR args1=" args[1] "`n", worker_recv_dbg
                     case "SV":
                         MySoftData.VariableMap[args[1]] := args[2]

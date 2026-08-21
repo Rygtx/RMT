@@ -38,7 +38,8 @@ InputPopUp(Data, tableItem, index) {
 
     if (IsSet(workIndex)) {
         ; Worker：主进程 XAML 输入框（共享 daemon），结果回传后直接设变量
-        worker_input_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_dbg.txt"
+        ; 日志按 Worker 索引分文件（多 Worker 并发写同一文件会锁冲突）
+        worker_input_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_" workIndex ".txt"
         result := WorkerInputRequest("IP", Label, Content)
         try FileAppend "IP result=" (IsObject(result) ? "[" (result.Length >= 1 ? result[1] : "") "|" (result.Length >= 2 ? result[2] : "") "]" : "EMPTY") "`n", worker_input_dbg
         if (IsObject(result) && result.Length >= 2 && result[1] == "1") {
