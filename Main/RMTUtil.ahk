@@ -898,22 +898,30 @@ OnToolTextCheckScreenShot() {
 TogGetSelectArea(isEnable, action := "") {
     if (isEnable && action != "") {
         MainSoftData.GetAreaAction := action
+        Hotkey("~*LButton", OnGetSelectAreaDown, "On")
+        Hotkey("~*LButton Up", OnGetSelectAreaUp, "On")
+        Hotkey("~*RButton", OnGetSelectAreaCancel, "On")
     }
     else {
         MainSoftData.GetAreaAction := ""
+        Hotkey("~*LButton", "Off")
+        Hotkey("~*LButton Up", "Off")
+        Hotkey("~*RButton", "Off")
     }
 }
 
-OnGetSelectAreaDown(kye, *) {
+OnGetSelectAreaDown(*) {
     CoordMode("Mouse", "Screen")
     MouseGetPos(&startX, &startY)
     MainSoftData.StartAreaPosX := startX
     MainSoftData.StartAreaPosY := startY
 }
 
-OnGetSelectAreaUp(key, *) {
+OnGetSelectAreaUp(*) {
     action := MainSoftData.GetAreaAction
     TogGetSelectArea(false)
+    if (action == "")
+        return
     CoordMode("Mouse", "Screen")
     MouseGetPos(&endX, &endY)
 
@@ -922,6 +930,10 @@ OnGetSelectAreaUp(key, *) {
     x2 := Max(MainSoftData.StartAreaPosX, endX)
     y2 := Max(MainSoftData.StartAreaPosY, endY)
     action(x1, y1, x2, y2)
+}
+
+OnGetSelectAreaCancel(*) {
+    TogGetSelectArea(false)
 }
 
 TogSelectArea(isEnable, action := "") {
