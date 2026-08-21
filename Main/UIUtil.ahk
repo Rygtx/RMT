@@ -517,7 +517,7 @@ AddSettingUI(index) {
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("下拉框选项"), tableItem)
     tableItem.AllGroup.Push(con)
 
-    ; 顺序：语言、软件字体、首选编辑器 / 截图方式、手柄类型、按下时按下
+    ; 顺序：语言、软件字体、首选编辑器 / 截图方式、手柄映射、宏手柄类型 / 按下时按下、指令备注、宏终止方式
     ; 语言/Lang：方便不同语言用户都能找到切换入口
     posY += 30
     AddTableControl("Text", Format("x{} y{}", posX + 25, posY), "语言/Lang：", tableItem)
@@ -546,30 +546,39 @@ AddSettingUI(index) {
     con.Value := MainSoftData.ScreenShotType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.ScreenShotType := ctrl.Value)
 
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("手柄类型："), tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("手柄映射："), tableItem)
     con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), ["Xbox", "PS5"], tableItem)
-    con.Text := MainSoftData.JoyType
-    con.OnEvent("Change", (ctrl, info) => MainSoftData.JoyType := ctrl.Text)
+    con.Text := MainSoftData.TriggerJoyType
+    con.OnEvent("Change", OnTriggerJoyTypeSettingChange)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 511, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickTriggerJoyTypeHelpBtn)
 
-    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("按下时按下："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), GetLangArr(["自动松开", "忽略重复按下",
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("宏手柄类型："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), ["Xbox", "DS4"], tableItem)
+    con.Text := MainSoftData.JoyType
+    con.OnEvent("Change", OnJoyTypeSettingChange)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 831, posY - 5), "?", tableItem)
+    Con.OnEvent("Click", OnClickMacroJoyTypeHelpBtn)
+
+    posY += 40
+    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("按下时按下："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), GetLangArr(["自动松开", "忽略重复按下",
         "允许重复按下"]), tableItem)
     con.Value := MainSoftData.KeyDownDownType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.KeyDownDownType := ctrl.Value)
-    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 831, posY - 5), "?", tableItem)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 231, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickKeyDownDownHelpBtn)
 
-    posY += 40
-    AddTableControl("Text", Format("x{} y{}", posX + 25, posY), GetLang("指令备注") "：", tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 110, posY - 4), GetLangArr(["不生成", "自动生成", "覆盖生成"]), tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("指令备注") "：", tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), GetLangArr(["不生成", "自动生成", "覆盖生成"]), tableItem)
     con.Value := MainSoftData.RemarkAutoType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.RemarkAutoType := Integer(ctrl.Value))
 
-    AddTableControl("Text", Format("x{} y{}", posX + 315, posY), GetLang("宏终止方式："), tableItem)
-    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 390, posY - 4), GetLangArr(["智能终止", "强制终止"]), tableItem)
+    AddTableControl("Text", Format("x{} y{}", posX + 635, posY), GetLang("宏终止方式："), tableItem)
+    con := AddTableControl("DropDownList", Format("x{} y{} w120", posX + 710, posY - 4), GetLangArr(["智能终止", "强制终止"]), tableItem)
     con.Value := MainSoftData.MacroStopType
     con.OnEvent("Change", (ctrl, info) => MainSoftData.MacroStopType := Integer(ctrl.Value))
-    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 511, posY - 5), "?", tableItem)
+    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 831, posY - 5), "?", tableItem)
     Con.OnEvent("Click", OnClickMacroStopHelpBtn)
 
     posY += 40

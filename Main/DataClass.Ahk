@@ -184,13 +184,14 @@ class MainConfig {
         this.LangArr := []              ; 可用语言列表
 
         ; ========== 手柄 ==========
-        this.JoyType := "Xbox"          ; 手柄类型 (Xbox/PS5)
+        this.JoyType := "Xbox"          ; 宏手柄类型 (Xbox/DS4)，实际模拟输出到 ViGEm 虚拟手柄的类型
+        this.TriggerJoyType := "Xbox"   ; 手柄映射 (Xbox/PS5)，触发键、按键指令、按键检测等所有手柄按键名称显示统一使用此设置
 
         ; ========== 宏编辑器 ==========
         ; 新建空宏时的首选编辑器：1=逻辑树，2=图形节点
         this.PreferredMacroEditor := 1
         this.SharedCopy := false        ; 逻辑树编辑器右键菜单显示「共享复制」（原样复制，不重新分配序列号）
-        this.RemarkAutoType := 3        ; 指令备注自动生成 (1=不生成, 2=自动生成, 3=覆盖生成)
+        this.RemarkAutoType := 2        ; 指令备注自动生成 (1=不生成, 2=自动生成, 3=覆盖生成)
 
         ; ========== 提示选项 ==========
         this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒
@@ -538,7 +539,7 @@ class SoftData {
             "DpadLeft", "JoyPOV_27000", "DpadRight", "JoyPOV_9000"
         )
 
-        ; 保留旧映射用于兼容
+        ; 手柄按键统一按 Xbox 友好键名存盘；显示时按当前类型（宏手柄类型/手柄类型）映射显示名
         this.JoyBtnDisplayMap := Map(
             "JoyA", Map("Xbox", "A", "PS5", "×"),
             "JoyB", Map("Xbox", "B", "PS5", "○"),
@@ -559,6 +560,9 @@ class SoftData {
             "JoyDpadLeft", Map("Xbox", "左", "PS5", "左"),
             "JoyDpadRight", Map("Xbox", "右", "PS5", "右")
         )
+        ; 手柄按钮统一存盘的 Xbox 友好键名列表（显示时按类型映射；无 Xbox 对应项时直接存原名）
+        this.JoyBtnKeys := ["JoyA", "JoyB", "JoyX", "JoyY", "JoyLB", "JoyRB", "JoyLT", "JoyRT",
+            "JoyLS", "JoyRS", "JoyBack", "JoyStart", "JoyHome", "JoyPad"]
         this.JoyAhkToXboxMap := Map(
             "Joy1", "JoyA",
             "Joy2", "JoyB",
@@ -624,7 +628,7 @@ class SoftData {
     ; 物理原始键名 → 通用键名
     GetPhysToJoyMap() {
         joyType := MainSoftData.JoyType
-        if (joyType == "PS5")
+        if (joyType == "DS4")
             return this.PhysToPS5JoyMap
         return this.PhysToXboxJoyMap
     }
@@ -632,14 +636,14 @@ class SoftData {
     ; 通用键名 → 物理原始键名（用于执行/绑定）
     GetJoyToPhysMap() {
         joyType := MainSoftData.JoyType
-        if (joyType == "PS5")
+        if (joyType == "DS4")
             return this.JoyToPS5PhysMap
         return this.JoyToXboxPhysMap
     }
 
     ; 通用键名 → 显示名
     GetJoyNDisplayName(btnKey) {
-        joyType := MainSoftData.JoyType
+        joyType := MainSoftData.TriggerJoyType
         if (this.JoyToDispMap.Has(btnKey)) {
             labelMap := this.JoyToDispMap[btnKey]
             return labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
@@ -650,7 +654,7 @@ class SoftData {
     ; 旧映射保留兼容
     GetJoyToAhkMap() {
         joyType := MainSoftData.JoyType
-        if (joyType == "PS5")
+        if (joyType == "DS4")
             return this.JoyPS5ToAhkMap
         return this.JoyXboxToAhkMap
     }
@@ -690,13 +694,14 @@ class SoftData {
     ; 旧：录制时 AHK 原始键名 → 友好名
     GetAhkToJoyMap() {
         joyType := MainSoftData.JoyType
-        if (joyType == "PS5")
+        if (joyType == "DS4")
             return this.JoyAhkToPS5Map
         return this.JoyAhkToXboxMap
     }
 
-    GetJoyDisplayName(joyKey) {
-        joyType := MainSoftData.JoyType
+    GetJoyDisplayName(joyKey, joyType := "") {
+        if (joyType == "")
+            joyType := MainSoftData.TriggerJoyType
         displayMap := this.JoyBtnDisplayMap
         if (displayMap.Has(joyKey)) {
             labelMap := displayMap[joyKey]
@@ -704,43 +709,49 @@ class SoftData {
             if (name != "")
                 return name
         }
-        ; 轴类按键直接返回原名
         return joyKey
     }
 
-    ; 将触发键字符串中的Joy键名转换为显示名（如 JoyA → □ 或 A，取决于JoyType）
+    ; 触发键显示/解析所需的手柄键名列表（按钮键 + 方向键/摇杆固定键名）
+    GetJoyTriggerKeyList() {
+        keys := ["JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight",
+            "JoyAxisLXMin", "JoyAxisLXMax", "JoyAxisLYMin", "JoyAxisLYMax",
+            "JoyAxisRXMin", "JoyAxisRXMax", "JoyAxisRYMin", "JoyAxisRYMax"]
+        for k in this.JoyBtnKeys
+            keys.Push(k)
+        return keys
+    }
+
+    ; 将触发键字符串中的Joy键名转换为显示名（跟随手柄类型 TriggerJoyType）
     FormatJoyTriggerKey(triggerKey) {
         if (triggerKey == "")
             return ""
         result := triggerKey
-        joyKeys := ["JoyAxisLXMin", "JoyAxisLXMax", "JoyAxisLYMin", "JoyAxisLYMax",
-            "JoyAxisRXMin", "JoyAxisRXMax", "JoyAxisRYMin", "JoyAxisRYMax",
-            "JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight",
-            "JoyPad", "JoyHome", "JoyBack", "JoyStart",
-            "JoyLB", "JoyRB", "JoyLT", "JoyRT", "JoyLS", "JoyRS",
-            "JoyA", "JoyB", "JoyX", "JoyY"]
-        for key in joyKeys {
-            displayName := this.GetJoyDisplayName(key)
-            result := StrReplace(result, key, displayName, , , 1)
+        joyType := (MainSoftData.TriggerJoyType == "PS5" || MainSoftData.TriggerJoyType == "Xbox")
+            ? MainSoftData.TriggerJoyType : "Xbox"
+        ; 按键名称按词边界替换，避免 JoyA 命中 JoyAxisLXMin
+        for key in this.GetJoyTriggerKeyList() {
+            displayName := this.GetJoyDisplayName(key, joyType)
+            if (displayName == key)
+                continue
+            needle := "(?<![A-Za-z0-9_])" RegExReplace(key, "([\\.^$|?*+()\[\]{}])", "\$1") "(?![A-Za-z0-9_])"
+            result := RegExReplace(result, needle, displayName)
         }
         return result
     }
 
-    ; 将显示名还原为内部Joy键名（反向映射）
+    ; 将显示名还原为内部Joy键名（反向映射，跟随手柄类型 TriggerJoyType）
     ParseJoyTriggerKey(displayStr) {
         if (displayStr == "")
             return ""
         result := displayStr
-        joyKeys := ["JoyAxisLXMin", "JoyAxisLXMax", "JoyAxisLYMin", "JoyAxisLYMax",
-            "JoyAxisRXMin", "JoyAxisRXMax", "JoyAxisRYMin", "JoyAxisRYMax",
-            "JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight",
-            "JoyPad", "JoyHome", "JoyBack", "JoyStart",
-            "JoyLB", "JoyRB", "JoyLT", "JoyRT", "JoyLS", "JoyRS",
-            "JoyA", "JoyB", "JoyX", "JoyY"]
-        for key in joyKeys {
-            displayName := this.GetJoyDisplayName(key)
-            if (displayName != "")
-                result := StrReplace(result, displayName, key, , , 1)
+        joyType := (MainSoftData.TriggerJoyType == "PS5" || MainSoftData.TriggerJoyType == "Xbox")
+            ? MainSoftData.TriggerJoyType : "Xbox"
+        for key in this.GetJoyTriggerKeyList() {
+            displayName := this.GetJoyDisplayName(key, joyType)
+            if (displayName == key || displayName == "")
+                continue
+            result := StrReplace(result, displayName, key, , , 1)
         }
         return result
     }
@@ -755,10 +766,26 @@ class SoftData {
         paramArr := StrSplit(cmdStr, "_")
         if (paramArr.Length >= 2) {
             keyPart := paramArr[2]
-            if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
+            ; 通用 JoyN / 轴名
+            if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right|None)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
                 displayName := this.GetJoyNDisplayName(keyPart)
                 if (displayName != "" && displayName != keyPart)
                     keyPart := "🎮" displayName
+            }
+            ; 友好键名 JoyA / JoyO / JoyL1 等（宏按键指令）
+            else if (InStr(keyPart, "Joy") == 1) {
+                keys := StrSplit(keyPart, "⎖")
+                newPart := ""
+                for i, k in keys {
+                    if (i > 1)
+                        newPart .= "⎖"
+                    label := this.GetJoyDisplayName(k)
+                    if (label != "" && label != k)
+                        newPart .= "🎮" label
+                    else
+                        newPart .= k
+                }
+                keyPart := newPart
             }
             paramArr[2] := keyPart
         }
@@ -771,7 +798,7 @@ class SoftData {
         return result
     }
 
-    ; 从 🎮显示名 格式还原为通用键名（只还原第二个 _ 段）
+    ; 从 🎮显示名 格式还原为键名（只还原第二个 _ 段）
     ParseCmdJoyDisplay(displayStr) {
         if (displayStr == "")
             return displayStr
@@ -780,14 +807,24 @@ class SoftData {
         paramArr := StrSplit(displayStr, "_")
         if (paramArr.Length >= 2 && InStr(paramArr[2], "🎮")) {
             keyPart := paramArr[2]
-            ; 反向查找：遍历 BtnToDispMap，找到匹配的显示名→恢复为键名
             global MainSoftData
-            for btnKey, labelMap in this.JoyToDispMap {
-                joyType := MainSoftData.JoyType
-                disp := labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
+            joyType := MainSoftData.TriggerJoyType
+            ; 优先：按钮友好键名（JoyA 等，按当前 JoyType 显示）
+            for btnKey in this.JoyBtnKeys {
+                disp := this.GetJoyDisplayName(btnKey, joyType)
                 if (disp != "" && InStr(keyPart, "🎮" disp)) {
                     keyPart := btnKey
                     break
+                }
+            }
+            ; 回退：通用 JoyN 显示名
+            if (InStr(keyPart, "🎮")) {
+                for btnKey, labelMap in this.JoyToDispMap {
+                    disp := labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
+                    if (disp != "" && InStr(keyPart, "🎮" disp)) {
+                        keyPart := btnKey
+                        break
+                    }
                 }
             }
             paramArr[2] := keyPart

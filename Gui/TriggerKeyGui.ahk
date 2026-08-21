@@ -24,7 +24,6 @@ class TriggerKeyGui {
         this.UnSelectColor := "-Background"
         this.SelectHoverColor := "Background169727"
         this.UnSelectHoverColor := "Backgrounddadada"
-
     }
 
     OnSureHotkey() {
@@ -1055,82 +1054,15 @@ class TriggerKeyGui {
             PosX := 20
             MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄-按键"))
             PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyA"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyA"))
-            this.ConMap.Set("JoyA", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyB"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyB"))
-            this.ConMap.Set("JoyB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyX"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyX"))
-            this.ConMap.Set("JoyX", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyY"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyY"))
-            this.ConMap.Set("JoyY", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyLB"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLB"))
-            this.ConMap.Set("JoyLB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyRB"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRB"))
-            this.ConMap.Set("JoyRB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyLT"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLT"))
-            this.ConMap.Set("JoyLT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyRT"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRT"))
-            this.ConMap.Set("JoyRT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyLS"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLS"))
-            this.ConMap.Set("JoyLS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyRS"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRS"))
-            this.ConMap.Set("JoyRS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyBack"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyBack"))
-            this.ConMap.Set("JoyBack", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyStart"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyStart"))
-            this.ConMap.Set("JoyStart", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyPad"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyPad"))
-            this.ConMap.Set("JoyPad", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName("JoyHome"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyHome"))
-            this.ConMap.Set("JoyHome", con)
-
-            ; 手柄类型切换下拉
-            PosX += 90
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄类型"))
-            PosX += 70
-            joyTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY - 2), ["Xbox", "PS5"])
-            joyTypeCon.Text := MainSoftData.JoyType
-            joyTypeCon.OnEvent("Change", (*) => (MainSoftData.JoyType := joyTypeCon.Text, this.UpdateJoyBtnDisplay()))
+            joyBtnKeys := MySoftData.JoyBtnKeys
+            loop joyBtnKeys.Length {
+                key := joyBtnKeys[A_Index]
+                if (A_Index > 1)
+                    PosX += 75
+                con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName(key, MainSoftData.TriggerJoyType))
+                con.OnEvent("Click", ((k) => (*) => this.OnCheckedKey(k))(key))
+                this.ConMap.Set(key, con)
+            }
 
             PosY += 30
             PosX := 20
@@ -1332,13 +1264,11 @@ class TriggerKeyGui {
     }
 
     UpdateJoyBtnDisplay() {
-        joyBtnKeys := ["JoyA", "JoyB", "JoyX", "JoyY", "JoyLB", "JoyRB", "JoyLT", "JoyRT",
-            "JoyLS", "JoyRS", "JoyBack", "JoyStart", "JoyPad", "JoyHome",
-            "JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight"]
-        for key in joyBtnKeys {
+        joyType := MainSoftData.TriggerJoyType
+        for key in MySoftData.JoyBtnKeys {
             if (this.ConMap.Has(key)) {
                 con := this.ConMap[key]
-                con.Value := MySoftData.GetJoyDisplayName(key)
+                con.Value := MySoftData.GetJoyDisplayName(key, joyType)
             }
         }
     }

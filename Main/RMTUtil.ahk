@@ -97,6 +97,7 @@ OnSaveSetting(*) {
     CheckAndAddDirty("Lang", MainSoftData.Lang)
     CheckAndAddDirty("FontType", MainSoftData.FontType)
     CheckAndAddDirty("JoyType", MainSoftData.JoyType)
+    CheckAndAddDirty("TriggerJoyType", MainSoftData.TriggerJoyType)
     CheckAndAddDirty("PreferredMacroEditor", MainSoftData.PreferredMacroEditor)
     CheckAndAddDirty("MacroTotalCount", MySoftData.MacroTotalCount)
     CheckAndAddDirty("LastShowMonth", MainSoftData.LastShowMonth)
@@ -151,6 +152,18 @@ CheckAllValueSettingValid() {
         return false
 
     return true
+}
+
+; 设置页切换「宏手柄类型」：仅记录类型；键名统一按 Xbox 存盘，不转换、不立即保存，显示时按类型映射
+OnJoyTypeSettingChange(ctrl, info) {
+    global MainSoftData
+    MainSoftData.JoyType := ctrl.Text
+}
+
+; 设置页切换「手柄映射」：仅记录类型；键名统一按 Xbox 存盘，不转换、不立即保存，显示时按类型映射
+OnTriggerJoyTypeSettingChange(ctrl, info) {
+    global MainSoftData
+    MainSoftData.TriggerJoyType := ctrl.Text
 }
 
 SaveCurWinPos() {
@@ -225,9 +238,10 @@ InitViGEmPlugin() {
         return
     }
 
-    isPS5 := MainSoftData.JoyType = "PS5"
+    isDS4 := MainSoftData.JoyType = "DS4"
     diBefore := SnapshotJoyDeviceMap()
-    global ViGJoy := isPS5 ? ViGEmDS4() : ViGEmXb360()
+    global ViGJoy := isDS4 ? ViGEmDS4() : ViGEmXb360()
+    global CurViGJoyType := isDS4 ? "DS4" : "Xbox"
     global VirtualJoyDiIdx := FindNewJoyDeviceIndex(diBefore)
 
     try instOk := (IsSet(ViGJoy) && ViGJoy.Instance != "")
@@ -237,7 +251,7 @@ InitViGEmPlugin() {
     catch
         xidx := "?"
     JoyDebugLog(Format("PluginInit {} created InstanceOK={} XInputIdx={} DiIdx={} DllPath={}"
-        , isPS5 ? "ViGEmDS4" : "ViGEmXb360", instOk, xidx, VirtualJoyDiIdx
+        , isDS4 ? "ViGEmDS4" : "ViGEmXb360", instOk, xidx, VirtualJoyDiIdx
         , IsSet(ViGEmDllPath) ? ViGEmDllPath : "(unset)"), "init")
 }
 
@@ -726,10 +740,15 @@ ViGJoySetState(JoyType, Key, Value) {
     JoyDebugLog(Format("ViGJoySetState enter type={} key={} value={} IsSet(ViGJoy)={}"
         , JoyType, Key, Value, IsSet(ViGJoy)), "vigem")
 
-    if (!IsSet(ViGJoy)) {
-        isPS5 := MainSoftData.JoyType = "PS5"
-        JoyDebugLog(Format("ViGJoySetState lazy-create {} (JoyType={})", isPS5 ? "ViGEmDS4" : "ViGEmXb360", MainSoftData.JoyType), "vigem")
-        global ViGJoy := isPS5 ? ViGEmDS4() : ViGEmXb360()
+    isDS4 := MainSoftData.JoyType = "DS4"
+    wantType := isDS4 ? "DS4" : "Xbox"
+    if (!IsSet(ViGJoy) || !IsSet(CurViGJoyType) || CurViGJoyType != wantType) {
+        if (IsSet(ViGJoy) && IsSet(CurViGJoyType))
+            JoyDebugLog(Format("ViGJoySetState switch device {} -> {} (JoyType={})", CurViGJoyType, wantType, MainSoftData.JoyType), "vigem")
+        else
+            JoyDebugLog(Format("ViGJoySetState create {} (JoyType={})", wantType, MainSoftData.JoyType), "vigem")
+        global ViGJoy := isDS4 ? ViGEmDS4() : ViGEmXb360()
+        global CurViGJoyType := wantType
     }
 
     try instEmpty := (ViGJoy.Instance == "")

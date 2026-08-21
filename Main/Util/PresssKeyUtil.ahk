@@ -270,33 +270,48 @@ SendJoyBtnKey(key, state, tableItem, index) {
 
     JoyBtnName := SubStr(key, 4)
 
-    ; PS5 模式：将 Xbox 风格的按钮名转为 DS4 风格
-    if (MainSoftData.JoyType == "PS5") {
-        static ps5BtnMap := Map(
-            "A", "Cross",
-            "B", "Circle",
-            "X", "Square",
-            "Y", "Triangle",
-            "LB", "L1",
-            "RB", "R1",
-            "Back", "Share",
-            "Start", "Options",
-            "Home", "Ps",
-            "Pad", "TouchPad"
-        )
-        if (ps5BtnMap.Has(JoyBtnName))
-            JoyBtnName := ps5BtnMap[JoyBtnName]
+    ; 友好键名 → ViGEm 按钮名（Xbox / DS4 两套输出名）
+    static xboxBtnMap := Map(
+        "A", "A", "B", "B", "X", "X", "Y", "Y",
+        "LB", "LB", "RB", "RB", "LS", "LS", "RS", "RS",
+        "Back", "Back", "Start", "Start", "Home", "Guide", "Pad", "A",
+        "O", "B", "Square", "X", "Triangle", "Y",
+        "L1", "LB", "R1", "RB", "L3", "LS", "R3", "RS",
+        "Share", "Back", "Options", "Start", "PS", "Guide", "TouchPad", "A"
+    )
+    static ds4BtnMap := Map(
+        "A", "Cross", "B", "Circle", "X", "Cross", "Y", "Triangle",
+        "O", "Circle", "Square", "Square", "Triangle", "Triangle",
+        "LB", "L1", "RB", "R1", "L1", "L1", "R1", "R1",
+        "LS", "LS", "RS", "RS", "L3", "LS", "R3", "RS",
+        "Back", "Share", "Start", "Options", "Share", "Share", "Options", "Options",
+        "Home", "Ps", "PS", "Ps", "Pad", "TouchPad", "TouchPad", "TouchPad"
+    )
+    btnMap := (MainSoftData.JoyType == "DS4") ? ds4BtnMap : xboxBtnMap
+    if (btnMap.Has(JoyBtnName))
+        JoyBtnName := btnMap[JoyBtnName]
+
+    ; 有效 ViGEm 按钮/扳机名白名单；未知键名（如其它手柄特有键 UUU）执行时忽略，避免程序异常
+    static validJoyName := Map(
+        "A", 0, "B", 0, "X", 0, "Y", 0, "LB", 0, "RB", 0, "LS", 0, "RS", 0,
+        "Back", 0, "Start", 0, "Guide", 0,
+        "Cross", 0, "Circle", 0, "Square", 0, "Triangle", 0,
+        "L1", 0, "R1", 0, "L2", 0, "R2", 0, "L3", 0, "R3", 0,
+        "Share", 0, "Options", 0, "Ps", 0, "TouchPad", 0,
+        "LT", 0, "RT", 0, "ZMin", 0, "ZMax", 0
+    )
+    if (!validJoyName.Has(JoyBtnName)) {
+        JoyDebugLog(Format("SendJoyBtnKey IGNORE unknown key={} btnName={}", key, JoyBtnName), "send")
+        return
     }
 
     JoyDebugLog(Format("SendJoyBtnKey key={} state={} btnName={} MyViGJoySetState={}", key, state, JoyBtnName
         , Type(MyViGJoySetState)), "send")
 
-    ; 兼容 LT/RT 的两种键名：
-    ;   - 友好名（JoyLT/JoyRT）→ btnName = LT/RT
-    ;   - 映射后的轴名（JoyZMin/JoyZMax）→ btnName = ZMin/ZMax
-    if (JoyBtnName = "LT" || JoyBtnName = "RT"
+    ; 扳机：JoyLT/RT、JoyL2/R2、轴名 ZMin/ZMax
+    if (JoyBtnName = "LT" || JoyBtnName = "RT" || JoyBtnName = "L2" || JoyBtnName = "R2"
         || JoyBtnName = "ZMin" || JoyBtnName = "ZMax") {
-        axisName := (JoyBtnName = "ZMin" || JoyBtnName = "LT") ? "LT" : "RT"
+        axisName := (JoyBtnName = "ZMin" || JoyBtnName = "LT" || JoyBtnName = "L2") ? "LT" : "RT"
         MyViGJoySetState("Axis", axisName, state ? 255 : 0)
     }
     else

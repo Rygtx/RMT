@@ -365,6 +365,20 @@ OnClickFileCheckHelpBtn(*) {
     MsgBox(str, GetLang("文件校验说明"))
 }
 
+OnClickMacroJoyTypeHelpBtn(*) {
+    str1 := GetLang("设置宏实际输出到的虚拟手柄类型（Xbox 360 / DS4），影响按键模拟输出。")
+    str2 := GetLang("仅影响实际模拟输出，不影响界面按键名称的显示（显示请使用「手柄映射」）。")
+
+    str := Format("{}`n{}", str1, str2)
+    MsgBox(str, GetLang("宏手柄类型说明"))
+}
+
+OnClickTriggerJoyTypeHelpBtn(*) {
+    str1 := GetLang("手柄映射：触发键、按键指令、按键检测等所有手柄按键名称的显示统一使用此映射。")
+
+    MsgBox(str1, GetLang("手柄映射说明"))
+}
+
 OnExitSoft(*) {
     global MyPToken, MyChineseOcr, MyUIMacroGui, MyWorkPool
     Gdip_Shutdown(MyPToken)

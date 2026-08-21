@@ -115,9 +115,9 @@ class JoyMacro {
                 }
             }
         }
-        if (MainSoftData.JoyType != "PS5") {
-            MainSoftData.JoyType := "PS5"
-            JoyDebugLog("JoyMacro: auto-detect JoyType=PS5")
+        if (MainSoftData.JoyType != "DS4") {
+            MainSoftData.JoyType := "DS4"
+            JoyDebugLog("JoyMacro: auto-detect JoyType=DS4")
         }
     }
 
