@@ -237,10 +237,11 @@ class MacroGraphDataMixin {
         return newSerial
     }
 
-    ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致）
+    ; 形式化 INI 指令的 cmdKey 列表（与 AssetUtil 中 CMD 映射一致；阶段5 含新配置化 间隔/按键/移动/RMT指令）
     _FormalIniCmdKeys() {
         return ["宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "运行", "文件读写", "文本处理", "数组",
-            "后台鼠标", "后台按键", "窗口管理", "按键检测", "注释", "抓图", "循环"]
+            "后台鼠标", "后台按键", "窗口管理", "按键检测", "注释", "抓图", "循环",
+            "间隔", "按键", "移动", "RMT指令"]
     }
 
     _FormalIniKeyFromName(name) {
@@ -274,7 +275,11 @@ class MacroGraphDataMixin {
                 "按键检测", KeyCheckData,
                 "抓图", ScreenShotData,
                 "循环", LoopData,
-                "注释", CommentData
+                "注释", CommentData,
+                "间隔", IntervalData,
+                "按键", KeyDataConfig,
+                "移动", MoveDataConfig,
+                "RMT指令", RMTCMDData
             )
         }
         return m.Has(cmdKey) ? m[cmdKey] : ""
@@ -579,6 +584,25 @@ class MacroGraphDataMixin {
             }
         } else if (cmdKey == "注释") {
             d.commentContent := data.Content
+        } else if (cmdKey == "间隔") {
+            d.itype := data.Type == 2 ? GetLang("随机") : GetLang("固定")
+            d.time := data.Time1
+            d.time2 := data.Time2
+        } else if (cmdKey == "按键") {
+            d.key := data.KeyName
+            d.ktype := GetLangArr(["按下", "松开", "点击"])[data.KeyType]
+            d.hold := data.HoldTime
+            d.count := data.Count
+            d.inter := data.IntervalTime
+        } else if (cmdKey == "移动") {
+            d.posx := data.PosX
+            d.posy := data.PosY
+            d.speed := data.Speed
+            d.mode := data.MoveMode
+        } else if (cmdKey == "RMT指令") {
+            d.rmtCategory := data.Category
+            d.rmtOp := data.CmdStr
+            d.rmtMenuIdx := data.HasOwnProp("MenuIndex") ? data.MenuIndex : 1
         }
     }
 
@@ -842,7 +866,8 @@ class MacroGraphDataMixin {
         return node
     }
 
-    ; 节点标题栏是否不显示备注（这些指令的 `_` 后段是参数而非备注）
+    ; 节点标题栏是否不显示备注（旧纯文本格式：这些指令的 `_` 后段是参数而非备注）
+    ; 阶段5 配置化后（首段带数字序列码，如 间隔123_500），备注应显示
     _NodeTitleOmitRemark(type) {
         return type == GetLang("间隔") || type == GetLang("按键") || type == GetLang("移动")
             || type == GetLang("变量") || type == GetLang("RMT指令") || type == GetLang("注释")
@@ -850,15 +875,20 @@ class MacroGraphDataMixin {
 
     ; 节点标题栏文本：类型名，可附带备注
     ; 例：搜索1_检索怪物 → 搜索_检索怪物；搜索1 → 搜索
-    ; 间隔/按键/移动/变量/RMT指令：只显示类型名
+    ; 间隔/按键/移动/变量/RMT指令：旧纯文本格式只显示类型名（`_` 后段是参数）；
+    ;   配置化格式（间隔123_500）显示备注
     _NodeTitleText(d) {
         type := d.type
-        if (this._NodeTitleOmitRemark(type))
-            return type
         raw := d.HasOwnProp("raw") ? d.raw : ""
         if (raw == "")
             return type
         paramArr := SplitCommand(raw)
+        head := paramArr.Length >= 1 ? paramArr[1] : ""
+        ; 首段带数字 = 配置化格式（序列码+备注）→ 显示备注；否则旧格式省略
+        SplitSerialTextAndNumbers(head, &headText, &headNum)
+        isConfig := headNum != ""
+        if (this._NodeTitleOmitRemark(type) && !isConfig)
+            return type
         remark := paramArr.Length >= 2 ? paramArr[2] : ""
         if (remark == "")
             return type
@@ -1023,12 +1053,56 @@ class MacroGraphDataMixin {
     }
 
     _BuildCmd(d) {
+        ; 阶段5：配置化节点（有 serialStr，来自 间隔<serial> 等）→ 更新 Data 并保存，返回序列码+备注
+        if (d.HasOwnProp("serialStr") && d.serialStr != "") {
+            if (d.type == GetLang("间隔") || d.type == GetLang("按键") || d.type == GetLang("移动") || d.type == GetLang("RMT指令")) {
+                try {
+                    data := GetMacroCMDData(d.serialStr)
+                    if (IsObject(data)) {
+                        if (d.type == GetLang("间隔")) {
+                            data.Type := d.itype == GetLang("随机") ? 2 : 1
+                            data.Time1 := d.time
+                            data.Time2 := d.time2
+                            remark := data.Type == 2 ? data.Time1 "~" data.Time2 : data.Time1
+                        } else if (d.type == GetLang("按键")) {
+                            data.KeyName := d.key
+                            ktIdx := 1
+                            for ktI, ktV in GetLangArr(["按下", "松开", "点击"]) {
+                                if (ktV == d.ktype) {
+                                    ktIdx := ktI
+                                    break
+                                }
+                            }
+                            data.KeyType := ktIdx
+                            data.HoldTime := d.hold
+                            data.Count := d.count
+                            data.IntervalTime := d.inter
+                            remark := data.KeyName "_" d.ktype
+                        } else if (d.type == GetLang("移动")) {
+                            data.PosX := d.posx
+                            data.PosY := d.posy
+                            data.Speed := d.speed
+                            data.MoveMode := d.mode
+                            remark := data.PosX " " data.PosY
+                        } else if (d.type == GetLang("RMT指令")) {
+                            data.Category := d.HasOwnProp("rmtCategory") ? d.rmtCategory : GetLang("全部")
+                            data.CmdStr := d.HasOwnProp("rmtOp") ? d.rmtOp : GetLang("截图")
+                            data.MenuIndex := d.HasOwnProp("rmtMenuIdx") ? d.rmtMenuIdx : 1
+                            remark := data.CmdStr
+                        }
+                        SaveMacroCMDData(data)
+                        return CorrectRemark(d.serialStr, remark)
+                    }
+                }
+            }
+            return d.serialStr
+        }
+
         if (d.type == GetLang("间隔")) {
             if (d.itype == GetLang("随机"))
                 return GetLang("间隔") "_" d.time "~" d.time2
             return GetLang("间隔") "_" d.time
         }
-
 
         if (d.type == GetLang("按键")) {
             isClick := d.ktype == GetLang("点击")

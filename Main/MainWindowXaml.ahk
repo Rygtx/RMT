@@ -864,6 +864,10 @@ class MainWin {
                 . "`n" GetLang("关闭后：按下、开关、长按类型必须先松开触发键，才能再次触发。")
                 . "`n" GetLang("提示：松开、松止、双击类型不受此选项影响。"))
             . this._CheckRow("无变量提醒", "ChkNoVariable", MainSoftData.NoVariableTip)
+            . this._CheckRow("业务日志", "ChkBusinessLog", MainSoftData.BusinessLog
+                , GetLang("开启后：记录宏运行流水到 Log\\Business.log（宏触发/每指令/宏结束）。")
+                . "`n" GetLang("关闭后：不记录业务流水（默认）。")
+                . "`n" GetLang("提示：业务日志可能产生大量内容，建议排查问题时开启。"))
             . this._CheckRow("模态子窗口", "ChkModalSubGui", MainSoftData.IsModalSubGui
                 , GetLang("开启后：打开指令编辑等子窗口时，会禁用主窗口，必须先关闭子窗口才能继续操作主窗口。")
                 . "`n" GetLang("关闭后：子窗口与主窗口可同时操作，方便对照主界面内容进行编辑。")
@@ -892,6 +896,8 @@ class MainWin {
             . '<Button Name="BtnTheme" Content="' GetLang("主题") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<Button Name="BtnHotkey" Content="' GetLang("快捷键") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<Button Name="BtnToolRecord" Content="' GetLang("指令录制") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
+            . '<Button Name="BtnLogCenter" Content="' GetLang("日志中心") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
+            . '<Button Name="BtnLogSetting" Content="' GetLang("日志与错误") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<Button Name="BtnMenuWheel" Content="' GetLang("轮盘") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<Button Name="BtnUIPanel" Content="' GetLang("界面浮窗") '" Height="28" MinHeight="28" Padding="14,0" Margin="0,4,12,4"/>'
             . '<CheckBox Name="ChkCMDTip" Content="' GetLang("指令显示") '" VerticalAlignment="Center" Margin="4,4,6,4"/>'
@@ -912,6 +918,7 @@ class MainWin {
         this._Bind("ChkAutoLoosen", "Click", ObjBindMethod(this, "OnCheckEdit", "AutoLoosenModifier"))
         this._Bind("ChkContinuous", "Click", ObjBindMethod(this, "OnCheckEdit", "ContinuousTrigger"))
         this._Bind("ChkNoVariable", "Click", ObjBindMethod(this, "OnCheckEdit", "NoVariableTip"))
+        this._Bind("ChkBusinessLog", "Click", ObjBindMethod(this, "OnBusinessLogToggle"))
         this._Bind("ChkModalSubGui", "Click", ObjBindMethod(this, "OnCheckEdit", "IsModalSubGui"))
         this._Bind("ChkSplitLine", "Click", ObjBindMethod(this, "OnCheckEdit", "ShowSplitLine"))
         this._Bind("CmbLang", "SelectionChanged", ObjBindMethod(this, "OnComboText", "Lang"))
@@ -923,6 +930,8 @@ class MainWin {
         this._Bind("BtnTheme", "Click", OnClickThemeSettingBtn)
         this._Bind("BtnHotkey", "Click", OnClickHotkeySettingBtn)
         this._Bind("BtnToolRecord", "Click", OnClickToolRecordSettingBtn)
+        this._Bind("BtnLogCenter", "Click", (*) => LogCenterGui.ShowGui())
+        this._Bind("BtnLogSetting", "Click", (*) => LogSettingGui.ShowGui())
         this._Bind("BtnMenuWheel", "Click", OnClickMenuWheelSettingBtn)
         this._Bind("BtnUIPanel", "Click", OnClickUIMacroPanelSettingBtn)
         this._Bind("ChkCMDTip", "Click", OnClickCMDTipToggle)
@@ -944,6 +953,14 @@ class MainWin {
 
     OnCheckEdit(fieldName, state, ctrl, event) {
         MainSoftData.%fieldName% := this.ui.Query(ctrl) == "True"
+    }
+
+    ; 业务日志开关：写 MainSoftData + 同步 LogUtil global + 持久化
+    OnBusinessLogToggle(state, ctrl, event) {
+        global RMTLogBusinessEnabled
+        MainSoftData.BusinessLog := this.ui.Query(ctrl) == "True"
+        RMTLogBusinessEnabled := MainSoftData.BusinessLog
+        IniWrite(MainSoftData.BusinessLog, IniFile, IniSection, "BusinessLog")
     }
 
     OnComboText(fieldName, state, ctrl, event) {

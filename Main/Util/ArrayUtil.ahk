@@ -142,7 +142,7 @@ GetGuiArrNameArr() {
 TryGetArrValue(&ResArr, ArrName, variTip := true) {
     if (!MySoftData.ArrayMap.Has(ArrName)) {
         if (variTip && MainSoftData.NoVariableTip)
-            MsgBox(GetLang("当前环境不存在数组") ArrName)
+            RMTErrorShow(GetLang("当前环境不存在数组") ArrName, RMT_LV_WARN, "宏")
         return false
     }
 
@@ -153,7 +153,7 @@ TryGetArrValue(&ResArr, ArrName, variTip := true) {
 GetCmdArray(Data, tableItem, index, variTip := true) {
     if (!MySoftData.ArrayMap.Has(Data.Name)) {
         if (variTip && MainSoftData.NoVariableTip)
-            MsgBox(GetLang("当前环境不存在数组") Data.Name)
+            RMTErrorShow(GetLang("当前环境不存在数组") Data.Name, RMT_LV_WARN, "宏")
         return ""
     }
 
@@ -234,7 +234,7 @@ ArrayCheckIfContain(Data, tableItem, index) {
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
             if (MainSoftData.NoVariableTip)
-                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+                RMTErrorShow(GetLang("当前环境不存在数组") Data.Name, RMT_LV_WARN, "宏")
             return
         }
 
@@ -310,7 +310,7 @@ ArrayModifyIndexValue(Data, tableItem, index) {
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
             if (MainSoftData.NoVariableTip)
-                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+                RMTErrorShow(GetLang("当前环境不存在数组") Data.Name, RMT_LV_WARN, "宏")
             return
         }
         Value := MySoftData.ArrayMap[Data.ArgsName]
@@ -349,7 +349,7 @@ ArrayInsertIndexValue(Data, tableItem, index) {
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
             if (MainSoftData.NoVariableTip)
-                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+                RMTErrorShow(GetLang("当前环境不存在数组") Data.Name, RMT_LV_WARN, "宏")
             return
         }
         Value := MySoftData.ArrayMap[Data.ArgsName]
@@ -373,7 +373,7 @@ ArrayPushValue(Data, tableItem, index) {
     else if (Data.ArgsType == "数组") {
         if (!MySoftData.ArrayMap.Has(Data.ArgsName)) {
             if (MainSoftData.NoVariableTip)
-                MsgBox(GetLang("当前环境不存在数组") Data.Name)
+                RMTErrorShow(GetLang("当前环境不存在数组") Data.Name, RMT_LV_WARN, "宏")
             return
         }
         Value := MySoftData.ArrayMap[Data.ArgsName]

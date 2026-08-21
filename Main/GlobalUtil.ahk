@@ -22,6 +22,7 @@
 #Include TriggerKeyData.ahk
 #Include FolderPackager.ahk
 #Include Util\MacroClipboardUtil.ahk
+#Include Util\LogUtil.ahk
 #Include Util\ErrorHandler.ahk
 #Include Util\FixCompatUtil.ahk
 #Include ..\Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
@@ -55,6 +56,8 @@
 #Include ..\Gui\CustomMsgBoxGui.ahk
 #Include ..\Gui\AgreementGui.ahk
 #Include ..\Gui\ErrorMsgBoxGui.ahk
+#Include ..\Gui\LogCenterGui.ahk
+#Include ..\Gui\LogSettingGui.ahk
 #Include ..\Gui\CustomInputGui.ahk
 #Include ..\Gui\InputBtnGui.ahk
 #Include ..\Gui\InputBtnXamlGui.ahk

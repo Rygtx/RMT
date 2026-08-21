@@ -76,6 +76,10 @@ OnSaveSetting(*) {
     CheckAndAddDirty("MutiThreadNum", MainSoftData.MutiThreadNum)
     CheckAndAddDirty("SoftBGColor", MainSoftData.SoftBGColor)
     CheckAndAddDirty("NoVariableTip", MainSoftData.NoVariableTip)
+    CheckAndAddDirty("BusinessLog", MainSoftData.BusinessLog)
+    CheckAndAddDirty("SysLogMinLevel", MainSoftData.SysLogMinLevel)
+    CheckAndAddDirty("LogWarnBubble", MainSoftData.LogWarnBubble)
+    CheckAndAddDirty("LogErrorBadge", MainSoftData.LogErrorBadge)
     CheckAndAddDirty("CheckForeground", MainSoftData.CheckForeground)
     CheckAndAddDirty("IsAdminStart", MainSoftData.IsAdminStart)
     CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
@@ -374,6 +378,11 @@ InitFilePath() {
     global ScreenShotFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ScreenShotFile.ini"
     global GraphNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphNodeFile.ini"
     global GraphStartNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.ini"
+    ; 阶段5：纯文本指令迁移到配置文件模式（间隔/按键/移动/RMT指令）
+    global IntervalFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\IntervalFile.ini"
+    global KeyDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\KeyDataFile.ini"
+    global MoveDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MoveDataFile.ini"
+    global RMTCMDFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\RMTCMDFile.ini"
     global ProjectRootDir := A_ScriptDir
 }
 

@@ -191,6 +191,12 @@ class MainConfig {
 
         ; ========== 提示选项 ==========
         this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒
+        this.BusinessLog := false       ; 业务日志开关（统一日志 C 项：宏运行流水）
+
+        ; ========== 日志与错误（C 项阶段5）==========
+        this.SysLogMinLevel := "info"   ; 系统日志最低级别：debug/info/warn/error（debug 需显式开启）
+        this.LogWarnBubble := true      ; warn 级托盘气泡（2s 自动消失）
+        this.LogErrorBadge := true      ; error 级错误中心聚合
 
         ; ========== 菜单轮盘 ==========
         this.FixedMenuWheel := false    ; 是否固定菜单轮盘位置
@@ -1149,7 +1155,59 @@ class ArrayData {
 class RMTCMDData {
     __New() {
         this.SerialStr := ""
-        this.OperateType := 1 ; 1截图 2截图中提取文本 3自由贴 4开启指令显示 5关闭指令显示 6启用键鼠 7禁用键鼠 8休眠 9终止所有宏 10重载
+        this.Category := "全部"   ; 指令类别（全部/键鼠/菜单等）
+        this.CmdStr := "截图"     ; 具体指令（截图/自由贴/显示菜单等）
+        this.MenuIndex := 1       ; 显示菜单时的菜单序号
+        this.OperateType := 1 ; 旧字段兼容：1截图 2截图中提取文本 3自由贴 4开启指令显示 5关闭指令显示 6启用键鼠 7禁用键鼠 8休眠 9终止所有宏 10重载
+        ; 错误处理（影刀模式，阶段5）
+        this.ErrMode := "stop"
+        this.ErrRetryCount := 3
+        this.ErrRetryInterval := 500
+    }
+}
+
+; 间隔指令配置（阶段5：纯文本指令迁移到配置文件模式）
+class IntervalData {
+    __New() {
+        this.SerialStr := ""
+        this.Type := 1            ; 1固定  2随机
+        this.Time1 := "500"       ; 时间1（固定时为唯一时间）
+        this.Time2 := "1000"      ; 时间2（随机范围上界）
+        ; 错误处理（影刀模式，阶段5）
+        this.ErrMode := "stop"    ; stop/ignore/retry
+        this.ErrRetryCount := 3
+        this.ErrRetryInterval := 500
+    }
+}
+
+; 移动指令配置（阶段5：纯文本指令迁移到配置文件模式）
+class MoveDataConfig {
+    __New() {
+        this.SerialStr := ""
+        this.PosX := 0
+        this.PosY := 0
+        this.Speed := 90          ; 界面速度 0~100
+        this.MoveMode := 0
+        ; 错误处理（影刀模式，阶段5）
+        this.ErrMode := "stop"
+        this.ErrRetryCount := 3
+        this.ErrRetryInterval := 500
+    }
+}
+
+; 按键指令配置（阶段5：纯文本指令迁移到配置文件模式）
+class KeyDataConfig {
+    __New() {
+        this.SerialStr := ""
+        this.KeyName := ""        ; 按键名（含 Joy*/Axis 等）
+        this.KeyType := 3         ; 1按下 2松开 3点击
+        this.HoldTime := 100      ; 点击时长(ms)
+        this.Count := 1           ; 点击次数
+        this.IntervalTime := 0    ; 每次间隔(ms)
+        ; 错误处理（影刀模式，阶段5）
+        this.ErrMode := "stop"
+        this.ErrRetryCount := 3
+        this.ErrRetryInterval := 500
     }
 }
 

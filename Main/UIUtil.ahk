@@ -170,6 +170,7 @@ CustomTrayMenu() {
     if (A_IsAdmin)
         tipStr .= "`n" GetLang("管理员权限")
 
+    A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("日志中心"), (*) => LogCenterGui.ShowGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("休眠"), (*) => OnSuspendHotkey())
     A_TrayMenu.Insert(GetLang("休眠"), GetLang("开始录制"), (*) => OnTrayStartRecord())

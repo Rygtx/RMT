@@ -59,80 +59,125 @@ class KeyGui {
         titleHeight := "30"
 
         main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "30", "*", "34", "44")
-        main.Cols("Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "*")
+        main.Rows(titleHeight, "*")
 
         ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Grid_ColumnSpan(11).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
         tbInner := tb.Add("Grid")
         tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
         BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        ; === 顶部工具行 ===
-        top := main.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(11).Orientation("Horizontal").Margin("10,4")
-        top.Add("Button").Name("BtnSim").Content(GetLang("模拟指令")).Width(80).Height(26).MinHeight(26).Cursor("Hand")
+        ; === 内容：TabControl（常规 / 错误处理）===
+        tc := main.Add("TabControl").Grid_Row(1).Margin("8,8,8,8").Name("MainTab")
+
+        ; ---- Tab1 常规 ----
+        ti1 := tc.Add("TabItem").Header(GetLang("常规"))
+        body := ti1.Add("Grid").Margin("6,8,6,6")
+        body.Rows("30", "36", "*", "34", "44")
+        body.Cols("Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "*")
+
+        ; 行0：备注（放选项卡第一个位置）
+        remarkRow := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(11).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
+        remarkRow.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        remarkRow.Add("TextBox").Name("RemarkCon").Width(240).Height(26).MinHeight(26).Margin("6,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ; 行1：顶部工具行
+        top := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(11).Orientation("Horizontal").Margin("10,4")
+        top.Add("Button").Name("BtnSim").Content(GetLang("模拟指令")).Height(28).MinHeight(28).Padding("14,0").Cursor("Hand")
             .Background("{DynamicResource ActionBg}").Foreground("{DynamicResource ActionText}")
             .BorderBrush("{DynamicResource ActionStroke}").BorderThickness("1")
-        top.Add("TextBlock").Text("F1").VerticalAlignment("Center").Margin("8,0,0,0").Opacity("0.6")
-        top.Add("TextBlock").Text(GetLang("键盘按键检测：")).VerticalAlignment("Center").Margin("18,0,0,0")
-        top.Add("TextBox").Name("HotkeyCon").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0")
+        top.Add("TextBlock").Text("F1").VerticalAlignment("Center").Margin("8,0,0,0").Opacity("0.6").Foreground("{DynamicResource TextMain}").FontSize("12")
+        top.Add("TextBlock").Text(GetLang("键盘按键检测：")).VerticalAlignment("Center").Margin("18,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        top.Add("TextBox").Name("HotkeyCon").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0").VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
             .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").IsReadOnly("True")
-        top.Add("Button").Name("BtnDetect").Content(GetLang("确定")).Height(26).MinHeight(26).Margin("6,0,0,0").Cursor("Hand")
+        top.Add("Button").Name("BtnDetect").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0").Margin("6,0,0,0").Cursor("Hand")
 
-        ; === 按键网格（GroupBox + ScrollViewer）===
-        keyGroup := main.Add("GroupBox").Grid_Row(2).Grid_ColumnSpan(11).Header(GetLang("请从下面按钮中选择按键：")).Margin("8,2,8,4")
+        ; 行2：按键网格（GroupBox + ScrollViewer）
+        keyGroup := body.Add("GroupBox").Grid_Row(2).Grid_ColumnSpan(11).Header(GetLang("请从下面按钮中选择按键：")).Margin("8,2,8,4")
             .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
             .ClipToBounds("True")
-        sv := keyGroup.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled").ClipToBounds("True")
+        sv := keyGroup.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Auto").ClipToBounds("True")
         this._keyGrid := sv.Add("Canvas").Width("1240").Height("410")
 
-        ; === 底部参数行（StackPanel，参照 ToolRecordSettingGui 输入框写法）===
-        bottom := main.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(11).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
-        bottom.Add("TextBlock").Text(GetLang("类型:")).VerticalAlignment("Center")
-        kt := bottom.Add("ComboBox").Name("KeyTypeCon").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0")
+        ; 行3：底部参数行
+        bottom := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(11).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
+        ; 类型组：标签+下拉框合成盒子，提示挂盒子上（主界面 _ComboRow 同款）
+        typeBox := bottom.Add("StackPanel").Orientation("Horizontal").VerticalAlignment("Center").ToolTip(this._TypeHelpText())
+        typeBox.Add("TextBlock").Text(GetLang("类型:")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        kt := typeBox.Add("ComboBox").Name("KeyTypeCon").Width(80).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for t in GetLangArr(["按下", "松开", "点击"])
             kt.Add("ComboBoxItem").Content(t)
-        bottom.Add("Button").Name("BtnHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("4,0,0,0").Cursor("Hand")
-            .Background("{DynamicResource EditBg}").Foreground("{DynamicResource EditText}")
-            .BorderBrush("{DynamicResource EditStroke}").BorderThickness("1").Padding("0")
-        bottom.Add("TextBlock").Name("HoldTimeTipCon").Text(GetLang("点击时长:")).VerticalAlignment("Center").Margin("15,0,0,0")
-        bottom.Add("TextBox").Name("HoldTimeCon").Width(60).Height(24).MinHeight(24)
+        bottom.Add("TextBlock").Name("HoldTimeTipCon").Text(GetLang("点击时长:")).VerticalAlignment("Center").Margin("15,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        bottom.Add("TextBox").Name("HoldTimeCon").Width(60).Height(26).MinHeight(26)
             .VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(11).Margin("6,0,0,0")
+            .TextAlignment("Center").FontSize("11").Margin("6,0,0,0")
             .Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        bottom.Add("TextBlock").Name("KeyCountTipCon").Text(GetLang("点击次数：")).VerticalAlignment("Center").Margin("15,0,0,0")
-        bottom.Add("TextBox").Name("KeyCountCon").Width(60).Height(24).MinHeight(24)
+        bottom.Add("TextBlock").Name("KeyCountTipCon").Text(GetLang("点击次数：")).VerticalAlignment("Center").Margin("15,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        bottom.Add("TextBox").Name("KeyCountCon").Width(60).Height(26).MinHeight(26)
             .VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(11).Margin("6,0,0,0")
+            .TextAlignment("Center").FontSize("11").Margin("6,0,0,0")
             .Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        bottom.Add("TextBlock").Name("PerIntervalTipCon").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("15,0,0,0")
-        bottom.Add("TextBox").Name("PerIntervalCon").Width(60).Height(24).MinHeight(24)
+        bottom.Add("TextBlock").Name("PerIntervalTipCon").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("15,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
+        bottom.Add("TextBox").Name("PerIntervalCon").Width(60).Height(26).MinHeight(26)
             .VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Center").FontSize(11).Margin("6,0,0,0")
+            .TextAlignment("Center").FontSize("11").Margin("6,0,0,0")
             .Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        bottom.Add("TextBlock").Name("CommandStrCon").Text(GetLang("当前指令：无")).VerticalAlignment("Center").Margin("15,0,0,0")
+        bottom.Add("TextBlock").Name("CommandStrCon").Text(GetLang("当前指令：无")).VerticalAlignment("Center").Margin("15,0,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
 
-        ; === 底部按钮行 ===
-        btnRow := main.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(11).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        ; 行4：底部按钮行
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(11).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Height(28).MinHeight(28).Padding("14,0").Margin("4,0").Cursor("Hand")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0").Margin("4,0").Cursor("Hand")
 
-        ; === 生成按键网格（加入 main，随后 main.ToString() 生效）===
+        ; ---- Tab2 错误处理 ----
+        ti2 := tc.Add("TabItem").Header(GetLang("错误处理"))
+        body2 := ti2.Add("Grid").Margin("16,14,16,14")
+        body2.Rows("34", "34", "34", "*")
+        ehRow1 := body2.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow1.Add("TextBlock").Text(GetLang("错误处理：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehCombo := ehRow1.Add("ComboBox").Name("EHModeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("停止运行")).Tag("stop")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("忽略错误并继续")).Tag("ignore")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("重试")).Tag("retry")
+
+        ehRow2 := body2.Add("StackPanel").Name("EHRetryRow").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow2.Add("TextBlock").Text(GetLang("重试次数：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow2.Add("TextBox").Name("EHRetryCount").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehRow3 := body2.Add("StackPanel").Name("EHIntervalRow").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow3.Add("TextBlock").Text(GetLang("重试间隔(ms)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow3.Add("TextBox").Name("EHRetryInterval").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehBtnRow := body2.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ehBtnRow.Add("Button").Name("BtnOk2").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
+
+        ; === 生成按键网格（加入 body，随后 main.ToString() 生效）===
         this._BuildKeyGrid()
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1280" Height="585" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1280" Height="640" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -151,9 +196,10 @@ class KeyGui {
         this.ui.OnEvent("KeyCountCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("PerIntervalCon", "TextChanged", ObjBindMethod(this, "OnChangeEditValue"))
         this.ui.OnEvent("JoyTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnJoyTypeChange"))
-        this.ui.OnEvent("BtnHelp", "Click", ObjBindMethod(this, "OnClickTypeHelpBtn"))
         this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearCheckedArr())
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
+        this.ui.OnEvent("EHModeCombo", "SelectionChanged", ObjBindMethod(this, "OnEHModeChange"))
+        this.ui.OnEvent("BtnOk2", "Click", ObjBindMethod(this, "OnSureBtnClick"))
 
         ; 类型/手柄类型初始值
         this.ui.Update("KeyTypeCon", "SelectedIndex", "2")   ; 默认 点击
@@ -207,9 +253,10 @@ class KeyGui {
     }
 
     _PlaceJoyType(x, y) {
-        this._keyGrid.Add("TextBlock").Text(GetLang("手柄类型")).FontSize(12)
+        this._keyGrid.Add("TextBlock").Text(GetLang("手柄类型")).FontSize(12).Foreground("{DynamicResource TextMain}")
             .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y + 3))
         jt := this._keyGrid.Add("ComboBox").Name("JoyTypeCombo").Width(80).Height(26).MinHeight(26)
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
             .SetProp("Canvas.Left", String(x + 70)).SetProp("Canvas.Top", String(y - 2))
         for t in ["Xbox", "PS5"]
             jt.Add("ComboBoxItem").Content(t)
@@ -375,14 +422,70 @@ class KeyGui {
     }
 
     Init(cmd) {
+        ; 阶段5：指令配置化。新格式 按键<serial> 读配置文件；旧格式 按键_a_点击_100 兼容解析
+        ; 兼容历史 |EH: 后缀（如有）：剥离，仅影响错误处理配置（Data 存 ErrMode 时优先 Data）
+        eh := RMTParseErrHandle(cmd)
+        cmd := eh.cmd
+        this._ehCfg := eh.cfg
+
         cmdArr := cmd != "" ? SplitCommand(cmd) : []
-        this.KeyStr := cmdArr.Length >= 2 ? cmdArr[2] : ""
-        this._SetKeyType(cmdArr.Length >= 3 ? cmdArr[3] : GetLang("点击"))
-        this.ui.Update("HoldTimeCon", "Text", cmdArr.Length >= 4 ? cmdArr[4] : 100)
-        this.ui.Update("KeyCountCon", "Text", cmdArr.Length >= 5 ? cmdArr[5] : 1)
-        this.ui.Update("PerIntervalCon", "Text", cmdArr.Length >= 6 ? cmdArr[6] : 200)
+        ; 备注：指令串第二段（按键<serial>_备注 或 旧 按键_a_点击 均取第二段）
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        SplitSerialTextAndNumbers(cmdArr.Length >= 1 ? cmdArr[1] : "", &textOnly, &numbersOnly)
+        if (numbersOnly != "") {
+            ; 新格式：读配置文件 Data
+            this.Data := GetMacroCMDData(cmdArr[1])
+            this.KeyStr := this.Data.KeyName
+            this._SetKeyType(GetLangArr(["按下", "松开", "点击"])[this.Data.KeyType])
+            this.ui.Update("HoldTimeCon", "Text", this.Data.HoldTime)
+            this.ui.Update("KeyCountCon", "Text", this.Data.Count)
+            this.ui.Update("PerIntervalCon", "Text", this.Data.IntervalTime)
+        } else {
+            this.Data := KeyDataConfig()
+            this.KeyStr := cmdArr.Length >= 2 ? cmdArr[2] : ""
+            this._SetKeyType(cmdArr.Length >= 3 ? cmdArr[3] : GetLang("点击"))
+            this.ui.Update("HoldTimeCon", "Text", cmdArr.Length >= 4 ? cmdArr[4] : 100)
+            this.ui.Update("KeyCountCon", "Text", cmdArr.Length >= 5 ? cmdArr[5] : 1)
+            this.ui.Update("PerIntervalCon", "Text", cmdArr.Length >= 6 ? cmdArr[6] : 200)
+        }
 
         this.RefreshCheckCon(this.KeyStr)
+        this._InitEH()
+    }
+
+    ; ============ 错误处理（阶段5，影刀模式）============
+
+    ; 初始化错误处理页
+    _InitEH() {
+        mode := this.Data.HasOwnProp("ErrMode") ? this.Data.ErrMode : "stop"
+        if (IsObject(this._ehCfg))
+            mode := this._ehCfg.mode
+        idx := 0
+        for i, m in ["stop", "ignore", "retry"] {
+            if (m == mode) {
+                idx := i - 1
+                break
+            }
+        }
+        if (IsObject(this.ui)) {
+            this.ui.Update("EHModeCombo", "SelectedIndex", String(idx))
+            this.ui.Update("EHRetryCount", "Text", this.Data.HasOwnProp("ErrRetryCount") ? this.Data.ErrRetryCount : "3")
+            this.ui.Update("EHRetryInterval", "Text", this.Data.HasOwnProp("ErrRetryInterval") ? this.Data.ErrRetryInterval : "500")
+            this.OnEHModeChange()
+        }
+    }
+
+    _EHMode() {
+        v := IsObject(this.ui) ? this.ui.Query("EHModeCombo>SelectedIndex") : ""
+        return IsNumber(v) ? Integer(v) : 0
+    }
+
+    OnEHModeChange(state := "", ctrl := "", event := "") {
+        showRetry := this._EHMode() == 2
+        if (IsObject(this.ui)) {
+            this.ui.Update("EHRetryRow", "Visibility", showRetry ? "Visible" : "Collapsed")
+            this.ui.Update("EHIntervalRow", "Visibility", showRetry ? "Visible" : "Collapsed")
+        }
     }
 
     RefreshCheckCon(KeyArrStr) {
@@ -409,19 +512,43 @@ class KeyGui {
             return
 
         action := this.SureBtnAction
-        action(this.CommandStr)
+        action(this.GetCmdStr())
         this.OnGuiClose()
     }
 
-    OnClickTypeHelpBtn(*) {
+    ; 阶段5：指令配置化——组装 Data 保存到配置文件，返回 按键<serial>_备注
+    GetCmdStr() {
+        ; 复用旧 CommandStr 的 UI 值解析（KeyStr 已在 UpdateCommandStr 刷新）
+        cmdArr := SplitCommand(this.CommandStr)
+        this.Data.KeyName := this.KeyStr
+        this.Data.KeyType := this._KeyTypeIndex()          ; 1按下 2松开 3点击
+        this.Data.HoldTime := cmdArr.Length >= 4 ? cmdArr[4] : 100
+        this.Data.Count := cmdArr.Length >= 5 ? cmdArr[5] : 1
+        this.Data.IntervalTime := cmdArr.Length >= 6 ? cmdArr[6] : 0
+        ; 错误处理（阶段5）
+        this.Data.ErrMode := ["stop", "ignore", "retry"][this._EHMode() + 1]
+        this.Data.ErrRetryCount := this.ui.Query("EHRetryCount")
+        this.Data.ErrRetryInterval := this.ui.Query("EHRetryInterval")
+
+        ; 生成序列码（首次保存分配，后续复用）
+        if (this.Data.SerialStr == "")
+            this.Data.SerialStr := GetCMDSerialStr(GetLang("按键"))
+        SaveMacroCMDData(this.Data)
+        ; 备注：用户备注优先，为空则自动生成操作内容
+        remark := Trim(this.ui.Query("RemarkCon"))
+        if (remark == "")
+            remark := this.KeyStr "_" this._KeyTypeText()
+        return CorrectRemark(this.Data.SerialStr, remark)
+    }
+
+    ; 按键类型帮助提示（主界面样式：ToolTip 挂标签，不用问号按钮）
+    _TypeHelpText() {
         str1 := GetLang("按下，松开是不消耗时间的，可以理解为瞬发")
         str2 := GetLang("指令按下a，不是连续不间断的输入a（物理键盘上长按a，系统会经过处理，不断的松开，然后再按下）")
         str3 := GetLang("按下后建议搭配一个松开，如果不松开再次按下，后续按下指令可能无效（卡键）")
         str4 := GetLang("点击时间小于200表现为点击， 大于250表现为长按")
         str5 := GetLang("点击消耗的时间：（点击时间+每次间隔）*点击次数 - 每次间隔")
-
-        str := Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
-        MsgBox(str, GetLang("按键类型说明"))
+        return Format("{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5)
     }
 
     OnChangeEditValue(state, ctrl, event) {

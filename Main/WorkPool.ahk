@@ -925,7 +925,19 @@ class WorkPool {
                         p := StrSplit(args[2], ".")
                         RemoveAtGlobalArray(args[1], p[1], p[2], wd.idx)
                     case "ER":
-                        MyErrorMsgBoxGui.ShowGui(args[1])
+                        ; Worker 错误上报（统一日志 C 项）：payload = "级别|workerIdx|完整信息"
+                        ; 主进程聚合到错误中心 + 写系统日志；错误中心已有 ErrorList 累积显示
+                        try {
+                            erParts := StrSplit(args[1], "|", , 3)
+                            erLevel := erParts.Length >= 1 ? erParts[1] : "error"
+                            erSrc := erParts.Length >= 2 ? ("Worker#" erParts[2]) : ("Worker#" wd.idx)
+                            erMsg := erParts.Length >= 3 ? erParts[3] : args[1]
+                            ; 走 RMTErrorShow 统一按级别通知（warn 气泡 / error 错误中心，均可开关）
+                            RMTErrorShow("宏执行异常: " erMsg, erLevel, erSrc)
+                        } catch {
+                            RMTLogSys(RMT_LV_ERROR, "Worker#" wd.idx, "ER解析失败: " args[1])
+                            MyErrorMsgBoxGui.ShowGui(args[1])
+                        }
                     case "ST":
                         StopMacro(args[1], args[2])
                     case "HK":

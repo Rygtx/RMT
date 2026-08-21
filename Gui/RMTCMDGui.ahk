@@ -116,30 +116,73 @@ class RMTCMDGui {
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("15,14")
-        body.Rows("40", "40", "40", "*")
+        ; === 内容：TabControl（常规 / 错误处理）===
+        tc := main.Add("TabControl").Grid_Row(1).Margin("8,8,8,8").Name("MainTab")
+
+        ; ---- Tab1 常规 ----
+        ti1 := tc.Add("TabItem").Header(GetLang("常规"))
+        body := ti1.Add("Grid").Margin("15,14,15,14")
+        body.Rows("40", "40", "40", "40", "*")
         body.Cols("80", "*")
 
-        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("类别：")).VerticalAlignment("Center")
-        cat := body.Add("ComboBox").Grid_Row(0).Grid_Column(1).Name("CategoryCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+        ; 备注（放选项卡第一个位置）
+        body.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text(GetLang("备注：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("TextBox").Grid_Row(0).Grid_Column(1).Name("RemarkCon").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("类别：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        cat := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("CategoryCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
         for c in this.CategoriesArr
             cat.Add("ComboBoxItem").Content(c)
 
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("指令：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("CmdTypeCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+        body.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("指令：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        body.Add("ComboBox").Grid_Row(2).Grid_Column(1).Name("CmdTypeCombo").Width(180).Height(26).MinHeight(26).HorizontalAlignment("Left")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        menuRow := body.Add("StackPanel").Name("MenuRow").Grid_Row(2).Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center")
-        menuRow.Add("TextBlock").Text(GetLang("菜单序号：")).VerticalAlignment("Center")
+        menuRow := body.Add("StackPanel").Name("MenuRow").Grid_Row(3).Grid_Column(1).Orientation("Horizontal").VerticalAlignment("Center")
+        menuRow.Add("TextBlock").Text(GetLang("菜单序号：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
         menuRow.Add("ComboBox").Name("MenuDLCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
 
-        btnRow := body.Add("StackPanel").Grid_Row(3).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+        btnRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
+
+        ; ---- Tab2 错误处理 ----
+        ti2 := tc.Add("TabItem").Header(GetLang("错误处理"))
+        body2 := ti2.Add("Grid").Margin("16,14,16,14")
+        body2.Rows("34", "34", "34", "*")
+        ehRow1 := body2.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow1.Add("TextBlock").Text(GetLang("错误处理：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehCombo := ehRow1.Add("ComboBox").Name("EHModeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("停止运行")).Tag("stop")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("忽略错误并继续")).Tag("ignore")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("重试")).Tag("retry")
+
+        ehRow2 := body2.Add("StackPanel").Name("EHRetryRow").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow2.Add("TextBlock").Text(GetLang("重试次数：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow2.Add("TextBox").Name("EHRetryCount").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehRow3 := body2.Add("StackPanel").Name("EHIntervalRow").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow3.Add("TextBlock").Text(GetLang("重试间隔(ms)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow3.Add("TextBox").Name("EHRetryInterval").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehBtnRow := body2.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ehBtnRow.Add("Button").Name("BtnOk2").Content(GetLang("确定")).Height(28).MinHeight(28).Padding("14,0")
 
         ; === 创建 XAMLHost ===
         tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
         this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="310" Height="210" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="310" SizeToContent="Height" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -150,6 +193,8 @@ class RMTCMDGui {
         this.ui.OnEvent("CategoryCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChane"))
         this.ui.OnEvent("CmdTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnCmdChange"))
         this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
+        this.ui.OnEvent("EHModeCombo", "SelectionChanged", ObjBindMethod(this, "OnEHModeChange"))
+        this.ui.OnEvent("BtnOk2", "Click", ObjBindMethod(this, "OnSureBtnClick"))
 
         this.ui.Show()
 
@@ -220,9 +265,23 @@ class RMTCMDGui {
     }
 
     Init(cmd) {
-        ; 新格式: RMT指令_类别_指令 或 RMT指令_类别_指令_序号
+        ; 阶段5：指令配置化。新格式 RMT指令<serial> 读配置文件；旧格式 RMT指令_类别_指令[_序号] 兼容
+        eh := RMTParseErrHandle(cmd)
+        cmd := eh.cmd
+        this._ehCfg := eh.cfg
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
-        if (cmdArr.Length >= 4) {
+        ; 统一初始化 Data（旧格式/新建也赋值，错误处理页可读写）
+        this.Data := RMTCMDData()
+        ; 备注：指令串第二段（RMT指令<serial>_备注 或 旧 RMT指令_类别_指令 取第二段）
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        SplitSerialTextAndNumbers(cmdArr.Length >= 1 ? cmdArr[1] : "", &textOnly, &numbersOnly)
+        if (numbersOnly != "") {
+            ; 新格式：读配置文件 Data
+            this.Data := GetMacroCMDData(cmdArr[1])
+            cmdCategory := this.Data.Category
+            cmdStr := this.Data.CmdStr
+            menuDLIndex := this.Data.HasOwnProp("MenuIndex") ? this.Data.MenuIndex : 1
+        } else if (cmdArr.Length >= 4) {
             cmdCategory := cmdArr[2]
             cmdStr := cmdArr[3]
             menuDLIndex := cmdStr == GetLang("显示菜单") && cmdArr.Length >= 5 ? Integer(cmdArr[4]) : 1
@@ -252,6 +311,41 @@ class RMTCMDGui {
         for it in DropDownArr
             this.ui.Update("MenuDLCombo", "AddItem", it)
         this.ui.Update("MenuDLCombo", "SelectedIndex", String(menuDLIndex - 1))
+        this._InitEH()
+    }
+
+    ; ============ 错误处理（阶段5，影刀模式）============
+
+    _InitEH() {
+        mode := this.Data.HasOwnProp("ErrMode") ? this.Data.ErrMode : "stop"
+        if (IsObject(this._ehCfg))
+            mode := this._ehCfg.mode
+        idx := 0
+        for i, m in ["stop", "ignore", "retry"] {
+            if (m == mode) {
+                idx := i - 1
+                break
+            }
+        }
+        if (IsObject(this.ui)) {
+            this.ui.Update("EHModeCombo", "SelectedIndex", String(idx))
+            this.ui.Update("EHRetryCount", "Text", this.Data.HasOwnProp("ErrRetryCount") ? this.Data.ErrRetryCount : "3")
+            this.ui.Update("EHRetryInterval", "Text", this.Data.HasOwnProp("ErrRetryInterval") ? this.Data.ErrRetryInterval : "500")
+            this.OnEHModeChange()
+        }
+    }
+
+    _EHMode() {
+        v := IsObject(this.ui) ? this.ui.Query("EHModeCombo>SelectedIndex") : ""
+        return IsNumber(v) ? Integer(v) : 0
+    }
+
+    OnEHModeChange(state := "", ctrl := "", event := "") {
+        showRetry := this._EHMode() == 2
+        if (IsObject(this.ui)) {
+            this.ui.Update("EHRetryRow", "Visibility", showRetry ? "Visible" : "Collapsed")
+            this.ui.Update("EHIntervalRow", "Visibility", showRetry ? "Visible" : "Collapsed")
+        }
     }
 
     OnTypeChane(state := "", ctrl := "", event := "") {
@@ -275,9 +369,33 @@ class RMTCMDGui {
     OnSureBtnClick(state, ctrl, event) {
         if (!this.CheckIfValid())
             return
-        CommandStr := this.GetCommandStr()
+        CommandStr := this.GetCmdStr()
         this.SureBtnAction.Call(CommandStr)
         this._CloseWindow()
+    }
+
+    ; 阶段5：指令配置化——组装 Data 保存到配置文件，返回 RMT指令<serial>_备注
+    GetCmdStr() {
+        if (!IsObject(this.Data))
+            this.Data := RMTCMDData()
+        this.Data.Category := this.ui.Query("CategoryCombo")
+        this.Data.CmdStr := this.ui.Query("CmdTypeCombo")
+        this.Data.OperateType := 0   ; 旧字段占位（保留兼容）
+        this.Data.MenuIndex := this.ui.Query("CmdTypeCombo") == GetLang("显示菜单")
+            ? (Integer(this.ui.Query("MenuDLCombo>SelectedIndex")) + 1) : 1
+        ; 错误处理（阶段5）
+        this.Data.ErrMode := ["stop", "ignore", "retry"][this._EHMode() + 1]
+        this.Data.ErrRetryCount := this.ui.Query("EHRetryCount")
+        this.Data.ErrRetryInterval := this.ui.Query("EHRetryInterval")
+
+        if (this.Data.SerialStr == "")
+            this.Data.SerialStr := GetCMDSerialStr(GetLang("RMT指令"))
+        SaveMacroCMDData(this.Data)
+        ; 备注：用户备注优先，为空则自动生成操作内容
+        remark := Trim(this.ui.Query("RemarkCon"))
+        if (remark == "")
+            remark := this.Data.CmdStr
+        return CorrectRemark(this.Data.SerialStr, remark)
     }
 
     CheckIfValid() {
