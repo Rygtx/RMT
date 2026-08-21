@@ -14523,6 +14523,21 @@ public class VirtualListHost
         object tmp = _items[ia];
         _items[ia] = _items[ib];
         _items[ib] = tmp;
+        // 槽位交换后对象跟随新位置：Id/SeqNo 必须同步交换，否则后续 VL_ROW 按 Id
+        // 命中旧位置对象、把内容写回原槽位（现象：序号动了、内容没动），且 _byId 失配。
+        string tmpId = ((VLItem)a).Id;
+        ((VLItem)a).Id = ((VLItem)b).Id;
+        ((VLItem)b).Id = tmpId;
+        _byId.Remove(f[0]); _byId.Remove(f[1]);
+        _byId[((VLItem)a).Id] = a;
+        _byId[((VLItem)b).Id] = b;
+        VListRow ra = a as VListRow, rb = b as VListRow;
+        if (ra != null && rb != null)
+        {
+            string tmpSeq = ra.SeqNo;
+            ra.SeqNo = rb.SeqNo;
+            rb.SeqNo = tmpSeq;
+        }
         RestoreAnchor();
     }
 

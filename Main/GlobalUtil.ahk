@@ -57,6 +57,7 @@
 #Include ..\Gui\ErrorMsgBoxGui.ahk
 #Include ..\Gui\CustomInputGui.ahk
 #Include ..\Gui\InputBtnGui.ahk
+#Include ..\Gui\InputBtnXamlGui.ahk
 #Include ..\Gui\ConfigMergeGui.ahk
 #Include ..\Gui\TabItemUIUtil.ahk
 

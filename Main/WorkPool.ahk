@@ -955,8 +955,8 @@ class WorkPool {
         GraphPoolLog("输入请求处理", Format("wd=#{1} type={2}", wd.idx, isBtn ? "btn" : "input"))
         try {
             if (isBtn) {
-                ; 输入按钮条：独立 InputBtnGui 实例（原生 GUI）
-                gui := InputBtnGui()
+                ; 输入按钮条：独立 InputBtnXamlGui 实例（XAML，复用主进程 daemon，多窗口并发）
+                gui := InputBtnXamlGui()
                 req.gui := gui
                 gui.TrueAction := (*) => this._SendInputResult(req, "IBR", "true")
                 gui.FalseAction := (*) => this._SendInputResult(req, "IBR", "false")
