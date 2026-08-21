@@ -21,7 +21,6 @@ SelfCheckMissingFiles() {
         "Audio\End.wav", "End.wav",
         "Plugins\ViGEm\ViGEmWrapper.dll", "ViGEmWrapper.dll",
         "Joy\ViGEmBus.exe", "ViGEmBus.exe",
-        "Joy\Ori.png", "Ori.png",
         "Joy\Xbox按键映射.png", "Xbox.png",
         "Plugins\AHK-XAML\lib\dep\ahk-xaml.dll", "ahk-xaml.dll",
         "Plugins\AHK-XAML\lib\dep\WpfAnimatedGif\WpfAnimatedGif.dll", "WpfAnimatedGif.dll",
@@ -29,6 +28,12 @@ SelfCheckMissingFiles() {
         "Plugins\OpenCV\" arch "\opencv_world481.dll", "opencv_world481.dll",
         "Plugins\RapidOcr\" bitArch "\RapidOcrOnnx.dll", "RapidOcrOnnx.dll",
         "Plugins\ScreenCapture\ScreenCapture.exe", "ScreenCapture.exe",
+        "Plugins\AhiDriver\AutoHotInterception.dll", "AutoHotInterception.dll",
+        "Plugins\AhiDriver\x64\interception.dll", "interception_x64.dll",
+        "Plugins\AhiDriver\x86\interception.dll", "interception_x86.dll",
+        "Plugins\AHI\install.ps1", "install.ps1",
+        "Plugins\AHI\安装卸载.bat", "InstallUninstall.bat",
+        "Plugins\AHI\command line installer\install-interception.exe", "install-interception.exe",
         "Plugins\RapidOcr\ch_models\ch_PP-OCRv4_det_infer.onnx", "ch_PP-OCRv4_det_infer.onnx",
         "Plugins\RapidOcr\ch_models\ch_PP-OCRv4_rec_infer.onnx", "ch_PP-OCRv4_rec_infer.onnx",
         "Plugins\RapidOcr\ch_models\ppocr_keys_v1.txt", "ppocr_keys_v1.txt",
@@ -52,7 +57,7 @@ SelfCheckMissingFiles() {
         "Operation.png", "Output.png", "RedColor.png", "Run.png", "Search.png",
         "SearchPro.png", "Sub.png", "Target.png", "TextOps.png", "True.png",
         "Var.png", "WeiXin.png", "WindowManage.png", "YellowColor.png",
-        "ZhiFuBao.png", "rabit.ico", "rabit.png", "Comment.png"]
+        "ZhiFuBao.png", "rabit.ico", "rabit.png", "Comment.png", "ScreenShot.png"]
 
     missingCritical := []
     missingOptional := []

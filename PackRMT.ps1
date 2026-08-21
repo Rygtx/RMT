@@ -430,6 +430,15 @@ function New-Release {
         Copy-Item -Path "$PSScriptRoot\ReleaseX86\*" -Destination $destX86 -Recurse -Force
     }
 
+    # 生成资源清单目录（对应 Main\SelfCheck.ahk 的文件校验清单）
+    Write-Section "生成资源清单 (RMTAssets)"
+    if ($Type -eq "x64" -or $Type -eq "both") {
+        New-RMTAssets -Arch "x64" -ReleaseDir $rmtReleaseDir
+    }
+    if ($Type -eq "x86" -or $Type -eq "both") {
+        New-RMTAssets -Arch "x86" -ReleaseDir $rmtReleaseDir
+    }
+
     Write-Section "压缩发行包"
     if ($Type -eq "x64" -or $Type -eq "both") {
         Compress-ReleaseZip -SourceDir (Join-Path $versionDir "RMTv${version}_x64") -ZipPath (Join-Path $rmtReleaseDir "RMTv${version}_x64.zip")
@@ -463,6 +472,10 @@ function New-Release {
     Write-Log "to $rmtReleaseDir\RMTv${version}_x64.zip" "White"
     if ($Type -eq "both") {
         Write-Log "to $rmtReleaseDir\RMTv${version}_x86.zip" "White"
+    }
+    Write-Log "to $rmtReleaseDir\RMTAssets_x64" "White"
+    if ($Type -eq "both") {
+        Write-Log "to $rmtReleaseDir\RMTAssets_x86" "White"
     }
     return $true
 }
@@ -624,6 +637,103 @@ function Compress-ReleaseZip {
     Compress-Archive -Path "$SourceDir\*" -DestinationPath $ZipPath -CompressionLevel Optimal
     $size = [math]::Round((Get-Item $ZipPath).Length / 1MB, 2)
     Write-Log "  [OK] $zipName ($size MB)" "Green"
+}
+
+# 生成 RMTAssets_{arch} 资源清单目录
+# 目录内为扁平化的资源文件，与 Main\SelfCheck.ahk 中 criticalMap / optionalMap / icoFileList
+# 一一对应，用于上传到 RMTAssets 仓库对应 tag（v{version}_{arch}）的 Release 资产
+function New-RMTAssets {
+    param([string]$Arch, [string]$ReleaseDir)
+
+    $bitArch = if ($Arch -eq "x64") { "64bit" } else { "32bit" }
+    $assetsDir = Join-Path $ReleaseDir "RMTAssets_$Arch"
+    New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+    Write-Log "生成 $assetsDir ..." "Gray"
+
+    # 关键文件 + 可选文件（本地路径 -> 资源名，与 SelfCheck.ahk 保持一致）
+    $assetList = @(
+        @{ Dest = "RMT.dll";                         Src = "Plugins\RMT\RMT.dll" },
+        @{ Dest = "IbInputSimulator.dll";            Src = "Plugins\IbInputSimulator.dll" },
+        @{ Dest = "Start.wav";                       Src = "Audio\Start.wav" },
+        @{ Dest = "End.wav";                         Src = "Audio\End.wav" },
+        @{ Dest = "ViGEmWrapper.dll";                Src = "Plugins\ViGEm\ViGEmWrapper.dll" },
+        @{ Dest = "ViGEmBus.exe";                    Src = "Joy\ViGEmBus.exe" },
+        @{ Dest = "Xbox.png";                        Src = "Joy\Xbox按键映射.png" },
+        @{ Dest = "ahk-xaml.dll";                    Src = "Plugins\AHK-XAML\lib\dep\ahk-xaml.dll" },
+        @{ Dest = "WpfAnimatedGif.dll";              Src = "Plugins\AHK-XAML\lib\dep\WpfAnimatedGif\WpfAnimatedGif.dll" },
+        @{ Dest = "RMT_OpenCV.dll";                  Src = "Plugins\OpenCV\$Arch\RMT_OpenCV.dll" },
+        @{ Dest = "opencv_world481.dll";             Src = "Plugins\OpenCV\$Arch\opencv_world481.dll" },
+        @{ Dest = "RapidOcrOnnx.dll";                Src = "Plugins\RapidOcr\$bitArch\RapidOcrOnnx.dll" },
+        @{ Dest = "ScreenCapture.exe";               Src = "Plugins\ScreenCapture\ScreenCapture.exe" },
+        @{ Dest = "AutoHotInterception.dll";         Src = "Plugins\AhiDriver\AutoHotInterception.dll" },
+        @{ Dest = "interception_x64.dll";            Src = "Plugins\AhiDriver\x64\interception.dll" },
+        @{ Dest = "interception_x86.dll";            Src = "Plugins\AhiDriver\x86\interception.dll" },
+        @{ Dest = "install.ps1";                     Src = "Plugins\AHI\install.ps1" },
+        @{ Dest = "InstallUninstall.bat";            Src = "Plugins\AHI\安装卸载.bat" },
+        @{ Dest = "install-interception.exe";        Src = "Plugins\AHI\command line installer\install-interception.exe" },
+        @{ Dest = "ch_PP-OCRv4_det_infer.onnx";      Src = "Plugins\RapidOcr\ch_models\ch_PP-OCRv4_det_infer.onnx" },
+        @{ Dest = "ch_PP-OCRv4_rec_infer.onnx";      Src = "Plugins\RapidOcr\ch_models\ch_PP-OCRv4_rec_infer.onnx" },
+        @{ Dest = "ppocr_keys_v1.txt";               Src = "Plugins\RapidOcr\ch_models\ppocr_keys_v1.txt" },
+        @{ Dest = "en_PP-OCRv3_det_infer.onnx";      Src = "Plugins\RapidOcr\en_models\en_PP-OCRv3_det_infer.onnx" },
+        @{ Dest = "en_PP-OCRv4_rec_infer.onnx";      Src = "Plugins\RapidOcr\en_models\en_PP-OCRv4_rec_infer.onnx" },
+        @{ Dest = "ppocr_keys_v1_en.txt";            Src = "Plugins\RapidOcr\en_models\ppocr_keys_v1.txt" },
+        @{ Dest = "chinese.txt";                     Src = "Lang\中文.txt" },
+        @{ Dest = "English.txt";                     Src = "Lang\English.txt" },
+        @{ Dest = "Work.exe";                        Src = "Release$Arch\Thread\Work.exe" },
+        @{ Dest = "index.html";                      Src = "index.html" },
+        @{ Dest = "MouseControl.dll";                Src = "Plugins\MouseControl.dll" },
+        @{ Dest = "PlayAudio.vbs";                   Src = "MinTool\PlayAudio.vbs" },
+        @{ Dest = "CountDown.exe";                   Src = "MinTool\CountDown.exe" }
+    )
+
+    $missing = 0
+    foreach ($asset in $assetList) {
+        $src = Join-Path $PSScriptRoot $asset.Src
+        if (-not (Test-Path $src)) {
+            Write-Log "  [WARN] 未找到: $($asset.Src)" "Yellow"
+            $missing++
+            continue
+        }
+        Copy-Item $src -Destination (Join-Path $assetsDir $asset.Dest) -Force
+        Write-Log "  已复制: $($asset.Dest)" "Gray"
+    }
+
+    # 生成 ico.zip（Images\Soft 下 SelfCheck.ahk 的 icoFileList）
+    $icoList = @(
+        "Arr.png", "Condition.png", "Control.png", "Extract.png", "False.png",
+        "FileIO.png", "GreenColor.png", "IcoPause.ico", "If.png", "IfPro.png",
+        "Input.png", "Interval.png", "Key.png", "KeyCheck.png", "Loop.png",
+        "LoopBody.png", "LoopCount.png", "Mouse.png", "Move.png", "MovePro.png",
+        "Operation.png", "Output.png", "RedColor.png", "Run.png", "Search.png",
+        "SearchPro.png", "Sub.png", "Target.png", "TextOps.png", "True.png",
+        "Var.png", "WeiXin.png", "WindowManage.png", "YellowColor.png",
+        "ZhiFuBao.png", "rabit.ico", "rabit.png", "Comment.png", "ScreenShot.png"
+    )
+
+    $softDir = Join-Path $PSScriptRoot "Images\Soft"
+    $icoTempDir = Join-Path $assetsDir "_ico_temp"
+    New-Item -ItemType Directory -Path $icoTempDir -Force | Out-Null
+    $icoMissing = 0
+    foreach ($ico in $icoList) {
+        $src = Join-Path $softDir $ico
+        if (Test-Path $src) {
+            Copy-Item $src -Destination (Join-Path $icoTempDir $ico) -Force
+        } else {
+            Write-Log "  [WARN] 未找到图标: $ico" "Yellow"
+            $icoMissing++
+        }
+    }
+    $icoZip = Join-Path $assetsDir "ico.zip"
+    if (Test-Path $icoZip) { Remove-Item $icoZip -Force }
+    Compress-Archive -Path "$icoTempDir\*" -DestinationPath $icoZip -CompressionLevel Optimal
+    Remove-Item $icoTempDir -Recurse -Force
+    Write-Log "  已生成: ico.zip ($($icoList.Count - $icoMissing) 个文件)" "Gray"
+
+    if ($missing -gt 0 -or $icoMissing -gt 0) {
+        Write-Log "  [WARN] RMTAssets_$Arch 存在缺失文件" "Yellow"
+    } else {
+        Write-Log "  [OK] RMTAssets_$Arch 生成完成" "Green"
+    }
 }
 
 # ============================================================
