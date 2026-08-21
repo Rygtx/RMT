@@ -910,8 +910,8 @@ class CompareData {
 class CompareProData {
     __New() {
         this.VariNameArr := [["Var1"], ["Var2"]]
-        this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := [[1], [2]]
+        this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等于 5小于 6字符包含 7存在变量 8正则匹配（与 CompareData 一致）
+        this.VariableArr := [["1"], ["2"]]
         this.LogicTypeArr := [1, 2]
         this.ControlTypeArr := ["无", "无"]
         this.MacroArr := ["按键_a_点击_100", "按键_b_点击_100"]

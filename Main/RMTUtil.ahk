@@ -581,6 +581,9 @@ SetCMDTipValue(value) {
 }
 
 CMDReport(CMDStr) {
+    ; 主进程以 CMDTip 为准：Worker 上报与关闭存在竞态，关闭后丢弃迟到的 RP
+    if (!MySoftData.CMDTip)
+        return
     MyCMDTipGui.ShowGui(CMDStr)
 }
 
@@ -805,15 +808,8 @@ ExcuteRMTCMDAction(Cmd) {
             SetCMDTipValue(false)
             if (UIControls.CMDTip)
                 UIControls.CMDTip.Value := false
-            if (!IsObject(MyCMDTipGui.Gui))
-                return
-
-            try {
-                style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
-                isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-                if (isVisible)
-                    MyCMDTipGui.Gui.Hide()
-            }
+            ; 完整关闭（清内容+隐藏），勿仅 Gui.Hide；多线程下后续 RP 由 CMDReport 按 CMDTip 拦截
+            MyCMDTipGui.Hide()
         case "开启变量监视":
             RefreshListenVarGui(true)
         case "关闭变量监视":
@@ -1500,6 +1496,22 @@ IsElevatedViaUACConsent() {
         , "int*", &elevType, "uint", 4, "uint*", &retLen)
     DllCall("CloseHandle", "ptr", hToken)
     return ok && (elevType == 2)
+}
+
+; 当前进程是否真正以提升权限运行（TokenIsElevated）
+; 勿用 A_IsAdmin：管理员组成员在未提权时也可能为真，导致托盘误显「管理员权限」
+IsProcessElevated() {
+    hToken := 0
+    if !DllCall("advapi32\OpenProcessToken", "ptr", DllCall("GetCurrentProcess", "ptr")
+        , "uint", 0x0008, "ptr*", &hToken)  ; TOKEN_QUERY
+        return false
+    elev := 0
+    retLen := 0
+    ; TokenElevation = 20，TOKEN_ELEVATION.TokenIsElevated
+    ok := DllCall("advapi32\GetTokenInformation", "ptr", hToken, "int", 20
+        , "uint*", &elev, "uint", 4, "uint*", &retLen)
+    DllCall("CloseHandle", "ptr", hToken)
+    return ok && (elev != 0)
 }
 
 ElevateToAdmin() {

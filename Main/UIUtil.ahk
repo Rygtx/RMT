@@ -774,7 +774,7 @@ CustomTrayMenu() {
         Sleep(1000)
     }
     tipStr := MainSoftData.MyGui.Title
-    if (A_IsAdmin)
+    if (IsProcessElevated())
         tipStr .= "`n" GetLang("管理员权限")
 
     A_TrayMenu.Insert("&Suspend Hotkeys", GetLang("显示窗口"), (*) => RefreshGui())

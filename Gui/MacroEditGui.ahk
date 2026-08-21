@@ -50,6 +50,7 @@ class MacroEditGui {
         this.SaveBtnAction := ""
         this.SaveBtnCtrl := {}
         this.SubGuiMap := map()
+        this.OpenedSubGuis := []  ; 多开时额外创建的子指令编辑器实例
         this.MacroTreeViewCon := ""
         this.MacroEditTextCon := ""
         this.CmdEditType := 1  ;1添加指令 2修改当前指令 3向上插入指令 4 向下插入指令
@@ -1345,9 +1346,66 @@ class MacroEditGui {
         }
     }
 
+    ; 子指令窗口是否正在显示（用于同类型多开判断）
+    IsSubGuiVisible(subGui) {
+        if (!IsObject(subGui) || !ObjHasOwnProp(subGui, "Gui") || subGui.Gui == "")
+            return false
+        try {
+            return (WinGetStyle(subGui.Gui.Hwnd) & 0x10000000) != 0  ; WS_VISIBLE
+        } catch {
+            return false
+        }
+    }
+
+    ; 收集某共享子 GUI 同类型的全部实例（共享 + 多开额外实例）
+    GetSubGuiInstances(sharedGui) {
+        list := [sharedGui]
+        for g in this.OpenedSubGuis {
+            if (IsObject(g) && Type(g) == Type(sharedGui))
+                list.Push(g)
+        }
+        return list
+    }
+
+    ; 同一编辑上下文（类型+mode+节点）已打开则复用并前置；不同节点可多开
+    ResolveSubGuiInstance(sharedGui, modeType, itemId) {
+        for g in this.GetSubGuiInstances(sharedGui) {
+            if (!this.IsSubGuiVisible(g))
+                continue
+            openType := ObjHasOwnProp(g, "_OpenEditType") ? g._OpenEditType : ""
+            openItem := ObjHasOwnProp(g, "_OpenItemId") ? g._OpenItemId : ""
+            if (openType == modeType && openItem == itemId)
+                return g
+        }
+        for g in this.GetSubGuiInstances(sharedGui) {
+            if (!this.IsSubGuiVisible(g))
+                return g
+        }
+        guiClass := ""
+        for config in this.SubGuiConfig {
+            if (this.SubGuiMap[GetLang(config.name)] == sharedGui) {
+                guiClass := config.class
+                break
+            }
+        }
+        if (guiClass == "")
+            return sharedGui
+        newGui := guiClass()
+        this.OpenedSubGuis.Push(newGui)
+        return newGui
+    }
+
     ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
         this.CmdEditType := modeType
+        editType := modeType
+        itemId := this.CurItemID
+
+        ; 同节点再开：复用并覆盖前置；不同节点：多开新实例
+        subGui := this.ResolveSubGuiInstance(subGui, modeType, itemId)
+        subGui._OpenEditType := modeType
+        subGui._OpenItemId := itemId
+
         if ObjHasOwnProp(subGui, "ParentTile") {
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             subGui.ParentTile := ParentTile "-"
@@ -1359,6 +1417,9 @@ class MacroEditGui {
         else {
             subGui.OwnerHwnd := ""
         }
+
+        ; 绑定打开时的编辑上下文，多开时互不干扰
+        subGui.SureBtnAction := (CommandStr) => this.OnSubGuiSureBtnClick(CommandStr, editType, itemId)
 
         if (modeType == 2) {
             ItemText := this.MacroTreeViewCon.GetText(this.CurItemID)
@@ -1377,28 +1438,37 @@ class MacroEditGui {
         subGui.ShowGui("")
     }
 
-    ;确定子指令编辑器
-    OnSubGuiSureBtnClick(CommandStr) {
+    ;确定子指令编辑器（editType/itemId 为打开时捕获的上下文）
+    OnSubGuiSureBtnClick(CommandStr, editType := 1, itemId := 0) {
         style := WinGetStyle(this.Gui.Hwnd)
         isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
         if (!isVisible)
             return
 
-        if (this.CmdEditType == 1) {
+        savedType := this.CmdEditType
+        savedItem := this.CurItemID
+        this.CmdEditType := editType
+        if (itemId != 0)
+            this.CurItemID := itemId
+
+        if (editType == 1) {
             this.OnAddCmd(CommandStr)
         }
-        else if (this.CmdEditType == 2) {
+        else if (editType == 2) {
             this.OnModifyCmd(CommandStr)
         }
-        else if (this.CmdEditType == 3) {
+        else if (editType == 3) {
             this.OnPreInsertCmd(CommandStr)
         }
-        else if (this.CmdEditType == 4) {
+        else if (editType == 4) {
             this.OnNextInsertCmd(CommandStr)
         }
-        else if (this.CmdEditType == 5) {
+        else if (editType == 5) {
             this.OnSubNodeAddCmd(CommandStr)
         }
+
+        this.CmdEditType := savedType
+        this.CurItemID := savedItem
         UIControls.RecordToggle := this.RecordMacroCon
         MainSoftData.MacroEditGui := this
     }
@@ -1595,7 +1665,8 @@ class MacroEditGui {
             }
 
             itemID := containerItems.RemoveAt(bestIndex)
-            this.SaveCommandData(realCommandStr, "", itemID)
+            ; 如果Pro 条件分支：显式标记删除，避免与「空分支宏」混淆
+            this.SaveCommandData(realCommandStr, "删除条件", itemID)
         }
 
         ; 一般子指令才直接 Delete；從後往前刪，避免 TreeView handle 互相影響。
@@ -1649,9 +1720,10 @@ class MacroEditGui {
 
         NodeItemID := itemID
         RealItemID := ParentID
-        macroStr := ""
+        ; 容器节点（如果Pro 条件等）：删除分支本身，不是清空宏
+        macroStr := isContainer ? "删除条件" : ""
 
-        ; 普通指令：直接刪除，再將同層剩餘內容寫回父容器。
+        ; 普通指令：直接删除，再将同层剩余内容写回父容器。
         if (!isContainer) {
             this.MacroTreeViewCon.Delete(itemID)
             NodeItemID := ParentID
@@ -2199,20 +2271,24 @@ class MacroEditGui {
         }
         else if (cmd == GetLang("如果Pro")) {
             if (ItemNumber > Data.VariNameArr.Length) {
-                if (macroStr == "")
-                    MsgBox("最后的分支不能删除，已清空分支指令")
-                Data.DefaultMacro := Trim(macroStr)
+                ; 兜底分支不可删除，仅允许清空指令
+                if (macroStr == "删除条件" || macroStr == "")
+                    MsgBox(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"))
+                Data.DefaultMacro := (macroStr == "空条件" || macroStr == "删除条件") ? "" : Trim(macroStr)
             }
             else {
-                if (macroStr == "空条件") {
-                    Data.MacroArr[ItemNumber] := ""
-                }
-                else if (macroStr == "") {
+                ; 删除条件：显式删除该分支；空条件/空串：仅清空分支宏，保留条件本身
+                if (macroStr == "删除条件") {
+                    if (Data.ControlTypeArr.Length >= ItemNumber)
+                        Data.ControlTypeArr.RemoveAt(ItemNumber)
                     Data.VariNameArr.RemoveAt(ItemNumber)
                     Data.CompareTypeArr.RemoveAt(ItemNumber)
                     Data.VariableArr.RemoveAt(ItemNumber)
                     Data.LogicTypeArr.RemoveAt(ItemNumber)
                     Data.MacroArr.RemoveAt(ItemNumber)
+                }
+                else if (macroStr == "空条件" || macroStr == "") {
+                    Data.MacroArr[ItemNumber] := ""
                 }
                 else {
                     Data.MacroArr[ItemNumber] := Trim(macroStr)
