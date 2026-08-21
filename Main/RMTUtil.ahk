@@ -182,6 +182,7 @@ OnTabValueChanged(*) {
 }
 
 SwapTableContent(tableItem, indexA, indexB) {
+    ; 持久配置数组（保存到文件，必须跟随宏内容移动，否则上/下移后保存会错位）
     SwapArrValue(tableItem.SerialArr, indexA, indexB)
     SwapArrValue(tableItem.RemarkArr, indexA, indexB)
     SwapArrValue(tableItem.TKArr, indexA, indexB)
@@ -191,6 +192,23 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.LoopCountArr, indexA, indexB)
     SwapArrValue(tableItem.ForbidArr, indexA, indexB)
     SwapArrValue(tableItem.IcoPathArr, indexA, indexB)
+    SwapArrValue(tableItem.UnorderedTriggerArr, indexA, indexB)
+    SwapArrValue(tableItem.TimingSerialArr, indexA, indexB)
+    SwapArrValue(tableItem.ModeArr, indexA, indexB)
+    SwapArrValue(tableItem.StartTipSoundArr, indexA, indexB)
+    SwapArrValue(tableItem.EndTipSoundArr, indexA, indexB)
+    ; 运行时状态数组（与 ModeArr 等长，InitSingleTableState 统一初始化）
+    ; 颜色点跟随宏内容：行移动后状态显示与新位置宏保持一致（原仅交换 9 数组导致颜色点错位）
+    SwapArrValue(tableItem.ColorStateArr, indexA, indexB)
+    SwapArrValue(tableItem.HoldKeyArr, indexA, indexB)
+    SwapArrValue(tableItem.KilledArr, indexA, indexB)
+    SwapArrValue(tableItem.PauseArr, indexA, indexB)
+    SwapArrValue(tableItem.ActionCount, indexA, indexB)
+    SwapArrValue(tableItem.ToggleStateArr, indexA, indexB)
+    SwapArrValue(tableItem.ToggleActionArr, indexA, indexB)
+    SwapArrValue(tableItem.VariableMapArr, indexA, indexB)
+    SwapArrValue(tableItem.IsWorkIndexArr, indexA, indexB)
+    SwapArrValue(tableItem.GraphBranchCountArr, indexA, indexB)
 }
 
 SwapArrValue(Arr, indexA, indexB, valueType := 1) {
