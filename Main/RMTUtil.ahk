@@ -71,6 +71,8 @@ OnSaveSetting(*) {
     CheckAndAddDirty("AutoLoosenModifier", MainSoftData.AutoLoosenModifier ? 1 : 0)
     CheckAndAddDirty("ContinuousTrigger", MainSoftData.ContinuousTrigger ? 1 : 0)
     CheckAndAddDirty("SharedCopy", MainSoftData.SharedCopy)
+    CheckAndAddDirty("GeneralContextMenu", MainSoftData.HasProp("GeneralContextMenu") ? MainSoftData.GeneralContextMenu : "")
+    CheckAndAddDirty("BranchContextMenu",  MainSoftData.HasProp("BranchContextMenu")  ? MainSoftData.BranchContextMenu  : "")
     CheckAndAddDirty("RemarkAutoType", MainSoftData.RemarkAutoType)
     CheckAndAddDirty("MacroStopType", MainSoftData.MacroStopType)
     CheckAndAddDirty("Theme", MainSoftData.Theme)

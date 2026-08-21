@@ -502,11 +502,8 @@ AddSettingUI(index) {
     con.Value := MainSoftData.ShowSplitLine
     con.OnEvent("Click", (ctrl, info) => MainSoftData.ShowSplitLine := ctrl.Value)
 
-    con := AddTableControl("CheckBox", Format("x{} y{}", posX + 635, posY), GetLang("共享复制"), tableItem)
-    con.Value := MainSoftData.SharedCopy
-    con.OnEvent("Click", (ctrl, info) => MainSoftData.SharedCopy := !!ctrl.Value)
-    Con := AddTableControl("Button", Format("x{} y{} w30 h27", posX + 725, posY - 5), "?", tableItem)
-    Con.OnEvent("Click", OnClickSharedCopyHelpBtn)
+    con := AddTableControl("Button", Format("x{} y{} w110 h27", posX + 635, posY - 5), GetLang("右键菜单设置"), tableItem)
+    con.OnEvent("Click", (*) => RightClickMenuSettingGui().ShowGui())
 
     posY += 40
     con := AddTableControl("GroupBox", Format("x{} y{} w890 h140", posX + 10, posY), GetLang("下拉框选项"), tableItem)
