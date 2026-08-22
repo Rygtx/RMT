@@ -1652,22 +1652,37 @@ OnScreenShot(tableItem, cmd, index) {
     endX := GetReplaceVarText(tableItem, index, Data.EndPosX)
     endY := GetReplaceVarText(tableItem, index, Data.EndPosY)
 
-    if (!IsNumber(startX) || !IsNumber(startY) || !IsNumber(endX) || !IsNumber(endY))
+    ShotDebugLog(Format("抓图 cmd={} type={} 原始坐标 startX={} startY={} endX={} endY={}"
+        , cmd, Data.ScreenShotType, Data.StartPosX, Data.StartPosY, Data.EndPosX, Data.EndPosY))
+
+    if (!IsNumber(startX) || !IsNumber(startY) || !IsNumber(endX) || !IsNumber(endY)) {
+        ShotDebugLog(Format("坐标不是有效数字，已终止：startX={} startY={} endX={} endY={}"
+            , startX, startY, endX, endY))
         return
+    }
 
     startX := Number(startX)
     startY := Number(startY)
     endX := Number(endX)
     endY := Number(endY)
-    
+
     shotWidth := endX - startX
     shotHeight := endY - startY
-    if (shotWidth <= 0 || shotHeight <= 0)
+    if (shotWidth <= 0 || shotHeight <= 0) {
+        ShotDebugLog(Format("抓图宽高非法，已终止：w={} h={}", shotWidth, shotHeight))
         return
+    }
 
     baseDir := ProjectRootDir "\Setting\" MySoftData.CurSettingName "\Images\TempShot"
-    if (!DirExist(baseDir))
-        DirCreate(baseDir)
+    if (!DirExist(baseDir) && !DirCreate(baseDir)) {
+        ; 安装目录（如 Program Files）无写权限时，回退到用户临时目录
+        baseDir := A_Temp "\RMT_TempShot\" MySoftData.CurSettingName
+        ShotDebugLog(Format("主 TempShot 目录不可用，回退到：{}", baseDir))
+        if (!DirExist(baseDir) && !DirCreate(baseDir)) {
+            ShotDebugLog(Format("回退 TempShot 目录创建失败：{}", baseDir))
+            return
+        }
+    }
 
     if (Data.NameType == 1 && Data.FixedName != "") {
         fileName := Data.FixedName ".png"
@@ -1676,42 +1691,70 @@ OnScreenShot(tableItem, cmd, index) {
     }
 
     filePath := baseDir "\" fileName
+    ShotDebugLog(Format("截图将保存到：{}", filePath))
+
+    ocvReason := OpenCvEnsure()
+    if (ocvReason != "") {
+        ShotDebugLog(Format("抓图失败：OpenCV 不可用（{}）", ocvReason))
+        ShowOpenCvInstallPrompt(ocvReason)
+        return
+    }
 
     if (Data.ScreenShotType == 2) {
         winInfo := GetReplaceVarText(tableItem, index, Data.WinInfo)
-        if (winInfo == "")
+        if (winInfo == "") {
+            ShotDebugLog("窗口抓图：窗口信息为空，已终止")
             return
+        }
 
         hwndList := GetHwndList(winInfo)
-        if (!hwndList || hwndList.Length == 0)
+        if (!hwndList || hwndList.Length == 0) {
+            ShotDebugLog(Format("窗口抓图：未找到目标窗口，winInfo={}", winInfo))
             return
+        }
 
         hwnd := hwndList[1]
-        
+
         try {
             matPtr := DllCall("RMT_OpenCV.dll\CaptureWinMat", "Int", hwnd, "Int", startX,
                 "Int", startY, "Int", shotWidth, "Int", shotHeight, "Cdecl Ptr")
-            if (!matPtr)
+            if (!matPtr) {
+                ShotDebugLog(Format("窗口抓图：CaptureWinMat 返回空，hwnd={}", hwnd))
                 return
-            
-            DllCall("RMT_OpenCV.dll\SaveMatToFile", "ptr", matPtr, "AStr", filePath, "cdecl Int")
+            }
+
+            saveRet := DllCall("RMT_OpenCV.dll\SaveMatToFile", "ptr", matPtr, "AStr", filePath, "cdecl Int")
             DllCall("RMT_OpenCV.dll\ReleaseMat", "ptr", matPtr, "cdecl")
+            if (!saveRet) {
+                ShotDebugLog(Format("窗口抓图：SaveMatToFile 保存失败，filePath={}", filePath))
+                return
+            }
         } catch as e {
+            ShotDebugLog(Format("窗口抓图：DllCall 异常 Message={} Extra={} What={}", e.Message, e.Extra, e.What))
             return
         }
     } else {
         try {
             matPtr := DllCall("RMT_OpenCV.dll\CaptureScreenMat", "Int", startX,
                 "Int", startY, "Int", shotWidth, "Int", shotHeight, "Cdecl Ptr")
-            if (!matPtr)
+            if (!matPtr) {
+                ShotDebugLog("屏幕抓图：CaptureScreenMat 返回空")
                 return
-            
-            DllCall("RMT_OpenCV.dll\SaveMatToFile", "ptr", matPtr, "AStr", filePath, "cdecl Int")
+            }
+
+            saveRet := DllCall("RMT_OpenCV.dll\SaveMatToFile", "ptr", matPtr, "AStr", filePath, "cdecl Int")
             DllCall("RMT_OpenCV.dll\ReleaseMat", "ptr", matPtr, "cdecl")
+            if (!saveRet) {
+                ShotDebugLog(Format("屏幕抓图：SaveMatToFile 保存失败，filePath={}", filePath))
+                return
+            }
         } catch as e {
+            ShotDebugLog(Format("屏幕抓图：DllCall 异常 Message={} Extra={} What={}", e.Message, e.Extra, e.What))
             return
         }
     }
+
+    ShotDebugLog(Format("抓图成功：{}", filePath))
 
     if (Data.ResultToggle) {
         MySetGlobalVariable([Data.ResultSaveName], [filePath], false)

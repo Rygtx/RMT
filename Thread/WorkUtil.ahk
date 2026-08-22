@@ -127,15 +127,12 @@
     }
 
     WorkPluginInit() {
-        ; 根据进程位数自动选择 x86 或 x64
-        archDir := (A_PtrSize = 4) ? "x86" : "x64"
-        dllDir := A_ScriptDir "\..\Plugins\OpenCV\" archDir
-        OpenCvPath := dllDir "\RMT_OpenCV.dll"
-        IBPath := A_ScriptDir "\..\Plugins\IbInputSimulator.dll"
+        ; 根据进程位数自动选择 x86 或 x64，失败时诊断具体原因（如缺少 VC++ 运行库）
+        ocvReason := OpenCvEnsure()
+        if (ocvReason != "")
+            GraphPoolLog("Work插件初始化", Format("OpenCV 插件初始化失败：{}", ocvReason))
 
-        ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
-        DllCall("SetDllDirectory", "Str", dllDir)
-        DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
+        IBPath := A_ScriptDir "\..\Plugins\IbInputSimulator.dll"
         DllCall('LoadLibrary', 'str', IBPath)
 
         SetTimer(CheckOcrIdle, 60000)

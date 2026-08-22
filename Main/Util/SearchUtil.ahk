@@ -5,6 +5,7 @@ SearchOnTrigger(tableItem, cmdStr, index) {
     IsSearchPro := InStr(paramArr[1], "搜索Pro")
     dataFile := IsSearchPro ? SearchProFile : SearchFile
     Data := GetMacroCMDData(paramArr[1])
+    SearchDebugLog(Format("搜索命令触发 cmd={} type={} count={}", cmdStr, Data.SearchType, Data.SearchCount))
     return SearchExecute(tableItem, Data, index)
 }
 
@@ -86,8 +87,11 @@ SearchOnce(tableItem, Data, index) {
     HasY1 := TryGetTabVarValue(&Y1, tableItem, index, Data.StartPosY)
     HasX2 := TryGetTabVarValue(&X2, tableItem, index, Data.EndPosX)
     HasY2 := TryGetTabVarValue(&Y2, tableItem, index, Data.EndPosY)
-    if (!HasX1 || !HasX2 || !HasY1 || !HasY2)
+    if (!HasX1 || !HasX2 || !HasY1 || !HasY2) {
+        SearchDebugLog(Format("搜索坐标解析失败 startX={} startY={} endX={} endY={}"
+            , Data.StartPosX, Data.StartPosY, Data.EndPosX, Data.EndPosY))
         return
+    }
 
     ; 处理搜索文本变量
     Text := Data.SearchText
@@ -95,8 +99,19 @@ SearchOnce(tableItem, Data, index) {
 
     ; 图片路径：若存在同名用户变量则用变量值，否则按文本路径使用（不做 {var} 优先替换，也不强制 FileExist）
     ImagePath := ResolveSearchImagePath(tableItem, index, Data.SearchImagePath)
+    SearchDebugLog(Format("搜索单次 type={} 范围=({},{})-({},{}) 图片={} 文本={}"
+        , Data.SearchType, X1, Y1, X2, Y2, ImagePath, Text))
+
     ResXList := [], ResYList := [], ResHwndList := []
-    found := DoSearch(Data, X1, Y1, X2, Y2, Text, ImagePath, &ResX, &ResY, &ResXList, &ResYList, &ResHwndList)
+    try {
+        found := DoSearch(Data, X1, Y1, X2, Y2, Text, ImagePath, &ResX, &ResY, &ResXList, &ResYList, &ResHwndList)
+    } catch as e {
+        SearchDebugLog(Format("搜索异常 Message={} Extra={} What={} File={} Line={}"
+            , e.Message, e.Extra, e.What, e.File, e.Line))
+        return false
+    }
+
+    SearchDebugLog(Format("搜索单次结果 found={}", found))
 
     ; 处理搜索结果
     if (found) {
@@ -145,6 +160,11 @@ DoSearch(Data, X1, Y1, X2, Y2, Text, ImagePath, &ResX, &ResY, &ResXList, &ResYLi
 
 SearchImage(Data, X1, Y1, X2, Y2, ImagePath, &ResX, &ResY) {
     if (Data.SearchImageType == 1) {
+        ocvReason := OpenCvEnsure()
+        if (ocvReason != "") {
+            ShowOpenCvInstallPrompt(ocvReason)
+            return false
+        }
         return FindScreenImage(&ResX, &ResY, ImagePath, X1, Y1, X2, Y2, Data.Similar)
     }
     else {

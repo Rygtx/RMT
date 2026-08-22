@@ -277,15 +277,12 @@ FindNewJoyDeviceIndex(diBefore) {
 }
 
 InitNativePlugins() {
-    archDir := (A_PtrSize = 4) ? "x86" : "x64"
-    dllDir := A_ScriptDir "\Plugins\OpenCV\" archDir
-    DllCall("SetDllDirectory", "Str", dllDir)
+    ; 加载 OpenCV 插件，失败时诊断具体原因（如缺少 VC++ 运行库）
+    ocvReason := OpenCvEnsure()
+    if (ocvReason != "")
+        JoyDebugLog(Format("OpenCV 插件初始化失败：{}", ocvReason), "init")
 
-    OpenCvPath := dllDir "\RMT_OpenCV.dll"
     IBPath := A_ScriptDir "\Plugins\IbInputSimulator.dll"
-    hOpenCv := DllCall("LoadLibrary", "Str", OpenCvPath, "Ptr")
-    if (!hOpenCv)
-        JoyDebugLog(Format("LoadLibrary failed OpenCvPath={1} A_LastError={2}", OpenCvPath, A_LastError), "init")
     DllCall("LoadLibrary", "Str", IBPath)
 }
 
