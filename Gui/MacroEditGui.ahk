@@ -58,6 +58,8 @@ class MacroEditGui {
         this.LastItemID := "" ;最后的itemID
         this.ContextMenu := ""
         this.BranchContextMenu := ""
+        this._lastGenCfg := Chr(0)
+        this._lastBranchCfg := Chr(0)
         this.RecordMacroCon := ""
         this.DefaultFocusCon := ""
         this.SubMacroLastIndex := 0
@@ -515,43 +517,86 @@ class MacroEditGui {
         if (item == 0)
             return
 
+        ; 检查配置是否变化，若变化则废弃缓存重建
+        genCfg := MainSoftData.HasProp("GeneralContextMenu") ? MainSoftData.GeneralContextMenu : ""
+        if (this._lastGenCfg != genCfg)
+            this.ContextMenu := ""
+
         if (this.ContextMenu == "") {
+            this._lastGenCfg := genCfg
             this.ContextMenu := Menu()
-            this.ContextMenu.Add(GetLang("编辑"), (*) => this.ContentMenuHandler(GetLang("编辑")))
             this.ContextMenu.IsSkip := true
-            this.ContextMenu.Add(GetLang("跳过指令"), (*) => this.ContentMenuHandler("Skip"))
             this.ContextMenu.IsDebug := true
-            this.ContextMenu.Add(GetLang("调试起点"), (*) => this.ContentMenuHandler("Debug"))
 
-            this.ContextMenu.Add()  ; 分隔线
-            subMenu := Menu()
+            ; 构建插入指令子菜单（固定）
+            insertSubMenu := Menu()
             for index, value in this.CMDStrArr {
-                subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Next_" value))
-                subMenu.SetIcon(value, this.CMDIconFileArr[index])
+                insertSubMenu.Add(value, this.ContentMenuHandler.Bind(this, "Next_" value))
+                insertSubMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
-            this.ContextMenu.Add(GetLang("插入指令"), subMenu)
 
-            this.ContextMenu.Add(GetLang("复制"), (*) => this.ContentMenuHandler(GetLang("复制")))
-            if (MainSoftData.SharedCopy)
-                this.ContextMenu.Add(GetLang("共享复制"), (*) => this.ContentMenuHandler("SharedCopy"))
-            this.ContextMenu.Add(GetLang("粘贴"), (*) => this.ContentMenuHandler(GetLang("粘贴")))
+            ; 从配置加载顺序，若无则使用默认顺序
+            genKeys := (genCfg != "") ? StrSplit(genCfg, ",") : ["Edit", "Skip", "Debug", "Separator", "Insert", "Separator", "Copy", "Paste", "Separator", "Delete"]
 
-            this.ContextMenu.Add()  ; 分隔线
-            this.ContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
+            for k in genKeys {
+                switch k {
+                    case "Separator":
+                        this.ContextMenu.Add()
+                    case "Edit":
+                        this.ContextMenu.Add(GetLang("编辑"), (*) => this.ContentMenuHandler(GetLang("编辑")))
+                    case "Skip":
+                        this.ContextMenu.Add(GetLang("跳过指令"), (*) => this.ContentMenuHandler("Skip"))
+                    case "Debug":
+                        this.ContextMenu.Add(GetLang("调试起点"), (*) => this.ContentMenuHandler("Debug"))
+                    case "Insert":
+                        this.ContextMenu.Add(GetLang("插入指令"), insertSubMenu)
+                    case "Copy":
+                        this.ContextMenu.Add(GetLang("复制"), (*) => this.ContentMenuHandler(GetLang("复制")))
+                    case "SharedCopy":
+                        this.ContextMenu.Add(GetLang("共享复制"), (*) => this.ContentMenuHandler("SharedCopy"))
+                    case "Paste":
+                        this.ContextMenu.Add(GetLang("粘贴"), (*) => this.ContentMenuHandler(GetLang("粘贴")))
+                    case "Delete":
+                        this.ContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
+                }
+            }
         }
 
+        ; 检查分支菜单配置是否变化
+        branchCfg := MainSoftData.HasProp("BranchContextMenu") ? MainSoftData.BranchContextMenu : ""
+        if (this._lastBranchCfg != branchCfg)
+            this.BranchContextMenu := ""
+
         if (this.BranchContextMenu == "") {
+            this._lastBranchCfg := branchCfg
             this.BranchContextMenu := Menu()
 
-            subMenu := Menu()
+            ; 构建添加指令子菜单（固定）
+            addSubMenu := Menu()
             for index, value in this.CMDStrArr {
-                subMenu.Add(value, this.ContentMenuHandler.Bind(this, "Add_" value))
-                subMenu.SetIcon(value, this.CMDIconFileArr[index])
+                addSubMenu.Add(value, this.ContentMenuHandler.Bind(this, "Add_" value))
+                addSubMenu.SetIcon(value, this.CMDIconFileArr[index])
             }
-            this.BranchContextMenu.Add(GetLang("添加指令"), subMenu)  ; 将子菜单添加到主菜单
 
-            this.BranchContextMenu.Add()  ; 分隔线
-            this.BranchContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
+            ; 从配置加载顺序
+            branchKeys := (branchCfg != "") ? StrSplit(branchCfg, ",") : ["Add", "Separator", "BranchCopy", "Paste", "Separator", "Delete"]
+
+            for k in branchKeys {
+                switch k {
+                    case "Separator":
+                        this.BranchContextMenu.Add()
+                    case "Add":
+                        this.BranchContextMenu.Add(GetLang("添加指令"), addSubMenu)
+                    case "BranchCopy":
+                        this.BranchContextMenu.Add(GetLang("复制"), (*) => this.ContentMenuHandler("BranchCopy"))
+                    case "BranchSharedCopy":
+                        this.BranchContextMenu.Add(GetLang("共享复制"), (*) => this.ContentMenuHandler("BranchSharedCopy"))
+                    case "Paste":
+                        this.BranchContextMenu.Add(GetLang("粘贴"), (*) => this.ContentMenuHandler(GetLang("粘贴")))
+                    case "Delete":
+                        this.BranchContextMenu.Add(GetLang("删除"), (*) => this.ContentMenuHandler(GetLang("删除")))
+                }
+            }
         }
 
         ; 右鍵只設定「右鍵操作目標」，絕對不改變目前多選狀態。
@@ -922,6 +967,44 @@ class MacroEditGui {
         }
 
         switch cmdStr {
+            case "BranchCopy":
+            {
+                ; 分支／循环体容器不是实际指令，复制时应复制其内部宏内容。
+                if (!this.IsContainerNode(cleanItemText))
+                    return
+
+                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
+                if (branchMacroStr == "") {
+                    SetClipboard("")
+                } else {
+                    cmds := SplitMacro(branchMacroStr)
+                    copyStr := ""
+                    for _, text in cmds {
+                        text := Trim(text, " `t`r`n")
+                        if (text == "")
+                            continue
+                        text := StrReplace(text, "⭐", "")
+                        text := StrReplace(text, "→", "")
+                        cmd := FullCopyCmd(text)
+                        if (cmd != "")
+                            copyStr .= (copyStr == "" ? "" : ",") cmd
+                    }
+                    SetClipboard(copyStr)
+                }
+                Toast.Show(GetLang("已复制"))
+                return
+            }
+            case "BranchSharedCopy":
+            {
+                ; 共享复制保留分支內部的原始宏文字，不重新分配内部序列号。
+                if (!this.IsContainerNode(cleanItemText))
+                    return
+
+                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
+                SetClipboard(branchMacroStr)
+                Toast.Show(GetLang("已复制"))
+                return
+            }
             case GetLang("编辑"):
             {
                 paramsArr := StrSplit(cleanItemText, "_")

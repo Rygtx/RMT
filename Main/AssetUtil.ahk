@@ -543,6 +543,8 @@ LoadMainSetting() {
     MainSoftData.TriggerJoyType := IniRead(IniFile, IniSection, "TriggerJoyType", "Xbox")
     MainSoftData.PreferredMacroEditor := Integer(IniRead(IniFile, IniSection, "PreferredMacroEditor", 1))
     MainSoftData.SharedCopy := !!IniRead(IniFile, IniSection, "SharedCopy", false)
+    MainSoftData.GeneralContextMenu := IniRead(IniFile, IniSection, "GeneralContextMenu", "")
+    MainSoftData.BranchContextMenu  := IniRead(IniFile, IniSection, "BranchContextMenu",  "")
     if (MainSoftData.PreferredMacroEditor != 1 && MainSoftData.PreferredMacroEditor != 2)
         MainSoftData.PreferredMacroEditor := 1
     MainSoftData.RemarkAutoType := Integer(IniRead(IniFile, IniSection, "RemarkAutoType", 2))

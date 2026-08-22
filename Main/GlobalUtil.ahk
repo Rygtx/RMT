@@ -43,6 +43,7 @@
 #Include ..\Gui\UIMacroPanelSettingGui.ahk
 #Include ..\Gui\ThemeSettingGui.ahk
 #Include ..\Gui\HotkeySettingGui.ahk
+#Include ..\Gui\RightClickMenuSettingGui.ahk
 #Include ..\Gui\ReplaceKeyGui.ahk
 #Include ..\Gui\UseExplainGui.ahk
 #Include ..\Gui\TargetGui.ahk
