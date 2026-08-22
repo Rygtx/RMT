@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include CompareProEditItemGui.ahk
 
 class CompareProGui {
@@ -6,6 +6,7 @@ class CompareProGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.RemarkCon := ""
         this.MacroGui := ""
         this.FocusCon := ""
@@ -23,10 +24,19 @@ class CompareProGui {
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -36,7 +46,10 @@ class CompareProGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("如果Pro编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -71,8 +84,19 @@ class CompareProGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         this.FocusCon := btnCon
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 380))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 380)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 380))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -84,21 +108,34 @@ class CompareProGui {
 
         this.LVCon.Delete()
         loop this.Data.MacroArr.Length {
-            condiStr := ""
-            ItemIndex := A_Index
-            loop this.Data.VariNameArr[ItemIndex].Length {
-                condiStr .= GetLang(this.Data.VariNameArr[ItemIndex][A_Index]) " " this.CompareTypeStrArr[this.Data.CompareTypeArr[
-                    ItemIndex][A_Index]] " " GetLang(this.Data.VariableArr[ItemIndex][A_Index])
-                condiStr .= "⎖"
-            }
-            condiStr := Trim(condiStr, "⎖")
+            condiStr := this.FormatBranchCondiStr(this.Data, A_Index)
             logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? GetLang("且") : GetLang("或")
             macro := GetLangMacro(this.Data.MacroArr[A_Index], 1)
-
             this.LVCon.Add(, condiStr, logicStr, macro)
         }
         this.LVCon.Add(, GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1))
         this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
+    }
+
+    ; 与「如果」一致：变量存在不拼右侧值；多条件用 ⎕ 分隔
+    FormatBranchCondiStr(Data, itemIndex) {
+        condiStr := ""
+        loop Data.VariNameArr[itemIndex].Length {
+            cmp := Data.CompareTypeArr[itemIndex][A_Index]
+            name := GetLang(Data.VariNameArr[itemIndex][A_Index])
+            typeStr := (cmp >= 1 && cmp <= this.CompareTypeStrArr.Length)
+                ? this.CompareTypeStrArr[cmp] : this.CompareTypeStrArr[1]
+            if (cmp != 7)
+                condiStr .= name " " typeStr " " GetLang(Data.VariableArr[itemIndex][A_Index])
+            else
+                condiStr .= name " " typeStr
+            condiStr .= "⎖"
+        }
+        return Trim(condiStr, "⎖")
+    }
+
+    DefaultBranchCondiStr() {
+        return GetLang("Var1") " " GetLang("等于") " " GetLang("Var1")
     }
 
     ToggleFunc(state) {
@@ -147,7 +184,7 @@ class CompareProGui {
             case GetLang("向上插入分支"):
             {
                 this.Data.ControlTypeArr.InsertAt(this.CurItme, "无")
-                this.LVCon.Insert(this.CurItme, , GetLang("Var1 大于 Var1"), GetLang("且"), "")
+                this.LVCon.Insert(this.CurItme, , this.DefaultBranchCondiStr(), GetLang("且"), "")
             }
             case GetLang("向下插入分支"):
             {
@@ -156,7 +193,7 @@ class CompareProGui {
                     return
                 }
                 this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, "无")
-                this.LVCon.Insert(this.CurItme + 1, , GetLang("Var1 大于 Var1"), GetLang("且"), "")
+                this.LVCon.Insert(this.CurItme + 1, , this.DefaultBranchCondiStr(), GetLang("且"), "")
             }
             case GetLang("向上移动"):
             {
@@ -171,6 +208,9 @@ class CompareProGui {
                 this.LVCon.Insert(this.CurItme - 1, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
                     2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme + 1)
+                ct := this.Data.ControlTypeArr[this.CurItme]
+                this.Data.ControlTypeArr.RemoveAt(this.CurItme)
+                this.Data.ControlTypeArr.InsertAt(this.CurItme - 1, ct)
             }
             case GetLang("向下移动"):
             {
@@ -182,6 +222,9 @@ class CompareProGui {
                 this.LVCon.Insert(this.CurItme + 2, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
                     2), this.LVCon.GetText(this.CurItme, 3))
                 this.LVCon.Delete(this.CurItme)
+                ct := this.Data.ControlTypeArr[this.CurItme]
+                this.Data.ControlTypeArr.RemoveAt(this.CurItme)
+                this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, ct)
             }
             case GetLang("删除"):
             {
@@ -190,6 +233,8 @@ class CompareProGui {
                     return
                 }
                 this.LVCon.Delete(this.CurItme)
+                if (this.CurItme <= this.Data.ControlTypeArr.Length)
+                    this.Data.ControlTypeArr.RemoveAt(this.CurItme)
             }
         }
     }
@@ -201,6 +246,13 @@ class CompareProGui {
         }
         ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.ItemEditGui.ParentTile := ParentTile "-"
+
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.ItemEditGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.ItemEditGui.OwnerHwnd := ""
+        }
 
         this.ItemEditGui.DLVariableArr := this.DLVariableArr
         NumberIndex := item
@@ -232,6 +284,12 @@ class CompareProGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -269,15 +327,47 @@ class CompareProGui {
         VariableArr := []
         if (condiStr != GetLang("以上都不是")) {
             loop condiStrArr.Length {
-                itemCondiArr := StrSplit(condiStrArr[A_Index], " ")
-                Variable := itemCondiArr.Length >= 3 ? itemCondiArr[3] : ""
-                VariNameArr.Push(itemCondiArr[1])
-                CompareTypeArr.Push(this.CompareTypeStrMap[itemCondiArr[2]])
-                VariableArr.Push(Variable)
+                parsed := this.ParseSingleCondi(condiStrArr[A_Index])
+                VariNameArr.Push(parsed[1])
+                CompareTypeArr.Push(parsed[2])
+                VariableArr.Push(parsed[3])
             }
         }
 
         return [VariNameArr, CompareTypeArr, VariableArr]
+    }
+
+    ; 按已知比较符拆分，避免变量名/值中的空格被截断（如 "a b 等于 hello world"）
+    ParseSingleCondi(item) {
+        item := Trim(item)
+        if (item == "")
+            return ["", 1, ""]
+
+        ; 长操作符优先，避免「大于」先于「大于等于」误匹配；含英文 "Var Exists" 等带空格文案
+        opOrder := [GetLang("大于等于"), GetLang("小于等于"), GetLang("字符包含"), GetLang("变量存在"),
+            GetLang("正则匹配"), GetLang("大于"), GetLang("等于"), GetLang("小于")]
+        for typeStr in opOrder {
+            if (!this.CompareTypeStrMap.Has(typeStr))
+                continue
+            typeId := this.CompareTypeStrMap[typeStr]
+            mid := " " typeStr " "
+            pos := InStr(item, mid)
+            if (pos > 0) {
+                name := SubStr(item, 1, pos - 1)
+                value := SubStr(item, pos + StrLen(mid))
+                return [name, typeId, value]
+            }
+            ; 「变量存在」无右侧值：name + 空格 + 操作符
+            if (typeId == 7) {
+                endNeedle := " " typeStr
+                endLen := StrLen(endNeedle)
+                if (StrLen(item) > endLen && SubStr(item, StrLen(item) - endLen + 1) == endNeedle)
+                    return [SubStr(item, 1, StrLen(item) - endLen), typeId, ""]
+            }
+        }
+
+        ; 兜底：无法识别操作符时尽量保留整段为变量名
+        return [item, 1, ""]
     }
 
     SaveCompareProData() {
@@ -293,12 +383,19 @@ class CompareProGui {
             }
             CondiDataArr := this.GetCondiStrDataArr(this.LVCon.GetText(A_Index, 1))
             LogicType := this.LVCon.GetText(A_Index, 2) == GetLang("且") ? 1 : 2
-            this.Data.VariNameArr.Push(GetLangKey(CondiDataArr[1]))
+            ; 与「如果」一致：变量名/比较值存中文 key（GetLangKey）
+            this.Data.VariNameArr.Push(GetLangKeyArr(CondiDataArr[1]))
             this.Data.CompareTypeArr.Push(CondiDataArr[2])
-            this.Data.VariableArr.Push(GetLangKey(CondiDataArr[3]))
+            this.Data.VariableArr.Push(GetLangKeyArr(CondiDataArr[3]))
             this.Data.LogicTypeArr.Push(LogicType)
             this.Data.MacroArr.Push(GetLangMacro(this.LVCon.GetText(A_Index, 3), 2))
         }
+
+        ; 分支数与流程控制数组对齐（插入/删除后可能残留）
+        while (this.Data.ControlTypeArr.Length > this.Data.MacroArr.Length)
+            this.Data.ControlTypeArr.Pop()
+        while (this.Data.ControlTypeArr.Length < this.Data.MacroArr.Length)
+            this.Data.ControlTypeArr.Push("无")
 
         SaveMacroCMDData(this.Data)
     }

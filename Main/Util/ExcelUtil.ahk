@@ -22,7 +22,7 @@ ExcelCellToWrite(wbPath, sheetIdentifier, row, col, value) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close()
             xlApp.Quit()
         }
@@ -58,7 +58,7 @@ ExcelRowToWrite(wbPath, sheetIdentifier, row, col, value) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close()
             xlApp.Quit()
         }
@@ -94,7 +94,7 @@ ExcelColToWrite(wbPath, sheetIdentifier, row, col,  value) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close()
             xlApp.Quit()
         }
@@ -142,7 +142,7 @@ ExcelRangeRowToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close()
             xlApp.Quit()
         }
@@ -190,7 +190,7 @@ ExcelRangeColToWrite(xlPath, SheetIdentifier, Row, Col, Arr) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close()
             xlApp.Quit()
         }
@@ -220,7 +220,7 @@ ExcelCellToRead(wbPath, sheetIdentifier, row, col, &ResValue) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close(false)
             xlApp.Quit()
         }
@@ -260,7 +260,7 @@ ExcelRowToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close(false)
             xlApp.Quit()
         }
@@ -300,16 +300,34 @@ ExcelColToRead(xlPath, SheetIdentifier, Row, Col, &ResArr) {
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close(false)
             xlApp.Quit()
         }
     }
 }
 
+; 仅当行、列都跨格时保持二维；单行或单列区域压成一维
+FlattenExcelRangeIfStrip(&ResArr, Row, Col, EndRow, EndCol) {
+    singleRow := EndRow == Row
+    singleCol := EndCol == Col
+    if (!singleRow && !singleCol)
+        return
+    flat := []
+    for outer in ResArr {
+        if (IsObject(outer)) {
+            for v in outer
+                flat.Push(v)
+        } else
+            flat.Push(outer)
+    }
+    ResArr := flat
+}
+
 ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
     try {
         ResArr := []
+        Row := Integer(Row), Col := Integer(Col), EndRow := Integer(EndRow), EndCol := Integer(EndCol)
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
         xlApp.Calculate()
@@ -317,9 +335,10 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
             SheetIdentifier := Integer(SheetIdentifier)
         sheet := xlWorkbook.Sheets(SheetIdentifier)
 
+        ; 外层按行；读完后单行/单列压成一维，行列都跨格才保留二维
         loop EndRow - Row + 1 {
             CurRow := Row + A_Index - 1
-            ResArr.Push([])
+            rowArr := []
             loop EndCol - Col + 1 {
                 CurCol := Col + A_Index - 1
                 Cell := sheet.Cells(CurRow, CurCol)
@@ -328,9 +347,11 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
                 } else {
                     Value := Cell.Text
                 }
-                ResArr[ResArr.Length].Push(Value)
+                rowArr.Push(Value)
             }
+            ResArr.Push(rowArr)
         }
+        FlattenExcelRangeIfStrip(&ResArr, Row, Col, EndRow, EndCol)
         return true
     }
     catch as e {
@@ -338,7 +359,7 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close(false)
             xlApp.Quit()
         }
@@ -348,6 +369,7 @@ ExcelRangeRowToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
 ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) {
     try {
         ResArr := []
+        Row := Integer(Row), Col := Integer(Col), EndRow := Integer(EndRow), EndCol := Integer(EndCol)
         xlWorkbook := ComObjGet(xlPath)
         xlApp := xlWorkbook.Application
         xlApp.Calculate()
@@ -355,20 +377,23 @@ ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
             SheetIdentifier := Integer(SheetIdentifier)
         sheet := xlWorkbook.Sheets(SheetIdentifier)
 
+        ; 外层按列；读完后单行/单列压成一维，行列都跨格才保留二维
         loop EndCol - Col + 1 {
             CurCol := Col + A_Index - 1
-            ResArr.Push([])
+            colArr := []
             loop EndRow - Row + 1 {
                 CurRow := Row + A_Index - 1
-                Cell := sheet.Cells(CurRow, curCol)
+                Cell := sheet.Cells(CurRow, CurCol)
                 if Cell.MergeCells {
                     Value := Cell.MergeArea.Cells(1, 1).Text
                 } else {
                     Value := Cell.Text
                 }
-                ResArr[ResArr.Length].Push(Value)
+                colArr.Push(Value)
             }
+            ResArr.Push(colArr)
         }
+        FlattenExcelRangeIfStrip(&ResArr, Row, Col, EndRow, EndCol)
         return true
     }
     catch as e {
@@ -376,7 +401,7 @@ ExcelRangeColToRead(xlPath, SheetIdentifier, Row, Col, EndRow, EndCol, &ResArr) 
         return false
     }
     finally {
-        if (!xlApp.Visible) {
+        if (IsSet(xlApp) && !xlApp.Visible) {
             xlWorkbook.Close(false)
             xlApp.Quit()
         }

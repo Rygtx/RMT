@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class BGKeyGui {
     __new() {
@@ -6,6 +6,7 @@ class BGKeyGui {
         this.Gui := ""
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
+        this.OwnerHwnd := ""
 
         this.SerialStr := ""
         this.Data := ""
@@ -29,12 +30,21 @@ class BGKeyGui {
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
             for key, value in this.ConMap {
                 this.ConHwndMap.Set(value.Hwnd, value)
+            }
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -46,7 +56,10 @@ class BGKeyGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("后台按键编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 20
         PosY := 10
@@ -56,6 +69,8 @@ class BGKeyGui {
         PosX += 30
         btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("模拟指令"))
         btnCon.OnEvent("Click", (*) => this.TriggerMacro())
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 82, PosY - 5), "?")
+        Con.OnEvent("Click", (*) => this.OnClickHelpBtn())
 
         PosX += 200
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("键盘按键检测："))
@@ -761,7 +776,19 @@ class BGKeyGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
 
-        MyGui.Show(Format("w{} h{}", 1260, 420))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(1260, 420)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 1260, 420))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -879,6 +906,12 @@ class BGKeyGui {
     }
 
     OnClickEditBtn(*) {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            MyFrontInfoGui.OwnerHwnd := ""
+        }
         MyFrontInfoGui.ShowGui(this.FrontCon)
     }
 
@@ -921,6 +954,12 @@ class BGKeyGui {
         this.SaveBGKeyData()
         action := this.SureBtnAction
         action(this.GetCommandStr())
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -941,6 +980,16 @@ class BGKeyGui {
         this.Data.ClickInterval := this.PerIntervalCon.Value
 
         SaveMacroCMDData(this.Data)
+    }
+
+    OnClickHelpBtn() {
+        str1 := GetLang("该指令需要管理员身份运行软件")
+        str2 := GetLang("该指令部分窗口可能无效")
+        str3 := GetLang("tip1:可通过对浏览器界面配置检测指令的正确性")
+        str4 := GetLang("tip2:若浏览器界面正常，实际窗口无效，那就是该窗口不支持后台功能")
+
+        str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
+        MsgBox(str, GetLang("后台操作说明"))
     }
 
     OnMouseMove(wParam, lParam, msg, hwnd) {

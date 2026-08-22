@@ -6,26 +6,28 @@ namespace RMT
 {
     public class Http
     {
-        public bool IsForbid()
+        /// <summary>
+        /// 获取服务器状态原始 JSON 字符串，由 AHK 侧解析
+        /// </summary>
+        public string GetStatus()
         {
             string deviceId = Device.GetDeviceId();
             if (deviceId == "")
-                return false;
+                return "";
 
             try
             {
-                string Url = $"http://39.108.96.160:3000/blackkey?id={deviceId}";
+                string Url = "http://39.108.96.160:3000/getstatus?id=" + deviceId;
                 using (var httpClient = new HttpClient())
                 {
                     var response = httpClient.GetAsync(Url).Result;
                     response.EnsureSuccessStatusCode();
-                    string result = response.Content.ReadAsStringAsync().Result;
-                    return result == "true";
+                    return response.Content.ReadAsStringAsync().Result;
                 }
             }
             catch
             {
-                return false;
+                return "";
             }
         }
 
@@ -45,7 +47,7 @@ namespace RMT
                 return "文件路径不能为空";
 
             if (!File.Exists(filePath))
-                return $"文件不存在: {filePath}";
+                return "文件不存在: " + filePath;
 
             if (deviceId == "")
                 return "信息不完整，请通过软件交流群共享上传配置";
@@ -79,11 +81,11 @@ namespace RMT
             }
             catch (AggregateException ex)
             {
-                throw new Exception($"网络请求失败: {ex.InnerException?.Message ?? ex.Message}", ex);
+                throw new Exception("网络请求失败: " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message), ex);
             }
             catch (Exception ex)
             {
-                throw new Exception($"上传文件时发生错误: {ex.Message}", ex);
+                throw new Exception("上传文件时发生错误: " + ex.Message, ex);
             }
         }
     }

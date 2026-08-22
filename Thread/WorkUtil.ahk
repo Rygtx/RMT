@@ -2,16 +2,38 @@
 
 ;初始化数据
 {
+    HandleWorkOpenArg() {
+        global workIndex := A_Args[1]
+        global parentHwnd := A_Args[2]
+        global parentPID := A_Args[3]
+        global txName := "RMT_TX_" workIndex
+        global rxName := "RMT_RX_" workIndex
+        global evtName := "RMT_EVT_" workIndex
+
+        global shmTx := SharedMemory(txName, 1048576 + 192)
+        global shmRx := SharedMemory(rxName, 1048576 + 192)
+        global tx := RingBuffer(shmTx.ptr, 1048576)
+        global rx := RingBuffer(shmRx.ptr, 1048576)
+
+        global hEvt := 0
+        if (evtName) {
+            global hEvt := DllCall("OpenEventW", "uint", 0x00100002, "int", false, "ptr", StrPtr(evtName), "ptr")
+        }
+    }
+
     InitWorkFilePath() {
-        global VBSPath := A_WorkingDir "\..\VBS\PlayAudio.vbs"
+        global VBSPath := A_WorkingDir "\..\MinTool\PlayAudio.vbs"
         global StartTipAudio := A_WorkingDir "\..\Audio\Start.wav"
         global EndTipAudio := A_WorkingDir "\..\Audio\End.wav"
         global ViGEmDllPath := A_WorkingDir "\..\Plugins\ViGEm\ViGEmWrapper.dll"
+        global AHIDllDir := A_WorkingDir "\..\Plugins\AhiDriver"
+        global AHIPluginDir := A_WorkingDir "\..\Plugins\AhiDriver\installer"
         global ArrayFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ArrayFile.ini"
         global TimingFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\TimingFile.ini"
         global MacroFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MacroFile.ini"
         global SearchFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchFile.ini"
         global SearchProFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\SearchProFile.ini"
+        global ScreenShotFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\ScreenShotFile.ini"
         global CompareFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CompareFile.ini"
         global CompareProFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CompareProFile.ini"
         global MMProFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MMProFile.ini"
@@ -27,9 +49,21 @@
         global BGMouseFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\BGMouseFile.ini"
         global InputFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\InputFile.ini"
         global FileIOFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\FileIOFile.ini"
+        global WindowManageFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\WindowManageFile.ini"
+        global KeyCheckFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\KeyCheckFile.ini"
+        global CommentFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CommentFile.ini"
+        global GraphNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphNodeFile.ini"
+        global GraphStartNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.ini"
         global IniSection := "UserSettings"
 
-        ;利用机制把路径中的\..转换掉
+    ;项目根目录（Worker进程A_WorkingDir指向Thread子目录，需回退到项目根）
+    global ProjectRootDir := A_WorkingDir '\..\'
+    loop files, ProjectRootDir {
+        ProjectRootDir := A_LoopFileFullPath
+        break
+    }
+
+    ;利用机制把路径中的\..转换掉
         loop files, StartTipAudio {
             StartTipAudio := A_LoopFileFullPath
             break
@@ -41,21 +75,67 @@
     }
 
     InitWork() {
-        global MySoftData
+        global MySoftData, MyHoldKeyNotify
+        global graphBranchesWaiting := false
+        global graphBranchesAckReceived := false
+        global graphBranchesAckKey := ""
+        global workerTaskBusy := false
+        global workerPendingTasks := []
         MySoftData.isWorker := true
+        ; 按键按住状态同步到主进程（供强杀后松开）
+        MyHoldKeyNotify := (tIdx, iIdx, key, state, source) => MsgSendHandler("HoldKey", tIdx, iIdx, key, state, source)
+
+        OnError(WorkOnError)
+        SetTimer(CheckParentProcess, 10000)
     }
 
-    WorkOpenCVLoadDll() {
-        OpenCvPath := A_ScriptDir "\..\Plugins\OpenCV\RMT_OpenCV.dll"
+    WorkOnError(e, mode) {
+        GraphPoolLog("Worker运行时错误", Format("err={1} line={2} file={3} mode={4}"
+            , e.Message, e.Line, e.File, mode))
+        ; 返回非零值阻止 AHK 默认错误对话框，避免 headless Worker 进程被对话框阻塞
+        return 1
+    }
+
+    CheckParentProcess() {
+        if !ProcessExist(parentPID) {
+            GraphPoolLog("Worker父进程检测", Format("parentPID={1} 不存在, 即将退出", parentPID))
+            ExitApp()
+        }
+    }
+
+    WaitAndProcessTasks() {
+        global hEvt, workerTaskBusy, tx
+        if (!hEvt)
+            return
+
+        hArr := Buffer(A_PtrSize)
+        NumPut("ptr", hEvt, hArr)
+
+        while (true) {
+            if (!workerTaskBusy && !tx.IsEmpty()) {
+                CheckTxBuffer()
+                continue
+            }
+
+            r := DllCall("MsgWaitForMultipleObjects", "uint", 1, "ptr", hArr.Ptr, "int", false, "uint", -1, "uint", 0x4FF, "uint")
+            if (r == 0) {
+                CheckTxBuffer()
+            } else if (r == 1) {
+                Sleep(-1)
+            }
+        }
+    }
+
+    WorkPluginInit() {
+        ; 根据进程位数自动选择 x86 或 x64，失败时诊断具体原因（如缺少 VC++ 运行库）
+        ocvReason := OpenCvEnsure()
+        if (ocvReason != "")
+            GraphPoolLog("Work插件初始化", Format("OpenCV 插件初始化失败：{}", ocvReason))
+
         IBPath := A_ScriptDir "\..\Plugins\IbInputSimulator.dll"
-
-        ; 构建包含 DLL 文件的目录路径
-        dllDir := A_ScriptDir "\..\Plugins\OpenCV"
-        ; 使用 SetDllDirectory 将 dllDir 添加到 DLL 搜索路径中
-        DllCall("SetDllDirectory", "Str", dllDir)
-
-        DllCall('LoadLibrary', 'str', OpenCvPath, "Ptr")
         DllCall('LoadLibrary', 'str', IBPath)
+
+        SetTimer(CheckOcrIdle, 60000)
     }
 }
 
@@ -65,119 +145,255 @@
         PostMessage(type, wParam, lParam, , "ahk_id " parentHwnd)
     }
 
-    MsgSendHandler(str, Timestamp := "") {
-        if (Timestamp == "") {
-            currentDateTime := FormatTime(, "HHmmss")
-            randomNum := Random(0, 9) Random(0, 9) Random(0, 9)
-            Timestamp := CurrentDateTime randomNum
-            data := ReceiveCheckData()
-            data.Timestamp := Timestamp
-            data.Str := str
-            ReceiveInfoMap.Set(Timestamp, data)
-        }
-        if (!ReceiveInfoMap.Has(Timestamp))
-            return
-        data := ReceiveInfoMap[Timestamp]
-        data.EnableCheckAction()
+    WorkNotifyReady() {
+        global workIndex
+        MsgPostHandler(WM_LOAD_WORK, workIndex, A_ScriptHwnd)
+    }
 
-        CopyDataStruct := Buffer(3 * A_PtrSize)  ; 分配结构的内存区域.
-        ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
-        SizeInBytes := (StrLen(str) + 1) * 2
-        NumPut("Ptr", SizeInBytes  ; 操作系统要求这个需要完成.
-            , "Ptr", StrPtr(str)  ; 设置 lpData 为到字符串自身的指针.
-            , CopyDataStruct, A_PtrSize)
-        SendMessage(WM_COPYDATA, Timestamp, CopyDataStruct, , "ahk_id " parentHwnd)
+    MsgSendHandler(action, args*) {
+        global rx, workIndex
+
+        static actionMap := Map(
+            "SetArray", "SA",
+            "CloneArray", "CA",
+            "DeleteArray", "DA",
+            "ModifyArray", "MA",
+            "InsertArray", "IA",
+            "RemoveAtArray", "RA",
+            "SetVari", "SV",
+            "DelVari", "DV",
+            "StopMacro", "ST",
+            "HoldKey", "HK",
+            "TR_MACRO", "TR",
+            "GraphMacroBranches", "GB",
+            "ItemState", "IS",
+            "PauseState", "PS",
+            "Report", "RP",
+            "RMT指令", "RC",
+            "MsgBox", "MB",
+            "ToolTip", "TT",
+            "MacroCount", "MC",
+            "Joy", "JY"
+        )
+
+        opcode := actionMap[action]
+        realArgs := []
+
+        switch opcode {
+            case "SV":
+                commands := []
+                nameArr := args[1]
+                valueArr := args[2]
+                loop nameArr.Length {
+                    commands.Push(EncodeCommand("SV", nameArr[A_Index], valueArr[A_Index]))
+                }
+                payload := EncodeBatch(commands*)
+                rx.Push(MsgType.EVENT, 0, payload)
+                MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
+                return
+            case "DV":
+                commands := []
+                nameArr := args[1]
+                loop nameArr.Length {
+                    commands.Push(EncodeCommand("DV", nameArr[A_Index]))
+                }
+                payload := EncodeBatch(commands*)
+                rx.Push(MsgType.EVENT, 0, payload)
+                MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
+                return
+            case "SA":
+                ; args[2] 已是 GetArrayStr，整串转发以保留二维结构
+                realArgs.Push(args[1], args[2])
+            case "CA":
+                realArgs.Push(args[1], args[2])
+            case "MA", "IA":
+                path := args[2] "." args[3]
+                realArgs.Push(args[1], path, args[5])
+            case "RA":
+                path := args[2] "." args[3]
+                realArgs.Push(args[1], path)
+            case "GB":
+                tIdx := args[1]
+                iIdx := args[2]
+                branchCount := args[3]
+                nodeSerialArr := args[4]
+                realArgs.Push(tIdx, iIdx, branchCount)
+                for ns in nodeSerialArr
+                    realArgs.Push(ns)
+            default:
+                for a in args
+                    realArgs.Push(a)
+        }
+
+        cmd := EncodeCommand(opcode, realArgs*)
+        payload := EncodeBatch(cmd)
+        rx.Push(MsgType.EVENT, 0, payload)
+        MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
     }
 
 }
 
 ;接受主程序指令后回调
 {
-    OnWorkTriggerMacro(wParam, lParam, msg, hwnd) {
-        TriggerMacro(wParam, lParam)
-        MsgPostHandler(WM_RELEASE_WORK, wParam, lParam)
-    }
-
-    OnWorkStopMacro(wParam, lParam, msg, hwnd) {
-        tableIndex := wParam
-        itemIndex := lParam
-        tableItem := MySoftData.TableInfo[tableIndex]
-        KillTableItemMacro(tableItem, itemIndex)
-    }
-
     OnExit(wParam, lParam, msg, hwnd) {
         ExitApp()
     }
 
-    CheckParentProcess() {
-        if !ProcessExist(parentPID) {
-            ExitApp()
+    OnMasterToWorker(wParam, lParam, msg, hwnd) {
+        CheckTxBuffer()
+    }
+
+    ScheduleWorkerTask(id, cmd) {
+        SetTimer(OnExecTask.Bind(id, cmd), -1)
+    }
+
+    CheckTxBuffer() {
+        global tx, workIndex, graphBranchesWaiting, workerTaskBusy, workerPendingTasks
+        if (graphBranchesWaiting)
+            return
+        loop {
+            while (tx.Pop(&type, &id, &cmd)) {
+                switch type {
+                    case MsgType.TASK:
+                        if (workerTaskBusy) {
+                            workerPendingTasks.Push({ id: id, cmd: cmd })
+                            GraphPoolLog("Worker任务延后", Format("id={1} 原因=上一任务未完成 pending={2}", id, workerPendingTasks.Length))
+                        } else {
+                            ScheduleWorkerTask(id, cmd)
+                        }
+                    case MsgType.EVENT:
+                        OnEventMessage(cmd)
+                }
+            }
+            if (tx.IsEmpty())
+                break
         }
     }
 
-    SetTimer(CheckParentProcess, 2000)
+    OnExecTask(id, cmd) {
+        global rx, workIndex, workerTaskBusy, workerPendingTasks
+        workerTaskBusy := true
+        try {
+            if (SubStr(cmd, 1, 2) != "R1") {
+                GraphPoolLog("Worker任务解析失败", Format("id={1} err=Protocol header missing cmd={2}", id, SubStr(cmd, 1, 120)))
+                return
+            }
+            commandsStr := SubStr(cmd, 3)
+            for record in StrSplit(commandsStr, IPC_REC) {
+                if (record == "")
+                    continue
+                parts := StrSplit(record, IPC_SEP)
+                if (parts.Length == 0)
+                    continue
+                opcode := parts[1]
+                args := []
+                loop parts.Length - 1 {
+                    args.Push(UnescapeIPC(parts[A_Index + 1]))
+                }
 
-    OnWorkGetCmdStr(wParam, lParam, msg, hwnd) {
-        StringAddress := NumGet(lParam, 2 * A_PtrSize, "Ptr")  ; 检索 CopyDataStruct 的 lpData 成员.
-        Cmd := StrGet(StringAddress)  ; 从结构中复制字符串.
-        paramArr := StrSplit(cmd, "_")
-        switch paramArr[1] {
-            case "SetVari":
-                GetNameAndValueByParamArr(&NameArr, &ValueArr, paramArr)
-                loop NameArr.Length {
-                    MySoftData.VariableMap[NameArr[A_Index]] := ValueArr[A_Index]
+                if (opcode == "TR") {
+                    tIdx := args[1]
+                    iIdx := args[2]
+                    if (args.Length >= 3) {
+                        nodeSerial := args[3]
+                        GraphPoolLog("Worker开始执行", Format("tab={1} item={2} node={3}", tIdx, iIdx, nodeSerial))
+                        tableItem := MySoftData.TableInfo[tIdx]
+                        WalkGraphNode(tableItem, nodeSerial, iIdx)
+                    } else {
+                        TriggerMacro(tIdx, iIdx)
+                    }
                 }
-            case "DelVari":
-                NameArr := paramArr.Clone()
-                NameArr.RemoveAt(1)
-                loop NameArr.Length {
-                    if (MySoftData.VariableMap.Has(NameArr[A_Index]))
-                        MySoftData.VariableMap.Delete(NameArr[A_Index])
-                }
-            case "CMDTip":
-                MySoftData.CMDTip := paramArr[2]
-            case "PauseState":
-                tableItem := MySoftData.TableInfo[paramArr[2]]
-                tableItem.PauseArr[paramArr[3]] := paramArr[4]
-            case "SetArray":
-                Name := paramArr[2]
-                Value := GetArray(paramArr[3])
-                MySoftData.ArrayMap[Name] := Value
-            case "CloneArray":
-                SourceArr := GetArray(paramArr[2])
-                NewArrName := paramArr[3]
-                MySoftData.ArrayMap[NewArrName] := SourceArr
-            case "DeleteArray":
-                if (MySoftData.ArrayMap.Has(paramArr[2]))
-                    MySoftData.ArrayMap.Delete(paramArr[2])
-            case "ModifyArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
-                SourceArr[Index] := Value
-            case "InsertArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                Value := paramArr[5] ? GetArray(paramArr[6]) : paramArr[6]
-                SourceArr.InsertAt(Index, Value)
-            case "RemoveAtArray":
-                ArrName := paramArr[2]
-                MainIndex := paramArr[3]
-                Index := paramArr[4]
-                SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
-                SourceArr.RemoveAt(Index)
+            }
+        } catch as e {
+            GraphPoolLog("Worker任务异常", Format("id={1} err={2} line={3} cmd={4}"
+                , id, e.Message, e.Line, SubStr(cmd, 1, 120)))
+        } finally {
+            rx.Push(MsgType.FINISH, id)
+            MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
+            if (workerPendingTasks.Length > 0) {
+                t := workerPendingTasks.RemoveAt(1)
+                ScheduleWorkerTask(t.id, t.cmd)
+            } else {
+                workerTaskBusy := false
+            }
         }
     }
 
-    OnMainReceiveInfo(wParam, lParam, msg, hwnd) {
-        Timestamp := String(wParam)
+    OnEventMessage(cmd) {
+        if (SubStr(cmd, 1, 2) != "R1")
+            return
 
-        if (ReceiveInfoMap.Has(Timestamp)) {
-            ReceiveInfoMap[Timestamp].Destroy()
+        commandsStr := SubStr(cmd, 3)
+        for record in StrSplit(commandsStr, IPC_REC) {
+            if (record == "")
+                continue
+
+            parts := StrSplit(record, IPC_SEP)
+            if (parts.Length == 0)
+                continue
+
+            opcode := parts[1]
+            args := []
+            loop parts.Length - 1 {
+                args.Push(UnescapeIPC(parts[A_Index + 1]))
+            }
+
+            try {
+                switch opcode {
+                    case "SV":
+                        MySoftData.VariableMap[args[1]] := args[2]
+                    case "DV":
+                        if (MySoftData.VariableMap.Has(args[1]))
+                            MySoftData.VariableMap.Delete(args[1])
+                    case "CT":
+                        MySoftData.CMDTip := (args[1] == "1")
+                    case "PS":
+                        tableItem := MySoftData.TableInfo[args[1]]
+                        tableItem.PauseArr[args[2]] := args[3]
+                    case "SA":
+                        ; 新协议：name + GetArrayStr；旧协议：name + count + items...
+                        if (args.Length == 2) {
+                            MySoftData.ArrayMap[args[1]] := GetArray(args[2])
+                        } else {
+                            name := args[1]
+                            count := Integer(args[2])
+                            arr := []
+                            loop count {
+                                arr.Push(args[A_Index + 2])
+                            }
+                            MySoftData.ArrayMap[name] := arr
+                        }
+                    case "CA":
+                        sourceName := args[1]
+                        newArrName := args[2]
+                        MySoftData.ArrayMap[newArrName] := MySoftData.ArrayMap[sourceName].Clone()
+                    case "DA":
+                        if (MySoftData.ArrayMap.Has(args[1]))
+                            MySoftData.ArrayMap.Delete(args[1])
+                    case "MA":
+                        rootArr := MySoftData.ArrayMap[args[1]]
+                        currArr := GetArrayRefByPath(rootArr, args[2], &lastIdx)
+                        currArr[lastIdx] := args[3]
+                    case "IA":
+                        rootArr := MySoftData.ArrayMap[args[1]]
+                        currArr := GetArrayRefByPath(rootArr, args[2], &lastIdx)
+                        currArr.InsertAt(lastIdx, args[3])
+                    case "RA":
+                        rootArr := MySoftData.ArrayMap[args[1]]
+                        currArr := GetArrayRefByPath(rootArr, args[2], &lastIdx)
+                        currArr.RemoveAt(lastIdx)
+                    case "ST":
+                        tableItem := MySoftData.TableInfo[args[1]]
+                        KillTableItemMacro(tableItem, args[2])
+                        GraphPoolLog("Worker收到终止指令", Format("tab={1} item={2}", args[1], args[2]))
+                    case "GA":
+                        global graphBranchesAckKey, graphBranchesAckReceived
+                        key := args[1] "_" args[2]
+                        if (IsSet(graphBranchesAckKey) && graphBranchesAckKey == key)
+                            graphBranchesAckReceived := true
+                }
+            } catch {
+            }
         }
     }
 }
@@ -186,42 +402,53 @@
 {
     WorkSetGlobalArray(Name, Value) {
         MySoftData.ArrayMap[Name] := Value
-        CmdStr := Format("SetArray_{}_{}", Name, GetArrayStr(Value))
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("SetArray", Name, GetArrayStr(Value))
     }
 
     WorkCloneGlobalArray(SourceArr, NewArrName) {
         MySoftData.ArrayMap[NewArrName] := SourceArr.Clone()
-        CMDStr := Format("CloneArray_{}_{}", GetArrayStr(SourceArr), NewArrName)
-        MsgSendHandler(CmdStr)
+        sourceName := ""
+        for name, arr in MySoftData.ArrayMap {
+            if (arr == SourceArr && name != NewArrName) {
+                sourceName := name
+                break
+            }
+        }
+        if (sourceName == "")
+            sourceName := NewArrName
+        MsgSendHandler("CloneArray", sourceName, NewArrName)
     }
 
     WorkDeleteGlobalArray(ArrName) {
-        CMDStr := Format("DeleteArray_{}", ArrName)
-        MsgSendHandler(CmdStr)
+        if (MySoftData.ArrayMap.Has(ArrName))
+            MySoftData.ArrayMap.Delete(ArrName)
+        MsgSendHandler("DeleteArray", ArrName)
     }
 
     WorkModifyGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr[Index] := Value
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("ModifyArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("ModifyArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkInsertGlobalArray(ArrName, MainIndex, Index, IsArrayValue, Value) {
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.InsertAt(Index, Value)
         ValueStr := IsArrayValue ? GetArrayStr(Value) : Value
-        CMDStr := Format("InsertArray_{}_{}_{}_{}_{}", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
-        MsgSendHandler(CmdStr)
+        MsgSendHandler("InsertArray", ArrName, MainIndex, Index, IsArrayValue, ValueStr)
     }
 
     WorkRemoveAtGlobalArray(ArrName, MainIndex, Index) {
-        CMDStr := Format("RemoveAtArray_{}_{}_{}", ArrName, MainIndex, Index)
-        MsgSendHandler(CmdStr)
+        SourceArr := MainIndex == 0 ? MySoftData.ArrayMap[ArrName] : MySoftData.ArrayMap[ArrName][MainIndex]
+        SourceArr.RemoveAt(Index)
+        MsgSendHandler("RemoveAtArray", ArrName, MainIndex, Index)
     }
 
     WorkSetGlobalVariable(NameArr, ValueArr, ignoreExist) {
         RealNameArr := NameArr.Clone()
         RealValueArr := ValueArr.Clone()
-        NameValueCMDStr := "SetVari"
+
         if (ignoreExist) {
             RealNameArr := []
             RealValueArr := []
@@ -236,18 +463,15 @@
             return
 
         loop RealNameArr.Length {
-            NameValueCMDStr .= Format("_{}_{}", RealNameArr[A_Index], RealValueArr[A_Index])
             MySoftData.VariableMap[RealNameArr[A_Index]] := ValueArr[A_Index]
         }
-        MsgSendHandler(NameValueCMDStr)
+        MsgSendHandler("SetVari", RealNameArr, RealValueArr)
     }
 
     WorkDelGlobalVariable(NameArr) {
         RealNameArr := []
-        NameValueCMDStr := "DelVari"
         loop NameArr.Length {
             if (MySoftData.VariableMap.Has(NameArr[A_Index])) {
-                NameValueCMDStr .= Format("_{}", NameArr[A_Index])
                 MySoftData.VariableMap.Delete(NameArr[A_Index])
                 RealNameArr.Push(NameArr[A_Index])
             }
@@ -255,7 +479,7 @@
 
         if (RealNameArr.Length == 0)
             return
-        MsgSendHandler(NameValueCMDStr)
+        MsgSendHandler("DelVari", RealNameArr)
     }
 }
 
@@ -267,93 +491,151 @@
         OnTriggerMacroKeyAndInit(tableItem, macro, itemIndex)
     }
 
-    WorkSubMacroStopAction(tableIndex, itemIndex) {
-        MsgPostHandler(WM_STOP_MACRO, tableIndex, itemIndex)
+    WorkStopMacro(tableIndex, itemIndex) {
+        MsgSendHandler("StopMacro", tableIndex, itemIndex)
     }
 
     WorkTriggerSubMacro(tableIndex, itemIndex) {
-        MsgPostHandler(WM_TR_MACRO, tableIndex, itemIndex)
+        MsgSendHandler("TR_MACRO", tableIndex, itemIndex)
+    }
+
+    WorkSubmitGraphBranches(tableIndex, itemIndex, branchCount, nodeSerialArr) {
+        global tx, workIndex, graphBranchesWaiting, graphBranchesAckKey, graphBranchesAckReceived, workerPendingTasks
+        nodes := ""
+        for s in nodeSerialArr
+            nodes .= (nodes != "" ? "," : "") s
+        GraphPoolLog("Worker批量请求分支", Format("tab={1} item={2} 总数={3} 子分支=[{4}]"
+            , tableIndex, itemIndex, branchCount, nodes))
+        graphBranchesAckKey := tableIndex "_" itemIndex
+        graphBranchesAckReceived := false
+        graphBranchesWaiting := true
+        try {
+            MsgSendHandler("GraphMacroBranches", tableIndex, itemIndex, branchCount, nodeSerialArr)
+            start := A_TickCount
+            loop {
+                while (tx.Pop(&type, &id, &payload)) {
+                    if (type == MsgType.TASK) {
+                        workerPendingTasks.Push({ id: id, cmd: payload })
+                        GraphPoolLog("Worker等待分支时缓存任务", Format("id={1} pending={2}", id, workerPendingTasks.Length))
+                        continue
+                    }
+                    if (type == MsgType.EVENT) {
+                        try {
+                            if (SubStr(payload, 1, 2) == "R1") {
+                                commandsStr := SubStr(payload, 3)
+                                for record in StrSplit(commandsStr, IPC_REC) {
+                                    if (record == "")
+                                        continue
+                                    parts := StrSplit(record, IPC_SEP)
+                                    if (parts.Length >= 3 && parts[1] == "GA" && parts[2] == tableIndex && parts[3] == itemIndex) {
+                                        GraphPoolLog("Worker分支分配就绪", Format("tab={1} item={2}", tableIndex, itemIndex))
+                                        return
+                                    }
+                                }
+                            }
+                        } catch {
+                        }
+                        OnEventMessage(payload)
+                    }
+                }
+                if (graphBranchesAckReceived) {
+                    GraphPoolLog("Worker分支分配就绪", Format("tab={1} item={2}", tableIndex, itemIndex))
+                    return
+                }
+                if (A_TickCount - start >= 3000) {
+                    GraphPoolLog("Worker等待分支分配超时", Format("tab={1} item={2}", tableIndex, itemIndex))
+                    return
+                }
+                Sleep(10)
+            }
+        } finally {
+            graphBranchesWaiting := false
+            graphBranchesAckKey := ""
+            graphBranchesAckReceived := false
+        }
     }
 
     WorkSetTableItemState(tableIndex, itemIndex, state) {
-        str := Format("ItemState_{}_{}_{}", tableIndex, itemIndex, state)
-        MsgSendHandler(str)
+        MsgSendHandler("ItemState", tableIndex, itemIndex, state)
     }
 
     WorkSetItemPauseState(tableIndex, itemIndex, state) {
-        str := Format("PauseState_{}_{}_{}", tableIndex, itemIndex, state)
-        MsgSendHandler(str)
+        tableItem := MySoftData.TableInfo[tableIndex]
+        tableItem.PauseArr[itemIndex] := state
+        MsgSendHandler("PauseState", tableIndex, itemIndex, state)
     }
 }
 
 ;子程序告诉主程动作
 {
     WorkCMDReport(cmdStr) {
-        str := Format("Report_{}", cmdStr)
-        MsgSendHandler(str)
+        MsgSendHandler("Report", cmdStr)
     }
 
     WorkExcuteRMTCMDAction(cmdStr) {
-        MsgSendHandler(cmdStr)
+        MsgSendHandler("RMT指令", cmdStr)
     }
 
     WorkMsgBoxContent(content) {
-        str := Format("MsgBox_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("MsgBox", content)
     }
 
     WorkToolTipContent(content) {
-        str := Format("ToolTip_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("ToolTip", content)
     }
 
     WorkMacroCount(content) {
-        str := Format("MacroCount_{}", content)
-        MsgSendHandler(str)
+        MsgSendHandler("MacroCount", content)
     }
 
     WorkViGJoySetState(JoyType, Key, Value) {
-        str := Format("Joy_{}_{}_{}", JoyType, Key, Value)
-        MsgSendHandler(str)
+        JoyDebugLog(Format("WorkViGJoySetState -> master JY type={} key={} value={}", JoyType, Key, Value), "worker")
+        MsgSendHandler("Joy", JoyType, Key, Value)
     }
 }
 
-;通信校验
+;通用函数
 {
-    CheckIfReceiveInfo(Timestamp) {
-        ;不存在表示已经接收了，就不用处理
-        if (!ReceiveInfoMap.Has(Timestamp))
-            return
+    GetFullErrorInfo(exception) {
+        what := ""
+        msg := ""
+        extra := ""
+        stack := ""
+        fullMsg := ""
 
-        MsgSendHandler(ReceiveInfoMap[Timestamp].Str, Timestamp)
+        if (IsObject(exception)) {
+            try what := exception.What
+            try msg := exception.Message
+            try extra := exception.Extra
+            try stack := exception.Stack
+        } else {
+            msg := "" . exception
+        }
+
+        if (what != "")
+            fullMsg := what
+        if (msg != "")
+            fullMsg := fullMsg (fullMsg ? " | " : "") . msg
+        if (extra != "")
+            fullMsg := fullMsg "`nSpecifically: " extra
+        if (stack != "")
+            fullMsg := fullMsg "`n" stack
+
+        return fullMsg
     }
 
-    class ReceiveCheckData {
-        __New() {
-            this.Timestamp := ""
-            this.Str := ""
-            this.Count := 0
-            this.CheckAction := ""
+    GetArrayRefByPath(rootArr, path, &lastIdx) {
+        parts := StrSplit(path, ".")
+        curr := rootArr
+        if (parts.Length == 2 && parts[1] == "0") {
+            lastIdx := Integer(parts[2])
+            return rootArr
         }
-
-        EnableCheckAction() {
-            this.Count++
-            if (this.Count <= 3) {
-                action := CheckIfReceiveInfo.Bind(this.Timestamp)
-                this.CheckAction := action
-                SetTimer(action, -30)
-            }
+        loop parts.Length - 1 {
+            idx := Integer(parts[A_Index])
+            curr := curr[idx]
         }
-
-        Destroy() {
-            if (ReceiveInfoMap.Has(this.Timestamp)) {
-                if (this.CheckAction != "") {
-                    action := this.CheckAction
-                    SetTimer(action, 0)
-                }
-
-                ReceiveInfoMap.Delete(this.Timestamp)
-            }
-        }
+        lastIdx := Integer(parts[parts.Length])
+        return curr
     }
 }

@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class InputBtnGui {
     __new() {
@@ -30,7 +30,7 @@ class InputBtnGui {
 
     AddGui() {
         MyGui := Gui("-Caption +AlwaysOnTop +ToolWindow", GetLang("输入按钮"))
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         MyGui.BackColor := "EEAA99"
         WinSetTransColor("EEAA99", MyGui)
         this.Gui := MyGui

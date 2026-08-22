@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TriggerStrGui {
     __new() {
@@ -93,7 +93,7 @@ class TriggerStrGui {
         {
             MyGui := Gui(, GetLang("字串触发编辑器"))
             this.Gui := MyGui
-            MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+            MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
             MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", 10, 10, 1120, 230), GetLang("请从下面字符中组合你想要触发宏的字串："))
 
             PosX := 20
@@ -476,7 +476,8 @@ class TriggerStrGui {
         this.SaveBtnCtrl := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("应用并保存"))
         this.SaveBtnCtrl.OnEvent("Click", (*) => this.OnSaveBtnClick())
 
-        MyGui.Show(Format("w{} h{}", 1150, 460))
+        pos := GetCenterPosOnActiveMonitor(1150, 460)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 1150, 460))
     }
 
     ;按钮点击回调

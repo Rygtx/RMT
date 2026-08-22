@@ -1,8 +1,9 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ExVariableEditGui {
     __new() {
         this.Gui := ""
+        this.OwnerHwnd := ""
         this.SureAction := ""
 
         this.OriTextCon := ""
@@ -11,11 +12,21 @@ class ExVariableEditGui {
 
     ShowGui(ExtractStr) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
         }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
+        }
+
         this.Init(ExtractStr)
     }
 
@@ -49,7 +60,10 @@ class ExVariableEditGui {
     AddGui() {
         MyGui := Gui(, GetLang("提取文本编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 15
         PosY := 10
@@ -101,7 +115,18 @@ class ExVariableEditGui {
         PosY += 40
         con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show(Format("w{} h{}", 480, 370))
+        MyGui.OnEvent("Close", (*) => this.OnClose())
+        pos := GetCenterPosOnActiveMonitor(480, 370)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 480, 370))
+    }
+
+    OnClose(*) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     CheckIfValid() {
@@ -159,6 +184,11 @@ class ExVariableEditGui {
         ExtractStr := this.GetExtractStr()
         VariableNum := this.GetVariNum()
         Action(ExtractStr, VariableNum)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 }

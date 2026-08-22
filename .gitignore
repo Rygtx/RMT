@@ -1,3 +1,5 @@
+Log/
+Setting/
 settings.ini
 .vscode
 /*.code-workspace
@@ -10,3 +12,9 @@ installed
 */build*
 .codebuddy/
 .idea
+todo
+.trae/
+.reasonix/
+.claude/
+_bmad
+_bmad-output

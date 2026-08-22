@@ -9,6 +9,8 @@
 
 class RapidOcr {
     ptr := 0
+    static dllModule := 0
+    static instanceCount := 0
     /**
      * @param {Map|Object} config Set det, rec, cls model location path, keys.txt path, thread number.
      * @param {String} [config.models] dir of model files
@@ -28,13 +30,11 @@ class RapidOcr {
         modelDire := mode := 1 ? "ch_models" : "en_models"
         config := { models: path "\Plugins\RapidOcr\" modelDire }
         dllpath := path "\Plugins\RapidOcr\" (A_PtrSize * 8) "bit\RapidOcrOnnx.dll"
-        static init := 0
-        if (!init) {
-            init := DllCall('LoadLibrary', 'str', dllpath ?? A_LineFile '\..\' (A_PtrSize * 8) 'bit\RapidOcrOnnx.dll',
+        if (!RapidOcr.dllModule) {
+            RapidOcr.dllModule := DllCall('LoadLibrary', 'str', dllpath ?? A_LineFile '\..\' (A_PtrSize * 8) 'bit\RapidOcrOnnx.dll',
             'ptr')
-            if (!init) {
-                ; throw OSError()
-                return  ;部分电脑无法加载，那么就直接返回吧
+            if (!RapidOcr.dllModule) {
+                return
             }
         }
         if !IsSet(config)
@@ -74,8 +74,27 @@ class RapidOcr {
 
         this.ptr := DllCall('RapidOcrOnnx\OcrInit', 'str', det_model, 'str', cls_model, 'str', rec_model, 'str',
             keys_dict, 'int', numThread, 'Cdecl')
+        if (this.ptr)
+            RapidOcr.instanceCount++
     }
-    __Delete() => this.ptr && DllCall('RapidOcrOnnx\OcrDestroy', 'ptr', this, 'Cdecl')
+    __Delete() => this.ptr && RapidOcr._releaseInstance(this)
+
+    Destroy() {
+        if (this.ptr) {
+            RapidOcr._releaseInstance(this)
+            this.ptr := 0
+        }
+    }
+
+    static _releaseInstance(instance) {
+        DllCall('RapidOcrOnnx\OcrDestroy', 'ptr', instance, 'Cdecl')
+        RapidOcr.instanceCount--
+        if (RapidOcr.instanceCount <= 0 && RapidOcr.dllModule) {
+            DllCall('FreeLibrary', 'ptr', RapidOcr.dllModule)
+            RapidOcr.dllModule := 0
+            RapidOcr.instanceCount := 0
+        }
+    }
 
     static __cb(i) {
         static cbs := [{ ptr: CallbackCreate(get_text), __Delete: this => CallbackFree(this.ptr) }, { ptr: CallbackCreate(

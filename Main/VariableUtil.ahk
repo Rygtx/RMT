@@ -3,97 +3,93 @@
 SetGlobalData(macroStr, visitMap) {
     if (macroStr == "")
         return
+        
     VariableMap := MySoftData.GlobalVariMap
     cmdArr := SplitMacro(macroStr)
+    
     loop cmdArr.Length {
         paramArr := StrSplit(cmdArr[A_Index], "_")
-        paramArr[1] := GetCmdStr(paramArr[1])
-        if (visitMap.Has(paramArr[1]))
+        cmdName := GetCmdStr(paramArr[1])
+        
+        if (visitMap.Has(cmdName))
             continue
+            
+        visitMap[cmdName] := true
         SetCMDSerialData(cmdArr[A_Index])
-        IsPressKey := InStr(paramArr[1], "按键")
-        IsBGKey := InStr(paramArr[1], "后台按键")
-        IsExVariable := InStr(paramArr[1], "变量提取")
-        IsVariable := InStr(paramArr[1], "变量") && !IsExVariable
-        IsTextOps := InStr(paramArr[1], "文本处理")
-        IsOpera := InStr(paramArr[1], "运算")
-        IsSearchPro := InStr(paramArr[1], "搜索Pro")
-        IsSearch := InStr(paramArr[1], "搜索") && !IsSearchPro
-        IsLoop := InStr(paramArr[1], "循环")
-        IsIfPro := InStr(paramArr[1], "如果Pro")
-        IsIf := InStr(paramArr[1], "如果") && !IsIfPro
-        IsArray := InStr(paramArr[1], "数组")
-        IsInput := InStr(paramArr[1], "输入")
-        IsFileIO := InStr(paramArr[1], "文件读写")
-        IsVarRelate := IsVariable || IsExVariable || IsTextOps || IsIf || IsOpera || IsSearch || IsSearchPro
-            || IsLoop || IsIfPro || IsArray || IsInput || IsFileIO
-        if (!MySoftData.HasJoyMacro && IsPressKey && !IsBGKey) {
-            MySoftData.HasJoyMacro := InStr(paramArr[2], "Joy")
-        }
 
-        if (!IsVarRelate)
+        baseCmd := RTrim(cmdName, "0123456789")
+        
+        if (baseCmd == "按键") {
+            if (!MySoftData.HasJoyMacro && paramArr.Length >= 3)
+                MySoftData.HasJoyMacro := InStr(paramArr[2], "Joy")
             continue
-        visitMap[paramArr[1]] := true
-        Cmd := RegExReplace(paramArr[1], "\d+")
-        Data := GetMacroCMDData(paramArr[1])
+        }
+            
+        ; 過濾掉系統未登錄的指令類型（如 RMT指令 等），避免 DataFileMap 查詢崩潰
+        if (!MySoftData.DataFileMap.Has(baseCmd))
+            continue
 
-        if (IsVariable || IsExVariable) {
-            loop Data.ToggleArr.Length {
-                if (Data.ToggleArr[A_Index])
-                    VariableMap[Data.VariableArr[A_Index]] := true
-            }
-        }
-        else if (IsTextOps) {
-            if (Data.SaveType == "变量")
-                VariableMap[Data.SaveName] := true
-            if (Data.SaveType == "数组")
-                MySoftData.GlobalArrMap[Data.SaveName] := true
-        }
-        else if (IsIf) {
-            if (Data.SaveToggle) {
-                VariableMap[Data.SaveName] := true
-            }
-        }
-        else if (IsOpera) {
-            loop Data.ToggleArr.Length {
-                if (Data.ToggleArr[A_Index])
-                    VariableMap[Data.UpdateNameArr[A_Index]] := true
-            }
-        }
-        else if (IsSearch || IsSearchPro) {
-            if (Data.ResultToggle) {
-                VariableMap[Data.ResultSaveName] := true
-            }
+        Data := GetMacroCMDData(cmdName)
 
-            if (Data.CoordToogle) {
-                VariableMap[Data.CoordXName] := true
-                VariableMap[Data.CoordYName] := true
-            }
-        }
-        else if (IsArray) {
-            SetArrayDataNewArr(Data)
-            SetArrayDataNewVar(Data)
-        }
-        else if (IsInput) {
-            if (Data.Type == "弹窗" || Data.Type == "状态")
-                VariableMap[Data.SaveName] := true
-        }
-        else if (IsFileIO) {
-            SetFileIOGlobalData(Data)
-        }
-
-        if (IsIf || IsSearch || IsSearchPro) {
-            SetGlobalData(Data.TrueMacro, visitMap)
-            SetGlobalData(Data.FalseMacro, visitMap)
-        }
-        else if (IsLoop) {
-            SetGlobalData(Data.LoopBody, visitMap)
-        }
-        else if (IsIfPro) {
-            for index, value in Data.MacroArr {
-                SetGlobalData(value, visitMap)
-            }
-            SetGlobalData(Data.DefaultMacro, visitMap)
+        ; 每個指令的變量提取 + 子宏遞歸 合併在同一個 switch 裡
+        switch baseCmd {
+            case "变量", "变量提取":
+                loop Data.ToggleArr.Length {
+                    if (Data.ToggleArr[A_Index])
+                        VariableMap[Data.VariableArr[A_Index]] := true
+                }
+            case "文本处理":
+                if (Data.SaveType == "变量")
+                    VariableMap[Data.SaveName] := true
+                if (Data.SaveType == "数组")
+                    MySoftData.GlobalArrMap[Data.SaveName] := true
+            case "按键检测":
+                VariableMap[Data.VarName] := true
+            case "运算":
+                loop Data.ToggleArr.Length {
+                    if (Data.ToggleArr[A_Index])
+                        VariableMap[Data.UpdateNameArr[A_Index]] := true
+                }
+            case "数组":
+                SetArrayDataNewArr(Data)
+                SetArrayDataNewVar(Data)
+            case "输入":
+                if (Data.Type == "弹窗" || Data.Type == "状态")
+                    VariableMap[Data.SaveName] := true
+            case "文件读写":
+                SetFileIOGlobalData(Data)
+            case "运行":
+                if (Data.Mode = 2) {
+                    if (Data.SaveNameArr[1] != "")
+                        VariableMap[Data.SaveNameArr[1]] := true
+                }
+                else if (Data.Mode = 4) {
+                    loop 3 {
+                        if (Data.SaveNameArr[A_Index] != "")
+                            VariableMap[Data.SaveNameArr[A_Index]] := true
+                    }
+                }
+            case "循环":
+                SetGlobalData(Data.LoopBody, visitMap)
+            case "如果":
+                if (Data.SaveToggle)
+                    VariableMap[Data.SaveName] := true
+                SetGlobalData(Data.TrueMacro, visitMap)
+                SetGlobalData(Data.FalseMacro, visitMap)
+            case "如果Pro":
+                for index, value in Data.MacroArr {
+                    SetGlobalData(value, visitMap)
+                }
+                SetGlobalData(Data.DefaultMacro, visitMap)
+            case "搜索", "搜索Pro":
+                if (Data.ResultToggle)
+                    VariableMap[Data.ResultSaveName] := true
+                if (Data.CoordToogle) {
+                    VariableMap[Data.CoordXName] := true
+                    VariableMap[Data.CoordYName] := true
+                }
+                SetGlobalData(Data.TrueMacro, visitMap)
+                SetGlobalData(Data.FalseMacro, visitMap)
         }
     }
 }
@@ -167,12 +163,6 @@ CheckVarNameIfValid(Name) {
     return true
 }
 
-;变量名需要替换掉运算符
 GetVarName(Name) {
-    Name := GetLangKey(Name)
-    Name := StrReplace(Name, "+", "＋")
-    Name := StrReplace(Name, "-", "－")
-    Name := StrReplace(Name, "*", "×")
-    Name := StrReplace(Name, "/", "÷")
-    return Name
+    return GetLangKey(Name)
 }

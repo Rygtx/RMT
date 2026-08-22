@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 #Include WinRuleGui.ahk
 
@@ -8,6 +8,7 @@ class SearchProGui {
         this.Gui := ""
         this.RuleMenu := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.PosAction := () => this.RefreshMouseInfo()
         this.F1Action := (x1, y1, x2, y2) => this.OnF1SetAreaAction(x1, y1, x2, y2)
         this.CheckClipboardAction := () => this.CheckClipboard()
@@ -24,14 +25,30 @@ class SearchProGui {
         this.ResultTogArr := []
         this.CoordTogArr := []
         this.FalseConArr := []
+        this.ImageVariArr := []
+        this.ColorArr := []
+        this.TextArr := []
+        this.PreviewGui := ""
+        this.PreviewBorderArr := []
+        this.PreviewFollowTimer := 0
+        this.PreviewFollowing := false
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -41,7 +58,10 @@ class SearchProGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("搜索Pro编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -58,6 +78,11 @@ class SearchProGui {
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
         PosX += 50
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+
+        PosX += 170
+        this.PreviewAreaCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{} Left", PosX, PosY, 150, 25), GetLang(
+            "预览框选范围"))
+        this.PreviewAreaCon.OnEvent("Click", (*) => this.OnClickPreviewArea())
 
         PosY += 35
         PosX := 10
@@ -127,25 +152,29 @@ class SearchProGui {
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
         PosX += 80
         this.StartPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.StartPosXCon.OnEvent("Change", (*) => this.RefreshPreviewArea())
         PosX := 180
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
         PosX += 80
         this.StartPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.StartPosYCon.OnEvent("Change", (*) => this.RefreshPreviewArea())
         PosY += 35
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
         PosX += 80
         this.EndPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.EndPosXCon.OnEvent("Change", (*) => this.RefreshPreviewArea())
         PosX := 180
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
         PosX += 80
         this.EndPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
+        this.EndPosYCon.OnEvent("Change", (*) => this.RefreshPreviewArea())
         PosY += 35
         PosX := 10
         MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索次数："))
         PosX += 80
         this.SearchCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.SearchCountCon.OnEvent("LoseFocus", this.OnChangeType.Bind(this))
+        this.SearchCountCon.OnEvent("LoseFocus", (*) => this.OnChangeType())
         PosX := 180
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("每次间隔："))
         this.CountTogArr.Push(con)
@@ -159,7 +188,7 @@ class SearchProGui {
         this.MouseActionTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 5, 160),
         GetLangArr(["无动作", "移动至目标", "移动至目标点击"]))
         this.MouseActionTypeCon.Value := 1
-        this.MouseActionTypeCon.OnEvent("Change", this.OnChangeType.Bind(this))
+        this.MouseActionTypeCon.OnEvent("Change", (*) => this.OnChangeType())
         PosY += 35
         PosX := 10
         con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动速度："))
@@ -176,6 +205,7 @@ class SearchProGui {
 
         PosX := 10
         PosY += 35
+        LeftMacroPosY := PosY
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("找到后的指令：（可选）"))
         PosX += 180
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 25), GetLang("编辑"))
@@ -204,7 +234,7 @@ class SearchProGui {
         PosY += 25
         PosX := 20
         this.ResultToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ResultToggleCon.OnEvent("Click", this.OnChangeType.Bind(this))
+        this.ResultToggleCon.OnEvent("Click", (*) => this.OnChangeType())
         this.ResultSaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 30, PosY - 3, 120), [])
         this.ResultTogArr.Push(this.ResultSaveNameCon)
         this.TrueValueCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 155, PosY - 4, 70), 0)
@@ -232,49 +262,75 @@ class SearchProGui {
         this.SimilarCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
         this.SimilarArr.Push(this.SimilarCon)
 
+        ; Row2: [识别模型] [下拉] + ImageCon 原版位置(570,145)
+        PosY += 35
+        BasePosY := PosY
+        PosX := 360
+        this.SearchImageTypeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("识别模型："))
+        this.ImageVariArr.Push(this.SearchImageTypeTipCon)
+        PosX += 80
+        this.SearchImageTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 3, 80), [
+            "OpenCV",
+            "RMT识图"])
+        this.ImageVariArr.Push(this.SearchImageTypeCon)
+        this.ImageCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", 570, 145, 100, 100), "")
+        this.ImageVariArr.Push(this.ImageCon)
+
         PosY += 35
         PosX := 360
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 70, 30), GetLang("选择图片"))
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 7, 70, 30), GetLang("截图"))
+        btnCon.OnEvent("Click", (*) => this.OnScreenShotBtnClick())
+        this.ScreenshotBtn := btnCon
+        this.ImageVariArr.Push(this.ScreenshotBtn)
+
+        PosX += 80
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 7, 80, 30), GetLang("选择图片"))
         btnCon.OnEvent("Click", (*) => this.OnClickSetPicBtn())
         btnCon.Focus()
         this.ImageSelectBtn := btnCon
+        this.ImageVariArr.Push(this.ImageSelectBtn)
 
-        PosX += 80
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 80, 30), GetLang("截图"))
-        btnCon.OnEvent("Click", (*) => this.OnScreenShotBtnClick())
-        this.ScreenshotBtn := btnCon
-
-        PosY += 35
+        PosY := BasePosY + 70
         PosX := 360
-        this.SearchImageTypeTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("识别模型："))
+        this.SearchImagePathTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("图片路径："))
+        this.ImageVariArr.Push(this.SearchImagePathTipCon)
         PosX += 80
-        this.SearchImageTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), [
-            "OpenCV",
-            "RMT识图"])
-        this.ImageCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", 570, 145, 100, 100), "")
+        this.ImagePathCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 250), [])
+        this.ImageVariArr.Push(this.ImagePathCon)
 
-        PosY += 35
+        ; === 颜色搜索区域（与图片重叠） ===
+        PosY := BasePosY
         PosX := 360
         this.ColorLabelCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索颜色："))
+        this.ColorArr.Push(this.ColorLabelCon)
         PosX += 80
         this.HexColorCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center R5", PosX, PosY - 3, 120), [])
+        this.ColorArr.Push(this.HexColorCon)
         PosX += 130
         this.HexColorTipCon := MyGui.Add("Text", Format("x{} y{} w{} Background{}", PosX, PosY, 20, "FF0000"), "")
+        this.ColorArr.Push(this.HexColorTipCon)
 
-        PosY += 35
+        ; === 文本搜索区域（与图片重叠） ===
+        PosY := BasePosY
         PosX := 360
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("搜索文本："))
+        this.TextArr.Push(this.TextTipCon)
         PosX += 80
         this.TextCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center R5", PosX, PosY - 3, 120), [])
-        PosY += 35
+        this.TextArr.Push(this.TextCon)
+
+        PosY := BasePosY + 35
         PosX := 360
         this.OCRLabelCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("识别模型："))
+        this.TextArr.Push(this.OCRLabelCon)
         PosX += 80
         this.OCRTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 3, 120), GetLangArr([
             "中文",
             "英文"]))
+        this.TextArr.Push(this.OCRTypeCon)
 
-        PosY += 35
+        PosY := Max(BasePosY + 98, LeftMacroPosY)
+
         PosX := 360
         con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 170, 20), GetLang("未找到后的指令：（可选）"))
         this.FalseConArr.Push(con)
@@ -304,7 +360,7 @@ class SearchProGui {
         PosY += 25
         PosX := 370
         this.CoordToogleCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.CoordToogleCon.OnEvent("Click", this.OnChangeType.Bind(this))
+        this.CoordToogleCon.OnEvent("Click", (*) => this.OnChangeType())
         this.CoordXNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
         this.CoordTogArr.Push(this.CoordXNameCon)
         this.CoordYNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 170, PosY - 3, 120), [])
@@ -314,8 +370,9 @@ class SearchProGui {
         PosX := 300
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 700, 600))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(700, 600)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 700, 600))
     }
 
     Init(cmd) {
@@ -324,14 +381,17 @@ class SearchProGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr()
-        if (!this.CheckIfDataValid())
-            return
+        ; 先回填控件（含结果/目标点勾选），再做完整性提示，避免校验失败时选框未勾上
+        dataOk := this.CheckIfDataValid()
         this.RefreshConfigDLArr()
-        this.SearchTypeCon.Value := this.Data.SearchType
+        this.SearchTypeCon.Value := Integer(ObjHasOwnProp(this.Data, "SearchType") ? this.Data.SearchType : 1)
         this.SimilarCon.Value := this.Data.Similar
         this.OCRTypeCon.Value := this.Data.OCRType
         this.WinInfoCon.Value := this.Data.WinInfo
         this.SearchImageTypeCon.Value := this.Data.SearchImageType
+        this.ImagePathCon.Delete()
+        this.ImagePathCon.Add(this.DLVariableArr)
+        this.ImagePathCon.Text := this.Data.SearchImagePath
         this.ImageCon.GetPos(&imagePosX, &imagePosY)
         this.ImageCon.Value := this.Data.SearchImagePath
         this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
@@ -361,13 +421,13 @@ class SearchProGui {
         this.ClickCountCon.Value := this.Data.ClickCount
         this.TrueMacroCon.Value := GetLangMacro(this.Data.TrueMacro, 1)
         this.FalseMacroCon.Value := GetLangMacro(this.Data.FalseMacro, 1)
-        this.ResultToggleCon.Value := this.Data.ResultToggle
+        this.ResultToggleCon.Value := this._ToggleInt(ObjHasOwnProp(this.Data, "ResultToggle") ? this.Data.ResultToggle : 0)
         this.ResultSaveNameCon.Delete()
         this.ResultSaveNameCon.Add(this.DLVariableArr)
         this.ResultSaveNameCon.Text := this.Data.ResultSaveName
         this.TrueValueCon.Value := this.Data.TrueValue
         this.FalseValueCon.Value := this.Data.FalseValue
-        this.CoordToogleCon.Value := this.Data.CoordToogle
+        this.CoordToogleCon.Value := this._ToggleInt(ObjHasOwnProp(this.Data, "CoordToogle") ? this.Data.CoordToogle : 0)
         this.CoordXNameCon.Delete()
         this.CoordXNameCon.Add(this.DLVariableArr)
         this.CoordXNameCon.Text := this.Data.CoordXName
@@ -382,6 +442,13 @@ class SearchProGui {
         SetDLConValue(this.MouseActionTypeCon, MouseDLArr, GetLang("无动作"))
         this.MouseActionTypeCon.Value := this.Data.MouseActionType
         this.OnChangeType()
+        if (!dataOk)
+            return
+    }
+
+    ; Checkbox.Value 需要 0/1；JSON 可能是 true/false 或 "1"
+    _ToggleInt(v) {
+        return (v == 1 || v == "1" || v == true || v == "True") ? 1 : 0
     }
 
     GetCommandStr() {
@@ -394,6 +461,12 @@ class SearchProGui {
 
     OnClickWinEditBtn(*) {
         MyFrontInfoGui.HideAction := () => this.ToggleFunc(true)
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            MyFrontInfoGui.OwnerHwnd := ""
+        }
         MyFrontInfoGui.ShowGui(this.WinInfoCon)
     }
 
@@ -448,6 +521,12 @@ class SearchProGui {
                 MsgBox(GetLang("修改成功"))
             }
             this.WinRuleGui.SureAction := SureAction
+            if (MainSoftData.IsModalSubGui && this.Gui != "") {
+                this.WinRuleGui.OwnerHwnd := this.Gui.Hwnd
+            }
+            else {
+                this.WinRuleGui.OwnerHwnd := ""
+            }
             this.WinRuleGui.ShowGui()
         }
         else if (Str == GetLang("增加"))
@@ -498,6 +577,12 @@ class SearchProGui {
             MsgBox(Format("{} 配置添加成功", ConfigName))
         }
         this.WinRuleGui.SureAction := SureAction
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.WinRuleGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.WinRuleGui.OwnerHwnd := ""
+        }
         this.WinRuleGui.ShowGui()
     }
 
@@ -594,11 +679,6 @@ class SearchProGui {
             MsgBox(GetLang("这条指令不完整，请删除"))
             return false
         }
-
-        if (this.Data.SearchImagePath != "" && !FileExist(this.Data.SearchImagePath)) {
-            MsgBox(Format(GetLang("{} 图片不存在`n如果是软件位置发生改变，请点击若梦兔-配置管理-配置校准"), this.Data.SearchImagePath))
-            return false
-        }
         return true
     }
 
@@ -609,6 +689,7 @@ class SearchProGui {
         isText := curType == 3 || curType == 6
         isWin := curType == 4 || curType == 5 || curType == 6
 
+        this.Data.SearchImagePath := this.ImagePathCon.Text
         if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text) && IsNumber(this.EndPosXCon.Text
         ) && IsNumber(this.EndPosYCon.Text)) {
             if (Number(this.StartPosXCon.Text) > Number(this.EndPosXCon.Text) || Number(this.StartPosYCon.Text) >
@@ -634,7 +715,8 @@ class SearchProGui {
 
         if (isImage) {
             if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text)
-            && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)) {
+            && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)
+            && this.Data.SearchImagePath != "" && FileExist(this.Data.SearchImagePath)) {
                 searchWidth := this.EndPosXCon.Text - this.StartPosXCon.Text
                 searchHeight := this.EndPosYCon.Text - this.StartPosYCon.Text
                 size := GetImageSize(this.Data.SearchImagePath)
@@ -646,10 +728,13 @@ class SearchProGui {
         }
 
         if (isText) {
-            if (this.StartPosXCon.Text == this.EndPosXCon.Text) ||
-            this.StartPosYCon.Text == Number(this.EndPosYCon.Text) {
-                MsgBox(GetLang("搜索文本时：搜索范围中起始坐标不能和终止坐标相同"))
-                return false
+            if (IsNumber(this.StartPosXCon.Text) && IsNumber(this.StartPosYCon.Text)
+            && IsNumber(this.EndPosXCon.Text) && IsNumber(this.EndPosYCon.Text)) {
+                if (this.StartPosXCon.Text == this.EndPosXCon.Text ||
+                this.StartPosYCon.Text == this.EndPosYCon.Text) {
+                    MsgBox(GetLang("搜索文本时：搜索范围中起始坐标不能和终止坐标相同"))
+                    return false
+                }
             }
         }
 
@@ -760,36 +845,46 @@ class SearchProGui {
         action := this.SureBtnAction
         action(this.GetCommandStr())
         this.ToggleFunc(false)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
     OnClickSetPicBtn() {
-        path := FileSelect(1, , GetLang("选择图片"), "PNG Files (*.png)")
+        curPath := this.ImagePathCon.Text
+        path := FileSelect(1, curPath, GetLang("选择图片"), "PNG Files (*.png)")
         if (path != "") {
             SplitPath path, &name, &dir, &ext, &name_no_ext, &drive
             newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name
             if (path != newPath) {
                 if (FileExist(newPath)) {
-                    CurrentDateTime := FormatTime(, "HHmmss")
-                    newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" name_no_ext .
-                        CurrentDateTime ".png"
+                    imageSerial := GetNextImageSerial()
+                    newPath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" imageSerial ".png"
                 }
                 FileCopy(path, newPath)
                 path := newPath
             }
+
+            this.ImageCon.GetPos(&imagePosX, &imagePosY)
+            this.ImageCon.Value := path
+            this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
+            this.Data.SearchImagePath := path
+            this.ImagePathCon.Text := path
         }
-        this.ImageCon.Value := path
-        this.Data.SearchImagePath := path
     }
 
     OnScreenShotBtnClick() {
-        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+        if (MainSoftData.ScreenShotType == 1) {
             SetClipboard("")  ; 清空剪贴板
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
             TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
-        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this.CheckClipboardAction)
             TogGetSelectArea(true, this.OnGetArea.Bind(this))
         }
@@ -802,12 +897,15 @@ class SearchProGui {
         ; 如果剪贴板中有图像
         if DllCall("IsClipboardFormatAvailable", "uint", 8)  ; 8 是 CF_BITMAP 格式
         {
-            ; 获取当前日期和时间，用于生成唯一的文件名
-            CurrentDateTime := FormatTime(, "HHmmss")
-            filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" CurrentDateTime ".png"
+            imageSerial := GetNextImageSerial()
+            filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" imageSerial ".png"
             SaveClipToBitmap(filePath)
+
+            this.ImageCon.GetPos(&imagePosX, &imagePosY)
             this.ImageCon.Value := filePath
+            this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
             this.Data.SearchImagePath := filePath
+            this.ImagePathCon.Text := filePath
             ; 停止监听
             SetTimer(, 0)
         }
@@ -822,11 +920,21 @@ class SearchProGui {
     }
 
     OnScreenShotGetArea(x1, y1, x2, y2) {
-        CurrentDateTime := FormatTime(, "HHmmss")
-        filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" CurrentDateTime ".png"
+        ; 确保截图区域至少为1x1像素，避免单像素点点击导致截图无效
+        if (x1 == x2)
+            x2++
+        if (y1 == y2)
+            y2++
+
+        imageSerial := GetNextImageSerial()
+        filePath := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\Images\ScreenShot\" imageSerial ".png"
         ScreenShot(x1, y1, x2, y2, filePath)
+
+        this.ImageCon.GetPos(&imagePosX, &imagePosY)
         this.ImageCon.Value := filePath
+        this.ImageCon.Move(imagePosX, imagePosY, 100, 100)
         this.Data.SearchImagePath := filePath
+        this.ImagePathCon.Text := filePath
 
         this.OnGetArea(x1, y1, x2, y2)
     }
@@ -851,6 +959,13 @@ class SearchProGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
+        }
+
         this.MacroGui.SureBtnAction := (command) => this.OnSureFoundMacroBtnClick(command)
         this.MacroGui.ShowGui(this.TrueMacroCon.Value, false)
     }
@@ -864,12 +979,19 @@ class SearchProGui {
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
+
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
+        }
+
         this.MacroGui.SureBtnAction := (command) => this.OnSureUnFoundMacroBtnClick(command)
         this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)
     }
 
     OnChangeType(*) {
-        ;1屏幕图片  2屏幕颜色  3屏幕文本 4窗口图片 5窗口颜色 6窗口文本
         curType := this.SearchTypeCon.Value
         isImage := curType == 1 || curType == 4
         isColor := curType == 2 || curType == 5
@@ -878,27 +1000,17 @@ class SearchProGui {
         isInfinite := this.SearchCountCon.Text == GetLang("无限")
         showColorTip := isColor && RegExMatch(this.HexColorCon.Text, "^([0-9A-Fa-f]{6})$")
 
-        this.ImageSelectBtn.Visible := isImage
-        this.ScreenshotBtn.Visible := isImage
-        this.SearchImageTypeCon.Visible := isImage && A_PtrSize == 8
-        this.SearchImageTypeTipCon.Visible := isImage
-        this.ImageCon.Visible := isImage
-        if (A_PtrSize != 8)
-            this.SearchImageTypeCon.Value := 2
+        this.SetConArrState(this.ImageVariArr, false, isImage)
 
-        this.HexColorCon.Visible := isColor
-        this.ColorLabelCon.Visible := isColor
+        this.SetConArrState(this.ColorArr, false, isColor)
         this.HexColorTipCon.Visible := showColorTip
         if (showColorTip) {
             this.HexColorTipCon.Opt(Format("+Background0x{}", this.HexColorCon.Text))
             this.HexColorTipCon.Redraw()
         }
 
-        this.TextCon.Visible := isText
-        this.OCRLabelCon.Visible := isText
-        this.OCRTypeCon.Visible := isText
-        this.TextTipCon.Visible := isText
-        this.MousePosCon.Focus()
+        this.SetConArrState(this.TextArr, false, isText)
+        try this.MousePosCon.Focus()
 
         this.SetConArrState(this.SimilarArr, false, !isText)
         this.SetConArrState(this.WinInfoArr, false, isWin)
@@ -928,6 +1040,7 @@ class SearchProGui {
         this.SetConArrState(this.CoordTogArr, true, isCoord)
 
         this.LastIsWin := isWin
+        this.RefreshPreviewArea()
     }
 
     SetConArrState(ConArr, isEnabled, state) {
@@ -998,6 +1111,7 @@ class SearchProGui {
 
     SaveSearchData() {
         data := this.Data
+        data.SearchImagePath := this.ImagePathCon.Text
         data.Similar := this.SimilarCon.Value
         data.OCRType := this.OCRTypeCon.Value
         data.SearchImageType := this.SearchImageTypeCon.Value
@@ -1016,11 +1130,11 @@ class SearchProGui {
         data.Speed := this.SpeedCon.Value
         data.TrueMacro := GetLangMacro(this.TrueMacroCon.Value, 2)
         data.FalseMacro := GetLangMacro(this.FalseMacroCon.Value, 2)
-        data.ResultToggle := this.ResultToggleCon.Value
+        data.ResultToggle := this.ResultToggleCon.Value ? 1 : 0
         data.ResultSaveName := GetVarName(this.ResultSaveNameCon.Text)
         data.TrueValue := this.TrueValueCon.Value
         data.FalseValue := this.FalseValueCon.Value
-        data.CoordToogle := this.CoordToogleCon.Value
+        data.CoordToogle := this.CoordToogleCon.Value ? 1 : 0
         data.CoordXName := this.CoordXNameCon.Text
         data.CoordYName := this.CoordYNameCon.Text
 
@@ -1033,5 +1147,170 @@ class SearchProGui {
         }
 
         SaveMacroCMDData(data)
+    }
+
+    OnClickPreviewArea() {
+        this.RefreshPreviewArea()
+    }
+
+    RefreshPreviewArea() {
+        if (this.PreviewAreaCon.Value != 1) {
+            this.StopPreviewFollow()
+            this.HidePreviewRect()
+            return
+        }
+        startX := this.StartPosXCon.Text
+        startY := this.StartPosYCon.Text
+        endX := this.EndPosXCon.Text
+        endY := this.EndPosYCon.Text
+
+        if (!IsNumber(startX) || !IsNumber(startY) || !IsNumber(endX) || !IsNumber(endY)) {
+            this.StopPreviewFollow()
+            this.HidePreviewRect()
+            return
+        }
+
+        startX := Number(startX)
+        startY := Number(startY)
+        endX := Number(endX)
+        endY := Number(endY)
+
+        ; 窗口搜索类型时，将窗口相对坐标转换为屏幕绝对坐标
+        curType := this.SearchTypeCon.Value
+        isWin := curType == 4 || curType == 5 || curType == 6
+        if (isWin) {
+            hwndList := GetHwndList(this.WinInfoCon.Value)
+            if (hwndList.Length == 0) {
+                this.StopPreviewFollow()
+                this.HidePreviewRect()
+                return
+            }
+            targetHwnd := hwndList[1]
+            startPt := this.WinToScreen(targetHwnd, startX, startY)
+            endPt := this.WinToScreen(targetHwnd, endX, endY)
+            startX := startPt[1]
+            startY := startPt[2]
+            endX := endPt[1]
+            endY := endPt[2]
+        }
+
+        x := Min(startX, endX)
+        y := Min(startY, endY)
+        w := Abs(endX - startX)
+        h := Abs(endY - startY)
+
+        if (w == 0 || h == 0) {
+            this.StopPreviewFollow()
+            this.HidePreviewRect()
+            return
+        }
+
+        this.ShowPreviewRect(x, y, w, h)
+
+        ; 窗口搜索类型时启动跟随定时器
+        if (isWin && !this.PreviewFollowing) {
+            this.PreviewFollowing := true
+            this.PreviewFollowTimer := SetTimer(this.PreviewFollowTick.Bind(this), 100)
+        }
+        else if (!isWin && this.PreviewFollowing) {
+            this.StopPreviewFollow()
+        }
+    }
+
+    StopPreviewFollow() {
+        if (this.PreviewFollowTimer != 0) {
+            try {
+                SetTimer(this.PreviewFollowTimer, 0)
+            }
+            this.PreviewFollowTimer := 0
+        }
+        this.PreviewFollowing := false
+    }
+
+    PreviewFollowTick() {
+        if (this.PreviewAreaCon.Value != 1) {
+            this.StopPreviewFollow()
+            return
+        }
+        this.RefreshPreviewArea()
+    }
+
+    WinToScreen(hwnd, winX, winY) {
+        DllCall("SetProcessDPIAware")
+        GA_ROOT := 2
+        rootHwnd := DllCall("GetAncestor", "ptr", hwnd, "uint", GA_ROOT, "ptr")
+        pt := Buffer(8, 0)
+        NumPut("int", winX, pt, 0)
+        NumPut("int", winY, pt, 4)
+        DllCall("User32\ClientToScreen", "ptr", rootHwnd, "ptr", pt)
+        screenX := NumGet(pt, 0, "int")
+        screenY := NumGet(pt, 4, "int")
+        return [screenX, screenY]
+    }
+
+    ShowPreviewRect(x, y, w, h) {
+        borderW := 2
+        borderColor := "Red"
+
+        ; 复用已有边框窗口，避免销毁重建导致闪烁
+        if (this.PreviewBorderArr.Length == 0) {
+            ; 上边框
+            topGui := Gui("+ToolWindow -Caption +AlwaysOnTop +E0x20 -DPIScale")
+            topGui.BackColor := borderColor
+            topGui.Show("NA x" x " y" y " w" w " h" borderW)
+            this.PreviewBorderArr.Push(topGui)
+
+            ; 下边框
+            bottomGui := Gui("+ToolWindow -Caption +AlwaysOnTop +E0x20 -DPIScale")
+            bottomGui.BackColor := borderColor
+            bottomGui.Show("NA x" x " y" (y + h - borderW) " w" w " h" borderW)
+            this.PreviewBorderArr.Push(bottomGui)
+
+            ; 左边框
+            leftGui := Gui("+ToolWindow -Caption +AlwaysOnTop +E0x20 -DPIScale")
+            leftGui.BackColor := borderColor
+            leftGui.Show("NA x" x " y" y " w" borderW " h" h)
+            this.PreviewBorderArr.Push(leftGui)
+
+            ; 右边框
+            rightGui := Gui("+ToolWindow -Caption +AlwaysOnTop +E0x20 -DPIScale")
+            rightGui.BackColor := borderColor
+            rightGui.Show("NA x" (x + w - borderW) " y" y " w" borderW " h" h)
+            this.PreviewBorderArr.Push(rightGui)
+        }
+        else {
+            ; 仅移动已有窗口，不销毁重建
+            this.PreviewBorderArr[1].Move(x, y, w, borderW)
+            this.PreviewBorderArr[2].Move(x, y + h - borderW, w, borderW)
+            this.PreviewBorderArr[3].Move(x, y, borderW, h)
+            this.PreviewBorderArr[4].Move(x + w - borderW, y, borderW, h)
+        }
+    }
+
+    HidePreviewRect() {
+        for gui in this.PreviewBorderArr {
+            try {
+                gui.Destroy()
+            }
+        }
+        this.PreviewBorderArr := []
+        if (this.PreviewGui != "") {
+            try {
+                this.PreviewGui.Destroy()
+            }
+            this.PreviewGui := ""
+        }
+    }
+
+    OnGuiClose() {
+        this.StopPreviewFollow()
+        this.HidePreviewRect()
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 }

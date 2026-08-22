@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class TriggerKeyData {
     __New(Key) {
@@ -8,6 +8,7 @@ class TriggerKeyData {
         this.OriLoosenStopArr := []    ;松止
         this.OriTogArr := []   ;开关
         this.OriHoldArr := []  ;按长按
+        this.OriDblClickArr := []  ;双击触发
         this.HoldActionMap := Map()
 
         this.DownArr := []
@@ -15,48 +16,40 @@ class TriggerKeyData {
         this.LoosenStopArr := []
         this.TogArr := []
         this.HoldArr := []
+        this.DblClickArr := []
+
+        this.LastKeyDownTime := 0  ;上次按下时间（用于双击检测）
+        this.DblClickInterval := 300  ;双击间隔时间（毫秒）
+        this.NeedReleaseBeforeRetrigger := false  ; 连续触发关闭时：需先松开才能再次触发
+
+        ; 缓存相关字段（性能优化）
+        this.cacheTime := 0          ;上次更新缓存的时间戳
+        this.cacheValidDuration := 200  ;缓存有效期（毫秒），窗口切换通常不会频繁发生
 
         this.InitState()
     }
 
     InitState() {
-        this.IsSoftHotKey := false
-        for index, value in MySoftData.SoftHotKeyArr {
-            key := LTrim(value, "~")
-            key := StrLower(key)
-            if (this.Key == key) {
-                this.IsSoftHotKey := true
-                break
-            }
-        }
-    }
-
-    IsOnlySoftHotkey() {
-        if (this.OriDownArr.Length >= 1)
-            return false
-        if (this.OriLoosenArr.Length >= 1)
-            return false
-        if (this.OriLoosenStopArr.Length >= 1)
-            return false
-        if (this.OriTogArr.Length >= 1)
-            return false
-        if (this.OriHoldArr.Length >= 1)
-            return false
-
-        return true
     }
 
     AddData(info) {
-        static PropNames := ["OriDownArr", "OriLoosenArr", "OriLoosenStopArr", "OriTogArr", "OriHoldArr"]
+        static PropNames := ["OriDownArr", "OriLoosenArr", "OriLoosenStopArr", "OriTogArr", "OriHoldArr", "OriDblClickArr"]
         this.%PropNames[info.GetTriggerType()]%.Push(info)
     }
 
-    UpdataArr() {
+    UpdataArr(forceUpdate := false) {
+        now := A_TickCount
+
+        ; 缓存检查：如果缓存有效且不是强制更新，跳过重建
+        if (!forceUpdate && (now - this.cacheTime) < this.cacheValidDuration)
+            return
+
         this.DownArr := []
         this.LoosenArr := []
         this.LoosenStopArr := []
         this.TogArr := []
         this.HoldArr := []
+        this.DblClickArr := []
 
         MyMouseInfo.UpdateInfo()
         this.UpdateArrByFront(this.OriDownArr, this.DownArr)
@@ -64,6 +57,21 @@ class TriggerKeyData {
         this.UpdateArrByFront(this.OriLoosenStopArr, this.LoosenStopArr)
         this.UpdateArrByFront(this.OriTogArr, this.TogArr)
         this.UpdateArrByFront(this.OriHoldArr, this.HoldArr)
+        this.UpdateArrByFront(this.OriDblClickArr, this.DblClickArr)
+
+        ;更新双击间隔时间为所有双击宏中的最小值
+        if (this.DblClickArr.Length > 0) {
+            minInterval := 300
+            for index, value in this.DblClickArr {
+                interval := value.GetDblClickInterval()
+                if (interval < minInterval)
+                    minInterval := interval
+            }
+            this.DblClickInterval := minInterval
+        }
+
+        ; 更新缓存时间戳
+        this.cacheTime := now
     }
 
     UpdateArrByFront(OriArr, ResArr) {
@@ -90,16 +98,21 @@ class TriggerKeyData {
     }
 
     OnTriggerKeyDown() {
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(this.Key)
-        isOpenMenu := MySoftData.CurMenuWheelIndex != -1
         this.UpdataArr()
-        this.HandleSoftHotKeyDown()
-        if (isMenuBtnHotKey && isOpenMenu)
-            return
-        for index, value in this.DownArr {
-            if (index == 1 && SubStr(value.GetTK(), 1, 1) != "~")
-                LoosenModifyKey(value.GetTK())
 
+        ;双击检测逻辑
+        currentTime := A_TickCount
+        isDblClick := (currentTime - this.LastKeyDownTime) <= this.DblClickInterval && this.LastKeyDownTime != 0
+        this.LastKeyDownTime := currentTime
+
+        ; 连续触发关闭时：按下/开关/长按需先松开触发键才能再次触发
+        blockRetrigger := !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
+
+        for index, value in this.DownArr {
+            if (blockRetrigger)
+                continue
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
             value.Action()
         }
 
@@ -108,15 +121,32 @@ class TriggerKeyData {
         }
 
         for index, value in this.TogArr {
+            if (blockRetrigger)
+                continue
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
             value.Action()
         }
 
-        this.SetHoldTimeChecker()
+        ;如果检测到双击，则触发双击宏
+        if (isDblClick) {
+            for index, value in this.DblClickArr {
+                value.Action()
+            }
+        }
+
+        if (!blockRetrigger)
+            this.SetHoldTimeChecker()
+
+        if (!MainSoftData.ContinuousTrigger
+            && (this.DownArr.Length > 0 || this.TogArr.Length > 0 || this.HoldArr.Length > 0))
+            this.NeedReleaseBeforeRetrigger := true
     }
 
     OnTriggerKeyUp() {
         this.UpdataArr()
-        this.HandleSoftHotKeyUp()
+        this.NeedReleaseBeforeRetrigger := false
+
         for index, value in this.LoosenArr {
             value.Action()
         }
@@ -126,6 +156,11 @@ class TriggerKeyData {
         }
 
         this.DelHoldTimeChecker()
+    }
+
+    ; 强制刷新缓存（在配置重载、窗口切换等关键事件时调用）
+    ForceRefreshCache() {
+        this.cacheTime := 0  ; 使缓存失效
     }
 
     SetHoldTimeChecker() {
@@ -154,77 +189,26 @@ class TriggerKeyData {
         if (this.HoldActionMap.Has(info))
             this.HoldActionMap.Delete(info)
 
-        if (AreKeysPressed(keyCombo))
+        ; 手柄键长按检测：将友好名（如 JoyBack）转为 AHK 原始键名（如 Joy7）
+        if (RegExMatch(keyCombo, "Joy") && MySoftData && IsObject(MySoftData)) {
+            joyMap := MySoftData.GetJoyToAhkMap()
+            if (joyMap.Has(keyCombo))
+                keyCombo := joyMap[keyCombo]
+        }
+
+        if (AreKeysPressed(keyCombo)) {
+            if (MainSoftData.AutoLoosenModifier && SubStr(info.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(info.GetTK())
             info.Action()
-    }
-
-    HandleSoftHotKeyDown() {
-        if (!this.IsSoftHotKey)
-            return
-
-        if (this.Key == "wheelup" || this.Key == "wheeldown") {
-            if (MyMouseInfo.CheckIfMatch("RMTv⎖⎖")) {
-                MySlider.OnScrollWheel(this.Key)
-            }
-
-            if (MyMouseInfo.CheckIfMatch("RMT-FreePaste⎖⎖")) {
-                MyFreePasteGui.OnScrollWheel(this.Key)
-            }
-
-            MyCMDTipGui.OnScrollWheel(this.Key)
-        }
-
-        isArrowKey1 := this.Key == "left" || this.Key == "right"
-        isArrowKey2 := this.Key == "up" || this.Key == "down"
-        isArrowKey := isArrowKey1 || isArrowKey2
-        if (isArrowKey) {
-            MyTargetGui.OnArrowKeyDown(this.Key)
-        }
-
-        if (this.Key == "lbutton") {
-            if (MySoftData.SelectAreaAction != "") {
-                SelectArea()
-            }
-
-            if (MySoftData.GetAreaAction != "") {
-                OnGetSelectAreaDown(this.Key)
-            }
-        }
-
-        isMenuBtnHotKey := CheckIfMenuBtnHotKey(this.Key)
-        if (isMenuBtnHotKey)
-            MyMenuWheel.OnSoftKey(this.Key, true)
-
-        if (this.Key == "f5" || this.Key == "f6" || this.Key == "delete" || this.Key == "numpaddot") {
-            if (MySoftData.MacroEditGui != "" && WinActive("ahk_id " MySoftData.MacroEditGui.Gui.Hwnd)) {
-                MySoftData.MacroEditGui.OnSoftKey(this.Key, true)
-            }
-        }
-    }
-
-    HandleSoftHotKeyUp() {
-        if (!this.IsSoftHotKey)
-            return
-
-        if (this.Key == "lbutton") {
-            if (MyMouseInfo.CheckIfMatch("RMT-Target⎖⎖")) {
-                MyTargetGui.OnLButtonUp(this.Key)
-            }
-
-            if (MySoftData.GetAreaAction != "") {
-                OnGetSelectAreaUp(this.Key)
-            }
-        }
-
-        if (this.Key == "enter") {
-            MyColorPanel.OnEnterUp(this.Key)
+            if (!MainSoftData.ContinuousTrigger)
+                this.NeedReleaseBeforeRetrigger := true
         }
     }
 }
 
 class TriggerKeyInfo {
     __New() {
-        this.macroType := 1     ; 1:item 2:fold
+        this.macroType := 1     ; 1:按键/字串等 item  2:菜单宏 fold  3:界面宏 fold
         this.tableIndex := 1    ;table索引
         this.itemIndex := 1     ;item索引
         this.foldIndex := 1     ;折叠框索引
@@ -232,13 +216,17 @@ class TriggerKeyInfo {
         this.forbidTrigger := false
     }
 
+    ; 菜单宏 / 界面宏均为 Fold 级触发键
+    IsFoldMacro() {
+        return this.macroType == 2 || this.macroType == 3
+    }
+
     GetFrontStr() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return GetItemFrontInfo(tableItem, this.itemIndex)
-        else if (this.macroType == 2) {
+        if (this.IsFoldMacro())
             return tableItem.FoldInfo.FrontInfoArr[this.foldIndex]
-        }
         return ""
     }
 
@@ -246,19 +234,20 @@ class TriggerKeyInfo {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.TKArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.IsFoldMacro())
             return tableItem.FoldInfo.TKArr[this.foldIndex]
-        }
-        return 1
+        return ""
     }
 
     GetTriggerType() {      ;触发类型   "按下", "松开", "松止", "开关", "长按"
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.TriggerTypeArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.macroType == 2)
             return tableItem.FoldInfo.TKTypeArr[this.foldIndex]
-        }
+        ; 界面宏固定按「按下」切换面板（与 BindUIPanelHotKey 约定一致）
+        if (this.macroType == 3)
+            return 1
         return 1
     }
 
@@ -266,20 +255,32 @@ class TriggerKeyInfo {
         tableItem := MySoftData.TableInfo[this.tableIndex]
         if (this.macroType == 1)
             return tableItem.HoldTimeArr[this.itemIndex]
-        else if (this.macroType == 2) {
+        if (this.macroType == 2)
             return tableItem.FoldInfo.HoldTimeArr[this.foldIndex]
-        }
         return 500
+    }
+
+    GetDblClickInterval() {
+        return this.GetHoldTime()
     }
 
     GetWorkState() {
         tableItem := MySoftData.TableInfo[this.tableIndex]
-        if (this.macroType == 1) {
+        if (this.macroType == 1)
             return tableItem.IsWorkIndexArr[this.itemIndex]
+        if (this.macroType == 2)
+            return MainSoftData.CurMenuWheelIndex == this.foldIndex
+        if (this.macroType == 3) {
+            ; 有任意该模块面板可见则视为工作中（长按等逻辑用）
+            if (!IsSet(MyUIMacroGui) || !IsObject(MyUIMacroGui))
+                return false
+            for key, panelInfo in MyUIMacroGui.PanelMap {
+                if (panelInfo.foldIndex == this.foldIndex && panelInfo.visible)
+                    return true
+            }
+            return false
         }
-        else {
-            return MySoftData.CurMenuWheelIndex == this.foldIndex
-        }
+        return false
     }
 
     Action() {
@@ -289,9 +290,12 @@ class TriggerKeyInfo {
         triggerType := this.GetTriggerType()
         if (this.macroType == 1) {
             if (triggerType == 4) {
-                WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
-                if (WorkerIndex != 0) {       ;关闭开关
-                    MySubMacroStopAction(this.tableIndex, this.itemIndex)
+                ; 占用标记或 usePool 中仍有该宏的 Worker，都视为运行中 → 停止（避免脏标记导致误启动）
+                isRunning := tableItem.IsWorkIndexArr[this.itemIndex]
+                if (!isRunning && WorkPoolEnabled() && MyWorkPool.HasItemWork(this.tableIndex, this.itemIndex))
+                    isRunning := true
+                if (isRunning) {
+                    MyStopMacro(this.tableIndex, this.itemIndex)
                     return
                 }
                 OnToggleTriggerMacro(this.tableIndex, this.itemIndex)
@@ -299,10 +303,15 @@ class TriggerKeyInfo {
             else
                 TriggerMacroHandler(this.tableIndex, this.itemIndex)
         }
-        else {
+        else if (this.macroType == 2) {
             if (triggerType == 3)
                 this.forbidTrigger := true
             OpenMenuWheel(this.foldIndex, triggerType == 4)
+        }
+        else if (this.macroType == 3) {
+            ; 界面宏：切换悬浮面板，绝不能误开菜单轮盘
+            if (IsSet(MyUIMacroGui) && IsObject(MyUIMacroGui))
+                MyUIMacroGui.TogglePanel(this.foldIndex)
         }
     }
 
@@ -313,17 +322,19 @@ class TriggerKeyInfo {
             if (triggerType == 3) {
                 WorkerIndex := tableItem.IsWorkIndexArr[this.itemIndex]
                 if (WorkerIndex != 0) {
-                    workPath := MyWorkPool.GetWorkPath(WorkerIndex)
-                    MyWorkPool.PostMessage(WM_STOP_MACRO, workPath, this.tableIndex, this.itemIndex)
+                    MyStopMacro(this.tableIndex, this.itemIndex)
+                    tableItem.IsWorkIndexArr[this.itemIndex] := 0
                     return
                 }
                 KillTableItemMacro(tableItem, this.itemIndex)
             }
         }
-        else {
+        else if (this.macroType == 2) {
             if (triggerType == 3)
                 this.forbidTrigger := false
-            CloseMenuWheel()
+            if (triggerType != 4)
+                CloseMenuWheel()
         }
+        ; macroType 3：按下切换，松开无需额外处理
     }
 }

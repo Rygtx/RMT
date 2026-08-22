@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class VerticalSlider {
     __new() {
@@ -14,6 +14,7 @@ class VerticalSlider {
         this.IsDragging := false
         this.DragOffsetPosY := 0      ;拖拽偏移位置Y
         this.DragAction := this.DragHandler.Bind(this)
+        this._wheelCb := ""
     }
 
     ;内凹像素， 左边偏移（text左边点击不灵敏）
@@ -43,6 +44,19 @@ class VerticalSlider {
         this.ShowSlider := this.ContentHeight > this.AeraHeight
         this.AreaCon.Visible := this.ShowSlider
         this.BarCon.Visible := this.ShowSlider
+
+        ; 滚轮热键：仅在滑块可见时订阅
+        if (this.ShowSlider && !this._wheelCb) {
+            this._wheelCb := ObjBindMethod(this, "_OnWheel")
+            WinHotkey.SubscribeMouse("WheelUp", this._wheelCb)
+            WinHotkey.SubscribeMouse("WheelDown", this._wheelCb)
+        }
+        else if (!this.ShowSlider && this._wheelCb) {
+            WinHotkey.UnsubscribeMouse("WheelUp", this._wheelCb)
+            WinHotkey.UnsubscribeMouse("WheelDown", this._wheelCb)
+            this._wheelCb := ""
+        }
+
         if (!this.ShowSlider)
             return
 
@@ -70,8 +84,20 @@ class VerticalSlider {
         HotIfWinActive
     }
 
+    _OnWheel(key) {
+        this.OnScrollWheel(key)
+    }
+
     OnScrollWheel(key) {
         if (!this.ShowSlider)
+            return
+
+        ; 主窗口不可见时不处理（避免对隐藏窗口操作导致窗口重新显示）
+        if (MainSoftData.MyGui != "" && !WinExist("ahk_id " MainSoftData.MyGui.Hwnd))
+            return
+
+        ; 主窗口不激活时不处理（避免下拉框滚动时激活主窗口导致任务栏图标闪烁）
+        if (MainSoftData.MyGui != "" && DllCall("GetForegroundWindow", "Ptr") != MainSoftData.MyGui.Hwnd)
             return
 
         isDown := InStr(key, "Down", "Off") ? true : false

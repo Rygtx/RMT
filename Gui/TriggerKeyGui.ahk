@@ -10,8 +10,11 @@ class TriggerKeyGui {
         this.CheckedArr := []
         this.ConMap := Map()
         this.ConHwndMap := Map()
+        this.ConStateMap := Map()
         this.ShowSaveBtn := false
         this.IsToolEdit := ""
+        this.UnorderedTriggerCon := ""
+        this.UnorderedTrigger := false
         this.ModifyKeyMap := Map("LAlt", "<!", "RAlt", ">!", "Alt", "!", "LWin", "<#", "RWin", ">#", "Win", "#",
             "LCtrl", "<^", "RCtrl", ">^", "Ctrl", "^", "LShift", "<+", "RShift", ">+", "Shift", "+")
 
@@ -21,7 +24,6 @@ class TriggerKeyGui {
         this.UnSelectColor := "-Background"
         this.SelectHoverColor := "Background169727"
         this.UnSelectHoverColor := "Backgrounddadada"
-
     }
 
     OnSureHotkey() {
@@ -60,13 +62,13 @@ class TriggerKeyGui {
         }
 
         if (isSelected) {
-            con.State := 0
+            this.ConStateMap.Set(key, 0)
             con.Opt(this.UnSelectColor)
             con.Redraw()
             this.CheckedArr.RemoveAt(arrayIndex)
         }
         else {
-            con.State := 1
+            this.ConStateMap.Set(key, 1)
             con.Opt(this.SelectColor)
             con.Redraw()
             if (isModifyKey) {
@@ -83,7 +85,7 @@ class TriggerKeyGui {
     ClearCheckedArr() {
         for index, value in this.CheckedArr {
             con := this.ConMap.Get(value)
-            con.State := 0
+            this.ConStateMap.Set(value, 0)
             con.Opt(this.UnSelectColor)
             con.Redraw()
         }
@@ -94,6 +96,7 @@ class TriggerKeyGui {
     CheckConfigValid() {
         normalKeyNum := 0
         joyKeyNum := 0
+        mouseKeyNum := 0
         hasModifyKey := false
         for index, value in this.CheckedArr {
             isSpecialKey := false
@@ -101,6 +104,11 @@ class TriggerKeyGui {
             subValue := SubStr(value, 1, 3)
             if (subValue == "Joy") {
                 joyKeyNum += 1
+                isSpecialKey := true
+            }
+
+            if (value == "LButton" || value == "RButton" || value == "MButton" || value == "XButton1" || value == "XButton2") {
+                mouseKeyNum += 1
                 isSpecialKey := true
             }
 
@@ -116,13 +124,32 @@ class TriggerKeyGui {
                 normalKeyNum += 1
         }
 
-        if (normalKeyNum + joyKeyNum > 1)
+        if (joyKeyNum > 2)
             return false
 
-        if (joyKeyNum == 1 && hasModifyKey)
+        if (joyKeyNum >= 1 && (hasModifyKey || normalKeyNum > 0 || mouseKeyNum > 0))
+            return false
+
+        if (mouseKeyNum > 2)
+            return false
+
+        if (hasModifyKey && (normalKeyNum + mouseKeyNum) > 1)
+            return false
+
+        if ((normalKeyNum + mouseKeyNum) > 2)
             return false
 
         return true
+    }
+
+    ; 统计已勾选的非特殊按键数量（特殊按键=修饰键 Shift/Alt/Ctrl/Win 及其左右变体）
+    CountNonSpecialKeys() {
+        count := 0
+        for index, value in this.CheckedArr {
+            if (!this.ModifyKeyMap.Has(value))
+                count += 1
+        }
+        return count
     }
 
     Init(triggerKey) {
@@ -138,6 +165,7 @@ class TriggerKeyGui {
                 if (subTriggerKey == value) {
                     this.CheckedArr.Push(key)
                     triggerKey := SubStr(triggerKey, length + 1)
+                    triggerKey := LTrim(triggerKey)
                     hasModifyKey := true
                     break
                 }
@@ -152,18 +180,37 @@ class TriggerKeyGui {
                 break
         }
 
-        for key, value in this.ConMap {
-            if (StrCompare(key, triggerKey, false) == 0)
-                this.CheckedArr.Push(key)
+        if (InStr(triggerKey, " & ")) {
+            keyParts := StrSplit(triggerKey, " & ")
+            for index, keyPart in keyParts {
+                keyPart := Trim(keyPart)
+                for key, value in this.ConMap {
+                    if (StrCompare(key, keyPart, false) == 0) {
+                        this.CheckedArr.Push(key)
+                        break
+                    }
+                }
+            }
+            for key, value in this.ConMap {
+                this.ConStateMap.Set(key, 0)
+                value.Opt(this.UnSelectColor)
+                value.Redraw()
+            }
+        }
+        else {
+            for key, value in this.ConMap {
+                if (StrCompare(key, Trim(triggerKey), false) == 0)
+                    this.CheckedArr.Push(key)
 
-            value.State := 0
-            value.Opt(this.UnSelectColor)
-            value.Redraw()
+                this.ConStateMap.Set(key, 0)
+                value.Opt(this.UnSelectColor)
+                value.Redraw()
+            }
         }
 
         for index, value in this.CheckedArr {
             con := this.ConMap.Get(value)
-            con.State := 1
+            this.ConStateMap.Set(value, 1)
             con.Opt(this.SelectColor)
             con.Redraw()
         }
@@ -172,39 +219,89 @@ class TriggerKeyGui {
         this.HoldTimeCon.Visible := !this.IsToolEdit
         this.HoldTimeLabelCon.Visible := !this.IsToolEdit
         this.HoldTimeTipCon.Visible := !this.IsToolEdit
+        this.UnorderedTriggerCon.Visible := !this.IsToolEdit
         if (!this.IsToolEdit) {
             this.HoldTimeCon.Value := this.HoldTime
+            this.UnorderedTriggerCon.Value := this.UnorderedTrigger
         }
         else {
             this.EnableTriggerKeyCon.Value := false
             this.EnableTriggerKeyCon.Enabled := false
+            this.UnorderedTriggerCon.Value := false
+            this.UnorderedTriggerCon.Enabled := false
         }
     }
 
     GetTriggerKey() {
         triggerKey := ""
         hasJoy := false
-        onlyModifyKey := true
+        modifyKeyArr := []
+        normalKeyArr := []
+        mouseKeyArr := []
+        joyKeyArr := []
+
         for index, value in this.CheckedArr {
             if (RegExMatch(value, "Joy")) {
                 hasJoy := true
+                joyKeyArr.Push(value)
             }
 
-            if (!this.ModifyKeyMap.Has(value)) {
-                onlyModifyKey := false
+            if (this.ModifyKeyMap.Has(value)) {
+                modifyKeyArr.Push(value)
+            }
+            else if (value == "LButton" || value == "RButton" || value == "MButton" || value == "XButton1" || value == "XButton2") {
+                mouseKeyArr.Push(value)
+            }
+            else {
+                normalKeyArr.Push(value)
             }
         }
 
-        for index, value in this.CheckedArr {
-            isKeyMap := this.ModifyKeyMap.Has(value)
-            isLast := index == this.CheckedArr.Length
-            subTriggerKey := (isKeyMap && !isLast) ? this.ModifyKeyMap.Get(value) : value
-            triggerKey .= subTriggerKey
+        keepOriginal := !hasJoy && this.EnableTriggerKeyCon.Value
+
+        allNormalKeys := normalKeyArr.Clone()
+        for index, value in mouseKeyArr {
+            allNormalKeys.Push(value)
         }
 
-        if (!hasJoy && this.EnableTriggerKeyCon.Value) {
-            triggerKey := "~" triggerKey
+        ; 当只有修饰键没有其他按键时，将修饰键作为普通按键处理
+        ; 这样单独的 Shift/Alt/Ctrl/Win 或它们的组合可以作为触发键
+        ; 否则 GetTriggerKey 会返回 "+" / "!" 等纯前缀，Hotkey 无法注册
+        if (modifyKeyArr.Length > 0 && allNormalKeys.Length == 0 && !hasJoy) {
+            allNormalKeys := modifyKeyArr.Clone()
+            modifyKeyArr := []
         }
+
+        ; 修饰键前缀（! ^ + #）
+        modifierPrefix := ""
+        for index, value in modifyKeyArr {
+            modifierPrefix .= this.ModifyKeyMap.Get(value)
+        }
+
+        ; 按键部分
+        keyPart := ""
+        if (hasJoy) {
+            if (joyKeyArr.Length == 2) {
+                keyPart .= joyKeyArr[1] " & " joyKeyArr[2]
+            }
+            else if (joyKeyArr.Length == 1) {
+                keyPart .= joyKeyArr[1]
+            }
+        }
+        else {
+            if (allNormalKeys.Length == 2) {
+                keyPart .= allNormalKeys[1] " & " allNormalKeys[2]
+            }
+            else if (allNormalKeys.Length == 1) {
+                keyPart .= allNormalKeys[1]
+            }
+        }
+
+        ; 保留触发键原本功能：~ 必须在最前面，即 ~!f 而非 !~f
+        if (keepOriginal)
+            triggerKey .= "~"
+        triggerKey .= modifierPrefix keyPart
+
         return triggerKey
     }
 
@@ -217,8 +314,9 @@ class TriggerKeyGui {
         }
         triggerKey := this.GetTriggerKey()
         holdTime := this.HoldTimeCon.Value
+        unorderedTrigger := this.UnorderedTriggerCon.Value
         action := this.SureBtnAction
-        action(triggerKey, holdTime)
+        action(triggerKey, holdTime, unorderedTrigger)
         this.ToggleFunc(false)
         this.Gui.Hide()
         this.SureFocusCon.Focus()
@@ -233,8 +331,9 @@ class TriggerKeyGui {
 
         triggerKey := this.GetTriggerKey()
         holdTime := this.HoldTimeCon.Value
+        unorderedTrigger := this.UnorderedTriggerCon.Value
         action := this.SureBtnAction
-        action(triggerKey, holdTime)
+        action(triggerKey, holdTime, unorderedTrigger)
         this.ToggleFunc(false)
         this.Gui.Hide()
 
@@ -265,7 +364,7 @@ class TriggerKeyGui {
 
         MyGui := Gui()
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -955,64 +1054,15 @@ class TriggerKeyGui {
             PosX := 20
             MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄-按键"))
             PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "A")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyA"))
-            this.ConMap.Set("JoyA", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "B")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyB"))
-            this.ConMap.Set("JoyB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "X")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyX"))
-            this.ConMap.Set("JoyX", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Y")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyY"))
-            this.ConMap.Set("JoyY", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LB")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLB"))
-            this.ConMap.Set("JoyLB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RB")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRB"))
-            this.ConMap.Set("JoyRB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LT")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLT"))
-            this.ConMap.Set("JoyLT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RT")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRT"))
-            this.ConMap.Set("JoyRT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LS")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLS"))
-            this.ConMap.Set("JoyLS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RS")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRS"))
-            this.ConMap.Set("JoyRS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Back")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyBack"))
-            this.ConMap.Set("JoyBack", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Start")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyStart"))
-            this.ConMap.Set("JoyStart", con)
+            joyBtnKeys := MySoftData.JoyBtnKeys
+            loop joyBtnKeys.Length {
+                key := joyBtnKeys[A_Index]
+                if (A_Index > 1)
+                    PosX += 75
+                con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName(key, MainSoftData.TriggerJoyType))
+                con.OnEvent("Click", ((k) => (*) => this.OnCheckedKey(k))(key))
+                this.ConMap.Set(key, con)
+            }
 
             PosY += 30
             PosX := 20
@@ -1096,14 +1146,19 @@ class TriggerKeyGui {
 
         PosY += 30
         PosX := 20
-        this.HoldTimeLabelCon := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("触发键长按时间："))
+        this.HoldTimeLabelCon := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("长按时间/双击时间："))
         this.HoldTimeCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 120, PosY - 2, 100), "500")
-        this.HoldTimeTipCon := MyGui.Add("Text", Format("x{} y{}", PosX + 220, PosY), GetLang("（此设置只在触发模式是【长按】时有效）"))
+        this.HoldTimeTipCon := MyGui.Add("Text", Format("x{} y{}", PosX + 220, PosY), GetLang("（此设置只在触发模式是【长按】/【双击】时有效）"))
 
         PosY += 25
         con := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 180, 20), GetLang("保留触发键原本功能"))
         con.OnEvent("Click", (*) => this.OnChangeEnableTriggerKey())
         this.EnableTriggerKeyCon := con
+
+        PosX += 200
+        con := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 140, 20), GetLang("顺序触发"))
+        con.OnEvent("Click", (*) => this.OnChangeUnorderedTrigger())
+        this.UnorderedTriggerCon := con
 
         PosY := FlagSY
         PosY += 50
@@ -1114,9 +1169,9 @@ class TriggerKeyGui {
         MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 650), GetLang("普通按键：除特殊按键的其他按键"))
         PosY += 25
         MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 650),
-        GetLang("勾选规则1：特殊按键中可以 同时勾选多个按键 或 不选，普通按键中只能 勾选一个按键 或 不选"))
+        GetLang("勾选规则1：特殊按键中可以 同时勾选多个按键 或 不选，普通按键中只能 勾选一/二个按键 或 不选"))
         PosY += 25
-        MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 650), GetLang("勾选规则2：手柄按钮、摇杆只能单独选"))
+        MyGui.Add("Text", Format("x{} y{} h{} w{}", PosX, PosY, 20, 650), GetLang("勾选规则2：手柄按钮、摇杆可选1-2个按键组合"))
         FlagEY := PosY
 
         PosY := FlagEY + 30
@@ -1143,7 +1198,8 @@ class TriggerKeyGui {
         this.SaveBtnCtrl := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("应用并保存"))
         this.SaveBtnCtrl.OnEvent("Click", (*) => this.OnSaveBtnClick())
         MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 1260, 660))
+        pos := GetCenterPosOnActiveMonitor(1260, 660)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 1260, 660))
     }
 
     ToggleFunc(state) {
@@ -1194,6 +1250,27 @@ class TriggerKeyGui {
         this.CheckedInvalidTipCon.Visible := !isValid
         this.CheckedInfoCon.Value := lable infoStr
         this.SaveBtnCtrl.Visible := this.ShowSaveBtn
+        this.UpdateJoyBtnDisplay()
+
+        ; 顺序触发：仅当非特殊按键多选时可用，否则禁用并灰显
+        nonSpecialKeyNum := this.CountNonSpecialKeys()
+        if (!this.IsToolEdit && nonSpecialKeyNum >= 2) {
+            this.UnorderedTriggerCon.Enabled := true
+        }
+        else {
+            this.UnorderedTriggerCon.Enabled := false
+            this.UnorderedTriggerCon.Value := false
+        }
+    }
+
+    UpdateJoyBtnDisplay() {
+        joyType := MainSoftData.TriggerJoyType
+        for key in MySoftData.JoyBtnKeys {
+            if (this.ConMap.Has(key)) {
+                con := this.ConMap[key]
+                con.Value := MySoftData.GetJoyDisplayName(key, joyType)
+            }
+        }
     }
 
     RefreshCheckedKeyState() {
@@ -1207,11 +1284,22 @@ class TriggerKeyGui {
         this.Refresh()
     }
 
+    OnChangeUnorderedTrigger() {
+        this.Refresh()
+    }
+
     OnMouseMove(wParam, lParam, msg, hwnd) {
         IsLeven := this.HoverCon != "" && !this.ConHwndMap.Has(hwnd)
         IsUpdate := this.ConHwndMap.Has(hwnd) && this.ConHwndMap.Get(hwnd) != this.HoverCon
         if ((IsLeven || IsUpdate) && this.HoverCon != "") {
-            ColorStr := this.HoverCon.State ? this.SelectColor : this.UnSelectColor
+            hoverKey := ""
+            for key, con in this.ConMap {
+                if (con == this.HoverCon) {
+                    hoverKey := key
+                    break
+                }
+            }
+            ColorStr := (hoverKey != "" && this.ConStateMap.Get(hoverKey, 0)) ? this.SelectColor : this.UnSelectColor
             this.HoverCon.Opt(ColorStr)
             this.HoverCon.Redraw()
             this.HoverCon := IsLeven ? "" : this.ConHwndMap.Get(hwnd)
@@ -1219,7 +1307,14 @@ class TriggerKeyGui {
 
         if (IsUpdate) {
             this.HoverCon := this.ConHwndMap.Get(hwnd)
-            ColorStr := this.HoverCon.State ? this.SelectHoverColor : this.UnSelectHoverColor
+            hoverKey := ""
+            for key, con in this.ConMap {
+                if (con == this.HoverCon) {
+                    hoverKey := key
+                    break
+                }
+            }
+            ColorStr := (hoverKey != "" && this.ConStateMap.Get(hoverKey, 0)) ? this.SelectHoverColor : this.UnSelectHoverColor
             this.HoverCon.Opt(ColorStr)
             this.HoverCon.Redraw()
         }

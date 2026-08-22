@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 
 class CompareProEditItemGui {
@@ -6,6 +6,7 @@ class CompareProEditItemGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.RemarkCon := ""
         this.FocusCon := ""
         this.MacroGui := ""
@@ -34,10 +35,8 @@ class CompareProEditItemGui {
             return
         }
 
-        DataArr := []
-        DataArr.Push(Data.VariNameArr[CondiNumber])
-        DataArr.Push(Data.CompareTypeArr[CondiNumber])
-        DataArr.Push(Data.VariableArr[CondiNumber])
+        ; 与「如果」一致：直接从 Data 取条件（中文 key + 数字比较类型）
+        DataArr := [Data.VariNameArr[CondiNumber], Data.CompareTypeArr[CondiNumber], Data.VariableArr[CondiNumber]]
         logicStr := Data.LogicTypeArr[CondiNumber] == 1 ? GetLang("且") : GetLang("或")
         macro := Data.MacroArr[CondiNumber]
         controlType := Data.ControlTypeArr[CondiNumber]
@@ -46,10 +45,19 @@ class CompareProEditItemGui {
 
     ShowGui(EditType, DataArr, logicStr, macro, controlType) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(EditType, DataArr, logicStr, macro, controlType)
@@ -59,7 +67,10 @@ class CompareProEditItemGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("如果Pro分支编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -75,81 +86,30 @@ class CompareProEditItemGui {
         PosX += 230
         MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("选择/输入"))
 
-        PosY += 25
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-        con.Value := 1
+        loop 4 {
+            if (A_Index == 1)
+                PosY += 25
+            else
+                PosY += 35
+            PosX := 15
+            con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
+            con.OnEvent("Click", (*) => this.OnRefresh())
+            this.ToggleConArr.Push(con)
+            con.Value := 1
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
+            this.NameConArr.Push(con)
 
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
-            "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"]))
-        con.Value := 1
-        con.OnEvent("Change", (*) => this.OnRefresh())
-        this.CompareTypeConArr.Push(con)
+            con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
+                "等于", "小于等于",
+                "小于", "字符包含", "变量存在", "正则匹配"]))
+            con.Value := 1
+            con.OnEvent("Change", (*) => this.OnRefresh())
+            this.CompareTypeConArr.Push(con)
 
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
-        this.VariableConArr.Push(con)
-
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-        con.Value := 1
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
-            "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"]))
-        con.Value := 1
-        con.OnEvent("Change", (*) => this.OnRefresh())
-        this.CompareTypeConArr.Push(con)
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
-        this.VariableConArr.Push(con)
-
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-        con.Value := 1
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
-            "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"]))
-        con.Value := 1
-        con.OnEvent("Change", (*) => this.OnRefresh())
-        this.CompareTypeConArr.Push(con)
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
-        this.VariableConArr.Push(con)
-
-        PosY += 35
-        PosX := 15
-        con := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 30))
-        this.ToggleConArr.Push(con)
-        con.Value := 1
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 35, PosY - 3, 120), [])
-        this.NameConArr.Push(con)
-
-        con := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 160, PosY - 3, 80), GetLangArr(["大于", "大于等于",
-            "等于", "小于等于",
-            "小于", "字符包含", "变量存在", "正则匹配"]))
-        con.Value := 1
-        con.OnEvent("Change", (*) => this.OnRefresh())
-        this.CompareTypeConArr.Push(con)
-
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
-        this.VariableConArr.Push(con)
+            con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX + 245, PosY - 3, 120), [])
+            this.VariableConArr.Push(con)
+        }
 
         PosY += 40
         PosX := 10
@@ -176,13 +136,24 @@ class CompareProEditItemGui {
         PosX := 170
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-        MyGui.Show(Format("w{} h{}", 420, 400))
+        MyGui.OnEvent("Close", (*) => this.OnClose())
+        pos := GetCenterPosOnActiveMonitor(420, 400)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 420, 400))
+    }
+
+    OnClose(*) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(EditType, DataArr, logicStr, macro, controlType) {
         this.EditType := EditType
         this.LogicalTypeCon.Text := logicStr == "" ? GetLang("且") : logicStr
-        this.MacroCon.Value := macro
+        this.MacroCon.Value := GetLangMacro(macro, 1)
         this.ControlTypeCon.Text := GetLang(controlType)
         this.DLVariableArr := GetGuiVarArr(1)
 
@@ -193,27 +164,34 @@ class CompareProEditItemGui {
             this.ToggleConArr[A_Index].Value := VariNameArr.Length >= A_Index
             this.NameConArr[A_Index].Delete()
             this.NameConArr[A_Index].Add(this.DLVariableArr)
-            this.NameConArr[A_Index].Text := VariNameArr.Length >= A_Index ? VariNameArr[A_Index] : "Var" A_Index
-            this.CompareTypeConArr[A_Index].Value := CompareTypeArr.Length >= A_Index ? CompareTypeArr[A_Index] : 1
+            ; 与「如果」一致：显示多语言变量名
+            this.NameConArr[A_Index].Text := VariNameArr.Length >= A_Index
+                ? GetLang(VariNameArr[A_Index]) : "Var" A_Index
+            cmp := CompareTypeArr.Length >= A_Index ? Integer(CompareTypeArr[A_Index]) : 1
+            if (cmp < 1 || cmp > 8)
+                cmp := 1
+            this.CompareTypeConArr[A_Index].Value := cmp
             this.VariableConArr[A_Index].Delete()
             this.VariableConArr[A_Index].Add(this.DLVariableArr)
-            this.VariableConArr[A_Index].Text := VariableArr.Length >= A_Index ? VariableArr[A_Index] : "Var" A_Index
+            this.VariableConArr[A_Index].Text := VariableArr.Length >= A_Index
+                ? GetLang(VariableArr[A_Index]) : "Var" A_Index
         }
 
         isEnabled := EditType == 1
         this.LogicalTypeCon.Enabled := isEnabled
         loop 4 {
             this.ToggleConArr[A_Index].Enabled := isEnabled
-            this.NameConArr[A_Index].Enabled := isEnabled
-            this.CompareTypeConArr[A_Index].Enabled := isEnabled
-            this.VariableConArr[A_Index].Enabled := isEnabled
         }
+        this.OnRefresh()
     }
 
-    OnRefresh() {
+    OnRefresh(*) {
         loop 4 {
+            isEnable := this.ToggleConArr[A_Index].Value && this.EditType == 1
+            this.NameConArr[A_Index].Enabled := isEnable
+            this.CompareTypeConArr[A_Index].Enabled := isEnable
             OperaTypeValue := this.CompareTypeConArr[A_Index].Value
-            EnableVari := OperaTypeValue != 7 && this.EditType == 1
+            EnableVari := OperaTypeValue != 7 && isEnable
             this.VariableConArr[A_Index].Enabled := EnableVari
         }
     }
@@ -222,7 +200,7 @@ class CompareProEditItemGui {
         action := this.SureBtnAction
         if (this.IsSubMacroEdit) {
             if (this.EditType == 2) {
-                this.Data.DefaultMacro := GetLangStr(this.MacroCon.Value, 2)
+                this.Data.DefaultMacro := GetLangMacro(this.MacroCon.Value, 2)
                 this.Data.DefaultControlType := GetLangKey(this.ControlTypeCon.Text)
             }
             else {
@@ -231,30 +209,26 @@ class CompareProEditItemGui {
                 VariableArr := []
                 loop 4 {
                     if (this.ToggleConArr[A_Index].Value) {
-                        VariNameArr.Push(this.NameConArr[A_Index].Text)
+                        VariNameArr.Push(GetLangKey(this.NameConArr[A_Index].Text))
                         CompareTypeArr.Push(this.CompareTypeConArr[A_Index].Value)
-                        VariableArr.Push(this.VariableConArr[A_Index].Text)
+                        VariableArr.Push(GetLangKey(this.VariableConArr[A_Index].Text))
                     }
                 }
-                this.Data.VariNameArr[this.CondiNumber] := GetLangKeyArr(VariNameArr)
-                this.Data.CompareTypeArr[this.CondiNumber] := GetLangKeyArr(CompareTypeArr)
-                this.Data.VariableArr[this.CondiNumber] := GetLangKeyArr(VariableArr)
+                this.Data.VariNameArr[this.CondiNumber] := VariNameArr
+                this.Data.CompareTypeArr[this.CondiNumber] := CompareTypeArr
+                this.Data.VariableArr[this.CondiNumber] := VariableArr
                 this.Data.LogicTypeArr[this.CondiNumber] := this.LogicalTypeCon.Value
-                this.Data.MacroArr[this.CondiNumber] := GetLangStr(this.MacroCon.Value, 2)
+                this.Data.MacroArr[this.CondiNumber] := GetLangMacro(this.MacroCon.Value, 2)
                 this.Data.ControlTypeArr[this.CondiNumber] := GetLangKey(this.ControlTypeCon.Text)
             }
-            saveStr := JSON.stringify(this.Data, 0)
-            IniWrite(saveStr, CompareProFile, IniSection, this.Data.SerialStr)
-            if (MySoftData.DataCacheMap.Has(this.Data.SerialStr)) {
-                MySoftData.DataCacheMap.Delete(this.Data.SerialStr)
-            }
+            SaveMacroCMDData(this.Data)
             action(this.MacroCon.Value)
         }
         else if (this.EditType == 1) {
             condiStr := ""
             loop 4 {
                 if (this.ToggleConArr[A_Index].Value) {
-                    if (this.CompareTypeConArr[A_Index].Text != GetLang("变量存在")) {
+                    if (this.CompareTypeConArr[A_Index].Value != 7) {
                         condiStr .= this.NameConArr[A_Index].Text " " this.CompareTypeConArr[A_Index].Text " " this.VariableConArr[
                             A_Index].Text
                     }
@@ -277,6 +251,11 @@ class CompareProEditItemGui {
         }
 
         this.SureBtnAction := ""
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -292,6 +271,13 @@ class CompareProEditItemGui {
 
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
+        }
+
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
         }
 
         this.MacroGui.SureBtnAction := (command) => this.OnMacroBtnClick(command)

@@ -1,18 +1,28 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ArrayGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -22,7 +32,10 @@ class ArrayGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("数组编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -152,7 +165,19 @@ class ArrayGui {
         PosX := 240
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-        MyGui.Show(Format("w{} h{}", 580, 250))
+
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(580, 250)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 250))
+    }
+
+    OnGuiClose() {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -198,8 +223,7 @@ class ArrayGui {
         IsShowMainIndex := !IsCreate && !IsDelete
         IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
 
-        this.IsIgnoreExistCon.Visible := IsCreate || IsClone || IsGet || IsLength || IsRemove || IsRemoveLast ||
-            IsContain
+        this.IsIgnoreExistCon.Visible := IsCreate
         this.SetConArrVisible(this.MainIndexConArr, IsShowMainIndex)
         this.SetConArrVisible(this.ResultConArr, IsShowRusult)
         this.SetConArrVisible(this.CreateConArr, IsCreate)
@@ -285,6 +309,12 @@ class ArrayGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -299,7 +329,7 @@ class ArrayGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             switch this.Data.Type {
                 case "创建":
                     Remark := Format(GetLang("创建{}"), this.Data.Name)
@@ -352,7 +382,8 @@ class ArrayGui {
     }
 
     SaveSubMacroData() {
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        ; 忽略已存在：仅 创建/克隆 生效，其余强制 false
+        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Visible ? this.IsIgnoreExistCon.Value : 0
         this.Data.Type := GetLangKey(this.TypeCon.Text)
         this.Data.Name := this.NameCon.Text
         this.Data.InitArr := GetArray(this.InitArrCon.Text)

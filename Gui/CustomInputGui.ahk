@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class CustomInputGui {
     __new() {
@@ -22,7 +22,7 @@ class CustomInputGui {
     AddGui() {
         MyGui := Gui(, GetLang("输入弹窗"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
         PosX := 10
         PosY := 15
         this.LabelCon := MyGui.Add("Text", Format("x{} y{} w350", PosX, PosY), "变量名：Data")
@@ -36,7 +36,8 @@ class CustomInputGui {
         con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", this.OnSureBtnClick.Bind(this))
         MyGui.OnEvent("Close", this.OnCloseBtnClick.Bind(this))
-        MyGui.Show(Format("w{} h{}", 365, 250))
+        pos := GetCenterPosOnActiveMonitor(365, 250)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 365, 250))
     }
 
     OnSureBtnClick(*) {

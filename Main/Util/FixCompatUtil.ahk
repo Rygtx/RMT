@@ -1,5 +1,9 @@
 #Requires AutoHotkey v2.0
 
+; 旧版本配置文件的迁移改写，仅主程序需要（入口：Gui\SettingMgrGui.ahk）
+; 由 Main\GlobalUtil.ahk 引入，Worker(Thread\Work.ahk) 不加载本文件
+; 内存数据结构的补齐逻辑在 CompatDataUtil.ahk，那部分主程序与Worker共用
+
 CompatGetData(LineStr, FilePath) {
     FoundPos := InStr(LineStr, "=")
     if (FoundPos == 0)
@@ -80,6 +84,42 @@ CompatMacro(MacroStr, &isFix) {
             paramArr.Pop()
             CMDArr[A_Index] := GetCmdByParams(paramArr)
         }
+
+        ;RMT指令旧格式归一化: RMT指令_指令 → RMT指令_类别_指令, RMT指令_显示菜单_序号 → RMT指令_宏控制_显示菜单_序号
+        if (paramArr[1] == "RMT指令") {
+            static RMTCmdCategoryMap := Map(
+                "截图", "图文", "截图提取文本", "图文", "自由贴", "图文",
+                "启用鼠标", "输入控制", "启用键盘", "输入控制", "启用键鼠", "输入控制",
+                "禁用鼠标", "输入控制", "禁用键盘", "输入控制", "禁用键鼠", "输入控制",
+                "启用鼠标加速", "输入控制", "禁用鼠标加速", "输入控制",
+                "显示菜单", "宏控制", "关闭菜单", "宏控制",
+                "暂停所有宏", "宏控制", "恢复所有宏", "宏控制", "终止所有宏", "宏控制", "全局暂停", "宏控制",
+                "开启变量监视", "调试", "关闭变量监视", "调试",
+                "开启指令显示", "调试", "关闭指令显示", "调试",
+                "关闭指令显示窗口", "调试", "切换指令显示开关", "调试",
+                "关闭软件", "软件自身", "休眠", "软件自身", "重载", "软件自身"
+            )
+            static RMTCmdRenameMap := Map(
+                "全局暂停", "暂停所有宏",
+                "关闭指令显示窗口", "关闭指令显示",
+                "切换指令显示开关", "开启指令显示"
+            )
+            IsOldRMTFormat := false
+            if (paramArr.Length == 2 && RMTCmdCategoryMap.Has(paramArr[2]))
+                IsOldRMTFormat := true
+            else if (paramArr.Length == 3 && paramArr[2] == "显示菜单")
+                IsOldRMTFormat := true
+
+            if (IsOldRMTFormat) {
+                isFix := true
+                oldCmdStr := paramArr[2]
+                if (RMTCmdRenameMap.Has(oldCmdStr))
+                    oldCmdStr := RMTCmdRenameMap[oldCmdStr]
+                paramArr[2] := RMTCmdCategoryMap[oldCmdStr]
+                paramArr.InsertAt(3, oldCmdStr)
+                CMDArr[A_Index] := GetCmdByParams(paramArr)
+            }
+        }
         CMDArr[A_Index] := cmdSymbol CMDArr[A_Index]
     }
     MacroStr := GetMacroStrByCmdArr(CMDArr)
@@ -124,45 +164,110 @@ CompatPath(FilePath, Data) {
     return false
 }
 
-;1.0.8F4到新版本兼容, 模块中新增菜单模块相关数据
-Compat1_0_8F4FlodInfo(FoldInfo) {
-    if (FoldInfo == "" || ObjHasOwnProp(FoldInfo, "FrontInfoArr"))
-        return
-
-    FoldInfo.FrontInfoArr := []
-    FoldInfo.TKTypeArr := []
-    FoldInfo.TKArr := []
-    FoldInfo.HoldTimeArr := []
-    loop FoldInfo.RemarkArr.Length {
-        FoldInfo.FrontInfoArr.Push("")
-        FoldInfo.TKTypeArr.Push(1)
-        FoldInfo.TKArr.Push("")
-        FoldInfo.HoldTimeArr.Push(500)
+; 生成不与 usedMap 冲突的 Timing 序列码（不走 GetCMDSerialStr，避免误删 TimingFile 键）
+CompatNextTimingSerial(usedMap) {
+    n := 1
+    loop {
+        cand := "Timing" n
+        if (!usedMap.Has(cand)) {
+            usedMap.Set(cand, true)
+            return cand
+        }
+        n += 1
     }
 }
 
-;1.0.9F1到新版本兼容 增加配置音选项
-Compat1_0_9F1TipSound(tableItem) {
-    if (tableItem.ModeArr.Length == tableItem.StartTipSoundArr.Length &&
-        tableItem.ModeArr.Length == tableItem.EndTipSoundArr.Length)
-        return
-
-    for index, value in tableItem.ModeArr {
-        if (tableItem.StartTipSoundArr.Length < index) {
-            tableItem.StartTipSoundArr.Push(1)
-        }
-
-        if (tableItem.EndTipSoundArr.Length < index) {
-            tableItem.EndTipSoundArr.Push(1)
+; 补齐/修复 TimingSerialArr：禁止用 "0" 占位（否则定时编辑会把键 0 写入 TimingFile.ini）
+CompatFixTimingSerialArr(savedStr, baseLen, &changed) {
+    changed := false
+    usedMap := Map()
+    valueArr := savedStr == "" ? [] : StrSplit(savedStr, "π")
+    ; 先登记已合法的 Timing 序列，避免补齐时撞号
+    for v in valueArr {
+        if (RegExMatch(v, "^Timing\d+$"))
+            usedMap.Set(v, true)
+    }
+    loop baseLen {
+        i := A_Index
+        cur := (i <= valueArr.Length) ? valueArr[i] : ""
+        if (!RegExMatch(cur, "^Timing\d+$")) {
+            cur := CompatNextTimingSerial(usedMap)
+            if (i <= valueArr.Length)
+                valueArr[i] := cur
+            else
+                valueArr.Push(cur)
+            changed := true
         }
     }
+    newStr := ""
+    loop valueArr.Length {
+        newStr .= valueArr[A_Index]
+        if (A_Index < valueArr.Length)
+            newStr .= "π"
+    }
+    return newStr
 }
 
 CompatCMD(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    loop MySoftData.TabSymbolArr.Length {
+
+    ; 兼容旧版缺失的结构数组字段（如UnorderedTriggerArr等），以ModeArr长度为基准补齐
+    ; 注意：TimingSerialArr 不能默认填 "0"，否则定时配置会乱入 TimingFile
+    arrFields := Map(
+        "UnorderedTriggerArr", "0",
+        "TriggerTypeArr", "1",
+        "HoldTimeArr", "500",
+        "LoopCountArr", "1",
+        "StartTipSoundArr", "1",
+        "EndTipSoundArr", "1",
+        "IcoPathArr", "",
+        "SerialArr", "0"
+    )
+    loop MainSoftData.TabSymbolArr.Length {
+        symbol := GetTableSymbol(A_Index)
+        modeArrStr := IniRead(filePath, IniSection, symbol "ModeArr", "")
+        if (modeArrStr == "")
+            continue
+        baseLen := StrSplit(modeArrStr, "π").Length
+        for fieldName, defaultValue in arrFields {
+            savedStr := IniRead(filePath, IniSection, symbol fieldName, "")
+            if (savedStr == "") {
+                newStr := ""
+                loop baseLen {
+                    newStr .= defaultValue
+                    if (A_Index < baseLen)
+                        newStr .= "π"
+                }
+                IniWrite(newStr, filePath, IniSection, symbol fieldName)
+                hasFix := true
+            } else {
+                valueArr := StrSplit(savedStr, "π")
+                if (valueArr.Length < baseLen) {
+                    loop baseLen - valueArr.Length
+                        valueArr.Push(defaultValue)
+                    newStr := ""
+                    loop valueArr.Length {
+                        newStr .= valueArr[A_Index]
+                        if (A_Index < valueArr.Length)
+                            newStr .= "π"
+                    }
+                    IniWrite(newStr, filePath, IniSection, symbol fieldName)
+                    hasFix := true
+                }
+            }
+        }
+        ; TimingSerialArr：缺失、过短或含非法值（如旧逻辑填的 0）时按 TimingN 修复
+        timingSaved := IniRead(filePath, IniSection, symbol "TimingSerialArr", "")
+        timingChanged := false
+        timingNew := CompatFixTimingSerialArr(timingSaved, baseLen, &timingChanged)
+        if (timingChanged || timingSaved == "") {
+            IniWrite(timingNew, filePath, IniSection, symbol "TimingSerialArr")
+            hasFix := true
+        }
+    }
+    loop MainSoftData.TabSymbolArr.Length {
         symbol := GetTableSymbol(A_Index)
         loop {
             MacroLabel := symbol "MacroArr" A_Index
@@ -189,68 +294,44 @@ CompatTiming(filePath) {
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        ; 只保留 TimingN 键；丢弃误写入的异种序列码（如 0、移动Pro、搜索Pro）
+        if (!RegExMatch(lineKey, "^Timing\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
 
         curFix := false
-        ; Upgrade 12-char timestamps to 14-char
-        if (StrLen(Data.StartTime) == 12) {
-            Data.StartTime .= "00"
-            curFix := true
-        }
-        if (Data.EndTime != "" && StrLen(Data.EndTime) == 12) {
-            Data.EndTime .= "00"
+        ; 以 ini 行键为准写回（新版 SaveTimingData 可能不落 SerialStr 字段）
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
             curFix := true
         }
 
-        ; Ensure CustomUnit exists
-        if (!ObjHasOwnProp(Data, "CustomUnit")) {
-            Data.CustomUnit := 2 ; Default to Minutes
+        if (Data.HasOwnProp("StartTime")) {
+            Data.StartStamp := TimeStrToStamp(Data.StartTime)
+            Data.DeleteProp("StartTime")
             curFix := true
         }
-
-        ; Migrate old types to new scheme (1: Once, 2: Startup, 3: Custom)
-        if (Data.Type >= 2 && Data.Type <= 5) {
-            oldType := Data.Type
-            Data.Type := 3 ; Custom
-            Data.CustomInterval := 1
-            if (oldType == 2) ; Hourly
-                Data.CustomUnit := 3
-            else if (oldType == 3) ; Daily
-                Data.CustomUnit := 4
-            else if (oldType == 4) ; Weekly
-                Data.CustomUnit := 5
-            else if (oldType == 5) ; Monthly
-                Data.CustomUnit := 6
-            curFix := true
-        } else if (Data.Type == 6) { ; Old Startup
-            Data.Type := 2
-            curFix := true
-        } else if (Data.Type == 7) { ; Old Custom
-            Data.Type := 3
+        if (Data.HasOwnProp("EndTime")) {
+            Data.EndStamp := (Data.EndTime != "" ? TimeStrToStamp(Data.EndTime) : 0)
+            Data.DeleteProp("EndTime")
             curFix := true
         }
-
-        ; Force re-calculation of relative stamps
-        if (curFix || Data.HasOwnProp("StartStamp")) {
-            if (Data.HasOwnProp("StartStamp")) {
-                Data.DeleteProp("StartStamp")
-                curFix := true
-            }
-            if (Data.HasOwnProp("EndStamp")) {
-                Data.DeleteProp("EndStamp")
-                curFix := true
-            }
-            if (Data.HasOwnProp("NextStamp")) {
-                Data.DeleteProp("NextStamp")
-                curFix := true
-            }
+        if (Data.HasOwnProp("NextStamp")) {
+            Data.DeleteProp("NextStamp")
+            curFix := true
         }
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")
@@ -293,14 +374,27 @@ CompatSearchPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    hasFix := CompatSerial(filePath, "Search", "搜索Pro")
-    hasFix := CompatSerial(filePath, "Search\+", "搜索Pro")
+    hasFix := CompatSerial(filePath, "Search", "搜索Pro") || hasFix
+    hasFix := CompatSerial(filePath, "Search\+", "搜索Pro") || hasFix
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        ; 丢弃误写入的异种序列码（如移动Pro 被写进 SearchProFile）
+        if (!RegExMatch(lineKey, "^搜索Pro\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
+            hasFix := true
+        }
 
         curFix := CompatPath(filePath, Data)
         ;如果有了，那就说明是新版本，不需要兼容处理
@@ -332,7 +426,7 @@ CompatSearchPro(filePath) {
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")
@@ -343,13 +437,25 @@ CompatMMPro(filePath) {
     hasFix := false
     if (!FileExist(FilePath))
         return hasFix
-    hasFix := CompatSerial(filePath, "MMPro", "移动Pro")
+    hasFix := CompatSerial(filePath, "MMPro", "移动Pro") || hasFix
     newContent := "[UserSettings]"
     FileEncoding("UTF-16")
     loop read, filePath {
+        FoundPos := InStr(A_LoopReadLine, "=")
+        if (FoundPos == 0)
+            continue
+        lineKey := SubStr(A_LoopReadLine, 1, FoundPos - 1)
+        if (!RegExMatch(lineKey, "^移动Pro\d+$")) {
+            hasFix := true
+            continue
+        }
         Data := CompatGetData(A_LoopReadLine, filePath)
         if (Data == "")
             continue
+        if (!Data.HasOwnProp("SerialStr") || Data.SerialStr != lineKey) {
+            Data.SerialStr := lineKey
+            hasFix := true
+        }
 
         curFix := false
         ;1.0.8F7到新版本兼容, 新增鼠标类型
@@ -367,6 +473,17 @@ CompatMMPro(filePath) {
             curFix := true
         }
 
+        ;旧版使用IsRelative/IsGameView字段，新版统一为MouseMoveMode
+        if (!ObjHasOwnProp(Data, "MouseMoveMode")) {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(Data, "IsGameView") && Data.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(Data, "IsRelative") && Data.IsRelative == 1)
+                MouseMoveMode := 1
+            Data.MouseMoveMode := MouseMoveMode
+            curFix := true
+        }
+
         ;自动选择对应的窗口规则配置如果有的话
         if (!Data.ConfigArr.Length == 0) {
             curFix := CompatMMProConfig(Data) || curFix
@@ -374,7 +491,7 @@ CompatMMPro(filePath) {
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
-        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+        newContent .= Format("`n{}={}", lineKey, saveStr)
     }
     FileDelete(filePath)
     FileAppend(newContent, filePath, "UTF-16")
@@ -399,6 +516,10 @@ CompatOutput(filePath) {
             curFix := true
             Data.OutputType := FixTypeMap[String(Data.OutputType)]
         }
+        if (!Data.HasOwnProp("VariableName")) {
+            curFix := true
+            Data.VariableName := ""
+        }
 
         hasFix := hasFix || curFix
         saveStr := JSON.stringify(Data, 0)
@@ -414,6 +535,24 @@ CompatRun(filePath) {
     if (!FileExist(FilePath))
         return hasFix
     hasFix := CompatSerial(filePath, "Run", "运行")
+
+    newContent := "[UserSettings]"
+    FileEncoding("UTF-16")
+    loop read, filePath {
+        Data := CompatGetData(A_LoopReadLine, filePath)
+        if (Data == "")
+            continue
+
+        ; 字段补齐 / RunMode→Mode 等（含无 Mode 的 1.1.x 配置）
+        curFix := CompatEnsureRunData(Data)
+
+        hasFix := hasFix || curFix
+        saveStr := JSON.stringify(Data, 0)
+        newContent .= Format("`n{}={}", Data.SerialStr, saveStr)
+    }
+    FileDelete(filePath)
+    FileAppend(newContent, filePath, "UTF-16")
+
     return hasFix
 }
 
@@ -796,8 +935,16 @@ CompatMMProConfig(Data) {
         LastConfig.PosVarX := Data.PosVarX
         LastConfig.PosVarY := Data.PosVarY
         LastConfig.ActionType := Data.ActionType
-        LastConfig.IsRelative := Data.IsRelative
-        LastConfig.IsGameView := Data.IsGameView
+        if (ObjHasOwnProp(Data, "MouseMoveMode"))
+            LastConfig.MouseMoveMode := Data.MouseMoveMode
+        else {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(Data, "IsGameView") && Data.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(Data, "IsRelative") && Data.IsRelative == 1)
+                MouseMoveMode := 1
+            LastConfig.MouseMoveMode := MouseMoveMode
+        }
         LastConfig.Speed := Data.Speed
         LastConfig.Count := Data.Count
         LastConfig.Interval := Data.Interval
@@ -807,8 +954,16 @@ CompatMMProConfig(Data) {
         Data.PosVarX := ConfigData.PosVarX
         Data.PosVarY := ConfigData.PosVarY
         Data.ActionType := ConfigData.ActionType
-        Data.IsRelative := ConfigData.IsRelative
-        Data.IsGameView := ConfigData.IsGameView
+        if (ObjHasOwnProp(ConfigData, "MouseMoveMode"))
+            Data.MouseMoveMode := ConfigData.MouseMoveMode
+        else {
+            MouseMoveMode := 0
+            if (ObjHasOwnProp(ConfigData, "IsGameView") && ConfigData.IsGameView == 1)
+                MouseMoveMode := 2
+            else if (ObjHasOwnProp(ConfigData, "IsRelative") && ConfigData.IsRelative == 1)
+                MouseMoveMode := 1
+            Data.MouseMoveMode := MouseMoveMode
+        }
         Data.Speed := ConfigData.Speed
         Data.Count := ConfigData.Count
         Data.Interval := ConfigData.Interval

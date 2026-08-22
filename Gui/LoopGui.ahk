@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 
 class LoopGui {
@@ -6,6 +6,7 @@ class LoopGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.RemarkCon := ""
         this.MacroGui := ""
         this.FocusCon := ""
@@ -19,10 +20,19 @@ class LoopGui {
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -33,7 +43,10 @@ class LoopGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("循环编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -168,8 +181,9 @@ class LoopGui {
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         this.FocusCon := btnCon
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 470, 470))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(470, 470)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 470, 470))
     }
 
     Init(cmd) {
@@ -236,6 +250,13 @@ class LoopGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
+        }
+
         SureAction(command) {
             command := GetLangMacro(command, 1)
             this.LoopBodyCon.Value := command
@@ -254,6 +275,22 @@ class LoopGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 

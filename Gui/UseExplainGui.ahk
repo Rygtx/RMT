@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class UseExplainGui {
     __new() {
@@ -31,7 +31,7 @@ class UseExplainGui {
     AddGui() {
         MyGui := Gui(, GetLang("使用说明"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -84,7 +84,8 @@ class UseExplainGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
         MyGui.OnEvent("Close", (*) => this.OnTriggerModeAction(false, false))
-        MyGui.Show(Format("w{} h{}", 600, 520))
+        pos := GetCenterPosOnActiveMonitor(600, 520)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 600, 520))
     }
 
     Init(SettingPath) {
@@ -159,12 +160,12 @@ class UseExplainGui {
 
     OnScreenShot() {
         this.OnValueChange()
-        if (MySoftData.ScreenShotTypeCtrl.Value == 1) {
+        if (MainSoftData.ScreenShotType == 1) {
             SetClipboard("")  ; 清空剪贴板
             Run("ms-screenclip:")
             SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
         }
-        else if (MySoftData.ScreenShotTypeCtrl.Value == 3) {
+        else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this.CheckClipboardAction)
         }
         else {
@@ -190,6 +191,12 @@ class UseExplainGui {
     }
 
     OnScreenShotGetArea(x1, y1, x2, y2) {
+        ; 确保截图区域至少为1x1像素，避免单像素点点击导致截图无效
+        if (x1 == x2)
+            x2++
+        if (y1 == y2)
+            y2++
+
         CurrentDateTime := FormatTime(, "HHmmss")
         filePath := this.SettingPath "\Images\UseExplain\" CurrentDateTime ".png"
         ScreenShot(x1, y1, x2, y2, filePath)

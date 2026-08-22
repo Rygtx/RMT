@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include MacroEditGui.ahk
 
 class CompareGui {
@@ -6,6 +6,7 @@ class CompareGui {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.RemarkCon := ""
         this.FocusCon := ""
         this.MacroGui := ""
@@ -19,10 +20,19 @@ class CompareGui {
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -33,7 +43,10 @@ class CompareGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("如果编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -217,7 +230,19 @@ class CompareGui {
         PosX := 360
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 90, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-        MyGui.Show(Format("w{} h{}", 480, 450))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(480, 450)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 480, 450))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -311,6 +336,12 @@ class CompareGui {
         action := this.SureBtnAction
         action(this.GetCommandStr())
         this.ToggleFunc(false)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -333,6 +364,13 @@ class CompareGui {
             this.MacroGui.ParentTile := ParentTile "-"
         }
 
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
+        }
+
         this.MacroGui.SureBtnAction := (command) => this.OnTrueSure(command)
         this.MacroGui.ShowGui(this.TrueMacroCon.Value, false)
     }
@@ -345,6 +383,14 @@ class CompareGui {
             ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
             this.MacroGui.ParentTile := ParentTile "-"
         }
+
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.MacroGui.OwnerHwnd := this.Gui.Hwnd
+        }
+        else {
+            this.MacroGui.OwnerHwnd := ""
+        }
+
         this.MacroGui.SureBtnAction := (command) => this.OnFalseSure(command)
         this.MacroGui.ShowGui(this.FalseMacroCon.Value, false)
     }

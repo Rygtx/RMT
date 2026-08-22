@@ -1,4 +1,4 @@
-﻿#include "RMT_OpenCv.h"
+#include "RMT_OpenCv.h"
 #include <opencv2/opencv.hpp>
 #include <windows.h>
 #include <dwmapi.h>
@@ -107,27 +107,41 @@ static ThumbnailCache* GetOrCreateCache(HWND targetHwnd) {
 
 // 后台截图（使用缓存，避免每次创建/销毁窗口）
 cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
-    HWND targetHwnd = (HWND)hwnd;
+    HWND targetHwnd = (HWND)(intptr_t)hwnd;
     if (!targetHwnd || !IsWindow(targetHwnd))
         return cv::Mat();
 
     ThumbnailCache* cache = GetOrCreateCache(targetHwnd);
     if (!cache) return cv::Mat();
 
-    const SIZE& size = cache->sourceSize;
     HWND dstWin = cache->dstWin;
     HTHUMBNAIL thumbnail = cache->thumbnail;
+
+    // 客户区尺寸：缩略图源/目的都用客户区，与 AHK 侧 ScreenToClient 客户区坐标严格 1:1。
+    // 目的若仍用整窗尺寸，客户区内容会被拉伸到整窗大小，造成残差偏移（#266 只修了裁剪区域，没修目的尺寸）。
+    RECT clientRect;
+    if (!GetClientRect(targetHwnd, &clientRect))
+        return cv::Mat();
+    const long clientW = clientRect.right - clientRect.left;
+    const long clientH = clientRect.bottom - clientRect.top;
+    if (clientW <= 0 || clientH <= 0)
+        return cv::Mat();
 
     // IsIconic 时 DWM 缩略图有内部偏移，需要补偿
     const int offset = IsIconic(targetHwnd) ? 8 : 0;
 
+    SetWindowPos(dstWin, nullptr, 0, 0, clientW, clientH,
+        SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+
     DWM_THUMBNAIL_PROPERTIES props;
-    props.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE |
+    props.dwFlags = DWM_TNP_RECTSOURCE | DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE |
         DWM_TNP_SOURCECLIENTAREAONLY | DWM_TNP_OPACITY;
-    props.fSourceClientAreaOnly = FALSE;
+    // 客户区抓取，与 AHK 侧客户区坐标系一致，避免标题栏/边框算进截图
+    props.fSourceClientAreaOnly = TRUE;
     props.fVisible = TRUE;
     props.opacity = 255;
-    props.rcDestination = RECT{ -offset, -offset, size.cx - offset, size.cy - offset };
+    props.rcSource = RECT{ 0, 0, clientW, clientH };
+    props.rcDestination = RECT{ -offset, -offset, clientW - offset, clientH - offset };
 
     HRESULT hr = DwmUpdateThumbnailProperties(thumbnail, &props);
     if (FAILED(hr)) return cv::Mat();
@@ -135,29 +149,29 @@ cv::Mat captureScreen(int hwnd, int x, int y, int width, int height) {
     // PrintWindow 截取映射窗口
     HDC hDC = GetWindowDC(nullptr);
     HDC cDC = CreateCompatibleDC(hDC);
-    HBITMAP cBmp = CreateCompatibleBitmap(hDC, size.cx, size.cy);
+    HBITMAP cBmp = CreateCompatibleBitmap(hDC, clientW, clientH);
     HGDIOBJ oldBmp = SelectObject(cDC, cBmp);
 
     cv::Mat result;
     BOOL bret = PrintWindow(dstWin, cDC, PW_RENDERFULLCONTENT);
 
     if (bret) {
-        result = cv::Mat(size.cy, size.cx, CV_8UC4);
+        result = cv::Mat(clientH, clientW, CV_8UC4);
         BITMAPINFO bi = { 0 };
         bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bi.bmiHeader.biWidth = size.cx;
-        bi.bmiHeader.biHeight = -(LONG)size.cy;
+        bi.bmiHeader.biWidth = clientW;
+        bi.bmiHeader.biHeight = -(LONG)clientH;
         bi.bmiHeader.biPlanes = 1;
         bi.bmiHeader.biBitCount = 32;
         bi.bmiHeader.biCompression = BI_RGB;
 
-        GetDIBits(cDC, cBmp, 0, size.cy, result.data, &bi, DIB_RGB_COLORS);
+        GetDIBits(cDC, cBmp, 0, clientH, result.data, &bi, DIB_RGB_COLORS);
 
         // 裁剪指定区域
-        const long capWidth = (width <= 0) ? size.cx : width;
-        const long capHeight = (height <= 0) ? size.cy : height;
-        if ((x > 0 || y > 0 || capWidth < size.cx || capHeight < size.cy)
-            && x >= 0 && y >= 0 && x + capWidth <= size.cx && y + capHeight <= size.cy) {
+        const long capWidth = (width <= 0) ? clientW : width;
+        const long capHeight = (height <= 0) ? clientH : height;
+        if ((x > 0 || y > 0 || capWidth < clientW || capHeight < clientH)
+            && x >= 0 && y >= 0 && x + capWidth <= clientW && y + capHeight <= clientH) {
             result = result(cv::Rect(x, y, capWidth, capHeight)).clone();
         }
     }
@@ -255,28 +269,28 @@ extern "C" IMAGEFINDER_API void* __cdecl CaptureWinMat(int hwnd, int x, int y, i
 }
 
 // 和CaptureWinMat做对比测试的导出函数
-// extern "C" IMAGEFINDER_API void* __cdecl CaptureScreenMat(int x, int y, int width, int height) {
-// 	cv::Mat src = captureScreen(x, y, width, height);
+extern "C" IMAGEFINDER_API void* __cdecl CaptureScreenMat(int x, int y, int width, int height) {
+	cv::Mat src = captureScreen(x, y, width, height);
 
-// 	if (src.empty()) {
-// 		return nullptr;
-// 	}
+	if (src.empty()) {
+		return nullptr;
+	}
 
-// 	cv::Mat* mat = new cv::Mat();
+	cv::Mat* mat = new cv::Mat();
 
-// 	if (src.channels() == 4) {
-// 		cv::cvtColor(src, *mat, cv::COLOR_BGRA2BGR);
-// 	}
-// 	else {
-// 		*mat = src.clone();
-// 	}
+	if (src.channels() == 4) {
+		cv::cvtColor(src, *mat, cv::COLOR_BGRA2BGR);
+	}
+	else {
+		*mat = src.clone();
+	}
 
-// 	if (!mat->isContinuous()) {
-// 		*mat = mat->clone();
-// 	}
+	if (!mat->isContinuous()) {
+		*mat = mat->clone();
+	}
 
-// 	return mat;
-// }
+	return mat;
+}
 
 extern "C" IMAGEFINDER_API void __cdecl ReleaseMat(void* matPtr)
 {
@@ -299,7 +313,7 @@ extern "C" IMAGEFINDER_API void __cdecl ReleaseAllCaches(void)
 }
 
 // 保存Mat到文件
-int SaveMatToFile(void* matPtr, const char* filePath) {
+extern "C" IMAGEFINDER_API int __cdecl SaveMatToFile(void* matPtr, const char* filePath) {
 	if (!matPtr || !filePath)
 		return 0;
 

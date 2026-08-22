@@ -1,26 +1,36 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class MouseMoveGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.PosAction := () => this.RefreshMousePos()
 
         this.PosXCon := ""
         this.PosYCon := ""
         this.SpeedCon := ""
-        this.IsRelativeCon := ""
+        this.MouseMoveModeCon := ""
         this.CommandStrCon := ""
         this.MousePosCon := ""
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -30,7 +40,10 @@ class MouseMoveGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("移动编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -77,8 +90,10 @@ class MouseMoveGui {
         this.SpeedCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosX += 120
-        this.IsRelativeCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{}", PosX, PosY, 100, 20), GetLang("相对位移"))
-        this.IsRelativeCon.OnEvent("Click", (*) => this.OnChangeEditValue())
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("移动方式："))
+        PosX += 80
+        this.MouseMoveModeCon := MyGui.Add("DropDownList", Format("x{} y{} w120 Choose1", PosX, PosY), GetLangArr(["绝对移动", "相对移动", "游戏视角"]))
+        this.MouseMoveModeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
 
         PosY += 25
         PosX := 10
@@ -93,8 +108,19 @@ class MouseMoveGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 400, 280))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 280)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 280))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -102,12 +128,16 @@ class MouseMoveGui {
         PosX := cmdArr.Length >= 2 ? cmdArr[2] : 0
         PosY := cmdArr.Length >= 3 ? cmdArr[3] : 0
         Speed := cmdArr.Length >= 4 ? cmdArr[4] : 90
-        IsRelative := cmdArr.Length >= 5 ? cmdArr[5] : 0
+        MoveMode := 0
+
+        if (cmdArr.Length >= 5)
+            MoveMode := Integer(cmdArr[5])
 
         this.PosXCon.Value := PosX
         this.PosYCon.Value := PosY
         this.SpeedCon.Value := Speed
-        this.IsRelativeCon.Value := IsRelative
+        this.MouseMoveModeCon.Value := MoveMode + 1
+        this.OnMoveModeChange()
         this.UpdateCommandStr()
     }
 
@@ -131,18 +161,14 @@ class MouseMoveGui {
     }
 
     UpdateCommandStr() {
-        showRelative := this.IsRelativeCon.Value == 1
-        showSpeed := true
-
+        MoveMode := this.MouseMoveModeCon.Value - 1
         CommandStr := GetLang("移动")
         CommandStr .= "_" this.PosXCon.Value
         CommandStr .= "_" this.PosYCon.Value
+        CommandStr .= "_" this.SpeedCon.Value
 
-        if (showSpeed) {
-            CommandStr .= "_" this.SpeedCon.Value
-        }
-        if (showRelative) {
-            CommandStr .= "_" this.IsRelativeCon.Value
+        if (MoveMode != 0) {
+            CommandStr .= "_" MoveMode
         }
 
         this.CommandStrCon.Value := CommandStr
@@ -163,13 +189,29 @@ class MouseMoveGui {
     }
 
     RefreshMousePos() {
+        static posLabel := ""  ; 缓存语言标签（避免每次都调用GetLang）
+        if (posLabel == "")
+            posLabel := GetLang("当前鼠标位置:")
+            
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY
-        this.MousePosCon.Value := Format("{}{},{}", GetLang("当前鼠标位置:"), mouseX, mouseY)
+        this.MousePosCon.Value := posLabel mouseX "," mouseY  ; 直接拼接，避免Format开销
     }
 
     OnChangeEditValue() {
+        this.OnMoveModeChange()
         this.UpdateCommandStr()
+    }
+
+    OnMoveModeChange() {
+        MoveMode := this.MouseMoveModeCon.Value - 1
+        if (MoveMode == 2) {
+            this.SpeedCon.Value := 100
+            this.SpeedCon.Enabled := false
+        }
+        else {
+            this.SpeedCon.Enabled := true
+        }
     }
 
     OnSureTarget(PosX, PosY, Color) {
@@ -197,6 +239,12 @@ class MouseMoveGui {
         action := this.SureBtnAction
         action(this.CommandStrCon.Value)
         this.ToggleFunc(false)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 

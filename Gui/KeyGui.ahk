@@ -4,6 +4,7 @@ class KeyGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
+        this.OwnerHwnd := ""
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
 
@@ -91,14 +92,13 @@ class KeyGui {
 
         action := this.SureBtnAction
         action(this.CommandStr)
-        this.ToggleFunc(false)
-        this.Gui.Hide()
+        this.OnGuiClose()
     }
 
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("按键编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 20
         PosY := 10
@@ -820,69 +820,15 @@ class KeyGui {
             PosX := 20
             MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄-按键"))
             PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "A")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyA"))
-            this.ConMap.Set("JoyA", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "B")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyB"))
-            this.ConMap.Set("JoyB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "X")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyX"))
-            this.ConMap.Set("JoyX", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Y")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyY"))
-            this.ConMap.Set("JoyY", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LB")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLB"))
-            this.ConMap.Set("JoyLB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RB")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRB"))
-            this.ConMap.Set("JoyRB", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LT")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLT"))
-            this.ConMap.Set("JoyLT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RT")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRT"))
-            this.ConMap.Set("JoyRT", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LS")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyLS"))
-            this.ConMap.Set("JoyLS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RS")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyRS"))
-            this.ConMap.Set("JoyRS", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Back")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyBack"))
-            this.ConMap.Set("JoyBack", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Start")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyStart"))
-            this.ConMap.Set("JoyStart", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Xbox")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyXbox"))
-            this.ConMap.Set("JoyXbox", con)
+            joyKeys := MySoftData.JoyBtnKeys
+            loop joyKeys.Length {
+                key := joyKeys[A_Index]
+                if (A_Index > 1)
+                    PosX += 75
+                con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName(key, MainSoftData.TriggerJoyType))
+                con.OnEvent("Click", ((k) => (*) => this.OnCheckedKey(k))(key))
+                this.ConMap.Set(key, con)
+            }
 
             PosY += 30
             PosX := 20
@@ -962,7 +908,7 @@ class KeyGui {
             "松开", "点击"]))
         this.KeyTypeCon.OnEvent("Change", (*) => this.OnChangeEditValue())
         this.KeyTypeCon.Value := 1
-                
+
         PosX += 85
         Con := MyGui.Add("Button", Format("x{} y{} w30", PosX, PosY - 4), "?")
         Con.OnEvent("Click", this.OnClickTypeHelpBtn.Bind(this))
@@ -996,18 +942,28 @@ class KeyGui {
         PosX += 450
         btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 1280, 585))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(1280, 585)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 1280, 585))
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
             for key, value in this.ConMap {
                 this.ConHwndMap.Set(value.Hwnd, value)
+            }
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -1045,6 +1001,16 @@ class KeyGui {
             }
 
         }
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     ToggleFunc(state) {
@@ -1135,14 +1101,25 @@ class KeyGui {
 
         this.HoldTimeTipCon.Visible := isShowHoldTime
         this.HoldTimeCon.Visible := isShowHoldTime
-        
+
         this.KeyCountTipCon.Visible := isShowCount
         this.KeyCountCon.Visible := isShowCount
-        
+
         this.PerIntervalTipCon.Visible := isShowInterval
         this.PerIntervalCon.Visible := isShowInterval
-    
+
         this.CommandStrCon.Value := Format("{}{}", GetLang("当前指令："), this.CommandStr)
+        this.UpdateJoyBtnDisplay()
+    }
+
+    UpdateJoyBtnDisplay() {
+        joyType := MainSoftData.TriggerJoyType
+        for key in MySoftData.JoyBtnKeys {
+            if (this.ConMap.Has(key)) {
+                con := this.ConMap[key]
+                con.Value := MySoftData.GetJoyDisplayName(key, joyType)
+            }
+        }
     }
 
     OnMouseMove(wParam, lParam, msg, hwnd) {

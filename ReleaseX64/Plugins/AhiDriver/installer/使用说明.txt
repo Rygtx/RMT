@@ -1,0 +1,121 @@
+Interception 驱动安装 / 卸载说明
+================================
+
+本目录用于安装或卸载 Interception 键盘鼠标过滤驱动。
+官网：http://www.oblita.com/interception
+
+
+一、目录说明
+------------
+
+安装卸载.bat
+  唯一启动入口。双击或右键"以管理员身份运行"。
+
+install.ps1
+  实际执行脚本（自动提权、安装/修复/卸载、写日志）。
+
+install-interception.exe
+  官方命令行安装工具（与 install.ps1 同一目录）。
+
+install-log.txt
+  运行后自动生成的操作日志。
+
+（上级目录 AhiDriver\ 下另有 x64\x86 运行库 interception.dll /
+  interception.lib，供程序运行时按架构加载。）
+
+
+二、推荐使用步骤
+----------------
+
+1. 右键「安装卸载.bat」-> 以管理员身份运行
+   （也可直接双击，脚本会自动弹 UAC 提权）
+2. 在 UAC 提示中选择「是」
+3. 查看菜单顶部状态：
+   - 驱动文件、注册表钩子、是否安装完整
+4. 按提示选择：
+   [1] 官方安装
+   [2] 卸载
+   [3] 修复/补全安装   ← 本机最常用
+   [4] 查看状态
+   [0] 退出
+5. 安装或修复成功后，必须重启电脑才会生效
+
+
+三、为什么官方安装会失败？
+-------------------------
+
+若系统里已经存在：
+  C:\Windows\System32\drivers\keyboard.sys
+  C:\Windows\System32\drivers\mouse.sys
+官方安装器常会报错：
+  Could not write to \system32\drivers
+
+这通常表示"文件已在，但覆盖失败"，并不一定是没管理员权限。
+此时应选择菜单 [3] 修复/补全安装：
+  - 保留已有驱动文件
+  - 补写服务项
+  - 挂接键盘/鼠标 UpperFilters
+
+
+四、怎样算安装完整？
+-------------------
+
+同时满足以下条件：
+
+1. keyboard.sys / mouse.sys 存在，且产品名为 Interception
+2. 键盘 UpperFilters 含 keyboard（通常为 keyboard, kbdclass）
+3. 鼠标 UpperFilters 含 mouse（通常为 mouse, mouclass）
+4. 存在服务项：
+   HKLM\SYSTEM\CurrentControlSet\Services\keyboard
+   HKLM\SYSTEM\CurrentControlSet\Services\mouse
+
+菜单里「安装完整 : 是」即表示上述条件已满足。
+仍需重启后，AHI 等程序才能正常使用。
+
+
+五、卸载说明
+-----------
+
+1. 运行「安装卸载.bat」，选择 [2] 卸载
+2. 脚本会先移除注册表钩子，再尝试删除驱动文件
+3. 若提示文件被占用，属常见情况：先重启
+4. 重启后如文件仍在，可再执行一次卸载
+
+
+六、手动命令（可选）
+-------------------
+
+以管理员身份打开 CMD：
+
+  cd /d "本目录"
+  install-interception.exe /install
+  install-interception.exe /uninstall
+
+注意：文件已存在时，官方 /install 仍可能失败，
+此时请改用本目录脚本的「修复/补全安装」。
+
+
+七、注意事项
+-----------
+
+1. 必须管理员权限。
+2. 安装、修复、卸载后都建议重启。
+3. 若杀毒/勒索软件防护拦截驱动，请临时放行后再试。
+4. 修改过滤驱动有风险。若重启后键鼠失灵：
+   - 进入安全模式
+   - 再运行本脚本选择卸载
+   - 或将 UpperFilters 恢复为 kbdclass / mouclass
+
+
+八、常见问题
+-----------
+
+Q：窗口提示 Could not write to \system32\drivers？
+A：优先选 [3] 修复/补全安装，不要反复点官方安装。
+
+Q：显示安装完整，但程序还是不行？
+A：先重启；并确认程序加载的是对应架构的 interception.dll。
+
+Q：双击后没有中文菜单？
+A：请确认 install.ps1 与「安装卸载.bat」在同一目录，
+   并用右键"以管理员身份运行"再试。

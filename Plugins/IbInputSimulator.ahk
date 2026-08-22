@@ -7,10 +7,8 @@
 #Requires AutoHotkey v2.0
 
 #DllLoad "*i IbInputSimulator.dll"  ;DllCall("LoadLibrary") cannot locate DLL correctly
-global hasTipNoGHUB := false
 
 IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
-    global hasTipNoGHUB
     workding_dir := A_WorkingDir
     SetWorkingDir(A_ScriptDir)
 
@@ -47,17 +45,48 @@ IbSendInit(send_type := "AnyDriver", mode := 1, args*) {
 
     SetWorkingDir(workding_dir)
 
-    if (result != 0 && send_type == "LogitechGHubNew" && !hasTipNoGHUB) {
-        hasTipNoGHUB := true
-        MsgBox("使用罗技按键类型，需要下载安装G HUB")
-        Run("https://www.logitechg.com/en-my/innovation/g-hub.html")
+    ; Error 枚举：0=Success … 6=DeviceNotFound（未找到 G HUB 虚拟设备）
+    ; 提示仅在最终失败时由 InitLogitechGHubNew 弹出（避免先试 Logitech 失败就误弹）
+    if (result != 0)
         return false
-    }
 
     if (mode !== 0) {
         IbSendMode(mode)
     }
     return true
+}
+
+; 罗技 G HUB 未就绪提示
+; needRun=true：进程未运行；若本机有 lghub.exe 则左按钮为「运行」，否则「去下载」
+; needRun=false：设备初始化失败，左按钮「去下载」
+ShowLogitechGHubTip(needRun := false) {
+    gHubUrl := "https://www.logitechg.com/innovation/g-hub.html"
+    gHubExe := "C:\Program Files\LGHUB\lghub.exe"
+    canRunLocal := needRun && FileExist(gHubExe)
+    chosen := ""
+    tipText := needRun
+        ? GetLang("请先运行 G HUB（2022.2.1154 及以前版本）")
+        : GetLang("未找到可用的罗技驱动，请安装并运行 G HUB（2022.2.1154 及以前版本）")
+
+    g := Gui("+AlwaysOnTop -MinimizeBox", GetLang("提示"))
+    try
+        g.SetFont("S10 W550 Q2", MainSoftData.FontType)
+    catch
+        g.SetFont("S10")
+    g.Add("Text", "x20 y18 w340 h48", tipText)
+    leftBtnText := canRunLocal ? GetLang("运行") : GetLang("去下载")
+    btnLeft := g.Add("Button", "x20 y78 w150 h30 Default", leftBtnText)
+    btnCancel := g.Add("Button", "x190 y78 w150 h30", GetLang("取消"))
+    btnLeft.OnEvent("Click", (*) => (chosen := canRunLocal ? "run" : "download", g.Destroy()))
+    btnCancel.OnEvent("Click", (*) => (chosen := "cancel", g.Destroy()))
+    g.OnEvent("Close", (*) => (chosen := "cancel", g.Destroy()))
+    g.Show("w380 h125 Center")
+    hwnd := g.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+    if (chosen == "run")
+        Run(gHubExe)
+    else if (chosen == "download")
+        Run(gHubUrl)
 }
 
 IbSendMode(mode) {

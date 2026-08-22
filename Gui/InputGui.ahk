@@ -1,19 +1,28 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class InputGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
-
+        this.OwnerHwnd := ""
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -23,7 +32,10 @@ class InputGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("输入编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -88,8 +100,9 @@ class InputGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.OnEvent("Close", (*) => this.Gui.Hide())
-        MyGui.Show(Format("w{} h{}", 510, 275))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(510, 275)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 510, 275))
     }
 
     Init(cmd) {
@@ -140,6 +153,21 @@ class InputGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
+    }
+
+    OnGuiClose() {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -177,7 +205,7 @@ class InputGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             Remark := this.TypeCon.Text
         }
         CommandStr := CorrectRemark(CommandStr, Remark)

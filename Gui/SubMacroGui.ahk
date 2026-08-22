@@ -1,19 +1,29 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class SubMacroGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.RemarkCon := ""
     }
 
     ShowGui(cmd) {
         if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
             this.Gui.Show()
         }
         else {
             this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -24,7 +34,10 @@ class SubMacroGui {
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("宏操作编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -49,7 +62,7 @@ class SubMacroGui {
         PosX += 70
         this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["当前宏", "按键宏",
             "字串宏",
-            "菜单宏", "定时宏", "宏"]))
+            "菜单宏", "界面宏", "定时宏", "宏"]))
         this.TypeCon.Value := 1
         this.TypeCon.OnEvent("Change", (*) => this.OnRefresh())
 
@@ -88,19 +101,32 @@ class SubMacroGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 220))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 220)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 220))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
-        cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
+        cmdArr := cmd != "" ? SplitCommand(cmd) : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(2)
 
-        this.TypeCon.Text := GetLang(this.Data.MacroType)
-        this.CallTypeCon.Text := GetLang(this.Data.CallType)
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
+        callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
+        this.TypeCon.Value := this._LangArrIndex(macroTypes, this.Data.MacroType)
+        this.CallTypeCon.Value := this._LangArrIndex(callTypes, this.Data.CallType)
         this.InsertCountCon.Delete()
         this.InsertCountCon.Add(this.DLVariableArr)
         this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
@@ -143,11 +169,12 @@ class SubMacroGui {
     }
 
     OnRefresh() {
-        EnableIndex := this.TypeCon.Text != GetLang("当前宏")  ;类型是1的时候，不能选择序号
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
+        EnableIndex := this.TypeCon.Value != 1
         this.DropDownIndexCon.Enabled := EnableIndex
         if (EnableIndex) {
             lastIndex := Max(1, this.DropDownIndexCon.Value)
-            tableIndex := GetTableIndex(GetLangKey(this.TypeCon.Text))
+            tableIndex := GetTableIndex(GetLangKey(macroTypes[this.TypeCon.Value]))
             DropDownArr := []
             for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
                 DropDownArr.Push(A_Index ". " Remark)
@@ -178,6 +205,12 @@ class SubMacroGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
@@ -205,10 +238,10 @@ class SubMacroGui {
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
         Remark := this.RemarkCon.Value
-        if (Remark == "") {
+        if (ShouldAutoGenerateRemark(Remark)) {
             OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
-            IntervarlStr := MySoftData.Lang == "中文" ? "" : " "
-            MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "定时宏", "宏"])
+            IntervarlStr := MainSoftData.Lang == "中文" ? "" : " "
+            MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
             OperStr := OperTipArr[this.CallTypeCon.Value]
             TypeStr := MacroTypeArr[this.TypeCon.Value]
             SerialStr := this.TypeCon.Value == 1 ? "" : this.DropDownIndexCon.value
@@ -219,9 +252,11 @@ class SubMacroGui {
     }
 
     SaveSubMacroData() {
-        this.Data.MacroType := GetLangKey(this.TypeCon.Text)
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
+        callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
+        this.Data.MacroType := GetLangKey(macroTypes[this.TypeCon.Value])
         this.Data.Index := this.DropDownIndexCon.value
-        this.Data.CallType := GetLangKey(this.CallTypeCon.Text)
+        this.Data.CallType := GetLangKey(callTypes[this.CallTypeCon.Value])
         this.Data.InsertCount := GetLangKey(this.InsertCountCon.Text)
 
         tableIndex := GetTableIndex(this.Data.MacroType)
@@ -229,5 +264,14 @@ class SubMacroGui {
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
 
         SaveMacroCMDData(this.Data)
+    }
+
+    _LangArrIndex(arr, langKey) {
+        target := GetLang(langKey)
+        loop arr.Length {
+            if (arr[A_Index] == target)
+                return A_Index
+        }
+        return 1
     }
 }

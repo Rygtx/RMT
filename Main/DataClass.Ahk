@@ -4,13 +4,14 @@ class TableItem {
         this.ColorStateArr := []
         this.TKArr := []        ;触发键
         this.MacroArr := []     ;宏内容
-        this.HoldTimeArr := []  ;按住时间
+        this.HoldTimeArr := []  ;时间参数（长按=长按时间，双击=双击间隔）
+        this.UnorderedTriggerArr := []  ;顺序触发（勾选时只按顺序注册，不勾选则正反向都注册）
         this.ForbidArr := []    ;禁止
         this.LoopCountArr := [] ;循环次数
         this.RemarkArr := []    ;备注
         this.TriggerTypeArr := []   ;触发类型
         this.TimingSerialArr := []  ;定时配置序列码
-        this.ModeArr := []      ;按键模式   1.send 2.拟真 3.罗技
+        this.ModeArr := []      ;按键模式   1.AHK Send 2.keybd_event 3.罗技 4.AHI
         this.StartTipSoundArr := [] ;开始提示音 1.无   2.触发提示  3.循环首次提示
         this.EndTipSoundArr := [] ;结束提示音 1.无   2.结束提示  3.循环结束提示
 
@@ -21,6 +22,7 @@ class TableItem {
         this.ToggleStateArr := []   ; 触发键开关状态
         this.ToggleActionArr := []   ; 触发键开关Action
         this.VariableMapArr := []    ;  每条宏对应的变量映射:内置变量
+
         this.UnderPosY := 0         ; table的最大PosY
         this.Index := 0             ;   table的Index
         this.SliderValue := 0       ;   滑动值
@@ -28,6 +30,8 @@ class TableItem {
         this.AllConArr := []        ;   table中所有的con
         this.AllGroup := []         ; table中所有的group
         this.IsWorkIndexArr := []        ;work正在执行中
+        this.GraphBranchCountArr := []   ;图形宏并行分支 Worker 引用计数
+        this.IcoPathArr := []             ;菜单宏ICO路径
 
         this.FoldInfo := ""          ; 折叠筐保存信息
         this.FoldOffsetArr := []    ;和初始状态的高度偏移值
@@ -47,7 +51,8 @@ class ItemFoldInfo {
         ;菜单栏功能
         this.TKTypeArr := []    ;触发类型
         this.TKArr := []        ;触发按键，菜单栏功能
-        this.HoldTimeArr := []  ;长按时间
+        this.HoldTimeArr := []  ;时间参数（长按=长按时间，双击=双击间隔）
+        this.UnorderedTriggerArr := []  ;顺序触发（勾选时只按顺序注册，不勾选则正反向都注册）
     }
 }
 
@@ -106,143 +111,212 @@ class ItemConInfo {
     }
 }
 
-class Timer {
-    __New(callback, period) {
-        this.binding := callback
-        this.period := period
-        this.priority := 0
-    }
-
-    __Delete() {
-        this.Off()
-    }
-
-    On() {
-        funcObj := this.binding
-        SetTimer funcObj, this.period, this.priority
-    }
-
-    Off() {
-        funcObj := this.binding
-        SetTimer funcObj, 0
-    }
-}
-
-class ToolCheck {
+; ============================================================
+; MainSoftData — Master 进程专用数据
+; 包含 GUI 配置、UI 面板、热键绑定、工具检测、录制、OCR 等
+; Worker 线程不需要这些数据
+; ============================================================
+class MainConfig {
     __New() {
-        this.AlwaysOnTopCtrl := ""
-        this.ToolCheckCtrl := ""
-        this.ToolCheckHotKeyCtrl := ""
-        this.ToolMousePosCtrl := ""
-        this.ToolMouseWinPosCtrl := ""
-        this.ToolProcessNameCtrl := ""
-        this.ToolProcessTileCtrl := ""
-        this.ToolProcessPidCtrl := ""
-        this.ToolProcessClassCtrl := ""
-        this.ToolProcessIdCtrl := ""
-        this.ToolColorCtrl := ""
-        this.ToolTextFilterHotKeyCtrl := ""
-        this.ToolTextCtrl := ""
-        this.ToolRecordMacroHotKeyCtrl := ""
-        this.ToolCheckRecordMacroCtrl := ""
-        this.ScreenShotHotKeyCtrl := ""
-        this.FreePasteHotKeyCtrl := ""
+        ; ========== 全局对象引用（GUI 控件 / 函数绑定） ==========
+        this.MyGui := {}                ; 软件主界面 GUI 句柄
+        this.TabCtrl := {}              ; Tab3 页签控件
+        this.BtnSave := ""              ; "应用并保存"按钮（供其他 GUI 获取焦点）
+        this.MacroEditGui := ""         ; 当前活动的宏编辑器 GUI
 
-        this.ScreenShotHotKey := ""
-        this.FreePasteHotKey := ""
-        this.ToolRecordMacroHotKey := ""
-        this.IsToolRecord := false
-        this.ToolTextFilterHotKey := ""
-        this.IsToolCheck := false
-        this.ToolCheckHotKey := ""
-        this.PosStr := ""
-        this.WinPosStr := ""
-        this.ProcessName := ""
-        this.ProcessTile := ""
-        this.ProcessPid := ""
-        this.ProcessClass := ""
-        this.ProcessId := ""
-        this.Color := ""
-        this.MouseInfoTimer := ""
+        ; ========== 配置管理 ==========
+        this.CurSettingName := ""       ; 当前配置方案名称
+        this.SettingArrStr := ""        ; 所有配置方案名称列表（"π" 分隔字符串）
+        this.HasSaved := false          ; 是否已执行保存
+        this.IsReload := false          ; 是否正在重载软件
+        this.AgreeAgreement := false    ; 是否已同意免责协议
 
-        this.MacroGui := ""
+        ; ========== 启动与窗口设置 ==========
+        this.IsBootStart := false       ; 是否开机自启
+        this.IsAdminStart := false      ; 是否以管理员权限启动
+        this.IsMinStart := false        ; 是否最小化启动（常驻托盘）
+        this.SoftBGColor := "f0f0f0"    ; 软件背景颜色 (6位HEX)
+        this.Theme := "RMT_Light"       ; XAML 界面主题名称
+        this.ShowSplitLine := false     ; 表格是否显示分割线
+        this.IsModalSubGui := true      ; 子窗口是否模态（阻止主窗口操作）
 
-        this.RecordLastMousePos := []
-        this.RecordLastTime := ""
-        this.RecordMacroStr := ""
-        this.RecordHoldKeyMap := Map()
-        this.RecordSpecialKeyMap := Map(33, 0, 34, 0, 35, 0, 36, 0, 37, 0, 38, 0, 39, 0, 40, 0, 45, 0, 46, 0)
-        this.RecordHoldMuti := ""
-        this.RecordAutoLoosen := ""
-        this.RecordKeyboard := ""
-        this.RecordMouse := ""
-        this.RecordMouseKeyPoint := ""  ;关键点位
-        this.RecordMouseRelative := ""
-        this.RecordMouseTrail := ""
-        this.RecordMouseTrailLen := ""
-        this.RecordMouseTrailSpeed := ""
-        this.RecordMouseTrailInterval := ""
-        this.RecordJoy := ""
-        this.RecordJoyInterval := ""
-        this.OCRTypeCtrl := ""
-        this.OCRTypeValue := 1
+        ; ========== Tab 页签 ==========
+        this.TableIndex := 1            ; 当前显示的 Tab 页索引
+        this.TabPosX := 0               ; Tab 组件左上角 X 坐标
+        this.TabPosY := 0               ; Tab 组件左上角 Y 坐标
+        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
+        this.TabSymbolArr := ["Normal", "String", "Menu", "UI", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
+            "Reward", "Thank"]
+
+        ; ========== 热键绑定 ==========
+        this.IsSuspend := false         ; 软件休眠状态
+        this.SuspendHotkey := ""        ; 休眠快捷键（空则未绑定）
+        this.IsPause := false           ; 暂停所有宏状态
+        this.PauseHotkey := ""          ; 暂停快捷键（空则未绑定）
+        this.KillMacroHotkey := ""      ; 终止所有宏快捷键（空则未绑定）
+
+        ; ========== 数值浮动选项 ==========
+        this.HoldFloat := 0             ; 点击持续时间浮动 (%)
+        this.PreIntervalFloat := 0      ; 每次执行前间隔浮动 (%)
+        this.IntervalFloat := 0         ; 指令间隔浮动 (%)
+        this.CoordXFloat := 0           ; 坐标 X 浮动 (px)
+        this.CoordYFloat := 0           ; 坐标 Y 浮动 (px)
+
+        ; ========== 多线程设置 ==========
+        this.MutiThreadNum := -1        ; 多线程数 (-1 = 动态调整)
+        this.DynamicCorePoolSize := 3   ; 动态模式核心池大小
+        this.ElasticTimeout := 30       ; 弹性 Worker 超时 (秒)
+        this.MacroStopType := 1         ; 宏终止方式 (1=智能终止, 2=强制终止)
+
+        ; ========== 按键选项 ==========
+        this.KeyDownDownType := 1       ; 按下时按下处理 (1=自动松开, 2=忽略重复按下, 3=允许重复按下)
+        this.AutoLoosenModifier := true ; 组合键触发前自动松开修饰键
+        this.ContinuousTrigger := true  ; 按住触发键可连续触发（关则需松开后再触发）
+
+        ; ========== 屏幕截图 ==========
+        this.ScreenShotType := 3        ; 截图方式 (1=微软截图, 2=RMT截图, 3=SC截图)
+        this.CheckForeground := false   ; 是否仅前台窗口运行宏
+
+        ; ========== 字体/语言 ==========
+        this.FontType := "微软雅黑"     ; 软件字体名称
+        this.FontList := []             ; 系统可用字体列表
+        this.Lang := "中文"             ; 当前语言
+        this.LangArr := []              ; 可用语言列表
+
+        ; ========== 手柄 ==========
+        this.JoyType := "Xbox"          ; 宏手柄类型 (Xbox/DS4)，实际模拟输出到 ViGEm 虚拟手柄的类型
+        this.TriggerJoyType := "Xbox"   ; 手柄映射 (Xbox/PS5)，触发键、按键指令、按键检测等所有手柄按键名称显示统一使用此设置
+
+        ; ========== 宏编辑器 ==========
+        ; 新建空宏时的首选编辑器：1=逻辑树，2=图形节点
+        this.PreferredMacroEditor := 1
+        this.SharedCopy := false        ; 逻辑树编辑器右键菜单显示「共享复制」（原样复制，不重新分配序列号）
+        this.RemarkAutoType := 2        ; 指令备注自动生成 (1=不生成, 2=自动生成, 3=覆盖生成)
+
+        ; ========== 提示选项 ==========
+        this.NoVariableTip := false     ; 未找到变量时是否弹窗提醒
+
+        ; ========== 菜单轮盘 ==========
+        this.FixedMenuWheel := false    ; 是否固定菜单轮盘位置
+        this.MenuWheelSelectMode := 2   ; 轮盘选择模式 (1=点击选择, 2=划线选择)
+        this.MenuWheelShowTooltip := false  ; 是否显示扇区名称提示
+        this.MenuWheelScale := 100      ; 轮盘大小 (百分比, 50~200)
+        this.CurMenuWheelIndex := -1    ; 当前显示的菜单轮盘索引
+
+        ; ========== 统一主题颜色（轮盘/浮窗/指令显示） ==========
+        ; 扩展与缺键回退见 AppThemeUtil 文件头约定；DefaultThemeKey=Default
+        this.AppTheme := "Default"
+        this.ThemeColors := Map()       ; Key→#ARGB，加载后应含 ColorDefs 全部项
+
+        ; ========== 界面浮窗 ==========
+        this.UIPanelShowOnActive := true    ; 界面激活时默认显示浮窗
+        this.UIPanelDefaultPos := 1         ; 浮窗出现位置 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 8=鼠标位置)
+        this.UIPanelOffsetX := 100          ; 出现位置偏移 X (0~500)
+        this.UIPanelOffsetY := 100          ; 出现位置偏移 Y (0~500)
+        this.UIPanelTitleBg := "#FF8B4513"   ; 标题背景 (由主题同步)
+        this.UIPanelTitleText := "#FFFFFFFF" ; 标题文本 (由主题同步)
+        this.UIPanelBtnColor := "#FFDAA520"  ; 按钮背景 (由主题同步)
+        this.UIPanelBtnText := "#FF5C3317"  ; 按钮文本 (由主题同步)
+        this.UIPanelFontColor := "#FF5C3317" ; 兼容旧字段，等同按钮文本
+        this.UIPanelBgColor := "#C0FFE4B5"   ; 内容背景 (由主题同步)
+        this.UIPanelBtnHeight := 34          ; 按钮高度
+        this.UIPanelFontSize := 12           ; 按钮字体大小
+        this.UIPanelBtnWidth := 80           ; 按钮宽度
+        this.UIPanelCols := 3                ; 每行按钮个数
+
+        ; ========== CMD 指令提示窗口 ==========
+        this.CMDTip := false            ; 是否显示指令提示
+        this.CMDWidth := Round(225 * A_ScreenDPI / 96)  ; CMD 窗口宽度（按 DPI 缩放）
+        this.CMDHeight := 300           ; CMD 窗口高度
+        this.CMDPosX := A_ScreenWidth - this.CMDWidth  ; 默认靠右
+        this.CMDPosY := 0               ; CMD 窗口 Y 坐标
+        this.CMDBGColor := "FFF8DC"     ; CMD 窗口背景色 (6位RGB，由主题同步)
+        this.CMDRunBGColor := "90CAF9"  ; CMD 运行中背景色 (由主题同步)
+        this.CMDTransparency := 50      ; CMD 背景透明度 (0=不透明，100=完全透明)
+        this.CMDFontSize := "12"        ; CMD 字体大小
+        this.CMDFontColor := "5C3317"   ; CMD 字体颜色 (由主题同步)
+        this.CMDLogToFile := false      ; 是否输出到日志文件
+        this.CMDLogFilePath := ""       ; 日志文件路径（空=默认，自动使用 Log/CMDLog.txt）
+        this.CMDLogAutoClear := 0       ; 自动清理 0=从不, 1=每天, 2=每周
+
+        ; ========== 变量监视器 ==========
+        this.VarListenTop := true       ; 变量监视器窗口是否置顶（默认置顶）
+        this.VarListenWidth := 400      ; 监视器窗口宽度
+        this.VarListenHeight := 420     ; 监视器窗口高度
+
+        ; ========== 框选相关 ==========
+        this.SelectAreaAction := ""     ; 框选完成回调（显示框选范围）
+        this.GetAreaAction := ""        ; 获取区域回调（不显示框选范围，用于系统截图）
+        this.StartAreaPosX := ""        ; 框选起点 X 坐标
+        this.StartAreaPosY := ""        ; 框选起点 Y 坐标
+
+        ; ========== 其他 ==========
+        this.LastShowMonth := 0         ; 上次显示"打赏"Tab 的月份
+
+        ; ============================================================
+        ; 以下为原 ToolCheckInfo 字段 — 工具检测 / 录制 / OCR
+        ; ============================================================
+
+        ; ---------- 工具检测：热键 ----------
+        this.ToolCheckHotKey := ""          ; 鼠标信息检测快捷键
+        this.ToolRecordMacroHotKey := ""    ; 指令录制快捷键
+        this.ToolTextFilterHotKey := ""     ; 文本提取快捷键
+        this.ScreenShotHotKey := ""         ; 屏幕截图快捷键 (工具页)
+        this.FreePasteHotKey := ""          ; 自由贴快捷键
+
+        ; ---------- 工具检测：实时信息 ----------
+        this.IsToolCheck := false       ; 鼠标信息检测开关
+        this.PosStr := ""               ; 当前鼠标坐标字符串
+        this.WinPosStr := ""            ; 当前窗口坐标字符串
+        this.ProcessName := ""          ; 鼠标所在窗口进程名
+        this.ProcessTile := ""          ; 鼠标所在窗口标题
+        this.ProcessPid := ""           ; 鼠标所在窗口 PID
+        this.ProcessClass := ""         ; 鼠标所在窗口类名
+        this.ProcessId := ""            ; 鼠标所在窗口 ID (HWND)
+        this.Color := ""                ; 鼠标所在像素颜色 (HEX)
+
+        ; ---------- 录制 ----------
+        this.IsToolRecord := false      ; 指令录制开关
+        this.IsTogStartRecord := false  ; 是否正在触发开始录制 (区分快捷键触发)
+        this.IsTogEndRecord := false    ; 是否正在触发结束录制
+        this.RecordLastTime := ""       ; 上一条录制指令的时间戳
+        this.RecordMacroStr := ""       ; 录制结果的宏指令字符串
+        this.RecordHoldKeyMap := Map()  ; 录制中按住的按键映射
+        this.RecordInitialHoldMap := Map()  ; 录制开始时即已按住的按键（预采样基线）
+        this.RecordHoldMuti := true     ; 录制时是否合并按住的多键
+        this.RecordAutoLoosen := true   ; 录制时是否自动松开按键
+        this.RecordKeyboard := true     ; 是否录制键盘
+        this.RecordMouse := true        ; 是否录制鼠标
+        this.RecordMouseTrail := true   ; 鼠标轨迹录制 (0=不录制, 1=关键点位, 2=关键点相对位移, 3=全量)
+        this.RecordMouseTrailSpeed := 1 ; 鼠标轨迹录制速度
+        this.RecordJoy := false         ; 是否录制手柄
+        this.RecordJoyInterval := 100   ; 手柄录制间隔 (ms)
+        this.RecordShowBorder := true   ; 录制时是否显示边框 (0=关闭, 1=开启)
+
+        ; ---------- OCR ----------
+        this.OCRTypeValue := 1          ; OCR 引擎类型 (1=RapidOCR, ...)
     }
 }
 
 class SoftData {
     __New() {
+        ; ========== Worker 标识与运行状态 ==========
         this.isWorker := false          ;子线程标识
         this.MacroRunningCount := 0     ;运行中的宏数量
         this.IsMacroWorking := false    ;宏正在运行
+
+        ; ========== 外部库初始化状态 ==========
         this.IsLogitechInit := false    ;罗技按键初始化
+        this.IsMouseControlInit := false ;MouseControl.dll 初始化
+
+        ; ========== 临时提示 ==========
         this.ToolTipText := ""          ;临时提示文本
         this.ToolTipEndTime := ""       ;临时提示结束时间
-        this.AgreeAgreement := false    ;同意协议
-        this.IsBootStart := false       ;开机自启
-        this.ShowSplitLine := false     ;显示分割线
-        this.FixedMenuWheel := false    ;固定菜单轮
-        this.NoVariableTip := false     ;无变量提醒
-        this.ScreenShotType := 3        ;截图类型
-        this.MutiThreadNum := 3         ;多线程数
-        this.IsSuspend := false         ;休眠
-        this.SuspendHotkey := ""        ;休眠快捷键
-        this.IsPause := false           ;暂停
-        this.PauseHotkey := ""          ;暂停快捷键
-        this.KillMacroHotkey := ""      ;终止所有宏快捷键
-        this.HoldFloat := 0             ;按住时间浮动数值
-        this.PreIntervalFloat := 0      ;每次间隔浮动数值
-        this.IntervalFloat := 0         ;间隔指令浮动数值
-        this.CoordXFloat := 0           ;坐标X浮动数值
-        this.CoordYFloat := 0           ;坐标Y浮动数值
-        this.SoftBGColor := ""          ;软件背景颜色
-        this.IsReload := false          ;软件是否重载
-        this.TableIndex := 1            ;当前显示的table索引
-        this.HasSaved := false          ;是否保存
-        this.MacroEditGui := ""         ;当前宏编辑器
-        this.FontType := "微软雅黑"     ;当前字体
-        this.FontList := []             ;所有字体类型
-        this.Lang := "中文"             ;当前语言
-        this.LangArr := []              ;所有语言
-        this.KeyDownDownType := 1       ;按下时按下 1自动松开, 2忽略后续按下, 3允许该操作
 
-        this.MyGui := {}                ;软件主界面GUI
-        this.CurSettingName := ""       ;当前配置名称
-        this.SettingArrStr := ""        ;所有配置字串
-        this.CurMenuWheelIndex := -1    ;当先显示的菜单轮盘
-
-        this.TabCtrl := {}              ;Tab组件
-        this.TabPosX := 0               ;Tab位置X
-        this.TabPosY := 0               ;Tab位置Y
+        ; ========== 宏表格数据 ==========
         this.TableInfo := []            ;TableItem所有信息，每个宏的所有信息
 
-        this.IsMinStart := false        ;最小化启动
-
-        ;Tab所有页签
-        this.TabNameArr := ["按键宏", "字串宏", "菜单宏", "定时宏", "宏", "按键替换", "工具", "设置", "帮助", "打赏作者", "特别感谢"]
-        ;Tab页签对应的英文
-        this.TabSymbolArr := ["Normal", "String", "Menu", "Timing", "SubMacro", "Replace", "Tool", "Setting", "Help",
-            "Reward", "Thank"]
-
+        ; ========== 按键映射 ==========
         ;特殊的按键，因为含有下划线，所有要特殊处理
         this.SpecialKeyMap := Map("Browser_Back", 0, "Browser_Forward", 0, "Browser_Refresh", 0, "Browser_Stop", 0,
             "Browser_Search", 0, "Browser_Favorites", 0, "Browser_Home", 0, "Volume_Mute", 0, "Volume_Down", 0,
@@ -251,16 +325,18 @@ class SoftData {
         this.OnlyDownKeyMap := Map("WheelDown", 0, "WheelUp", 0, "Bright_Down", 0, "Bright_Up", 0, "None", 0)
         this.SpecialTableItem := TableItem()    ;特别的TableItem，用于编辑器模式测试指令
 
+        ; ========== 连续触发按键 ==========
         ;这些按键不会重复触发按下的按键宏，特别标记特殊处理
         this.ContinueKeyMap := Map("LButton", "LButton", "~LButton", "LButton", "RButton", "RButton", "~RButton",
             "RButton", "MButton", "MButton", "~MButton", "MButton", "XButton1", "XButton1", "~XButton1", "XButton1",
             "XButton2", "XButton2", "~XButton2", "XButton2")
         this.ContinueIntervale := 50    ;连续触发间隔
 
+        ; ========== 文件编码 ==========
         this.FileEncodingArr := ["ANSI", "GB2312", "GB18030", "BIG5", "UTF-8", "UTF-16"]
 
+        ; ========== 数据缓存与变量 ==========
         this.DataCacheMap := Map()      ;指令缓存，减少读取文件的次数
-
         this.GlobalArrMap := Map()      ;UI下拉显示数组
         this.ArrayMap := Map()          ;真正的全局数组
         this.GlobalVariMap := Map()     ;UI下拉显示变量
@@ -268,41 +344,20 @@ class SoftData {
         this.DataFileMap := Map()       ;配置命令对应的文件路径
         this.DataClassMap := Map()      ;配置对应的数据类型
 
-        ;显示指令提示配置
+        ; ========== 指令提示（主进程与 Worker 共享） ==========
         this.CMDTip := false
-        this.CMDTipCtrl := ""
-        this.CMDPosX := A_ScreenWidth - 225 - 55    ;不知道为什么有55的偏移
-        this.CMDPosY := 0
-        this.CMDWidth := 225
-        this.CMDHeight := 120
-        this.CMDBGColor := "FFFFFF"
-        this.CMDRunBGColor := "00FF00"
-        this.CMDTransparency := 50
-        this.CMDFontSize := "12"
-        this.CMDFontColor := "000000"
 
-        ;变量监视器窗口大小
-        this.VarListenTop := false
-        this.VarListenWidth := 400
-        this.VarListenHeight := 420
+        ; ========== 配置名称（Worker 用于文件路径解析） ==========
+        this.CurSettingName := ""       ;当前配置名称
 
+        ; ========== 热键绑定 ==========
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
-        this.SoftHotKeyArr := ["~WheelUp", "~WheelDown", "~LButton", "~Left", "~Right", "~Up", "~Down", "~Enter", "1",
-            "2", "3", "4", "5", "6", "7", "8", "~F5", "~F6", "~Delete", "~NumpadDot"]
-        ; this.SoftHotKeyArr := ["1", "2", "3", "4", "5", "6", "7", "8"]      ;测试时候启动
 
-        this.SelectAreaAction := "" ;左键框选范围回调   显示框选范围       正常
-        this.GetAreaAction := ""    ;左键框选范围回调   不显示框选范围      系统截图获取截图范围
-        this.StartAreaPosX := ""    ;开始框选范围X坐标  记录点位，这样结束时就能直接获取点位信息
-        this.StartAreaPosY := ""    ;开始框选范围Y坐标
-
-        this.IsTogStartRecord := false  ;通过开关触发录制   区分触发形式，删除宏里面的快捷键触发的按键
-        this.IsTogEndRecord := false    ;通过开关结束录制
+        ; ========== 手柄宏 ==========
         this.HasJoyMacro := false       ;含有手柄宏，手柄宏启动时需要初始化手柄（操作系统会提示，有点嘈）
-        this.MacroTotalCount := 0   ;宏运行次数
-        this.LastShowMonth := 0     ;上次显示月数
+        this.MacroTotalCount := 0       ;宏运行次数
 
-        ;手柄映射
+        ; ========== 手柄映射 ==========
         this.JoyXboxToAhkMap := Map(
             "JoyA", "Joy1",
             "JoyB", "Joy2",
@@ -316,6 +371,8 @@ class SoftData {
             "JoyRS", "Joy10",
             "JoyBack", "Joy7",
             "JoyStart", "Joy8",
+            "JoyPad", "Joy14",
+            "JoyHome", "Joy13",
             "JoyDpadUp", "JoyPOV_0",
             "JoyDpadRight", "JoyPOV_9000",
             "JoyDpadDown", "JoyPOV_18000",
@@ -329,6 +386,183 @@ class SoftData {
             "JoyAxisRYMin", "JoyRMin",
             "JoyAxisRYMax", "JoyRMax"
         )
+        this.JoyPS5ToAhkMap := Map(
+            "JoyA", "Joy1",      ; □ Square
+            "JoyB", "Joy2",      ; × Cross
+            "JoyX", "Joy3",      ; ○ Circle
+            "JoyY", "Joy4",      ; △ Triangle
+            "JoyLB", "Joy5",     ; L1
+            "JoyRB", "Joy6",     ; R1
+            "JoyLT", "JoyVMax",  ; PS5蓝牙L2在V轴     ; L2（数字按钮）
+            "JoyRT", "JoyUMax",  ; PS5蓝牙R2在U轴     ; R2（数字按钮）
+            "JoyLS", "Joy11",     ; 左摇杆按下（L3）
+            "JoyRS", "Joy12",    ; 右摇杆按下（R3）
+            "JoyBack", "Joy9",    ; Create
+            "JoyStart", "Joy10",  ; Options
+            "JoyPad", "Joy14",    ; 触摸板按压
+            "JoyHome", "Joy13",   ; PS键
+            "JoyDpadUp", "JoyPOV_0",
+            "JoyDpadRight", "JoyPOV_9000",
+            "JoyDpadDown", "JoyPOV_18000",
+            "JoyDpadLeft", "JoyPOV_27000",
+            "JoyAxisLXMin", "JoyXMin",
+            "JoyAxisLXMax", "JoyXMax",
+            "JoyAxisLYMin", "JoyYMin",
+            "JoyAxisLYMax", "JoyYMax",
+            "JoyAxisRXMin", "JoyUMin",
+            "JoyAxisRXMax", "JoyUMax",
+            "JoyAxisRYMin", "JoyRMin",
+            "JoyAxisRYMax", "JoyRMax"
+        )
+        ; ========== 通用键名映射（与设备无关） ==========
+        ; JoyN = 按物理位置编号的通用键名（与设备无关）
+        ; Joy1=下, Joy2=右, Joy3=左, Joy4=上
+        this.JoyToDispMap := Map(
+            "Joy1", Map("Xbox", "A", "PS5", "×"),
+            "Joy2", Map("Xbox", "B", "PS5", "○"),
+            "Joy3", Map("Xbox", "X", "PS5", "□"),
+            "Joy4", Map("Xbox", "Y", "PS5", "△"),
+            "Joy5", Map("Xbox", "LB", "PS5", "L1"),
+            "Joy6", Map("Xbox", "RB", "PS5", "R1"),
+            "Joy7", Map("Xbox", "LT", "PS5", "L2"),
+            "Joy8", Map("Xbox", "RT", "PS5", "R2"),
+            "Joy9", Map("Xbox", "LS", "PS5", "L3"),
+            "Joy10", Map("Xbox", "RS", "PS5", "R3"),
+            "Joy11", Map("Xbox", "Back", "PS5", "Crt"),
+            "Joy12", Map("Xbox", "Start", "PS5", "Opt"),
+            "Joy13", Map("Xbox", "XBOX", "PS5", "PS"),
+            "Joy14", Map("Xbox", "Map", "PS5", "白板"),
+            "AxisLXMin", Map("Xbox", "L←", "PS5", "L←"),
+            "AxisLXMax", Map("Xbox", "L→", "PS5", "L→"),
+            "AxisLYMin", Map("Xbox", "L↑", "PS5", "L↑"),
+            "AxisLYMax", Map("Xbox", "L↓", "PS5", "L↓"),
+            "AxisRXMin", Map("Xbox", "R←", "PS5", "R←"),
+            "AxisRXMax", Map("Xbox", "R→", "PS5", "R→"),
+            "AxisRYMin", Map("Xbox", "R↑", "PS5", "R↑"),
+            "AxisRYMax", Map("Xbox", "R↓", "PS5", "R↓"),
+            "AxisLT", Map("Xbox", "LT", "PS5", "L2"),
+            "AxisRT", Map("Xbox", "RT", "PS5", "R2"),
+            "DpadUp", Map("Xbox", "↑", "PS5", "↑"),
+            "DpadDown", Map("Xbox", "↓", "PS5", "↓"),
+            "DpadLeft", Map("Xbox", "←", "PS5", "←"),
+            "DpadRight", Map("Xbox", "→", "PS5", "→")
+        )
+        ; 物理原始键名 → 通用键名（Xbox）
+        this.PhysToXboxJoyMap := Map(
+            "Joy1", "Joy1",
+            "Joy2", "Joy2",
+            "Joy3", "Joy3",
+            "Joy4", "Joy4",
+            "Joy5", "Joy5",
+            "Joy6", "Joy6",
+            "Joy7", "Joy11",
+            "Joy8", "Joy12",
+            "Joy9", "Joy9",
+            "Joy10", "Joy10",
+            "Joy13", "Joy13",
+            "Joy14", "Joy14",
+            "JoyZMin", "AxisLT",
+            "JoyZMax", "AxisRT",
+            "JoyPOV_0", "DpadUp",
+            "JoyPOV_9000", "DpadRight",
+            "JoyPOV_18000", "DpadDown",
+            "JoyPOV_27000", "DpadLeft",
+            "JoyXMin", "AxisLXMin",
+            "JoyXMax", "AxisLXMax",
+            "JoyYMin", "AxisLYMin",
+            "JoyYMax", "AxisLYMax",
+            "JoyUMin", "AxisRXMin",
+            "JoyUMax", "AxisRXMax",
+            "JoyRMin", "AxisRYMin",
+            "JoyRMax", "AxisRYMax"
+        )
+        ; 物理原始键名 → 通用键名（PS5 蓝牙/DI）
+        ; 按物理位置映射：Joy1=下, Joy2=右, Joy3=左, Joy4=上
+        this.PhysToPS5JoyMap := Map(
+            "Joy1", "Joy3",   ; □(左) → 左位置
+            "Joy2", "Joy1",   ; ×(下) → 下位置
+            "Joy3", "Joy2",   ; ○(右) → 右位置
+            "Joy4", "Joy4",   ; △(上) → 上位置
+            "Joy5", "Joy5",
+            "Joy6", "Joy6",
+            "Joy7", "Joy7",
+            "Joy8", "Joy8",
+            "Joy9", "Joy11",
+            "Joy10", "Joy12",
+            "Joy11", "Joy9",
+            "Joy12", "Joy10",
+            "Joy13", "Joy13",
+            "Joy14", "Joy14",
+            "JoyPOV_0", "DpadUp",
+            "JoyPOV_9000", "DpadRight",
+            "JoyPOV_18000", "DpadDown",
+            "JoyPOV_27000", "DpadLeft",
+            "JoyXMin", "AxisLXMin",
+            "JoyXMax", "AxisLXMax",
+            "JoyYMin", "AxisLYMin",
+            "JoyYMax", "AxisLYMax",
+            "JoyZMin", "AxisRXMin",
+            "JoyZMax", "AxisRXMax",
+            "JoyRMin", "AxisRYMin",
+            "JoyRMax", "AxisRYMax",
+            "JoyUMin", "AxisRT",
+            "JoyUMax", "AxisRT",
+            "JoyVMin", "AxisLT",
+            "JoyVMax", "AxisLT"
+        )
+        ; 通用键名 → 物理原始键名（Xbox，用于执行/绑定）
+        this.JoyToXboxPhysMap := Map(
+            "Joy1", "Joy1",   "Joy2", "Joy2",   "Joy3", "Joy3",   "Joy4", "Joy4",
+            "Joy5", "Joy5",   "Joy6", "Joy6",   "Joy7", "JoyZMin", "Joy8", "JoyZMax",
+            "Joy9", "Joy9",   "Joy10", "Joy10",  "Joy11", "Joy7",  "Joy12", "Joy8",
+            "Joy13", "Joy13", "Joy14", "Joy14",
+            "AxisLT", "JoyZMin", "AxisRT", "JoyZMax",
+            "AxisLXMin", "JoyXMin", "AxisLXMax", "JoyXMax",
+            "AxisLYMin", "JoyYMin", "AxisLYMax", "JoyYMax",
+            "AxisRXMin", "JoyUMin", "AxisRXMax", "JoyUMax",
+            "AxisRYMin", "JoyRMin", "AxisRYMax", "JoyRMax",
+            "DpadUp", "JoyPOV_0", "DpadDown", "JoyPOV_18000",
+            "DpadLeft", "JoyPOV_27000", "DpadRight", "JoyPOV_9000"
+        )
+        ; 通用键名 → 物理原始键名（PS5，用于执行/绑定）
+        this.JoyToPS5PhysMap := Map(
+            "Joy1", "Joy2",   "Joy2", "Joy3",   "Joy3", "Joy1",   "Joy4", "Joy4",
+            "Joy5", "Joy5",   "Joy6", "Joy6",   "Joy7", "Joy7",   "Joy8", "Joy8",
+            "Joy9", "Joy11",  "Joy10", "Joy12", "Joy11", "Joy9",  "Joy12", "Joy10",
+            "Joy13", "Joy13", "Joy14", "Joy14",
+            "AxisLT", "JoyVMin", "AxisRT", "JoyUMin",
+            "AxisLXMin", "JoyXMin", "AxisLXMax", "JoyXMax",
+            "AxisLYMin", "JoyYMin", "AxisLYMax", "JoyYMax",
+            "AxisRXMin", "JoyZMin", "AxisRXMax", "JoyZMax",
+            "AxisRYMin", "JoyRMin", "AxisRYMax", "JoyRMax",
+            "DpadUp", "JoyPOV_0", "DpadDown", "JoyPOV_18000",
+            "DpadLeft", "JoyPOV_27000", "DpadRight", "JoyPOV_9000"
+        )
+
+        ; 手柄按键统一按 Xbox 友好键名存盘；显示时按当前类型（宏手柄类型/手柄类型）映射显示名
+        this.JoyBtnDisplayMap := Map(
+            "JoyA", Map("Xbox", "A", "PS5", "×"),
+            "JoyB", Map("Xbox", "B", "PS5", "○"),
+            "JoyX", Map("Xbox", "X", "PS5", "□"),
+            "JoyY", Map("Xbox", "Y", "PS5", "△"),
+            "JoyLB", Map("Xbox", "LB", "PS5", "L1"),
+            "JoyRB", Map("Xbox", "RB", "PS5", "R1"),
+            "JoyLT", Map("Xbox", "LT", "PS5", "L2"),
+            "JoyRT", Map("Xbox", "RT", "PS5", "R2"),
+            "JoyLS", Map("Xbox", "LS", "PS5", "L3"),
+            "JoyRS", Map("Xbox", "RS", "PS5", "R3"),
+            "JoyBack", Map("Xbox", "Back", "PS5", "Crt"),
+            "JoyStart", Map("Xbox", "Start", "PS5", "Opt"),
+            "JoyPad", Map("Xbox", "Map", "PS5", "白板"),
+            "JoyHome", Map("Xbox", "XBOX", "PS5", "PS"),
+            "JoyDpadUp", Map("Xbox", "上", "PS5", "上"),
+            "JoyDpadDown", Map("Xbox", "下", "PS5", "下"),
+            "JoyDpadLeft", Map("Xbox", "左", "PS5", "左"),
+            "JoyDpadRight", Map("Xbox", "右", "PS5", "右")
+        )
+        ; 手柄按钮统一存盘的 Xbox 友好键名列表（显示时按类型映射；无 Xbox 对应项时直接存原名）
+        this.JoyBtnKeys := ["JoyA", "JoyB", "JoyX", "JoyY", "JoyLB", "JoyRB", "JoyLT", "JoyRT",
+            "JoyLS", "JoyRS", "JoyBack", "JoyStart", "JoyHome", "JoyPad"]
         this.JoyAhkToXboxMap := Map(
             "Joy1", "JoyA",
             "Joy2", "JoyB",
@@ -355,6 +589,253 @@ class SoftData {
             "JoyRMin", "JoyAxisRYMin",
             "JoyRMax", "JoyAxisRYMax"
         )
+        ; PS5 原生 DI（蓝牙/有线）：和 Xbox 映射不同
+        ; JoyZ/R=右摇杆, JoyU=R2扳机, JoyV=L2扳机
+        this.JoyAhkToPS5Map := Map(
+            "Joy1", "JoyX",
+            "Joy2", "JoyA",
+            "Joy3", "JoyB",
+            "Joy4", "JoyY",
+            "Joy5", "JoyLB",
+            "Joy6", "JoyRB",
+            "Joy7", "JoyLT",
+            "Joy8", "JoyRT",
+            "Joy9", "JoyBack",
+            "Joy10", "JoyStart",
+            "Joy11", "JoyLS",
+            "Joy12", "JoyRS",
+            "Joy13", "JoyHome",
+            "Joy14", "JoyPad",
+            "JoyPOV_0", "JoyDpadUp",
+            "JoyPOV_9000", "JoyDpadRight",
+            "JoyPOV_18000", "JoyDpadDown",
+            "JoyPOV_27000", "JoyDpadLeft",
+            "JoyXMin", "JoyAxisLXMin",
+            "JoyXMax", "JoyAxisLXMax",
+            "JoyYMin", "JoyAxisLYMin",
+            "JoyYMax", "JoyAxisLYMax",
+            "JoyZMin", "JoyAxisRXMin",
+            "JoyZMax", "JoyAxisRXMax",
+            "JoyRMin", "JoyAxisRYMin",
+            "JoyRMax", "JoyAxisRYMax",
+            "JoyUMin", "JoyRT",
+            "JoyUMax", "JoyRT",
+            "JoyVMin", "JoyLT",
+            "JoyVMax", "JoyLT"
+        )
+    }
+
+    ; 物理原始键名 → 通用键名
+    GetPhysToJoyMap() {
+        joyType := MainSoftData.JoyType
+        if (joyType == "DS4")
+            return this.PhysToPS5JoyMap
+        return this.PhysToXboxJoyMap
+    }
+
+    ; 通用键名 → 物理原始键名（用于执行/绑定）
+    GetJoyToPhysMap() {
+        joyType := MainSoftData.JoyType
+        if (joyType == "DS4")
+            return this.JoyToPS5PhysMap
+        return this.JoyToXboxPhysMap
+    }
+
+    ; 通用键名 → 显示名
+    GetJoyNDisplayName(btnKey) {
+        joyType := MainSoftData.TriggerJoyType
+        if (this.JoyToDispMap.Has(btnKey)) {
+            labelMap := this.JoyToDispMap[btnKey]
+            return labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
+        }
+        return btnKey
+    }
+
+    ; 旧映射保留兼容
+    GetJoyToAhkMap() {
+        joyType := MainSoftData.JoyType
+        if (joyType == "DS4")
+            return this.JoyPS5ToAhkMap
+        return this.JoyXboxToAhkMap
+    }
+
+    ; 指令字符串中的 BtnN → Joy*（兼容旧 GUI）
+    CmdJoyNToJoyFriendly(cmdStr) {
+        if (cmdStr == "")
+            return cmdStr
+        paramArr := StrSplit(cmdStr, "_")
+        paramArr := StrSplit(cmdStr, "_")
+        if (paramArr.Length >= 2) {
+            keyPart := paramArr[2]
+            btnToJoyMap := Map(
+                "Joy1", "JoyA", "Joy2", "JoyB", "Joy3", "JoyX", "Joy4", "JoyY",
+                "Joy5", "JoyLB", "Joy6", "JoyRB", "Joy7", "JoyLT", "Joy8", "JoyRT",
+                "Joy9", "JoyLS", "Joy10", "JoyRS", "Joy11", "JoyBack", "Joy12", "JoyStart",
+                "Joy13", "JoyHome", "Joy14", "JoyPad",
+                "AxisLXMin", "JoyAxisLXMin", "AxisLXMax", "JoyAxisLXMax",
+                "AxisLYMin", "JoyAxisLYMin", "AxisLYMax", "JoyAxisLYMax",
+                "AxisRXMin", "JoyAxisRXMin", "AxisRXMax", "JoyAxisRXMax",
+                "AxisRYMin", "JoyAxisRYMin", "AxisRYMax", "JoyAxisRYMax",
+                "AxisLT", "JoyLT", "AxisRT", "JoyRT",
+                "DpadUp", "JoyDpadUp", "DpadDown", "JoyDpadDown",
+                "DpadLeft", "JoyDpadLeft", "DpadRight", "JoyDpadRight")
+            if (btnToJoyMap.Has(keyPart))
+                paramArr[2] := btnToJoyMap[keyPart]
+        }
+        result := ""
+        for i, p in paramArr {
+            if (i > 1)
+                result .= "_"
+            result .= p
+        }
+        return result
+    }
+
+    ; 旧：录制时 AHK 原始键名 → 友好名
+    GetAhkToJoyMap() {
+        joyType := MainSoftData.JoyType
+        if (joyType == "DS4")
+            return this.JoyAhkToPS5Map
+        return this.JoyAhkToXboxMap
+    }
+
+    GetJoyDisplayName(joyKey, joyType := "") {
+        if (joyType == "")
+            joyType := MainSoftData.TriggerJoyType
+        displayMap := this.JoyBtnDisplayMap
+        if (displayMap.Has(joyKey)) {
+            labelMap := displayMap[joyKey]
+            name := labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
+            if (name != "")
+                return name
+        }
+        return joyKey
+    }
+
+    ; 触发键显示/解析所需的手柄键名列表（按钮键 + 方向键/摇杆固定键名）
+    GetJoyTriggerKeyList() {
+        keys := ["JoyDpadUp", "JoyDpadDown", "JoyDpadLeft", "JoyDpadRight",
+            "JoyAxisLXMin", "JoyAxisLXMax", "JoyAxisLYMin", "JoyAxisLYMax",
+            "JoyAxisRXMin", "JoyAxisRXMax", "JoyAxisRYMin", "JoyAxisRYMax"]
+        for k in this.JoyBtnKeys
+            keys.Push(k)
+        return keys
+    }
+
+    ; 将触发键字符串中的Joy键名转换为显示名（跟随手柄类型 TriggerJoyType）
+    FormatJoyTriggerKey(triggerKey) {
+        if (triggerKey == "")
+            return ""
+        result := triggerKey
+        joyType := (MainSoftData.TriggerJoyType == "PS5" || MainSoftData.TriggerJoyType == "Xbox")
+            ? MainSoftData.TriggerJoyType : "Xbox"
+        ; 按键名称按词边界替换，避免 JoyA 命中 JoyAxisLXMin
+        for key in this.GetJoyTriggerKeyList() {
+            displayName := this.GetJoyDisplayName(key, joyType)
+            if (displayName == key)
+                continue
+            needle := "(?<![A-Za-z0-9_])" RegExReplace(key, "([\\.^$|?*+()\[\]{}])", "\$1") "(?![A-Za-z0-9_])"
+            result := RegExReplace(result, needle, displayName)
+        }
+        return result
+    }
+
+    ; 将显示名还原为内部Joy键名（反向映射，跟随手柄类型 TriggerJoyType）
+    ParseJoyTriggerKey(displayStr) {
+        if (displayStr == "")
+            return ""
+        result := displayStr
+        joyType := (MainSoftData.TriggerJoyType == "PS5" || MainSoftData.TriggerJoyType == "Xbox")
+            ? MainSoftData.TriggerJoyType : "Xbox"
+        for key in this.GetJoyTriggerKeyList() {
+            displayName := this.GetJoyDisplayName(key, joyType)
+            if (displayName == key || displayName == "")
+                continue
+            result := StrReplace(result, displayName, key, , , 1)
+        }
+        return result
+    }
+
+    ; 格式化宏指令字符串中的 Joy 键名为 🎮× 格式（只替换第二个 _ 段）
+    ; 格式化宏指令字符串中的 通用键名 为 🎮显示名 格式（只替换第二个 _ 段）
+    FormatCmdJoyDisplay(cmdStr) {
+        if (cmdStr == "")
+            return cmdStr
+        if InStr(cmdStr, "🎮")
+            return cmdStr
+        paramArr := StrSplit(cmdStr, "_")
+        if (paramArr.Length >= 2) {
+            keyPart := paramArr[2]
+            ; 通用 JoyN / 轴名
+            if (RegExMatch(keyPart, "^(Joy\d+|JoyAxisL?[XYZ]M(in|ax)|JoyAxisR[XYZ]M(in|ax)|JoyDpad(Up|Down|Left|Right|None)|AxisLT|AxisRT|AxisL?[XYZ]M(in|ax)|AxisR[XYZ]M(in|ax)|Dpad(Up|Down|Left|Right))$")) {
+                displayName := this.GetJoyNDisplayName(keyPart)
+                if (displayName != "" && displayName != keyPart)
+                    keyPart := "🎮" displayName
+            }
+            ; 友好键名 JoyA / JoyO / JoyL1 等（宏按键指令）
+            else if (InStr(keyPart, "Joy") == 1) {
+                keys := StrSplit(keyPart, "⎖")
+                newPart := ""
+                for i, k in keys {
+                    if (i > 1)
+                        newPart .= "⎖"
+                    label := this.GetJoyDisplayName(k)
+                    if (label != "" && label != k)
+                        newPart .= "🎮" label
+                    else
+                        newPart .= k
+                }
+                keyPart := newPart
+            }
+            paramArr[2] := keyPart
+        }
+        result := ""
+        for i, p in paramArr {
+            if (i > 1)
+                result .= "_"
+            result .= p
+        }
+        return result
+    }
+
+    ; 从 🎮显示名 格式还原为键名（只还原第二个 _ 段）
+    ParseCmdJoyDisplay(displayStr) {
+        if (displayStr == "")
+            return displayStr
+        if !InStr(displayStr, "🎮")
+            return displayStr
+        paramArr := StrSplit(displayStr, "_")
+        if (paramArr.Length >= 2 && InStr(paramArr[2], "🎮")) {
+            keyPart := paramArr[2]
+            global MainSoftData
+            joyType := MainSoftData.TriggerJoyType
+            ; 优先：按钮友好键名（JoyA 等，按当前 JoyType 显示）
+            for btnKey in this.JoyBtnKeys {
+                disp := this.GetJoyDisplayName(btnKey, joyType)
+                if (disp != "" && InStr(keyPart, "🎮" disp)) {
+                    keyPart := btnKey
+                    break
+                }
+            }
+            ; 回退：通用 JoyN 显示名
+            if (InStr(keyPart, "🎮")) {
+                for btnKey, labelMap in this.JoyToDispMap {
+                    disp := labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
+                    if (disp != "" && InStr(keyPart, "🎮" disp)) {
+                        keyPart := btnKey
+                        break
+                    }
+                }
+            }
+            paramArr[2] := keyPart
+        }
+        result := ""
+        for i, p in paramArr {
+            if (i > 1)
+                result .= "_"
+            result .= p
+        }
+        return result
     }
 }
 
@@ -427,6 +908,24 @@ class SearchData {
 
 }
 
+class ScreenShotData {
+    __New() {
+        this.SerialStr := ""
+        this.ScreenShotType := 1        ;1屏幕抓图  2窗口抓图
+        this.WinInfo := ""              ;窗口信息（窗口抓图时使用）
+        this.StartPosX := 0
+        this.StartPosY := 0
+        this.EndPosX := A_ScreenWidth
+        this.EndPosY := A_ScreenHeight
+        this.NameType := 1              ;0默认（指令名+序号）  1固定名称
+        this.FixedName := "Shot"            ;固定名称（NameType=1时使用）
+        this.SavePath := ""             ;保存路径（默认为Temp_ScreenShot）
+        this.ResultToggle := 0          ;是否保存结果到变量
+        this.ResultSaveName := GetLang("图片路径")  ;结果变量名
+    }
+
+}
+
 class CompareData {
     __New() {
         this.ToggleArr := [1, 0, 0, 0]
@@ -448,8 +947,8 @@ class CompareData {
 class CompareProData {
     __New() {
         this.VariNameArr := [["Var1"], ["Var2"]]
-        this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等 5小于 6字符包含 7存在变量
-        this.VariableArr := [[1], [2]]
+        this.CompareTypeArr := [[3], [3]]  ;1大于 2大于等于 3等于 4小于等于 5小于 6字符包含 7存在变量 8正则匹配（与 CompareData 一致）
+        this.VariableArr := [["1"], ["2"]]
         this.LogicTypeArr := [1, 2]
         this.ControlTypeArr := ["无", "无"]
         this.MacroArr := ["按键_a_点击_100", "按键_b_点击_100"]
@@ -489,8 +988,7 @@ class MMProData {
         this.PosVarX := 100
         this.PosVarY := 100
         this.ActionType := 1          ;鼠标动作 1移动 2移动点击1次 3移动点击2次
-        this.IsRelative := 0         ;相对位移
-        this.IsGameView := 0        ;游戏视角
+        this.MouseMoveMode := 0      ;鼠标移动模式 0=绝对移动 1=相对移动 2=游戏视角
         this.Speed := 90           ;移动速度
         this.Count := 1
         this.Interval := 1000
@@ -500,8 +998,9 @@ class MMProData {
 class RunData {
     __New() {
         this.SerialStr := ""
-        this.RunPath := ""
-        this.BackPlay := false
+        this.Target := ""
+        this.Mode := 1
+        this.Option := 1
     }
 }
 
@@ -510,6 +1009,7 @@ class OutputData {
         this.SerialStr := ""
         this.Text := GetLang("将要输出的文本")
         this.OutputType := "发送内容"   ;sendtest  粘贴   粘贴
+        this.VariableName := "Data"         ;字符变量时的变量名（默认 Data）
     }
 }
 
@@ -662,12 +1162,11 @@ class BGKeyData {
 class TimingData {
     __New() {
         this.SerialStr := ""
-        this.StartTime := A_Now
-        this.EndTime := ""
-        this.Type := 1  ;1单次 2每小时 3每天 4每周 5每月 6自定义
-        this.CustomInterval := "10"
-        this.CustomUnit := 2            ; 1: 秒 2: 分钟 3: 小時 4: 天 5: 週
-        this.NextTriggerTime := ""
+        this.StartStamp := DateDiff(A_Now, "19700101000000", "Seconds")  ; Unix timestamp
+        this.EndStamp := 0                                                 ; 0 = no end, omitted in JSON
+        this.Type := 1  ;1单次 2软件启动时 3自定义
+        this.CustomInterval := "10"  ; only relevant when Type == 3
+        this.CustomUnit := 2         ; 1:秒 2:分钟 3:小時 4:天 5:週 6:月
     }
 }
 
@@ -703,6 +1202,7 @@ class TextOpsData {
         this.ArgsName := ","        ;参数变量名或文本
         this.Search := "" ; 查找文本
         this.Replace := "" ; 替换文本
+        this.MatchType := "普通文本"
         this.SaveType := "变量"     ;保存类型  变量或数组
         this.SaveName := "Data"     ;保存的变量名或数组名
     }
@@ -800,3 +1300,76 @@ class InputData {
         this.SaveName := "Data"             ;保存的变量名或数组名
     }
 }
+
+class WindowManageData {
+    __New() {
+        this.SerialStr := ""                 ;类型尽量使用中文 当做枚举使用  程序中有语义、也可以随时调整顺序
+        this.ActionType := "激活窗口"        ;1激活窗口 2最大化窗口 3最小化窗口 4还原窗口 5关闭窗口 6移动窗口 7调整大小 8置顶窗口 9取消置顶 10修改标题 11修改透明度 12开启鼠标穿透 13关闭鼠标穿透
+        this.SearchValue := ""              ;查找值（格式：标题⎖类名⎖进程名，空表示未选择）
+        this.PosX := 0                      ;移动窗口X坐标（移动窗口时使用）
+        this.PosY := 0                      ;移动窗口Y坐标（移动窗口时使用）
+        this.Width := 0                     ;窗口宽度（调整大小时使用）
+        this.Height := 0                    ;窗口高度（调整大小时使用）
+        this.NewTitle := ""                 ;新标题（修改标题时使用）
+        this.Transparency := "80%"           ;透明度值 0-100（修改透明度时使用，80表示80%不透明度）
+    }
+}
+
+class KeyCheckData {
+    __New() {
+        this.SerialStr := ""
+        this.KeyArr := []                   ;检测的按键数组
+        this.CheckType := 1                 ;1同时按下 2有一个按下
+        this.StateType := 1                 ;1物理状态 2逻辑状态
+        this.VarName := ""                  ;变量名
+    }
+}
+
+class CommentData {
+    __New() {
+        this.SerialStr := ""
+        this.Content := GetLang("请输入注释内容")
+    }
+}
+
+class MsgType {
+    static TASK := 1    ;主线程 派发任务给 Worker
+    static FINISH := 2  ;Worker 告知 主线程 任务结束
+    static EVENT := 3   ;双向广播事件 例如Worker修改变量值后 告知主线程 主线程收到后 广播所有人
+}
+
+class MacroGraphNode{
+    __New() {
+        this.SerialStr := ""
+        this.CurCMD := "间隔_50"                   ;当前节点指令
+        this.NextNodeArr := []                     ;下一个节点指令数组（后继节点的 SerialStr）
+        this.X := 0                                ;图形编辑器中节点的逻辑坐标X
+        this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
+        this.Folded := 0                           ;搜索等含分支的节点：是否折叠隐藏分支节点（0展开 1折叠）
+        ;搜索类节点展开态布局信息（""=未设置，使用默认计算值）：
+        this.TrueBranchDX := ""                    ;真分支节点相对本节点的X偏移
+        this.TrueBranchDY := ""                    ;真分支节点相对本节点的Y偏移
+        this.FalseBranchDX := ""                   ;假分支节点相对本节点的X偏移
+        this.FalseBranchDY := ""                   ;假分支节点相对本节点的Y偏移
+        this.ExpandShift := ""                     ;展开时为腾出分支空间对后继子树施加的横向位移（用于收起时精确还原）
+        this.SuccDX := ""                          ;展开时「最近后继(下一个)节点」相对本节点的X偏移（收起→展开时按此精确还原后继位置）
+        this.SuccDY := ""                          ;展开时「最近后继(下一个)节点」相对本节点的Y偏移
+        this.FoldSuccDX := ""                      ;收起时「最近后继」相对本节点的X偏移（展开→收起时按此还原）
+        this.FoldSuccDY := ""                      ;收起时「最近后继」相对本节点的Y偏移
+        this.ProBranchOff := ""                   ;如果Pro：各分支相对偏移 "dx,dy;dx,dy;..."（与分支索引一一对应）
+    }
+}
+
+class MacroGraphStartNode{
+    __New() {
+        this.SerialStr := ""
+        this.NodeArr := []                          ;下一个节点指令数组（后续MacroGraphNode节点的 SerialStr）
+        this.EmptyNode := []                        ;图形编辑器中空节点数组（没有前置节点MacroGraphNode节点的 SerialStr）
+        this.X := 0                                ;图形编辑器中节点的逻辑坐标X
+        this.Y := 0                                ;图形编辑器中节点的逻辑坐标Y
+    }
+}
+
+; 预声明全局变量，实际赋值在 Main/GlobalUtil.ahk 中
+; (DataClass.ahk 在 include 链中最先加载，需在此声明以消除 #Warn)
+global MainSoftData

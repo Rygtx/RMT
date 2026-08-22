@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class CustomMsgBoxGui {
     __new() {
@@ -20,7 +20,7 @@ class CustomMsgBoxGui {
     AddGui() {
         MyGui := Gui(, GetLang("RMT输出弹窗"))
         this.Gui := MyGui
-        MyGui.SetFont("S11 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 15
@@ -30,7 +30,8 @@ class CustomMsgBoxGui {
         PosX += 130
         con := MyGui.Add("Button", Format("x{} y{} w80", PosX, PosY), GetLang("确定"))
         con.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.Show(Format("w{} h{}", 365, 220))
+        pos := GetCenterPosOnActiveMonitor(365, 220)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 365, 220))
     }
 
     OnSureBtnClick() {

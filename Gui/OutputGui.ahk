@@ -1,21 +1,35 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class OutputGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
         this.SureBtnAction := ""
+        this.OwnerHwnd := ""
         this.FilePathConArr := []
         this.ExcelConArr := []
         this.Data := ""
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
-            this.Gui.Show()
+        if (this.Gui == "" || !ObjHasOwnProp(this, "TextCon")) {
+            if (this.Gui != "") {
+                try this.Gui.Destroy()
+                this.Gui := ""
+            }
+            this.AddGui()
         }
         else {
-            this.AddGui()
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
+            this.Gui.Show()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
 
         this.Init(cmd)
@@ -24,8 +38,10 @@ class OutputGui {
 
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("输出编辑器"))
-        this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -44,21 +60,30 @@ class OutputGui {
         this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
         PosX := 10
-        PosY += 40
+        PosY += 35
         MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("输出类型:"))
         PosX += 80
         this.OutputTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 150), GetLangArr(["发送内容",
-            "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板"]))
+            "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "字符变量"]))
         this.OutputTypeCon.Value := 1
+        this.OutputTypeCon.OnEvent("Change", (*) => this.OnChangeOutputType())
+
+        PosX += 170
+        this.VariableNameTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("保存变量") "：")
+        this.VariableNameTipCon.Visible := false
+        PosX += 80
+        this.VariableNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 120), [])
+        this.VariableNameCon.Visible := false
 
         PosX := 10
         PosY += 30
         this.TextTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 80, 20), GetLang("输出内容："))
-        PosX += 80
-        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 370, 50))
+        PosX := 10
+        PosY += 22
+        this.TextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{} Multi", PosX, PosY, 450, 54), "")
 
         PosX := 10
-        PosY += 55
+        PosY += 60
         this.VariTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 350, 20), GetLang("变量数组："))
         PosX += 80
         this.VarTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY, 85), GetLangArr(["变量",
@@ -77,8 +102,20 @@ class OutputGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.OnEvent("Close", (*) => this.ToggleFunc(false))
-        MyGui.Show(Format("w{} h{}", 500, 240))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        this.Gui := MyGui
+        pos := GetCenterPosOnActiveMonitor(500, 245)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 245))
+    }
+
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     Init(cmd) {
@@ -87,12 +124,21 @@ class OutputGui {
         this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
+        if (this.Data.VariableName == "")
+            this.Data.VariableName := "Data"
 
         this.TextCon.Value := GetLangStr(this.Data.Text, 1)
         this.OutputTypeCon.Text := GetLang(this.Data.OutputType)
+
+        this.VariableNameCon.Delete()
+        this.VariableNameCon.Add(GetGuiVarArr())
+        this.VariableNameCon.Text := GetLang(this.Data.VariableName)
+
         this.VariCon.Delete()
         this.VariCon.Add(this.DLVariableArr)
         this.VariCon.Value := 1
+
+        this.OnChangeOutputType()
     }
 
     ToggleFunc(state) {
@@ -109,6 +155,12 @@ class OutputGui {
         IsResVar := this.VarTypeCon.Text == GetLang("变量")
         DLArr := IsResVar ? GetGuiVarArr(1) : GetGuiArrNameArr()
         SetDLConValue(this.VariCon, DLArr, this.VariCon.Text)
+    }
+
+    OnChangeOutputType(*) {
+        isCharVariable := this.OutputTypeCon.Text == GetLang("字符变量")
+        this.VariableNameTipCon.Visible := isCharVariable
+        this.VariableNameCon.Visible := isCharVariable
     }
 
     OnClickAddVarNameBtn() {
@@ -129,10 +181,20 @@ class OutputGui {
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 
     CheckIfValid() {
+        if (this.OutputTypeCon.Text == GetLang("字符变量")) {
+            if (!CheckVarNameIfValid(this.VariableNameCon.Text))
+                return false
+        }
         return true
     }
 
@@ -152,6 +214,11 @@ class OutputGui {
     SaveOutputData() {
         this.Data.Text := GetLangStr(this.TextCon.Value, 2)
         this.Data.OutputType := GetLangKey(this.OutputTypeCon.Text)
+        this.Data.VariableName := GetVarName(this.VariableNameCon.Text)
         SaveMacroCMDData(this.Data)
+
+        if (this.Data.OutputType == "字符变量") {
+            MySoftData.GlobalVariMap[this.Data.VariableName] := true
+        }
     }
 }

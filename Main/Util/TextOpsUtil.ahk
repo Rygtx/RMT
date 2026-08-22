@@ -23,6 +23,16 @@ TextOpsSplit(Data, tableItem, index) {
 
         ResArr := TextSplitByLength(SourceText, SplitArgs)
     }
+    else if (Data.ArgsType == "正则匹配") {
+        try {
+            ResArr := TextSplitByRegex(SourceText, SplitArgs)
+        } catch as e {
+            tip1 := GetLang("正则分割出错")
+            tip2 := Format(GetLang("错误信息：{}"), e.Message)
+            MsgBox(tip1 "`n" tip2)
+            return
+        }
+    }
     MySetGlobalArray(Data.SaveName, ResArr)
 }
 
@@ -33,7 +43,18 @@ TextOpsReplace(Data, tableItem, index) {
     IsHas := TryGetTabVarValue(&ReplaceText, tableItem, index, Data.Replace, false)
     ReplaceText := IsHas ? ReplaceText : Data.Replace
 
-    Res := StrReplace(SourceText, SearchText, ReplaceText)
+    if (Data.MatchType == "正则匹配") {
+        try {
+            Res := RegExReplace(SourceText, SearchText, ReplaceText)
+        } catch as e {
+            tip1 := GetLang("正则替换出错")
+            tip2 := Format(GetLang("错误信息：{}"), e.Message)
+            MsgBox(tip1 "`n" tip2)
+            return
+        }
+    } else {
+        Res := StrReplace(SourceText, SearchText, ReplaceText)
+    }
     MySetGlobalVariable([Data.SaveName], [Res], false)
 }
 
@@ -48,6 +69,18 @@ TextOpsEx(Data, tableItem, index) {
     }
     else if (Data.ArgsType == "中文提取") {
         ResArr := TextGetChineseBlocks(SourceText)
+    }
+    else if (Data.ArgsType == "正则匹配") {
+        IsHas := TryGetTabVarValue(&Pattern, tableItem, index, Data.ArgsName, false)
+        Pattern := IsHas ? Pattern : Data.ArgsName
+        try {
+            ResArr := TextGetByRegex(SourceText, Pattern)
+        } catch as e {
+            tip1 := GetLang("正则提取出错")
+            tip2 := Format(GetLang("错误信息：{}"), e.Message)
+            MsgBox(tip1 "`n" tip2)
+            return
+        }
     }
     MySetGlobalArray(Data.SaveName, ResArr)
 }
@@ -102,6 +135,40 @@ TextOpsStatistics(Data, tableItem, index) {
     MySetGlobalVariable([Data.SaveName], [Res], false)
 }
 
+TextOpsConcat(Data, tableItem, index) {
+    SourceText := TextGetSource(Data, tableItem, index)
+    IsHas := TryGetTabVarValue(&ConcatArgs, tableItem, index, Data.ArgsName, false)
+    ConcatArgs := IsHas ? ConcatArgs : Data.ArgsName
+
+    ResultStr := ConcatArgs
+    loop 100 {
+        startPos := InStr(ResultStr, "{")
+        if (startPos == 0)
+            break
+        
+        endPos := InStr(ResultStr, "}", false, startPos)
+        if (endPos == 0)
+            break
+        
+        VarName := SubStr(ResultStr, startPos + 1, endPos - startPos - 1)
+        Value := "{" VarName "}"
+        try {
+            if (MySoftData.VariableMap.Has(VarName))
+                Value := MySoftData.VariableMap[VarName]
+        }
+        catch {
+            Value := VarName
+        }
+        
+        Part1 := SubStr(ResultStr, 1, startPos - 1)
+        Part2 := SubStr(ResultStr, endPos + 1)
+        ResultStr := Part1 Value Part2
+    }
+    
+    ResultStr := SourceText ResultStr
+    MySetGlobalVariable([Data.SaveName], [ResultStr], false)
+}
+
 ;辅助函数
 TextSplitByLength(Text, Length) {
     ResArr := []
@@ -145,6 +212,34 @@ TextGetChineseBlocks(text) {
     while pos := RegExMatch(text, "[\x{4E00}-\x{9FFF}]+", &m, pos) {
         result.Push(m[0])
         pos += StrLen(m[0])
+    }
+    return result
+}
+
+TextSplitByRegex(text, pattern) {
+    result := []
+    pos := 1
+    lastEnd := 1
+    while pos <= StrLen(text) && pos := RegExMatch(text, pattern, &m, pos) {
+        matchPos := m.Pos[0]
+        matchLen := StrLen(m[0])
+        if (matchPos > lastEnd)
+            result.Push(SubStr(text, lastEnd, matchPos - lastEnd))
+        lastEnd := matchPos + matchLen
+        pos := matchLen > 0 ? lastEnd : lastEnd + 1
+    }
+    if (lastEnd <= StrLen(text))
+        result.Push(SubStr(text, lastEnd))
+    return result
+}
+
+TextGetByRegex(text, pattern) {
+    result := []
+    pos := 1
+    while pos := RegExMatch(text, pattern, &m, pos) {
+        result.Push(m[0])
+        matchLen := StrLen(m[0])
+        pos += matchLen > 0 ? matchLen : 1
     }
     return result
 }

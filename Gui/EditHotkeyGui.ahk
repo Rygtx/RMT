@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class EditHotkeyGui {
     __new() {
@@ -7,6 +7,7 @@ class EditHotkeyGui {
         this.KeyCon := ""
         this.OnlyTriggerKey := false
         this.TriggerStrBtnCon := ""
+        this.AfterSureAction := ""  ; 确认选择后回调 (可选)
     }
 
     ShowGui(ShowCon, KeyCon, OnlyTriggerKey) {
@@ -25,7 +26,7 @@ class EditHotkeyGui {
     AddGui() {
         MyGui := Gui(, GetLang("快捷方式编辑"))
         this.Gui := MyGui
-        MyGui.SetFont("S12 W550 Q2", MySoftData.FontType)
+        MyGui.SetFont("S12 W550 Q2", MainSoftData.FontType)
 
         PosX := 75
         PosY := 30
@@ -37,7 +38,8 @@ class EditHotkeyGui {
         con.OnEvent("Click", (*) => this.OnEditHotKeyStr(MyTriggerStrGui))
         this.TriggerStrBtnCon := con
 
-        MyGui.Show(Format("w{} h{}", 420, 120))
+        pos := GetCenterPosOnActiveMonitor(420, 120)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 420, 120))
     }
 
     OnEditHotKey(gui) {
@@ -54,7 +56,7 @@ class EditHotkeyGui {
         this.Gui.Hide()
     }
 
-    OnHotKeySureBtn(sureTriggerStr, holdTime) {
+    OnHotKeySureBtn(sureTriggerStr, holdTime, *) {
         if (sureTriggerStr != "" && SubStr(sureTriggerStr, 1, 1) == "~") {
             sureTriggerStr := SubStr(sureTriggerStr, 2)
         }
@@ -62,6 +64,12 @@ class EditHotkeyGui {
         this.KeyCon.Enabled := false
         this.KeyCon.Visible := true
         this.ShowCon.Visible := false
+        try this.ShowCon.Value := sureTriggerStr
+        if (this.AfterSureAction != "") {
+            cb := this.AfterSureAction
+            this.AfterSureAction := ""
+            cb(sureTriggerStr)
+        }
     }
 
     OnHotStrSureBtn(sureTriggerStr) {
@@ -69,6 +77,12 @@ class EditHotkeyGui {
         this.KeyCon.Enabled := false
         this.KeyCon.Visible := true
         this.ShowCon.Visible := false
+        try this.ShowCon.Value := sureTriggerStr
+        if (this.AfterSureAction != "") {
+            cb := this.AfterSureAction
+            this.AfterSureAction := ""
+            cb(sureTriggerStr)
+        }
     }
 }
 

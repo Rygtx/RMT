@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class ColorPanelGui {
     __new() {
@@ -18,6 +18,7 @@ class ColorPanelGui {
         this.GuiHeight := 150
 
         this.SureAction := ""
+        this._hkIds := []
     }
 
     ShowGui() {
@@ -27,6 +28,9 @@ class ColorPanelGui {
         else {
             this.AddGui()
         }
+        ; 注册 Enter 热键（颜色面板活动期间有效）
+        if (this._hkIds.Length == 0)
+            this._hkIds := WinHotkey.Register(["Enter"], ObjBindMethod(this, "_OnEnter"))
         this.RefreshCoord()
         this.RefreshMapImage()
     }
@@ -34,7 +38,7 @@ class ColorPanelGui {
     AddGui() {
         this.Gui := Gui("+AlwaysOnTop +ToolWindow -Caption -Resize -DPIScale")
         this.Gui.Title := "RMT-Target"
-        this.Gui.SetFont("S13 W550 Q2", MySoftData.FontType)
+        this.Gui.SetFont("S13 W550 Q2", MainSoftData.FontType)
         this.Gui.MarginX := 0
         this.Gui.MarginY := 0
         this.Gui.BackColor := "EEAA99" ; 这个颜色必须设置，但具体是什么颜色不重要
@@ -92,8 +96,7 @@ class ColorPanelGui {
         if (!isVisible)
             return
 
-        this.Gui.Hide()
-        MyTargetGui.Gui.Hide()
+        this._DoHide()
         if (this.SureAction == "")
             return
         action := this.SureAction
@@ -102,11 +105,22 @@ class ColorPanelGui {
     }
 
     OnClose(*) {
-        this.Gui.Hide()
-        MyTargetGui.Gui.Hide()
+        this._DoHide()
     }
 
-    OnEnterUp(*) {
+    _DoHide() {
+        if (this._hkIds.Length > 0) {
+            WinHotkey.UnregisterAll(this._hkIds)
+            MyTargetGui.HideGui()
+            this._hkIds := []
+        }
+        if (this.Gui != "")
+            this.Gui.Hide()
+        if (MyTargetGui.Gui != "")
+            MyTargetGui.Gui.Hide()
+    }
+
+    _OnEnter(key) {
         if (this.Gui == "")
             return
         style := WinGetStyle(this.Gui.Hwnd)
@@ -114,13 +128,12 @@ class ColorPanelGui {
         if (!isVisible)
             return
 
-        this.Gui.Hide()
-        MyTargetGui.Gui.Hide()
+        this._DoHide()
         if (this.SureAction == "")
             return
         action := this.SureAction
         colorStr := Format("{:06X}", this.ColorValue)
-        action(this.CoordX, this.CoordY,colorStr)
+        action(this.CoordX, this.CoordY, colorStr)
     }
 
     RefreshCoord() {
@@ -187,5 +200,26 @@ class ColorPanelGui {
             return invertedColor
         }
         return "0xFFFFFF"
+    }
+
+    ; 静态便捷方法：弹出颜色选择器，返回选中的颜色（#RRGGBB格式），取消返回空字符串
+    static PickColor(defaultColor := "") {
+        picker := ColorPanelGui()
+        if (defaultColor != "" && RegExMatch(defaultColor, "^#?([0-9A-Fa-f]{6})$", &m))
+            picker.ColorValue := Integer("0x" m[1])
+        result := ""
+        picker.SureAction := (x, y, color) => result := "#" color
+        ; 确保目标窗口已创建并显示，否则 RefreshCoord/RefreshMapImage 会报错
+        if (MyTargetGui.Gui == "")
+            MyTargetGui.AddGui()
+        MyTargetGui.Gui.Show()
+        picker.ShowGui()
+        ; 等待用户选择或关闭（最多等待60秒）
+        loop 600 {
+            if (result != "")
+                return result
+            Sleep(100)
+        }
+        return ""
     }
 }

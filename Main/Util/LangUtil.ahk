@@ -1,8 +1,10 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
+global MainSoftData                ; 在 GlobalUtil.ahk 中由 MainConfig() 赋值
 LangKeyMap := Map()
 
 ;指令相关的key
-LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显示", "关闭指令显示", "显示菜单", "关闭菜单", "启用键鼠", "禁用键鼠",
+LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显示", "关闭指令显示", "显示菜单", "关闭菜单",
+    "启用鼠标", "启用键盘", "启用键鼠", "禁用鼠标", "禁用键盘", "禁用键鼠",
     "休眠", "暂停所有宏", "恢复所有宏", "终止所有宏", "重载", "关闭软件", "间隔", "按键", "搜索", "搜索Pro", "移动", "移动Pro",
     "输出", "运行", "循环", "宏操作", "变量", "变量提取", "如果", "如果Pro", "运算", "RMT指令", "后台鼠标", "后台按键",
     "循环次数", "宏循环次数", "当前鼠标坐标X", "当前鼠标坐标Y", "按下", "松开", "点击", "创建", "克隆", "删除", "包含",
@@ -11,7 +13,9 @@ LangCmdKeyArr := ["截图", "截图提取文本", "自由贴", "开启指令显�
     "首字母大写", "字符数", "单词数", "行数", "数字提取", "字母提取", "中文提取", "内容分割", "定长分割", "当前宏", "按键宏", "字串宏",
     "菜单宏", "定时宏", "宏", "插入到当前宏", "触发", "暂停", "取消暂停", "终止", "制表符", "弹窗", "状态", "文本文件", "继续", "继续&取消",
     "暂停当前宏", "暂停所有宏", "终止当前宏", "终止所有宏", "读取全部内容", "逐行读取", "指定行", "单元格", "指定行", "指定列", "指定区域-行",
-    "指定区域-列", "文件读写", "发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板"]
+    "指定区域-列", "文件读写", "发送内容", "粘贴内容", "临时提示", "指令窗口", "软件弹窗", "系统语音", "复制到剪切板", "激活窗口", "最大化窗口", 
+    "最小化窗口", "还原窗口", "关闭窗口", "移动窗口", "调整大小", "置顶窗口", "取消置顶", "修改标题",
+    "修改透明度", "开启鼠标穿透", "关闭鼠标穿透"]
 LangValueMap := Map()   ;部分文本需要反向映射
 
 LangInitSetting() {
@@ -24,24 +28,24 @@ LangInitSetting() {
     }
 
     for Key, Value in LangMap {
-        MySoftData.LangArr.Push(Key)
+        MainSoftData.LangArr.Push(Key)
     }
 
-    if (MySoftData.Lang == "无语言") {
+    if (MainSoftData.Lang == "无语言") {
         ChineseMap := Map("7804", 1, "0004", 1, "0804", 1, "1004", 1, "7C04", 1, "0C04", 1, "1404", 1, "0404", 1)
         if (ChineseMap.Has(A_Language))
-            MySoftData.Lang := "中文"
+            MainSoftData.Lang := "中文"
         else {
-            MySoftData.Lang := "English"
+            MainSoftData.Lang := "English"
         }
     }
 }
 
 LangKeysInit() {
-    if (MySoftData.Lang == "中文")  ;中文就不用做处理了
+    if (MainSoftData.Lang == "中文")  ;中文就不用做处理了
         return
 
-    LangFilePath := Format("{}\{}.txt", LangDir, MySoftData.Lang)
+    LangFilePath := Format("{}\{}.txt", LangDir, MainSoftData.Lang)
     if (!FileExist(LangFilePath))
         return
 
@@ -99,7 +103,7 @@ LangRemoveRepeat() {
 
 GetLang(Key) {
     ;中文或者LangKeyMap不存在时 直接返回key就行
-    if (MySoftData.Lang == "中文" || LangKeyMap.Count == 0)
+    if (MainSoftData.Lang == "中文" || LangKeyMap.Count == 0)
         return key
 
     if (LangKeyMap.Has(Key))
@@ -118,7 +122,7 @@ GetLangArr(KeyArr) {
 
 GetLangKey(value) {
     ;中文或者LangKeyMap不存在时 直接返回key就行
-    if (MySoftData.Lang == "中文" || LangValueMap.Count == 0)
+    if (MainSoftData.Lang == "中文" || LangValueMap.Count == 0)
         return value
 
     if (LangValueMap.Has(value))

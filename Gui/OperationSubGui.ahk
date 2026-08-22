@@ -1,9 +1,10 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 class OperationSubGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
+        this.OwnerHwnd := ""
         this.SureBtnAction := ""
         this.FocusCon := ""
         this.Index := 0
@@ -13,7 +14,9 @@ class OperationSubGui {
 
     ShowGui(Index, ExpressStr) {
         if (this.Gui != "") {
-            this.Gui.Show()
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
         }
         else {
             this.AddGui()
@@ -26,14 +29,25 @@ class OperationSubGui {
         this.OperaVariableCon.Delete()
         this.OperaVariableCon.Add(this.DLVariableArr)
         this.OperaVariableCon.Text := this.DLVariableArr[1]
+        ; 设置表达式（每次打开都要设置）
         this.ExpressionCon.Value := ExpressStr
+
+        if (this.Gui != "" && this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
+        }
+        this.Gui.Show()
         this.FocusCon.Focus()
     }
 
     AddGui() {
         MyGui := Gui(, this.ParentTile GetLang("运算编辑器"))
         this.Gui := MyGui
-        MyGui.SetFont("S10 W550 Q2", MySoftData.FontType)
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
         PosX := 10
         PosY := 10
@@ -90,7 +104,18 @@ class OperationSubGui {
         btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 220, PosY, 100, 40), GetLang("确定"))
         btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
 
-        MyGui.Show(Format("w{} h{}", 370, 310))
+        MyGui.OnEvent("Close", (*) => this.OnClose())
+        pos := GetCenterPosOnActiveMonitor(370, 310)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 370, 310))
+    }
+
+    OnClose(*) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     OnClickOperatorBtn(Symbol) {
@@ -236,6 +261,11 @@ class OperationSubGui {
 
         action := this.SureBtnAction
         action(this.Index, expression)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
         this.Gui.Hide()
     }
 

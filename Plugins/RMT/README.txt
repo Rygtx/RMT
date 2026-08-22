@@ -4,7 +4,7 @@
 
 2. 项目名称：RMT
 
-3. 删除默认progam.cs
+3. 删除默认progam.cs 或者 class1.cs
 
 4. 项目右键 添加现有项 选择 若梦兔Plugins\RMT目录下所有cs
 
