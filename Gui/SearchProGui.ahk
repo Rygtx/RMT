@@ -916,10 +916,13 @@ class SearchProGui {
         isCount := IsNumber(CountValue) && (CountValue == -1 || CountValue > 1)
         this.SetConArrState(this.CountTogArr, false, isCount)
 
-        isMouseSpeed := this.ui.Query("MouseActionTypeCon>SelectedIndex") + 1 != 1 && !isWin
+        ; Query 在窗口未加载（wpfHwnd 为 0）时返回空串：Init 阶段 OnChangeType 会先跑一次，
+        ; 加载后 Update 队列应用会触发 SelectionChanged 再跑一次修正，故此处需 IsNumber 保护（同 _TypeIndex）
+        mouseAction := this.ui.Query("MouseActionTypeCon>SelectedIndex")
+        isMouseSpeed := IsNumber(mouseAction) && mouseAction + 1 != 1 && !isWin
         this.SetConArrState(this.MouseSpeedArr, false, isMouseSpeed)
 
-        isMouseClick := this.ui.Query("MouseActionTypeCon>SelectedIndex") + 1 == 3 && !isWin
+        isMouseClick := IsNumber(mouseAction) && mouseAction + 1 == 3 && !isWin
         this.SetConArrState(this.MouseClickArr, false, isMouseClick)
 
         isSaveResult := this.ui.Query("ResultToggleCon") == "True"
@@ -963,6 +966,8 @@ class SearchProGui {
         this.ui.Update("StartPosYCon", "Text", Point1[2])
         this.ui.Update("EndPosXCon", "Text", Point2[1])
         this.ui.Update("EndPosYCon", "Text", Point2[2])
+        ; 程序化 Update 填数字不触发 TextChanged，需显式刷新预览（框选/取色后立即可见）
+        this.RefreshPreviewArea()
     }
 
     OnSetSearchArea(x1, y1, x2, y2) {
@@ -971,6 +976,7 @@ class SearchProGui {
         this.ui.Update("StartPosYCon", "Text", y1)
         this.ui.Update("EndPosXCon", "Text", x2)
         this.ui.Update("EndPosYCon", "Text", y2)
+        this.RefreshPreviewArea()
     }
 
     SureColor() {

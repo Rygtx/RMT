@@ -9,13 +9,13 @@
 0. 数组本身=0. Main array
 1. 本软件按"原样"提供，开发者不承担因使用、修改或分发导致的任何法律责任。=1. Provided "as is", no liability.
 1. 逗号分割数据=1. Comma-separated values
-1.左键拖拽改变位置=1. Drag to adjust.
+1.左键拖拽改变位置=1. Move the mouse to select position.
 2. 严禁用于违法用途，包括但不限于：游戏作弊、未经授权的系统访问或数据篡改。=2. Illegal use prohibited.
 2. 中括号表示数组数据=2. Brackets indicate sub-arrays
 2.上下左右方向键微调位置=2. Arrow keys to fine-tune.
 3. 使用者需自行承担所有风险，开发者对因违反法律或第三方条款导致的后果概不负责。=3. User bears all risk.
 3. 数据中使用\符号，表示原本的功能=3. Use \ to escape special characters
-3.左键双击或回车键关闭取色器，同时确定点位信息=3. Double-click or Enter to confirm.
+3.左键双击或回车键关闭取色器，同时确定点位信息=3. Left-click or Enter to confirm, Esc to cancel.
 4. 通过使用本软件，您确认：不会将其用于任何非法目的、已充分了解并接受所有潜在法律风险、同意免除开发者因滥用行为导致的一切追责权利。=4. Use implies agreement.
 <内容>=<Text>
 <数字>=<Number>

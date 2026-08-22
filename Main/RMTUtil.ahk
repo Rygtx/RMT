@@ -1387,6 +1387,7 @@ OnTriggerSepcialItemMacro(MacroStr) {
     tableItem.ActionCount[1] := 0
     tableItem.index := 1
     tableItem.ColorStateArr[1] := 1
+    tableItem.RemarkArr[1] := "" ; F5 单跑无备注，占位空值（业务日志读取需有该下标）
 
     UpdateMacroRunningCount(0, 1)
     RefreshItemColorUI(tableItem.Index, 1)

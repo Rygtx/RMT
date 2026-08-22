@@ -4,6 +4,10 @@
 ; 发 EVENT 到主进程并阻塞等待回传（Worker 侧 OnEventMessage 收到 IPR/IBR 写入 _workerInputResult）
 ; 返回：args 数组（IPR: [ok, value]；IBR: [button]）；主进程不可达/超时返回 ""
 ; Worker 专属全局（rx/workIndex/parentHwnd）用 IsSet 保护：主程序不编译此路径，不触发 UseUnset 警告
+; 分支判定（四个输入函数共用）：Worker 由 WorkPool 启动，workIndex 为实际索引（≥1，CreateWorker idx）；
+; 主进程 GraphMacroUtil.ahk:4 有占位 workIndex := 0，IsSet(workIndex) 恒真，若只判 IsSet 主进程单线程
+; 会误走 WorkerInputRequest（rx/parentHwnd 未定义 → 直接返回 "" → 按钮条不弹/输入无效）。
+; 因此 Worker 判定必须附加 workIndex > 0：主进程走本地 XAML 分支，Worker 走跨进程请求分支。
 WorkerInputRequest(opcode, args*) {
     global rx, workIndex, parentHwnd, _workerInputResult
     if (!IsSet(rx) || !IsSet(parentHwnd))
@@ -36,16 +40,11 @@ InputPopUp(Data, tableItem, index) {
     if (MySoftData.VariableMap.Has(Data.SaveName))
         Content := MySoftData.VariableMap[Data.SaveName]
 
-    if (IsSet(workIndex)) {
+    if (IsSet(workIndex) && workIndex > 0) {
         ; Worker：主进程 XAML 输入框（共享 daemon），结果回传后直接设变量
-        ; 日志按 Worker 索引分文件（多 Worker 并发写同一文件会锁冲突）
-        worker_input_dbg := "C:\Users\yun\Desktop\rmt\_verify\worker_recv_" workIndex ".txt"
         result := WorkerInputRequest("IP", Label, Content)
-        try FileAppend "IP result=" (IsObject(result) ? "[" (result.Length >= 1 ? result[1] : "") "|" (result.Length >= 2 ? result[2] : "") "]" : "EMPTY") "`n", worker_input_dbg
         if (IsObject(result) && result.Length >= 2 && result[1] == "1") {
-            try FileAppend "IP saving SaveName=" Data.SaveName "`n", worker_input_dbg
             MySetGlobalVariable([Data.SaveName], [result[2]], false)
-            try FileAppend "IP saved done`n", worker_input_dbg
         }
     } else {
         ; 主程序：本地 XAML 输入框
@@ -71,7 +70,7 @@ InputStateValue(Data, tableItem, index) {
     if (Data.PauseType == "暂停所有宏")
         MyExcuteRMTCMDAction("RMT指令_宏控制_暂停所有宏")
 
-    if (IsSet(workIndex)) {
+    if (IsSet(workIndex) && workIndex > 0) {
         ; Worker：主进程按钮条（真值/假值）
         result := WorkerInputRequest("IB", "1")
         if (IsObject(result) && result[1] == "true")
@@ -79,6 +78,9 @@ InputStateValue(Data, tableItem, index) {
         else if (IsObject(result) && result[1] == "false")
             MySetGlobalVariable([Data.SaveName], [0], false)
     } else {
+        ; 主程序：本地 XAML 按钮条（真值/假值），每请求独立实例（与 WorkPool isBtn 分支同构）
+        ; 动态名解析：InputUtil.ahk 同时被 Worker 编译（Work.ahk→AssetUtil.ahk），
+        ; Worker 无 InputBtnXamlGui 类，静态类引用会编译期报错（同 InputBtnXamlGui.ahk 内部模式）
         isHide := false
         InputBoxTrueAction() {
             MySetGlobalVariable([Data.SaveName], [1], false)
@@ -89,11 +91,15 @@ InputStateValue(Data, tableItem, index) {
         InputBoxHideAciton() {
             isHide := true
         }
-        MyInputBtnGui.TrueAction := InputBoxTrueAction
-        MyInputBtnGui.FalseAction := InputBoxFalseAction
-        MyInputBtnGui.HideAction := InputBoxHideAciton
-        MyInputBtnGui.ShowGui(1)
-        while (!isHide) {
+        BtnGuiCls := "InputBtnXamlGui"
+        BtnGui := %BtnGuiCls%()
+        BtnGui.TrueAction := InputBoxTrueAction
+        BtnGui.FalseAction := InputBoxFalseAction
+        BtnGui.HideAction := InputBoxHideAciton
+        BtnGui.ShowGui(1)
+        ; XAML 事件经 SetTimer(-1, 0) 派发：Sleep 期间可被中断执行 TrueAction/HideAction（实测确认）
+        ; _closed 兜底：XAML 构建失败或窗口被外部关闭时（OnWindowClosing）避免宏线程无限等待
+        while (!isHide && !BtnGui._closed) {
             Sleep(200)
         }
     }
@@ -105,17 +111,20 @@ InputContinue(Data, tableItem, index) {
     if (Data.PauseType == "暂停所有宏")
         MyExcuteRMTCMDAction("RMT指令_宏控制_暂停所有宏")
 
-    if (IsSet(workIndex)) {
+    if (IsSet(workIndex) && workIndex > 0) {
         ; Worker：主进程按钮条（继续）
         WorkerInputRequest("IB", "2")
     } else {
+        ; 主程序：本地 XAML 按钮条（继续），每请求独立实例
         isHide := false
         InputBtnHideAciton() {
             isHide := true
         }
-        MyInputBtnGui.HideAction := InputBtnHideAciton
-        MyInputBtnGui.ShowGui(2)
-        while (!isHide) {
+        BtnGuiCls := "InputBtnXamlGui"
+        BtnGui := %BtnGuiCls%()
+        BtnGui.HideAction := InputBtnHideAciton
+        BtnGui.ShowGui(2)
+        while (!isHide && !BtnGui._closed) {
             Sleep(200)
         }
     }
@@ -127,7 +136,7 @@ InputContinueAndCencel(Data, tableItem, index) {
     if (Data.PauseType == "暂停所有宏")
         MyExcuteRMTCMDAction("RMT指令_宏控制_暂停所有宏")
 
-    if (IsSet(workIndex)) {
+    if (IsSet(workIndex) && workIndex > 0) {
         ; Worker：主进程按钮条（继续/取消），取消时执行终止逻辑
         result := WorkerInputRequest("IB", "3")
         if (IsObject(result) && result[1] == "cancel") {
@@ -137,6 +146,7 @@ InputContinueAndCencel(Data, tableItem, index) {
                 MyExcuteRMTCMDAction("RMT指令_宏控制_终止所有宏")
         }
     } else {
+        ; 主程序：本地 XAML 按钮条（继续/取消），取消时执行终止逻辑，每请求独立实例
         isHide := false
         InputBtnCancelAciton() {
             if (Data.CancelType == "终止当前宏")
@@ -147,10 +157,12 @@ InputContinueAndCencel(Data, tableItem, index) {
         InputBtnHideAciton() {
             isHide := true
         }
-        MyInputBtnGui.CancelAction := InputBtnCancelAciton
-        MyInputBtnGui.HideAction := InputBtnHideAciton
-        MyInputBtnGui.ShowGui(3)
-        while (!isHide) {
+        BtnGuiCls := "InputBtnXamlGui"
+        BtnGui := %BtnGuiCls%()
+        BtnGui.CancelAction := InputBtnCancelAciton
+        BtnGui.HideAction := InputBtnHideAciton
+        BtnGui.ShowGui(3)
+        while (!isHide && !BtnGui._closed) {
             Sleep(200)
         }
     }

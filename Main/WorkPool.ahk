@@ -993,46 +993,33 @@ class WorkPool {
 
     ; 回传输入结果给对应 Worker（同一请求只回传一次）；窗口由实例自身的关闭流程处理
     _SendInputResult(req, opcode, args*) {
-        dbgl := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
-        FileAppend "SendInputResult op=" opcode " done=" req.done "`n", dbgl
         if (req.done)
             return
         req.done := true
-        FileAppend "after done=true`n", dbgl
         this._inputGuis.Delete(req)
-        FileAppend "after delete`n", dbgl
         try req.gui := ""
-        catch
-        FileAppend "after gui clear`n", dbgl
+        catch {
+            ; 注意：catch 必须带大括号。AHK v2 中 catch 后无大括号时，
+            ; 语句体延续到下一个 try/catch/finally，会把下方的回传 try 块整体吞掉
+            ; （曾因调试埋点清理删掉 catch 与 try 之间的日志行而触发，导致回传永不执行）
+        }
         try {
-            FileAppend "SIR payload-start wd.tx=" (IsObject(req.wd.tx) ? "obj" : "empty") " wd.idx=" req.wd.idx "`n", dbgl
             payload := EncodeBatch(EncodeCommand(opcode, args*))
-            FileAppend "SIR encoded len=" StrLen(payload) "`n", dbgl
             ok := this.PushTask(req.wd, MsgType.EVENT, 0, payload)
-            FileAppend "SIR pushed ok=" ok "`n", dbgl
             argStr := ""
             for a in args
                 argStr .= (argStr != "" ? "," : "") a
-            FileAppend "SIR before graphlog`n", dbgl
             GraphPoolLog("输入回传", Format("wd=#{1} op={2} args=[{3}] push={4}", req.wd.idx, opcode, argStr, ok))
-            FileAppend "SIR graphlog done`n", dbgl
         } catch as e {
-            FileAppend "SIR catch: " e.Message " @line " e.Line "`n", dbgl
             GraphPoolLog("输入回传失败", Format("err={1} wd=#{2}", e.Message, req.wd.idx))
         }
     }
 
     PushTask(wd, type, id, payload) {
         if (wd.tx.Push(type, id, payload)) {
-            dbgl := "C:\Users\yun\Desktop\rmt\_verify\input_click_dbg.txt"
-            if (wd.hEvt) {
-                rr := DllCall("SetEvent", "ptr", wd.hEvt)
-                FileAppend "PT SetEvent ret=" rr " hEvt=" wd.hEvt "`n", dbgl
-            } else {
-                FileAppend "PT SetEvent SKIP hEvt=0`n", dbgl
-            }
-            pmOk := this.PostMessage(WM_MASTER_TO_WORKER, wd)
-            FileAppend "PT PostMessage ret=" pmOk " hwnd=" wd.hwnd "`n", dbgl
+            if (wd.hEvt)
+                DllCall("SetEvent", "ptr", wd.hEvt)
+            this.PostMessage(WM_MASTER_TO_WORKER, wd)
             return true
         }
         return false
