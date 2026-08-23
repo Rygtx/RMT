@@ -506,7 +506,10 @@ LoadMainSetting() {
     MainSoftData.Theme := IniRead(IniFile, IniSection, "Theme", "RMT_Light")
     ; 界面浮窗配置（非颜色）
     MainSoftData.UIPanelShowOnActive := IniRead(IniFile, IniSection, "UIPanelShowOnActive", true)
-    MainSoftData.UIPanelDefaultPos := IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1)
+    MainSoftData.UIPanelDefaultPos := Integer(IniRead(IniFile, IniSection, "UIPanelDefaultPos", 1))
+    ; 旧版本「鼠标位置」=8 已移除；无效值统一归一化为左上角(1)
+    if (MainSoftData.UIPanelDefaultPos == 8 || MainSoftData.UIPanelDefaultPos < 1 || MainSoftData.UIPanelDefaultPos > 10)
+        MainSoftData.UIPanelDefaultPos := 1
     MainSoftData.UIPanelOffsetX := IniRead(IniFile, IniSection, "UIPanelOffsetX", 100)
     MainSoftData.UIPanelOffsetY := IniRead(IniFile, IniSection, "UIPanelOffsetY", 100)
     MainSoftData.UIPanelBtnHeight := IniRead(IniFile, IniSection, "UIPanelBtnHeight", 34)

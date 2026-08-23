@@ -41,6 +41,7 @@ class Toast {
         lastW := 0
         lastH := 0
         restoreHwnd := 0     ; 提示出现前处于前台的活动窗口，展示后抢回焦点
+        ownerHwnd := 0       ; 提示所属的编辑器窗口（定位跟随时使用），展示后不再复用 restoreHwnd
         _tickFn := ""
         fadeInMs := 120
         fadeOutMs := 320
@@ -82,6 +83,8 @@ class Toast {
 
             ; 记录展示前的前台窗口（通常是逻辑树编辑器），展示后抢回焦点
             this.restoreHwnd := WinGetID("A")
+            ; 定位跟随用：保存编辑器窗口句柄，供 _Position 依据窗口所在屏幕定位（而不是鼠标所在屏幕）
+            this.ownerHwnd := this.restoreHwnd
             XamlUiDiag("Toast.Start capture active=" WinGetID("A") " title=" WinGetTitle("A") " restore=" this.restoreHwnd, "focus")
 
             try {
@@ -188,18 +191,33 @@ class Toast {
             this.restoreHwnd := 0
         }
 
-        ; 定位到鼠标所在屏幕的工作区右下角（在哪个屏幕操作就显示在哪个屏幕）
+        ; 定位到编辑器窗口所在屏幕的工作区右下角（跟随编辑器窗口所在屏幕，而非鼠标所在屏幕）
         _Position() {
             ; 防御：this.ui 可能因 Close()/Show() 失败被置为 ""（String），访问 wpfHwnd 会报错
             if (!IsObject(this.ui) || !this.ui.wpfHwnd)
                 return
-            MouseGetPos(&mx, &my)
+            ; 优先用 owner 窗口（逻辑树编辑器）中心点判断所在屏幕；取不到时退回鼠标位置
+            px := 0, py := 0
+            hasRef := false
+            if (this.ownerHwnd) {
+                try {
+                    WinGetPos(&ox, &oy, &ow, &oh, "ahk_id " this.ownerHwnd)
+                    px := ox + ow // 2
+                    py := oy + oh // 2
+                    hasRef := true
+                } catch {
+                    hasRef := false
+                }
+            }
+            if (!hasRef)
+                MouseGetPos(&px, &py)
+
             monCount := MonitorGetCount()
             targetL := 0, targetT := 0, targetR := 0, targetB := 0
             found := false
             Loop monCount {
                 MonitorGet(A_Index, &mL, &mT, &mR, &mB)
-                if (mx >= mL && mx < mR && my >= mT && my < mB) {
+                if (px >= mL && px < mR && py >= mT && py < mB) {
                     MonitorGetWorkArea(A_Index, &targetL, &targetT, &targetR, &targetB)
                     found := true
                     break

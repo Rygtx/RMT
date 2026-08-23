@@ -90,6 +90,17 @@ class KeyGui {
         if (!valid)
             return
 
+        ; 选择手柄按键时检查 ViGEm 驱动是否已安装，未安装则弹出安装提示
+        isJoy := InStr(this.KeyStr, "Joy")
+        isInstalled := IsViGEmInstalled()
+        JoyDebugLog(Format("KeyGui.OnSureBtnClick KeyStr='{}' IsJoy={} ViGEmInstalled={}"
+            , this.KeyStr, isJoy, isInstalled), "vigeminstall")
+
+        if (isJoy && !isInstalled) {
+            ShowViGEmInstallTip()
+            return
+        }
+
         action := this.SureBtnAction
         action(this.CommandStr)
         this.OnGuiClose()

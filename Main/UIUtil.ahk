@@ -798,7 +798,7 @@ CustomTrayMenu() {
     A_TrayMenu.Default := GetLang("显示窗口")
     A_IconTip := tipStr  ; 鼠标悬停时显示此内容
     A_IconHidden := 0   ;0(可见) 和 1(隐藏)
-    TraySetIcon("Images\Soft\rabit.ico")
+    TraySetIcon("Images\Soft\rabit.ico", , true)
 }
 
 OnTrayStartRecord(*) {

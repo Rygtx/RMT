@@ -5,8 +5,8 @@ class UIMacroPanelSettingGui {
     static _opening := false
 
     ; 位置选项映射（id 与 UIPanelDefaultPos 数值对应；数组顺序即下拉显示顺序）
+    ; 各选项均为锚点：屏幕模式锚定整个屏幕，窗口跟随模式锚定目标窗口（窗口化时的窗口矩形）
     static PosOptions := [
-        {id: 8, label: "鼠标位置"},
         {id: 1, label: "左上"},
         {id: 2, label: "中上"},
         {id: 3, label: "右上"},

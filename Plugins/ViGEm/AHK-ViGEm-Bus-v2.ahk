@@ -1,6 +1,79 @@
 #Requires AutoHotkey v2.0
 #Include XInput.ahk
 
+; ================= ViGEmBus 驱动安装检测 =================
+
+; 是否已安装 ViGEmBus 驱动（Nefarius 虚拟手柄总线驱动）
+IsViGEmInstalled() {
+    ; 判断驱动是否真正可用。
+    ; 卸载驱动后服务注册表项与 ImagePath 都可能残留（SCM 会把服务标记为「待删除」），
+    ; 仅靠 RegRead(ImagePath) 或 FileExist(.sys) 都会误判为「已安装」。
+    ; 关键信号：卸载时 SCM 会写入 DeleteFlag=1；同时 .sys 文件会被真正删除。
+
+    ; 1) 若服务已被 SCM 标记删除（DeleteFlag 非 0），则驱动不可用
+    try {
+        deleteFlag := RegRead("HKLM\SYSTEM\CurrentControlSet\Services\ViGEmBus", "DeleteFlag")
+        if (deleteFlag != 0) {
+            JoyDebugLog(Format("IsViGEmInstalled -> false (服务已标记删除 DeleteFlag={})", deleteFlag), "vigeminstall")
+            return false
+        }
+    } catch {
+        ; DeleteFlag 不存在，继续判断 ImagePath
+    }
+
+    ; 2) 服务项必须存在，且驱动文件真实存在于 System32\drivers
+    try {
+        imgPath := RegRead("HKLM\SYSTEM\CurrentControlSet\Services\ViGEmBus", "ImagePath")
+        ; 32 位进程访问 System32 会被 WOW64 重定向到 SysWOW64，需改用 Sysnative
+        sysFile := A_WinDir "\System32\drivers\ViGEmBus.sys"
+        if (A_PtrSize = 4 && FileExist(A_WinDir "\Sysnative"))
+            sysFile := A_WinDir "\Sysnative\drivers\ViGEmBus.sys"
+        if (!FileExist(sysFile)) {
+            JoyDebugLog(Format("IsViGEmInstalled -> false (驱动文件不存在 '{}')", sysFile), "vigeminstall")
+            return false
+        }
+        JoyDebugLog(Format("IsViGEmInstalled -> true ImagePath='{}'", imgPath), "vigeminstall")
+        return true
+    } catch as e {
+        JoyDebugLog(Format("IsViGEmInstalled -> false ({})", e.Message), "vigeminstall")
+        return false
+    }
+}
+
+; 未安装 ViGEmBus 时提示；返回 true 表示用户点了「安装」并已启动安装程序
+ShowViGEmInstallTip() {
+    exePath := A_WorkingDir "\Joy\ViGEmBus.exe"
+    JoyDebugLog(Format("ShowViGEmInstallTip enter exePath='{}' exists={}", exePath, FileExist(exePath)), "vigeminstall")
+    if (!FileExist(exePath)) {
+        MsgBox(GetLang("未找到 ViGEm 驱动安装程序") "`n" exePath, GetLang("提示"), 48)
+        return false
+    }
+
+    chosen := ""
+    tipText := GetLang("手柄功能需要使用 ViGEmBus 驱动，是否现在安装？")
+
+    g := Gui("+AlwaysOnTop -MinimizeBox", GetLang("提示"))
+    try
+        g.SetFont("S10 W550 Q2", MainSoftData.FontType)
+    catch
+        g.SetFont("S10")
+    g.Add("Text", "x20 y18 w340 h48", tipText)
+    btnInstall := g.Add("Button", "x20 y78 w150 h30 Default", GetLang("安装"))
+    btnCancel := g.Add("Button", "x190 y78 w150 h30", GetLang("取消"))
+    btnInstall.OnEvent("Click", (*) => (chosen := "install", g.Destroy()))
+    btnCancel.OnEvent("Click", (*) => (chosen := "cancel", g.Destroy()))
+    g.OnEvent("Close", (*) => (chosen := "cancel", g.Destroy()))
+    g.Show("w380 h125 Center")
+    hwnd := g.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+
+    if (chosen != "install")
+        return false
+
+    Run(exePath)
+    return true
+}
+
 class ViGEmWrapper {
     static asm := 0
     static client := 0
@@ -142,7 +215,18 @@ class ViGEmDS4 extends ViGEmTarget {
         }
 
         SetState(state) {
-            this._Parent.Instance.SetAxisState(this._Id, this.ConvertAxis(state))
+            local converted
+            ; 扳机（ID 0=LT / 1=RT）用 0-255 直接量；摇杆（ID 2-5）走 ConvertAxis（0-100 → 0-255，中心 128）
+            if (this._Id = 0 || this._Id = 1) {
+                converted := Round(state)
+                if (converted < 0)
+                    converted := 0
+                if (converted > 255)
+                    converted := 255
+            } else {
+                converted := this.ConvertAxis(state)
+            }
+            this._Parent.Instance.SetAxisState(this._Id, converted)
             this._Parent.Instance.SendReport()
             return this._Parent
         }
