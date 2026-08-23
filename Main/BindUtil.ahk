@@ -68,12 +68,12 @@ OnSuspendHotkey(*) {
         OnKillAllMacro()
         MyTimingScheduler.Stop()
         A_TrayMenu.Check(GetLang("休眠"))
-        TraySetIcon("Images\Soft\IcoPause.ico")
+        TraySetIcon("Images\Soft\IcoPause.ico", , true)
     }
     else {
         MyTimingScheduler.Start()
         A_TrayMenu.Uncheck(GetLang("休眠"))
-        TraySetIcon("Images\Soft\rabit.ico")
+        TraySetIcon("Images\Soft\rabit.ico", , true)
     }
 
     tipStr := MainSoftData.IsSuspend ? GetLang("软件休眠") : GetLang("取消软件休眠")

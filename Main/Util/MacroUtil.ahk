@@ -1255,7 +1255,11 @@ OnInterval(tableItem, cmd, index) {
 }
 
 OnPressKey(tableItem, cmd, index) {
+    global MySoftData
     paramArr := SplitCommand(cmd)
+    ; 录制产生的通用键名（AxisLXMin/DpadUp/AxisLT/JoyN 等）→ 友好键名（JoyAxisLXMin/JoyDpadUp/JoyLT/JoyA），
+    ; 否则摇杆/方向键/扳机不含 "JoyAxis"/"JoyDpad" 前缀，会落到普通按键发送而无效
+    paramArr[2] := MySoftData.GetJoyFriendlyKey(paramArr[2])
     isJoyKey := InStr(paramArr[2], "Joy")
     isJoyAxis := InStr(paramArr[2], "JoyAxis")
     isJoyDpad := InStr(paramArr[2], "JoyDpad")

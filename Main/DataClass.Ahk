@@ -210,7 +210,7 @@ class MainConfig {
 
         ; ========== 界面浮窗 ==========
         this.UIPanelShowOnActive := true    ; 界面激活时默认显示浮窗
-        this.UIPanelDefaultPos := 1         ; 浮窗出现位置 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 8=鼠标位置)
+        this.UIPanelDefaultPos := 1         ; 浮窗出现位置锚点 (1=左上, 2=中上, 3=右上, 4=中左, 5=中心, 6=中右, 7=左下, 9=中下, 10=右下)
         this.UIPanelOffsetX := 100          ; 出现位置偏移 X (0~500)
         this.UIPanelOffsetY := 100          ; 出现位置偏移 Y (0~500)
         this.UIPanelTitleBg := "#FF8B4513"   ; 标题背景 (由主题同步)
@@ -659,29 +659,30 @@ class SoftData {
         return this.JoyXboxToAhkMap
     }
 
-    ; 指令字符串中的 BtnN → Joy*（兼容旧 GUI）
+    ; 通用键名 → 友好键名（宏指令按键段统一转换：按钮/摇杆/方向键/扳机）
+    GetJoyFriendlyKey(keyName) {
+        static genericToFriendly := Map(
+            "Joy1", "JoyA", "Joy2", "JoyB", "Joy3", "JoyX", "Joy4", "JoyY",
+            "Joy5", "JoyLB", "Joy6", "JoyRB", "Joy7", "JoyLT", "Joy8", "JoyRT",
+            "Joy9", "JoyLS", "Joy10", "JoyRS", "Joy11", "JoyBack", "Joy12", "JoyStart",
+            "Joy13", "JoyHome", "Joy14", "JoyPad",
+            "AxisLXMin", "JoyAxisLXMin", "AxisLXMax", "JoyAxisLXMax",
+            "AxisLYMin", "JoyAxisLYMin", "AxisLYMax", "JoyAxisLYMax",
+            "AxisRXMin", "JoyAxisRXMin", "AxisRXMax", "JoyAxisRXMax",
+            "AxisRYMin", "JoyAxisRYMin", "AxisRYMax", "JoyAxisRYMax",
+            "AxisLT", "JoyLT", "AxisRT", "JoyRT",
+            "DpadUp", "JoyDpadUp", "DpadDown", "JoyDpadDown",
+            "DpadLeft", "JoyDpadLeft", "DpadRight", "JoyDpadRight")
+        return genericToFriendly.Has(keyName) ? genericToFriendly[keyName] : keyName
+    }
+
+    ; 指令字符串中的通用键名 → 友好键名（兼容旧 GUI）
     CmdJoyNToJoyFriendly(cmdStr) {
         if (cmdStr == "")
             return cmdStr
         paramArr := StrSplit(cmdStr, "_")
-        paramArr := StrSplit(cmdStr, "_")
-        if (paramArr.Length >= 2) {
-            keyPart := paramArr[2]
-            btnToJoyMap := Map(
-                "Joy1", "JoyA", "Joy2", "JoyB", "Joy3", "JoyX", "Joy4", "JoyY",
-                "Joy5", "JoyLB", "Joy6", "JoyRB", "Joy7", "JoyLT", "Joy8", "JoyRT",
-                "Joy9", "JoyLS", "Joy10", "JoyRS", "Joy11", "JoyBack", "Joy12", "JoyStart",
-                "Joy13", "JoyHome", "Joy14", "JoyPad",
-                "AxisLXMin", "JoyAxisLXMin", "AxisLXMax", "JoyAxisLXMax",
-                "AxisLYMin", "JoyAxisLYMin", "AxisLYMax", "JoyAxisLYMax",
-                "AxisRXMin", "JoyAxisRXMin", "AxisRXMax", "JoyAxisRXMax",
-                "AxisRYMin", "JoyAxisRYMin", "AxisRYMax", "JoyAxisRYMax",
-                "AxisLT", "JoyLT", "AxisRT", "JoyRT",
-                "DpadUp", "JoyDpadUp", "DpadDown", "JoyDpadDown",
-                "DpadLeft", "JoyDpadLeft", "DpadRight", "JoyDpadRight")
-            if (btnToJoyMap.Has(keyPart))
-                paramArr[2] := btnToJoyMap[keyPart]
-        }
+        if (paramArr.Length >= 2)
+            paramArr[2] := this.GetJoyFriendlyKey(paramArr[2])
         result := ""
         for i, p in paramArr {
             if (i > 1)
@@ -812,7 +813,11 @@ class SoftData {
             ; 优先：按钮友好键名（JoyA 等，按当前 JoyType 显示）
             for btnKey in this.JoyBtnKeys {
                 disp := this.GetJoyDisplayName(btnKey, joyType)
-                if (disp != "" && InStr(keyPart, "🎮" disp)) {
+                if (disp == "")
+                    continue
+                ; 词边界匹配，避免 "B" 命中 "Back"、"X" 命中 "XBOX" 等前缀误匹配
+                needle := "🎮" RegExReplace(disp, "([\\.^$|?*+()\[\]{}])", "\$1") "(?![A-Za-z0-9])"
+                if (RegExMatch(keyPart, needle)) {
                     keyPart := btnKey
                     break
                 }
@@ -821,7 +826,10 @@ class SoftData {
             if (InStr(keyPart, "🎮")) {
                 for btnKey, labelMap in this.JoyToDispMap {
                     disp := labelMap.Has(joyType) ? labelMap[joyType] : labelMap["Xbox"]
-                    if (disp != "" && InStr(keyPart, "🎮" disp)) {
+                    if (disp == "")
+                        continue
+                    needle := "🎮" RegExReplace(disp, "([\\.^$|?*+()\[\]{}])", "\$1") "(?![A-Za-z0-9])"
+                    if (RegExMatch(keyPart, needle)) {
                         keyPart := btnKey
                         break
                     }

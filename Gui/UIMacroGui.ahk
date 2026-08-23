@@ -278,57 +278,43 @@ class UIMacroGui {
         contentH := rows * btnItemH + (rows - 1) * btnGap + bodyMarginV
         ph := titleBarH + contentH + wpfBorderPad
 
-        CoordMode("Mouse", "Screen")
-        MouseGetPos(&initX, &initY)
-
-        ; 根据配置计算初始位置
-        ; 注意：XAML 的 Window.Left/Top 使用 DIP（设备无关像素），而 A_ScreenWidth/MouseGetPos
-        ; 返回的是物理像素。屏幕模式下必须换算为 DIP，否则高分屏缩放时会整体偏移（偏右/偏下甚至出屏）。
-        if (MainSoftData.UIPanelDefaultPos != 8) {
-            if (isScreenMode) {
-                swDIP := A_ScreenWidth * 96 // A_ScreenDPI
-                shDIP := A_ScreenHeight * 96 // A_ScreenDPI
-                this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, swDIP, shDIP)
-                offsetX := initX
-                offsetY := initY
-            } else {
-                this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
-                offsetX := initX   ; 相对于目标窗口的偏移量（预设位置值）
-                offsetY := initY
-                if (targetHwnd) {
-                    try {
-                        rect := this.GetWindowRectCoords(targetHwnd)
-                        initX += rect["left"]   ; 转为屏幕绝对坐标用于 XAML Left/Top
-                        initY += rect["top"]
-                    }
-                }
-            }
+        ; 根据配置的「出现位置」计算初始坐标（锚点）。
+        ; 锚定容器：屏幕模式 → 整个屏幕；窗口跟随模式 → 目标窗口（窗口化时的窗口矩形）。
+        ; 注：XAML 的 Window.Left/Top 使用 DIP（设备无关像素），A_ScreenWidth/GetWindowRect 返回物理像素，
+        ;     屏幕模式按 A_ScreenDPI 换算为 DIP；窗口跟随模式保持物理坐标与 SetWindowPos 跟随逻辑一致。
+        initX := 0, initY := 0
+        baseLeft := 0, baseTop := 0
+        if (isScreenMode) {
+            swDIP := A_ScreenWidth * 96 // A_ScreenDPI
+            shDIP := A_ScreenHeight * 96 // A_ScreenDPI
+            this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, swDIP, shDIP)
         } else {
-            if (isScreenMode) {
-                initX := initX * 96 // A_ScreenDPI   ; 鼠标物理坐标换算为 DIP
-                initY := initY * 96 // A_ScreenDPI
-                offsetX := initX
-                offsetY := initY
-            } else {
-                offsetX := initX
-                offsetY := initY
-                if (targetHwnd) {
-                    try {
-                        rect := this.GetWindowRectCoords(targetHwnd)
-                        offsetX := initX - rect["left"]
-                        offsetY := initY - rect["top"]
-                    }
+            contW := 0, contH := 0
+            if (targetHwnd) {
+                try {
+                    rect := this.GetWindowRectCoords(targetHwnd)
+                    contW := rect["right"] - rect["left"]
+                    contH := rect["bottom"] - rect["top"]
+                    baseLeft := rect["left"]
+                    baseTop := rect["top"]
                 }
             }
+            if (contW <= 0)
+                contW := A_ScreenWidth
+            if (contH <= 0)
+                contH := A_ScreenHeight
+            this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, contW, contH)
+            initX += baseLeft
+            initY += baseTop
         }
-
-        ; 配置的位置偏移（相对出现位置）
+        ; 配置的位置偏移（相对锚点基准）。窗口跟随模式下此偏移作为「固定偏移量」保存，
+        ; 锚点基准由 FollowSinglePanel 按目标窗口当前尺寸实时计算，从而窗口缩放时也能正确重新锚定。
         cfgOffX := Integer(MainSoftData.UIPanelOffsetX)
         cfgOffY := Integer(MainSoftData.UIPanelOffsetY)
         initX += cfgOffX
         initY += cfgOffY
-        offsetX += cfgOffX
-        offsetY += cfgOffY
+        offsetX := cfgOffX
+        offsetY := cfgOffY
 
         ; 构建XAML（与 floating_panel L213-233 完全一致的结构）
         main := XAML_Generator("Grid")
@@ -432,6 +418,7 @@ class UIMacroGui {
             frontInfo: tableItem.FoldInfo.FrontInfoArr[foldIndex],
             visible: true,
             btnItems: btnItems,
+            anchorPos: MainSoftData.UIPanelDefaultPos,
             offsetX: offsetX,
             offsetY: offsetY,
             lastSetX: "",
@@ -546,28 +533,46 @@ class UIMacroGui {
             return
         }
 
+        ; ====== 目标窗口矩形 + 面板尺寸 ======
+        rect := this.GetWindowRectCoords(panelInfo.targetHwnd)
+        winW := rect["right"] - rect["left"]
+        winH := rect["bottom"] - rect["top"]
+        panelRect := this.GetWindowRectCoords(hwnd)
+        pw := panelRect["right"] - panelRect["left"]
+        ph := panelRect["bottom"] - panelRect["top"]
+        if (winW <= 0)
+            winW := A_ScreenWidth
+        if (winH <= 0)
+            winH := A_ScreenHeight
+        if (pw <= 0)
+            pw := 250
+        if (ph <= 0)
+            ph := 200
+
+        ; ====== 锚点基准（相对目标窗口左上角） ======
+        ; 依据窗口当前尺寸实时计算，窗口缩放时中心/右上/右下等锚点会随新尺寸重新定位
+        anchorX := 0, anchorY := 0
+        anchorPos := panelInfo.HasProp("anchorPos") ? panelInfo.anchorPos : 1
+        this.CalcDefaultPosition(anchorPos, &anchorX, &anchorY, pw, ph, winW, winH)
+
         ; ====== 位置变化检测（替代三阶段拖拽检测） ======
         ; 原理：记录我们上次 SetWindowPos 设到的位置(lastSetX/Y)。
         ;   - 如果实际位置 == lastSetX/Y → 没有外部干扰 → 正常跟随
         ;   - 如果实际位置 != lastSetX/Y → 有外部力量移动了面板(用户拖拽等)
-        ;     → 立即更新 offset 来适配新位置 → 之后用新 offset 跟随
-        ; 这完全不依赖 LButton / hwndUnderMouse / isDragging，绕开了检测失效的问题。
-        if (!panelInfo.isScreenMode && panelInfo.lastSetX != "" && panelInfo.lastSetY != "") {
-            diagRect := this.GetWindowRectCoords(hwnd)
-            targetDiagRect := this.GetWindowRectCoords(panelInfo.targetHwnd)
-            devX := Abs(diagRect["left"] - panelInfo.lastSetX)
-            devY := Abs(diagRect["top"] - panelInfo.lastSetY)
+        ;     → 把「实际位置相对锚点基准」的差值写回 offset → 之后用新 offset 跟随
+        if (panelInfo.lastSetX != "" && panelInfo.lastSetY != "") {
+            devX := Abs(panelRect["left"] - panelInfo.lastSetX)
+            devY := Abs(panelRect["top"] - panelInfo.lastSetY)
             if (devX > 3 || devY > 3) {
-                panelInfo.offsetX := diagRect["left"] - targetDiagRect["left"]
-                panelInfo.offsetY := diagRect["top"] - targetDiagRect["top"]
+                panelInfo.offsetX := panelRect["left"] - rect["left"] - anchorX
+                panelInfo.offsetY := panelRect["top"] - rect["top"] - anchorY
             }
         }
 
-        ; 阶段3 — 正常跟随移动（对齐 floating_panel MovePanel L171-179）
-        rect := this.GetWindowRectCoords(panelInfo.targetHwnd)
-        newX := rect["left"] + panelInfo.offsetX
-        newY := rect["top"] + panelInfo.offsetY
-        ownerHwnd := panelInfo.isScreenMode ? 0 : panelInfo.targetHwnd
+        ; 阶段3 — 正常跟随移动（窗口移动/缩放都会使锚点基准变化而正确跟随）
+        newX := rect["left"] + anchorX + panelInfo.offsetX
+        newY := rect["top"] + anchorY + panelInfo.offsetY
+        ownerHwnd := panelInfo.targetHwnd
         DllCall("user32\SetWindowPos"
             , "Ptr", hwnd
             , "Ptr", ownerHwnd
@@ -668,14 +673,10 @@ class UIMacroGui {
             ; SW_SHOWNA：显示但不抢焦点，保持鼠标下仍是目标窗，下次触发判断更稳定
             DllCall("user32\ShowWindow", "Ptr", hwnd, "Int", 8)
             this.ApplyPanelPosition(panelInfo)
-            ; 更新偏移量（窗口跟随模式）
+            ; 重新显示后重置固定偏移为配置偏移（清除用户拖拽增量）；锚点基准由跟随逻辑按窗口尺寸实时计算
             if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
-                try {
-                    rect := this.GetWindowRectCoords(panelInfo.targetHwnd)
-                    rect2 := this.GetWindowRectCoords(hwnd)
-                    panelInfo.offsetX := rect2["left"] - rect["left"]
-                    panelInfo.offsetY := rect2["top"] - rect["top"]
-                }
+                panelInfo.offsetX := Integer(MainSoftData.UIPanelOffsetX)
+                panelInfo.offsetY := Integer(MainSoftData.UIPanelOffsetY)
             }
         } else {
             panelInfo.userClosed := true
@@ -982,8 +983,16 @@ class UIMacroGui {
                         && DllCall("user32\IsWindow", "Ptr", panelInfo.wpfHwnd)
                         && DllCall("user32\IsWindow", "Ptr", panelInfo.targetHwnd)) {
                         targetRect := this.GetWindowRectCoords(panelInfo.targetHwnd)
-                        restoreX := targetRect["left"] + panelInfo.offsetX
-                        restoreY := targetRect["top"] + panelInfo.offsetY
+                        winW := targetRect["right"] - targetRect["left"]
+                        winH := targetRect["bottom"] - targetRect["top"]
+                        pr := this.GetWindowRectCoords(panelInfo.wpfHwnd)
+                        pw := pr["right"] - pr["left"]
+                        ph := pr["bottom"] - pr["top"]
+                        anchorX := 0, anchorY := 0
+                        anchorPos := panelInfo.HasProp("anchorPos") ? panelInfo.anchorPos : 1
+                        this.CalcDefaultPosition(anchorPos, &anchorX, &anchorY, pw, ph, winW, winH)
+                        restoreX := targetRect["left"] + anchorX + panelInfo.offsetX
+                        restoreY := targetRect["top"] + anchorY + panelInfo.offsetY
                         DllCall("user32\SetWindowPos"
                             , "Ptr", panelInfo.wpfHwnd, "Ptr", panelInfo.targetHwnd
                             , "Int", restoreX, "Int", restoreY
@@ -1064,8 +1073,9 @@ class UIMacroGui {
         return ""
     }
 
-    ; 根据配置的位置编号计算面板初始坐标
-    ; pos: 1=左上,2=中上,3=右上,4=中左,5=中心,6=中右,7=左下,8=鼠标位置,9=中下,10=右下
+    ; 根据配置的位置编号计算面板相对容器（屏幕或目标窗口）的锚点坐标
+    ; pos: 1=左上,2=中上,3=右上,4=中左,5=中心,6=中右,7=左下,9=中下,10=右下
+    ; sw/sh 为锚定容器尺寸（屏幕模式=屏幕，窗口跟随模式=目标窗口矩形），缺省取主屏
     CalcDefaultPosition(pos, &x, &y, pw, ph, sw := 0, sh := 0) {
         if (sw <= 0)
             sw := A_ScreenWidth
@@ -1096,22 +1106,27 @@ class UIMacroGui {
         }
 
         initX := 0, initY := 0
+        baseLeft := 0, baseTop := 0
+        contW := 0, contH := 0
 
-        if (MainSoftData.UIPanelDefaultPos != 8) {
-            this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph)
-            ; 窗口跟随模式：预设位置改为相对于目标窗口
-            if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
-                try {
-                    wRect := this.GetWindowRectCoords(panelInfo.targetHwnd)
-                    initX += wRect["left"]
-                    initY += wRect["top"]
-                }
+        ; 窗口跟随模式：以目标窗口为锚定容器；否则以屏幕为容器
+        if (!panelInfo.isScreenMode && panelInfo.targetHwnd) {
+            try {
+                wRect := this.GetWindowRectCoords(panelInfo.targetHwnd)
+                contW := wRect["right"] - wRect["left"]
+                contH := wRect["bottom"] - wRect["top"]
+                baseLeft := wRect["left"]
+                baseTop := wRect["top"]
             }
-        } else {
-            CoordMode("Mouse", "Screen")
-            MouseGetPos(&initX, &initY)
-            ; 鼠标位置本身已是屏幕绝对坐标，SetWindowPos 直接使用
         }
+        if (contW <= 0)
+            contW := A_ScreenWidth
+        if (contH <= 0)
+            contH := A_ScreenHeight
+
+        this.CalcDefaultPosition(MainSoftData.UIPanelDefaultPos, &initX, &initY, pw, ph, contW, contH)
+        initX += baseLeft
+        initY += baseTop
 
         initX += Integer(MainSoftData.UIPanelOffsetX)
         initY += Integer(MainSoftData.UIPanelOffsetY)

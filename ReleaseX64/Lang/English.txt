@@ -1086,6 +1086,9 @@ Interception 安装失败，可手动运行 Plugins/AhiDriver/installer/安装�
 请从下面选框中勾选替换后的按键：=Select replacement key:
 请从下面选框中勾选触发宏的按键：=Select trigger key:
 请先安装Joy目录下ViGEmBus.exe后运行软件=Please install ViGEmBus.exe (Joy folder) before running the software.
+手柄功能需要使用 ViGEmBus 驱动，是否现在安装？=The gamepad feature requires the ViGEmBus driver. Install now?
+未找到 ViGEm 驱动安装程序=ViGEm driver installer not found
+安装=Install
 请务重复添加变量=Do not duplicate vars
 请在完善使用说明&署名文件后，导出上传配置=Complete guide before upload.
 请完善作者信息，若不想留名请输入匿名=Please enter author name (use “Anonymous” if preferred).

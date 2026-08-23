@@ -280,7 +280,7 @@ SendJoyBtnKey(key, state, tableItem, index) {
         "Share", "Back", "Options", "Start", "PS", "Guide", "TouchPad", "A"
     )
     static ds4BtnMap := Map(
-        "A", "Cross", "B", "Circle", "X", "Cross", "Y", "Triangle",
+        "A", "Cross", "B", "Circle", "X", "Square", "Y", "Triangle",
         "O", "Circle", "Square", "Square", "Triangle", "Triangle",
         "LB", "L1", "RB", "R1", "L1", "L1", "R1", "R1",
         "LS", "LS", "RS", "RS", "L3", "LS", "R3", "RS",
