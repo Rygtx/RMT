@@ -1481,16 +1481,6 @@ OnTriggerSepcialItemMacro(MacroStr) {
 }
 
 HandleOpenArg() {
-    isElevatedBySelf := false
-    loop A_Args.Length {
-        if (A_Args[A_Index] = "-elevated") {
-            isElevatedBySelf := true
-            break
-        }
-    }
-    ; 仅提示「经 UAC 手动提权」（右键管理员运行等），避免 admin 账号本身双击也误报
-    if (A_IsAdmin && !isElevatedBySelf && IsElevatedViaUACConsent())
-        MsgBox(GetLang("检测到当前以管理员模式手动运行，建议使用设置中的`"管理员启动`"选项来自动以管理员身份启动，而非手动右键管理员运行。"), GetLang("提示"), 64)
     if (A_Args.Length <= 0) {
         if (MainSoftData.IsAdminStart && !A_IsAdmin)
             ElevateToAdmin()
@@ -1510,22 +1500,6 @@ HandleOpenArg() {
             continue
         }
     }
-}
-
-; TokenElevationTypeFull(2)：经 UAC 同意/右键管理员运行后的完整提权令牌
-; TokenElevationTypeDefault(1)：UAC 关闭等，admin 账号默认即高权限，不算手动右键提权
-IsElevatedViaUACConsent() {
-    hToken := 0
-    if !DllCall("advapi32\OpenProcessToken", "ptr", DllCall("GetCurrentProcess", "ptr")
-        , "uint", 0x0008, "ptr*", &hToken)  ; TOKEN_QUERY
-        return false
-    elevType := 0
-    retLen := 0
-    ; TokenElevationType = 18
-    ok := DllCall("advapi32\GetTokenInformation", "ptr", hToken, "int", 18
-        , "int*", &elevType, "uint", 4, "uint*", &retLen)
-    DllCall("CloseHandle", "ptr", hToken)
-    return ok && (elevType == 2)
 }
 
 ; 当前进程是否真正以提升权限运行（TokenIsElevated）
