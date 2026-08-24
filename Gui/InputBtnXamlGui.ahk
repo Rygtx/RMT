@@ -1,30 +1,34 @@
 #Requires AutoHotkey v2.0
 
 ; =====================================================================
-; 输入弹窗 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(Label, Content) / SureAction / HideAction / CloseAction
+; 输入按钮条 —— XAML 迁移版（复用主进程共享 daemon，与 CustomInputGui 同构）
+; 公开接口保持：ShowGui(Type) / TrueAction / FalseAction / ContinueAction
+;               / CancelAction / HideAction
+; Type: 1 真值/假值  2 继续  3 继续&取消
+; 多实例：每请求独立实例（WorkPool._ShowInputDialog 每请求 new），互不阻塞
 ; =====================================================================
 
-class CustomInputGui {
+class InputBtnXamlGui {
     __new() {
         this.ui := ""
         this.Gui := ""
         this._closed := true
-        this._batch := []
-        this._batching := false
+        this.Type := 0
+        this.TrueAction := ""
+        this.FalseAction := ""
+        this.ContinueAction := ""
+        this.CancelAction := ""
         this.HideAction := ""
-        this.SureAction := ""
-        this.CloseAction := ""
+        this.CheckHotKeyAction := this.CheckHotKey.Bind(this)
     }
 
-    ShowGui(Label, Content) {
+    ;1 真值 假值  2 继续  3 继续&取消
+    ShowGui(Type) {
+        this.Type := Integer(Type)
         if (IsObject(this.ui) && !this._closed)
             this._CloseWindow()
         this._BuildAndShow()
-        if (IsObject(this.ui)) {
-            this.ui.Update("LabelCon", "Text", Label)
-            this.ui.Update("ContentCon", "Text", Content)
-        }
+        SetTimer(this.CheckHotKeyAction, 30)
     }
 
     Hwnd() {
@@ -42,12 +46,12 @@ class CustomInputGui {
     _BuildAndShow() {
         global MySoftData
         this._closed := false
-        title := GetLang("输入弹窗")
+        title := GetLang("输入按钮")
         this._title := title
         titleHeight := "30"
 
         ; Worker 无 XAML 引擎（AssetUtil XamlUiDiagDaemon 同款动态名模式）：
-        ; 动态名解析避免 Worker 编译期 #Warn UseUnsetLocal 与运行时崩溃
+        ; 动态名解析避免编译期 #Warn UseUnsetLocal 与运行时崩溃
         for key in ["XAML_Generator", "XAML_TEMPLATE", "XAMLHost"] {
             if (!IsSet(%key%)) {
                 this._closed := true
@@ -67,17 +71,19 @@ class CustomInputGui {
         closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
         closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
 
-        ; === 内容 ===
+        ; === 按钮区 ===
         body := main.Add("Grid").Grid_Row(1).Margin("10,12")
-        body.Rows("28", "*", "48")
-        body.Add("TextBlock").Grid_Row(0).Name("LabelCon").Text("").VerticalAlignment("Center")
-        body.Add("TextBox").Grid_Row(1).Name("ContentCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Margin("0,4,0,4")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .ScrollViewer_VerticalScrollBarVisibility("Auto")
-        btnRow := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(80).Height(30).MinHeight(30)
+        btnRow := body.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        switch this.Type {
+            case 1:
+                btnRow.Add("Button").Name("BtnTrue").Content(GetLang("真值")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+                btnRow.Add("Button").Name("BtnFalse").Content(GetLang("假值")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+            case 2:
+                btnRow.Add("Button").Name("BtnContinue").Content(GetLang("继续")).Width(80).Height(30).MinHeight(30)
+            case 3:
+                btnRow.Add("Button").Name("BtnContinue").Content(GetLang("继续")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+                btnRow.Add("Button").Name("BtnCancel").Content(GetLang("取消")).Width(80).Height(30).MinHeight(30).Margin("8,0")
+        }
 
         ; === 创建 XAMLHost ===
         tmplName := "XAML_TEMPLATE"
@@ -86,7 +92,7 @@ class CustomInputGui {
         hostName := "XAMLHost"
         hostCls := %hostName%
         this.ui := hostCls(StrReplace(tmp, "%app%", main.ToString()), "", 0)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="365" Height="252" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="300" Height="150" Opacity="0"')
         this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
         this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
 
@@ -94,7 +100,16 @@ class CustomInputGui {
         this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
         this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
         this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
+        switch this.Type {
+            case 1:
+                this.ui.OnEvent("BtnTrue", "Click", ObjBindMethod(this, "OnTrueBtnClick"))
+                this.ui.OnEvent("BtnFalse", "Click", ObjBindMethod(this, "OnFalseBtnClick"))
+            case 2:
+                this.ui.OnEvent("BtnContinue", "Click", ObjBindMethod(this, "OnContinueBtnClick"))
+            case 3:
+                this.ui.OnEvent("BtnContinue", "Click", ObjBindMethod(this, "OnContinueBtnClick"))
+                this.ui.OnEvent("BtnCancel", "Click", ObjBindMethod(this, "OnCancelBtnClick"))
+        }
 
         this.ui.Show()
 
@@ -124,10 +139,7 @@ class CustomInputGui {
     OnWindowClosing(state, ctrl, event) {
         this.ui := ""
         this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
+        SetTimer(this.CheckHotKeyAction, 0)
     }
 
     _CloseWindow() {
@@ -136,33 +148,85 @@ class CustomInputGui {
         }
         this.ui := ""
         this._closed := true
+        SetTimer(this.CheckHotKeyAction, 0)
     }
 
-    OnSureBtnClick(state, ctrl, event) {
-        this.OnSure()
-        this.OnHide()
-        this._CloseWindow()
-    }
-
-    OnCloseBtnClick(state, ctrl, event) {
-        this.OnClose()
-        this.OnHide()
-        this._CloseWindow()
-    }
-
-    OnSure() {
-        if (this.SureAction != "") {
-            Action := this.SureAction
-            Action(this.ui.Query("ContentCon"))
-            this.SureAction := ""
+    ; Enter/Esc 快捷键（按实例 Type 分发；多实例下不能用 static Map 绑 this）
+    CheckHotKey() {
+        if (GetKeyState("Enter", "P")) {
+            switch this.Type {
+                case 1: this.OnTrueBtnClick()
+                case 2, 3: this.OnContinueBtnClick()
+            }
+        }
+        if (GetKeyState("Esc", "P")) {
+            switch this.Type {
+                case 1: this.OnFalseBtnClick()
+                case 3: this.OnCancelBtnClick()
+            }
         }
     }
 
-    OnClose() {
-        if (this.CloseAction != "") {
-            Action := this.CloseAction
+    OnTrueBtnClick(*) {
+        this.OnTrue()
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnFalseBtnClick(*) {
+        this.OnFalse()
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnContinueBtnClick(*) {
+        this.OnContinue()
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnCancelBtnClick(*) {
+        this.OnCancel()
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        ; 标题栏关闭按钮：按取消处理（回传 cancel，避免 Worker 等待超时）
+        this.OnCancel()
+        this.OnHide()
+        this._CloseWindow()
+    }
+
+    OnTrue() {
+        if (this.TrueAction != "") {
+            Action := this.TrueAction
             Action()
-            this.CloseAction := ""
+            this.TrueAction := ""
+        }
+    }
+
+    OnFalse() {
+        if (this.FalseAction != "") {
+            Action := this.FalseAction
+            Action()
+            this.FalseAction := ""
+        }
+    }
+
+    OnContinue() {
+        if (this.ContinueAction != "") {
+            Action := this.ContinueAction
+            Action()
+            this.ContinueAction := ""
+        }
+    }
+
+    OnCancel() {
+        if (this.CancelAction != "") {
+            Action := this.CancelAction
+            Action()
+            this.CancelAction := ""
         }
     }
 
@@ -172,5 +236,6 @@ class CustomInputGui {
             Action()
             this.HideAction := ""
         }
+        SetTimer(this.CheckHotKeyAction, 0)
     }
 }

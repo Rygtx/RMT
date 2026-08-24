@@ -1,220 +1,284 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
+
+; =====================================================================
+; 数组编辑器 —— XAML 迁移版（独立实现）
+; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
+; =====================================================================
 
 class ArrayGui {
     __new() {
         this.ParentTile := ""
+        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
+        this._closed := true
+        this._batch := []
+        this._batching := false
+        this.Data := ""
+        this.SerialStr := ""
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
-            if (this.OwnerHwnd != "") {
-                this.Gui.Opt("+Owner" this.OwnerHwnd)
-            }
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
-
+        global MySoftData
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
-
-        this.Init(cmd)
+        this._batching := true
+        try this.Init(cmd)
+        finally {
+            this._flushBatch()
+        }
         this.OnRefresh()
     }
 
-    AddGui() {
-        MyGui := Gui(, this.ParentTile GetLang("数组编辑器"))
-        this.Gui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
-        }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
-
-        PosX := 10
-        PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
-        PosX += 50
-        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
-
-        PosX += 200
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY - 5, 180), GetLang(
-            "如果变量存在则不改变数据"))
-
-        PosX := 20
-        PosY += 40
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("类型："))
-
-        PosX += 50
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["创建", "克隆",
-            "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"]))
-        this.TypeCon.Value := 1
-        this.TypeCon.OnEvent("Change", this.OnRefresh.Bind(this))
-
-        PosX += 125
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数组名："))
-        PosX += 65
-        this.NameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
-
-        PosX += 120
-        this.MainIndexConArr := []
-        Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("子索引："))
-        this.MainIndexConArr.Push(Con)
-        PosX += 65
-        this.MainIndexCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 90), ["0"])
-        this.MainIndexConArr.Push(this.MainIndexCon)
-        PosX += 95
-        Con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 7, 25), "?")
-        Con.OnEvent("Click", this.OnClickIndexHelpBtn.Bind(this))
-        this.MainIndexConArr.Push(Con)
-
-        PosY += 35
-        SplitPosY := PosY
-
-        ;创建参数
-        {
-            PosX := 10
-            PosY := SplitPosY
-            this.CreateConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 70), GetLang("创建参数"))
-            this.CreateConArr.Push(Con)
-
-            PosX := 20
-            PosY += 30
-            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("初始数据："))
-            this.CreateConArr.Push(Con)
-            PosX += 75
-            this.InitArrCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 400), "1, 2, 3")
-            this.CreateConArr.Push(this.InitArrCon)
-            PosX += 405
-            Con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 7, 25), "?")
-            Con.OnEvent("Click", this.OnClickInitHelpBtn.Bind(this))
-            this.CreateConArr.Push(Con)
-        }
-
-        ;类型参数
-        {
-            PosX := 10
-            PosY := SplitPosY
-            this.ArgsConArr := []
-            this.ArgsIndexConArr := []
-            this.ArgsDataConArr := []
-            Con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 550, 70), GetLang("类型参数"))
-            this.ArgsConArr.Push(Con)
-
-            PosX := 20
-            PosY += 30
-            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("索引："))
-            this.ArgsConArr.Push(Con)
-            this.ArgsIndexConArr.Push(Con)
-            PosX += 50
-            this.ArgsIndexCon := MyGui.Add("ComboBox", Format("x{} y{} w{}", PosX, PosY - 5, 100), [0])
-            this.ArgsConArr.Push(this.ArgsIndexCon)
-            this.ArgsIndexConArr.Push(this.ArgsIndexCon)
-
-            PosX += 125
-            Con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("数据："))
-            Con.GetPos(&x)
-            Con.OriPosX := x
-            this.ArgsConArr.Push(Con)
-            this.ArgsDataConArr.Push(Con)
-            PosX += 50
-            this.ArgsTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr([
-                "变量或值",
-                "数组"]))
-            this.ArgsTypeCon.GetPos(&x)
-            this.ArgsTypeCon.OriPosX := x
-            this.ArgsTypeCon.OnEvent("Change", this.OnRefreshDataType.Bind(this))
-            this.ArgsConArr.Push(this.ArgsTypeCon)
-            this.ArgsDataConArr.Push(this.ArgsTypeCon)
-
-            PosX += 105
-            this.ArgsNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 100), [])
-            this.ArgsNameCon.GetPos(&x)
-            this.ArgsNameCon.OriPosX := x
-            this.ArgsConArr.Push(this.ArgsNameCon)
-            this.ArgsDataConArr.Push(this.ArgsNameCon)
-        }
-
-        ;结果
-        {
-            PosX := 20
-            PosY := 170
-            this.ResultConArr := []
-            Con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("结果："))
-            this.ResultConArr.Push(Con)
-
-            PosX += 50
-            this.SaveTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLangArr(["变量",
-                "数组"]))
-            this.SaveTypeCon.OnEvent("Change", this.OnRefreshDataType.Bind(this))
-            this.ResultConArr.Push(this.SaveTypeCon)
-
-            PosX += 105
-            this.SaveNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
-            this.ResultConArr.Push(this.SaveNameCon)
-        }
-
-        PosY := 200
-        PosX := 240
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
-        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-
-        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(580, 250)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 580, 250))
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
     }
 
-    OnGuiClose() {
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
+    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
+    _ComboPush(comboName, propertyName, value) {
+        if (this._batching)
+            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
+        else
+            this.ui.Update(comboName, propertyName, value)
+    }
+
+    _flushBatch() {
+        this._batching := false
+        if (IsObject(this.ui) && this._batch.Length > 0) {
+            this.ui.BatchUpdate(this._batch)
+            this._batch := []
+        }
+    }
+
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        title := this.ParentTile GetLang("数组编辑器")
+        this._title := title
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*")
+
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
+        body.Cols("70", "120", "90", "160")
+
+        ; 行0：备注 + IsIgnoreExist
+        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
+        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center")
+        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        row0.Add("CheckBox").Name("IsIgnoreExist").Content(GetLang("如果变量存在则不改变数据")).VerticalAlignment("Center").Margin("20,0,0,0")
+
+        ; 行1：类型 + 数组名 + 子索引
+        row1 := body.Add("StackPanel").Grid_Row(1).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
+        row1.Add("TextBlock").Text(GetLang("类型：")).VerticalAlignment("Center")
+        tc := row1.Add("ComboBox").Name("TypeCombo").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["创建", "克隆", "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"])
+            tc.Add("ComboBoxItem").Content(t)
+        row1.Add("TextBlock").Text(GetLang("数组名：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        row1.Add("ComboBox").Name("NameCon").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        mainIndexRow := row1.Add("StackPanel").Name("MainIndexRow").Orientation("Horizontal").Margin("14,0,0,0")
+        mainIndexRow.Add("TextBlock").Text(GetLang("子索引：")).VerticalAlignment("Center")
+        mainIndexRow.Add("ComboBox").Name("MainIndexCon").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        mainIndexRow.Add("Button").Name("BtnIndexHelp").Content("?").Width(28).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        ; 行2：创建参数 + 类型参数（两个 GroupBox 并排）
+        body.Rows("34", "38", "Auto", "Auto", "40", "*")
+        createGroup := body.Add("GroupBox").Grid_Row(2).Grid_ColumnSpan(4).Name("CreateGroup").Header(GetLang("创建参数"))
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
+        cr := createGroup.Add("StackPanel").Orientation("Horizontal").Margin("10,6")
+        cr.Add("TextBlock").Text(GetLang("初始数据：")).VerticalAlignment("Center")
+        cr.Add("TextBox").Name("InitArrCon").Width(400).Height(26).MinHeight(26).Margin("4,0,0,0").Text("1, 2, 3")
+        cr.Add("Button").Name("BtnInitHelp").Content("?").Width(28).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        argsGroup := body.Add("GroupBox").Grid_Row(3).Grid_ColumnSpan(4).Name("ArgsGroup").Header(GetLang("类型参数"))
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
+        ar := argsGroup.Add("StackPanel").Orientation("Horizontal").Margin("10,6")
+        argsIndexRow := ar.Add("StackPanel").Name("ArgsIndexRow").Orientation("Horizontal")
+        argsIndexRow.Add("TextBlock").Text(GetLang("索引：")).VerticalAlignment("Center")
+        argsIndexRow.Add("ComboBox").Name("ArgsIndexCon").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        argsDataRow := ar.Add("StackPanel").Name("ArgsDataRow").Orientation("Horizontal").Margin("14,0,0,0")
+        argsDataRow.Add("TextBlock").Text(GetLang("数据：")).VerticalAlignment("Center")
+        at := argsDataRow.Add("ComboBox").Name("ArgsTypeCon").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0")
+        at.Add("ComboBoxItem").Content(GetLang("变量或值"))
+        at.Add("ComboBoxItem").Content(GetLang("数组"))
+        argsDataRow.Add("ComboBox").Name("ArgsNameCon").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+
+        ; 行4：结果
+        resRow := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Name("ResultRow").Orientation("Horizontal").VerticalAlignment("Center")
+        resRow.Add("TextBlock").Text(GetLang("结果：")).VerticalAlignment("Center")
+        st := resRow.Add("ComboBox").Name("SaveTypeCon").Width(90).Height(26).MinHeight(26).Margin("4,0,0,0")
+        st.Add("ComboBoxItem").Content(GetLang("变量"))
+        st.Add("ComboBoxItem").Content(GetLang("数组"))
+        resRow.Add("ComboBox").Name("SaveNameCon").Width(130).Height(26).MinHeight(26).Margin("10,0,0,0").IsEditable("True")
+
+        ; 行5：确定
+        btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="600" Height="290" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
+        this.ui.OnEvent("ArgsTypeCon", "SelectionChanged", ObjBindMethod(this, "OnRefreshDataType"))
+        this.ui.OnEvent("SaveTypeCon", "SelectionChanged", ObjBindMethod(this, "OnRefreshDataType"))
+        this.ui.OnEvent("BtnIndexHelp", "Click", ObjBindMethod(this, "OnClickIndexHelpBtn"))
+        this.ui.OnEvent("BtnInitHelp", "Click", ObjBindMethod(this, "OnClickInitHelpBtn"))
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                if (this.OwnerHwnd != "")
+                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
+        } finally {
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    _SetCombo(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        this._ComboPush(comboName, "Text", text)
+    }
+
+    _SetDDL(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        for i, it in items {
+            if (it == text) {
+                this._ComboPush(comboName, "SelectedIndex", String(i - 1))
+                return
             }
         }
-        this.Gui.Hide()
+        this._ComboPush(comboName, "SelectedIndex", "0")
     }
+
+    _Vis(name, show) {
+        if (IsObject(this.ui))
+            this.ui.Update(name, "Visibility", show ? "Visible" : "Collapsed")
+    }
+
+    _TypeText() => IsObject(this.ui) ? this.ui.Query("TypeCombo") : ""
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("数组")
-        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
         this.DLArrayArr := GetGuiArrNameArr()
 
-        this.TypeCon.Text := GetLang(this.Data.Type)
-        this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
-        SetDLConValue(this.NameCon, this.DLArrayArr, this.Data.Name)
-        SetDLConValue(this.MainIndexCon, GetGuiVarArr(2), this.Data.MainIndex)
-        this.InitArrCon.Text := GetArrayStr(this.Data.InitArr)
-
-        SetDLConValue(this.ArgsIndexCon, GetGuiVarArr(2), this.Data.ArgsIndex)
-        this.ArgsTypeCon.Text := GetLang(this.Data.ArgsType)
-        this.ArgsNameCon.Text := this.Data.ArgsName
-
-        this.SaveTypeCon.Text := GetLang(this.Data.SaveType)
-        this.SaveNameCon.Text := this.Data.SaveName
+        this._SetDDL("TypeCombo", GetLangArr(["创建", "克隆", "删除", "包含", "取值", "赋值", "插入", "追加", "移除", "移除最后", "反转", "长度"]), GetLang(this.Data.Type))
+        this.ui.Update("IsIgnoreExist", "IsChecked", this.Data.IsIgnoreExist ? "True" : "False")
+        this._SetCombo("NameCon", this.DLArrayArr, this.Data.Name)
+        this._SetCombo("MainIndexCon", GetGuiVarArr(2), this.Data.MainIndex)
+        this.ui.Update("InitArrCon", "Text", GetArrayStr(this.Data.InitArr))
+        this._SetCombo("ArgsIndexCon", GetGuiVarArr(2), this.Data.ArgsIndex)
+        this._SetDDL("ArgsTypeCon", GetLangArr(["变量或值", "数组"]), GetLang(this.Data.ArgsType))
+        this._SetCombo("ArgsNameCon", this.DLVariableArr, this.Data.ArgsName)
+        this._SetDDL("SaveTypeCon", GetLangArr(["变量", "数组"]), GetLang(this.Data.SaveType))
+        this._SetCombo("SaveNameCon", this.DLVariableArr, this.Data.SaveName)
     }
 
-    OnRefresh(*) {
-        IsCreate := this.TypeCon.Text == GetLang("创建")
-        IsClone := this.TypeCon.Text == GetLang("克隆")
-        IsDelete := this.TypeCon.Text == GetLang("删除")
-        IsContain := this.TypeCon.Text == GetLang("包含")
-        IsGet := this.TypeCon.Text == GetLang("取值")
-        IsSetValue := this.TypeCon.Text == GetLang("赋值")
-        IsInsert := this.TypeCon.Text == GetLang("插入")
-        IsAdd := this.TypeCon.Text == GetLang("追加")
-        IsRemove := this.TypeCon.Text == GetLang("移除")
-        IsRemoveLast := this.TypeCon.Text == GetLang("移除最后")
-        IsReverse := this.TypeCon.Text == GetLang("反转")
-        IsLength := this.TypeCon.Text == GetLang("长度")
+    OnRefresh(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        t := this._TypeText()
+        IsCreate := t == GetLang("创建")
+        IsClone := t == GetLang("克隆")
+        IsDelete := t == GetLang("删除")
+        IsContain := t == GetLang("包含")
+        IsGet := t == GetLang("取值")
+        IsSetValue := t == GetLang("赋值")
+        IsInsert := t == GetLang("插入")
+        IsAdd := t == GetLang("追加")
+        IsRemove := t == GetLang("移除")
+        IsRemoveLast := t == GetLang("移除最后")
+        IsReverse := t == GetLang("反转")
+        IsLength := t == GetLang("长度")
         OnlyResVar := IsLength || IsContain
         OnlyResArr := IsClone || IsReverse
         OnlyArgsIndex := IsGet || IsRemove
@@ -223,64 +287,38 @@ class ArrayGui {
         IsShowMainIndex := !IsCreate && !IsDelete
         IsShowArgs := IsGet || IsSetValue || IsInsert || IsAdd || IsRemove || IsContain
 
-        this.IsIgnoreExistCon.Visible := IsCreate
-        this.SetConArrVisible(this.MainIndexConArr, IsShowMainIndex)
-        this.SetConArrVisible(this.ResultConArr, IsShowRusult)
-        this.SetConArrVisible(this.CreateConArr, IsCreate)
-        this.OnRefreshArgs(IsShowArgs, OnlyArgsIndex, OnlyArgsData)
+        this._Vis("IsIgnoreExist", IsCreate)
+        this._Vis("MainIndexRow", IsShowMainIndex)
+        this._Vis("ResultRow", IsShowRusult)
+        this._Vis("CreateGroup", IsCreate)
+        this._Vis("ArgsGroup", IsShowArgs)
+        this._Vis("ArgsIndexRow", IsShowArgs && !OnlyArgsData)
+        this._Vis("ArgsDataRow", IsShowArgs && !OnlyArgsIndex)
 
         if (OnlyResVar || OnlyResArr) {
-            this.SaveTypeCon.Value := OnlyResVar ? 1 : 2
-            this.SaveTypeCon.Enabled := false
+            this._SetDDL("SaveTypeCon", GetLangArr(["变量", "数组"]), OnlyResVar ? GetLang("变量") : GetLang("数组"))
+            this.ui.Update("SaveTypeCon", "IsEnabled", "False")
         }
         else {
-            this.SaveTypeCon.Enabled := true
+            this.ui.Update("SaveTypeCon", "IsEnabled", "True")
         }
         this.OnRefreshDataType()
     }
 
-    SetConArrVisible(ConArr, isVisible) {
-        loop ConArr.Length {
-            ConArr[A_Index].Visible := isVisible
-        }
-    }
-
-    OnRefreshArgs(IsShow, OnlyIndex, OnlyData) {
-        this.SetConArrVisible(this.ArgsConArr, IsShow)
-        if (!IsShow)
+    OnRefreshDataType(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
             return
-        if (OnlyIndex) {
-            this.SetConArrVisible(this.ArgsIndexConArr, true)
-            this.SetConArrVisible(this.ArgsDataConArr, false)
-        }
-        else if (OnlyData) {
-            this.SetConArrVisible(this.ArgsIndexConArr, false)
-            this.SetConArrVisible(this.ArgsDataConArr, true)
-            loop this.ArgsDataConArr.Length {
-                Con := this.ArgsDataConArr[A_Index]
-                Con.Move(Con.OriPosX - 175)
-            }
-        }
-        else {
-            this.SetConArrVisible(this.ArgsIndexConArr, true)
-            this.SetConArrVisible(this.ArgsDataConArr, true)
-            loop this.ArgsDataConArr.Length {
-                Con := this.ArgsDataConArr[A_Index]
-                Con.Move(Con.OriPosX)
-            }
-        }
-    }
-
-    OnRefreshDataType(*) {
-        IsArgsVar := this.ArgsTypeCon.Text == GetLang("变量或值")
-        IsResVar := this.SaveTypeCon.Text == GetLang("变量")
+        IsArgsVar := this.ui.Query("ArgsTypeCon") == GetLang("变量或值")
+        IsResVar := this.ui.Query("SaveTypeCon") == GetLang("变量")
         ArgsArr := IsArgsVar ? this.DLVariableArr : this.DLArrayArr
         ResArr := IsResVar ? GetGuiVarArr(0) : this.DLArrayArr
-        SetDLConValue(this.ArgsNameCon, ArgsArr, this.ArgsNameCon.Text)
-        SetDLConValue(this.SaveNameCon, ResArr, this.SaveNameCon.Text)
+        curArgs := this.ui.Query("ArgsNameCon")
+        curSave := this.ui.Query("SaveNameCon")
+        this._SetCombo("ArgsNameCon", ArgsArr, curArgs)
+        this._SetCombo("SaveNameCon", ResArr, curSave)
     }
 
-    OnClickIndexHelpBtn(*) {
+    OnClickIndexHelpBtn(state := "", ctrl := "", event := "") {
         str1 := GetLang("数组支持二维，该参数可控制数组或子数组进行调度")
         str2 := GetLang("一维数组时，保持默认值0即可")
         str3 := GetLang("0. 数组本身")
@@ -288,7 +326,7 @@ class ArrayGui {
         MsgBox(Format("{}`n{}`n{}`n{}", str1, str2, str3, str4))
     }
 
-    OnClickInitHelpBtn(*) {
+    OnClickInitHelpBtn(state := "", ctrl := "", event := "") {
         str1 := GetLang("1. 逗号分割数据")
         str2 := GetLang("案例数据：1,2,文本,4")
         str3 := GetLang('数组-1→1、数组-2→2、数组-3→"文本"、数组-4→4')
@@ -301,25 +339,19 @@ class ArrayGui {
         MsgBox(Format("{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}`n{}", str1, str2, str3, str4, str5, str6, str7, str8, str9))
     }
 
-    OnClickSureBtn() {
-        valid := this.CheckIfValid()
-        if (!valid)
+    OnClickSureBtn(state, ctrl, event) {
+        if (!this.CheckIfValid())
             return
         this.SaveSubMacroData()
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
-        action(CommandStr)
-
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
-        }
-        this.Gui.Hide()
+        this._CloseWindow()
+        if (action != "")
+            action(CommandStr)
     }
 
     CheckIfValid() {
-        if (!CheckVarNameIfValid(this.SaveNameCon.Text))
+        if (!CheckVarNameIfValid(this.ui.Query("SaveNameCon")))
             return false
         return true
     }
@@ -328,7 +360,7 @@ class ArrayGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        Remark := this.RemarkCon.Value
+        Remark := this.ui.Query("RemarkCon")
         if (ShouldAutoGenerateRemark(Remark)) {
             switch this.Data.Type {
                 case "创建":
@@ -343,21 +375,15 @@ class ArrayGui {
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "取值":
                     tip1 := Format(GetLang("取值{}-{}到{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.SaveName)
-                    tip2 := Format(GetLang("取值{}-{}-{}到{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
-                    this.Data
-                    .SaveName)
+                    tip2 := Format(GetLang("取值{}-{}-{}到{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data.SaveName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "赋值":
                     tip1 := Format(GetLang("{}-{}赋值为{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
-                    tip2 := Format(GetLang("{}-{}-{}赋值为{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
-                    this.Data
-                    .ArgsName)
+                    tip2 := Format(GetLang("{}-{}-{}赋值为{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data.ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "插入":
                     tip1 := Format(GetLang("{}-{}插入数据{}"), this.Data.Name, this.Data.ArgsIndex, this.Data.ArgsName)
-                    tip2 := Format(GetLang("{}-{}-{}插入数据{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex,
-                    this.Data
-                    .ArgsName)
+                    tip2 := Format(GetLang("{}-{}-{}插入数据{}"), this.Data.Name, this.Data.MainIndex, this.Data.ArgsIndex, this.Data.ArgsName)
                     Remark := this.Data.MainIndex == 0 ? tip1 : tip2
                 case "追加":
                     tip1 := Format(GetLang("{}追加数据{}"), this.Data.Name, this.Data.ArgsName)
@@ -382,17 +408,17 @@ class ArrayGui {
     }
 
     SaveSubMacroData() {
-        ; 忽略已存在：仅 创建/克隆 生效，其余强制 false
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Visible ? this.IsIgnoreExistCon.Value : 0
-        this.Data.Type := GetLangKey(this.TypeCon.Text)
-        this.Data.Name := this.NameCon.Text
-        this.Data.InitArr := GetArray(this.InitArrCon.Text)
-        this.Data.MainIndex := GetLangKey(this.MainIndexCon.Text)
-        this.Data.ArgsIndex := GetLangKey(this.ArgsIndexCon.Text)
-        this.Data.ArgsType := GetLangKey(this.ArgsTypeCon.Text)
-        this.Data.ArgsName := GetLangKey(this.ArgsNameCon.Text)
-        this.Data.SaveType := GetLangKey(this.SaveTypeCon.Text)
-        this.Data.SaveName := GetVarName(this.SaveNameCon.Text)
+        isCreate := this._TypeText() == GetLang("创建")
+        this.Data.IsIgnoreExist := isCreate ? (this.ui.Query("IsIgnoreExist") == "True") : 0
+        this.Data.Type := GetLangKey(this._TypeText())
+        this.Data.Name := this.ui.Query("NameCon")
+        this.Data.InitArr := GetArray(this.ui.Query("InitArrCon"))
+        this.Data.MainIndex := GetLangKey(this.ui.Query("MainIndexCon"))
+        this.Data.ArgsIndex := GetLangKey(this.ui.Query("ArgsIndexCon"))
+        this.Data.ArgsType := GetLangKey(this.ui.Query("ArgsTypeCon"))
+        this.Data.ArgsName := GetLangKey(this.ui.Query("ArgsNameCon"))
+        this.Data.SaveType := GetLangKey(this.ui.Query("SaveTypeCon"))
+        this.Data.SaveName := GetVarName(this.ui.Query("SaveNameCon"))
         SetArrayDataNewArr(this.Data)
         SetArrayDataNewVar(this.Data)
         SaveMacroCMDData(this.Data)

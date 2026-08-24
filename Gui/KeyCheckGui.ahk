@@ -1,27 +1,249 @@
 #Requires AutoHotkey v2.0
 
+; =====================================================================
+; 按键检测编辑器 —— XAML 迁移版（独立实现，照 KeyGui 模式）
+; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
+; 与 KeyGui 差异：无模拟/F1；底部为检测模式/检测类型/结果变量；跳过悬停高亮
+; =====================================================================
+
 class KeyCheckGui {
     __new() {
         this.ParentTile := ""
+        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.SaveBtnAction := ""
         this.OwnerHwnd := ""
+        this._closed := true
+
+        this.SerialStr := ""
+        this.Data := ""
+        this.KeyStr := ""
 
         this.CheckedArr := []
-        this.ConMap := Map()
-        this.ConHwndMap := Map()
+        this.ConMap := Map()          ; key → 按键按钮控件名
+        this._btnKeyMap := Map()      ; 控件名 → key
+        this._keySeq := 0
 
-        this.MouseMoveAction := this.OnMouseMove.Bind(this)
-        this.HoverCon := ""
-
-        this.SelectColor := "Background19c930"
-        this.UnSelectColor := "-Background"
-        this.SelectHoverColor := "Background169727"
-        this.UnSelectHoverColor := "Backgrounddadada"
+        this.SelectColor := "#19C930"
+        this.UnSelectColor := "{DynamicResource InputBg}"
     }
 
-    OnCheckedKey(key) {
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+    }
+
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
+    ShowGui(cmd) {
+        global MySoftData
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+        }
+        this.Init(cmd)
+        this.ToggleFunc(true)
+    }
+
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        ; 实例复用：重建前清空按键映射，避免 _btnKeyMap/_keySeq 累积导致事件重复绑定
+        this.ConMap := Map()
+        this._btnKeyMap := Map()
+        this._keySeq := 0
+        title := this.ParentTile GetLang("按键检测")
+        this._title := title
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*", "34", "44")
+
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; === 按键网格（GroupBox + ScrollViewer）===
+        keyGroup := main.Add("GroupBox").Grid_Row(1).Header(GetLang("请从下面按钮中选择要检测的按键：")).Margin("8,2,8,4")
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
+            .ClipToBounds("True")
+        sv := keyGroup.Add("ScrollViewer").VerticalScrollBarVisibility("Auto").HorizontalScrollBarVisibility("Disabled").ClipToBounds("True")
+        this._keyGrid := sv.Add("Canvas").Width("1240").Height("410")
+
+        ; === 底部参数行 ===
+        bottom := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").Margin("10,2").VerticalAlignment("Center")
+        bottom.Add("TextBlock").Text(GetLang("检测模式:")).VerticalAlignment("Center")
+        cc := bottom.Add("ComboBox").Name("CheckTypeCon").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["同时按下", "有一个按下"])
+            cc.Add("ComboBoxItem").Content(t)
+        bottom.Add("TextBlock").Text(GetLang("检测类型:")).VerticalAlignment("Center").Margin("20,0,0,0")
+        st := bottom.Add("ComboBox").Name("StateTypeCon").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0")
+        for t in GetLangArr(["物理状态", "逻辑状态"])
+            st.Add("ComboBoxItem").Content(t)
+        bottom.Add("TextBlock").Text(GetLang("结果变量：")).VerticalAlignment("Center").Margin("20,0,0,0")
+        bottom.Add("ComboBox").Name("VarNameCon").Width(130).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+
+        ; === 底部按钮行 ===
+        btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnClear").Content(GetLang("清空")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
+
+        ; === 生成按键网格 ===
+        this._BuildKeyGrid()
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="1280" Height="555" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+
+        ; === 注册按键事件 ===
+        this._RegisterKeyEvents()
+
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearCheckedArr())
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                if (this.OwnerHwnd != "")
+                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    ; ---------------- 按键网格（Canvas 绝对定位，复刻 KeyGui 键盘+鼠标+手柄布局）----------------
+
+    _PlaceLabel(text, x, y) {
+        this._keyGrid.Add("TextBlock").Text(text).FontWeight("SemiBold").FontSize(12)
+            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+    }
+
+    _PlaceKey(value, display, x, y, width) {
+        this._keySeq += 1
+        name := "KeyBtn_" this._keySeq
+        btn := this._keyGrid.Add("Button").Name(name).Width(width).Height(25)
+            .SetProp("Canvas.Left", String(x)).SetProp("Canvas.Top", String(y))
+            .Content(display).FontSize(11).Cursor("Hand").Padding("2,0")
+            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource TextMain}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        this.ConMap.Set(value, name)
+        this._btnKeyMap.Set(name, value)
+    }
+
+    _AddKeyRow(keys, y) {
+        for item in keys {
+            this._PlaceKey(item[1], item[2], item[3], y, item[4])
+        }
+    }
+
+    _BuildKeyGrid() {
+        global MySoftData
+        this._PlaceLabel(GetLang("键盘"), 20, 0)
+        this._AddKeyRow([
+            ["Esc","Esc",20,40],["F1","F1",120,35],["F2","F2",170,35],["F3","F3",220,35],["F4","F4",270,35],
+            ["F5","F5",345,35],["F6","F6",395,35],["F7","F7",445,35],["F8","F8",495,35],
+            ["F9","F9",570,35],["F10","F10",620,35],["F11","F11",670,35],["F12","F12",720,35],
+            ["PrintScreen","PrtScr",795,45],["ScrollLock","Scroll",870,45],["Pause","Pause",945,45]], 20)
+        this._AddKeyRow([
+            ["``","~",20,35],["1","1",70,35],["2","2",120,35],["3","3",170,35],["4","4",220,35],
+            ["5","5",270,35],["6","6",320,35],["7","7",370,35],["8","8",420,35],["9","9",470,35],
+            ["0","0",520,35],["-","-",570,35],["=","=",620,35],["BS","Backspace",670,85],
+            ["Ins","Ins",795,45],["Home","Home",870,45],["PgUp","PgUp",945,45],
+            ["NumLock","Num",1045,35],["NumpadDiv","/",1095,35],["NumpadMult","*",1145,35],["NumpadSub","-",1195,35]], 50)
+        this._AddKeyRow([
+            ["Tab","Tab",20,60],["q","Q",100,35],["w","W",150,35],["e","E",200,35],["r","R",250,35],
+            ["t","T",300,35],["y","Y",350,35],["u","U",400,35],["i","I",450,35],["o","O",500,35],
+            ["p","P",550,35],["[","[",600,35],["]","]",650,35],["\","\",705,50],
+            ["Del","Del",795,45],["End","End",870,45],["PgDn","PgDn",945,45],
+            ["Numpad7","7",1045,35],["Numpad8","8",1095,35],["Numpad9","9",1145,35],["NumpadAdd","+",1195,35]], 80)
+        this._AddKeyRow([
+            ["CapsLock","CapsLock",20,75],["a","A",120,35],["s","S",170,35],["d","D",220,35],["f","F",270,35],
+            ["g","G",320,35],["h","H",370,35],["j","J",420,35],["k","K",470,35],["l","L",520,35],
+            [";",";",570,35],["'","'",620,35],["Enter","Enter",680,75],
+            ["Numpad4","4",1045,35],["Numpad5","5",1095,35],["Numpad6","6",1145,35]], 110)
+        this._AddKeyRow([
+            ["LShift","LShift",20,85],["z","Z",130,35],["x","X",180,35],["c","C",230,35],["v","V",280,35],
+            ["b","B",330,35],["n","N",380,35],["m","M",430,35],["逗号",",",480,35],[".",".",530,35],
+            ["/","/",580,35],["RShift","RShift",670,85],["Up","↑",870,45],
+            ["Numpad1","1",1045,35],["Numpad2","2",1095,35],["Numpad3","3",1145,35],["NumpadEnter","Enter",1195,35]], 140)
+        this._AddKeyRow([
+            ["LCtrl","LCtrl",20,60],["LWin","LWin",95,60],["LAlt","LAlt",170,60],["Space","Space",245,210],
+            ["RAlt","RAlt",470,60],["RWin","RWin",545,60],["AppsKey","AppsKey",620,60],["RCtrl","RCtrl",695,60],
+            ["Left","←",795,45],["Down","↓",870,45],["Right","→",945,45],["Numpad0","0",1045,35],["NumpadDot","Del",1145,35]], 170)
+        this._AddKeyRow([
+            ["Ctrl","Ctrl",20,60],["Shift","Shift",95,60],["Alt","Alt",170,60],
+            ["Browser_Back",GetLang("后退"),245,60],["Browser_Forward",GetLang("前进"),320,60],
+            ["Browser_Refresh",GetLang("刷新"),395,60],["Browser_Stop",GetLang("停止"),470,60],
+            ["Browser_Search",GetLang("搜索"),545,60],["Browser_Favorites",GetLang("收藏夹"),620,60],
+            ["Browser_Home",GetLang("主页"),695,60],["Volume_Mute",GetLang("静音"),770,60],
+            ["Volume_Down",GetLang("调低音量"),845,60],["Volume_Up",GetLang("增加音量"),920,60],
+            ["Bright_Down",GetLang("降低亮度"),1028,60],["Bright_Up",GetLang("提高亮度"),1103,60]], 200)
+        this._AddKeyRow([
+            ["Launch_App1",GetLang("此电脑"),20,60],["Launch_App2",GetLang("计算器"),95,60],
+            ["Media_Next",GetLang("下一首"),170,60],["Media_Prev",GetLang("上一首"),245,60],
+            ["Media_Stop",GetLang("停止"),320,60],["Media_Play_Pause",GetLang("播放/暂停"),395,80]], 230)
+
+        this._PlaceLabel(GetLang("鼠标"), 20, 260)
+        this._AddKeyRow([
+            ["LButton",GetLang("左键"),20,60],["MButton",GetLang("中键"),95,60],["RButton",GetLang("右键"),170,60],
+            ["WheelDown",GetLang("下滚轮"),245,60],["WheelUp",GetLang("上滚轮"),320,60],
+            ["WheelLeft",GetLang("滚轮左键"),395,60],["WheelRight",GetLang("滚轮右键"),470,60],
+            ["XButton1",GetLang("侧键1"),545,60],["XButton2",GetLang("侧键2"),620,60]], 280)
+
+        this._PlaceLabel(GetLang("手柄-按键"), 20, 310)
+        this._AddKeyRow([
+            ["JoyA",MySoftData.GetJoyDisplayName("JoyA"),20,60],["JoyB",MySoftData.GetJoyDisplayName("JoyB"),95,60],
+            ["JoyX",MySoftData.GetJoyDisplayName("JoyX"),170,60],["JoyY",MySoftData.GetJoyDisplayName("JoyY"),245,60],
+            ["JoyLB",MySoftData.GetJoyDisplayName("JoyLB"),320,60],["JoyRB",MySoftData.GetJoyDisplayName("JoyRB"),395,60],
+            ["JoyLT",MySoftData.GetJoyDisplayName("JoyLT"),470,60],["JoyRT",MySoftData.GetJoyDisplayName("JoyRT"),545,60],
+            ["JoyLS",MySoftData.GetJoyDisplayName("JoyLS"),620,60],["JoyRS",MySoftData.GetJoyDisplayName("JoyRS"),695,60],
+            ["JoyBack",MySoftData.GetJoyDisplayName("JoyBack"),770,60],["JoyStart",MySoftData.GetJoyDisplayName("JoyStart"),845,60],
+            ["JoyHome",MySoftData.GetJoyDisplayName("JoyHome"),920,60],["JoyPad",MySoftData.GetJoyDisplayName("JoyPad"),995,60]], 330)
+
+        this._PlaceLabel(GetLang("手柄-方向键、摇杆"), 20, 360)
+        this._AddKeyRow([
+            ["JoyDpadUp",GetLang("上"),20,60],["JoyDpadDown",GetLang("下"),95,60],
+            ["JoyDpadLeft",GetLang("左"),170,60],["JoyDpadRight",GetLang("右"),245,60],
+            ["JoyDpadNone",GetLang("无方向"),320,60],["JoyAxisLXMin","LXMin",395,60],["JoyAxisLXMax","LXMax",470,60],
+            ["JoyAxisLYMin","LYMin",545,60],["JoyAxisLYMax","LYMax",620,60],["JoyAxisRXMin","RXMin",695,60],
+            ["JoyAxisRXMax","RXMax",770,60],["JoyAxisRYMin","RYMin",845,60],["JoyAxisRYMax","RYMax",920,60]], 380)
+    }
+
+    _RegisterKeyEvents() {
+        for name, value in this._btnKeyMap
+            this.ui.OnEvent(name, "Click", ObjBindMethod(this, "OnCheckedKey").Bind(value))
+    }
+
+    ; ---------------- 选项相关 ----------------
+
+    OnCheckedKey(key, *) {
         isSelected := false
         arrayIndex := 0
         con := this.ConMap.Get(key)
@@ -35,27 +257,19 @@ class KeyCheckGui {
         }
 
         if (isSelected) {
-            con.State := 0
-            con.Opt(this.UnSelectColor)
-            con.Redraw()
+            this.ui.Update(con, "Background", this.UnSelectColor)
             this.CheckedArr.RemoveAt(arrayIndex)
         }
         else {
-            con.State := 1
-            con.Opt(this.SelectColor)
-            con.Redraw()
+            this.ui.Update(con, "Background", this.SelectColor)
             this.CheckedArr.Push(key)
         }
     }
 
     ClearCheckedArr() {
         for index, value in this.CheckedArr {
-            if (this.ConMap.Has(value)) {
-                con := this.ConMap.Get(value)
-                con.State := 0
-                con.Opt(this.UnSelectColor)
-                con.Redraw()
-            }
+            if (this.ConMap.Has(value))
+                this.ui.Update(this.ConMap[value], "Background", this.UnSelectColor)
         }
         this.CheckedArr := []
     }
@@ -69,863 +283,40 @@ class KeyCheckGui {
         return triggerKey
     }
 
-    OnSureBtnClick() {
-        valid := this.CheckIfValid()
-        if (!valid)
-            return
+    RefreshCheckCon(KeyArrStr) {
+        this.CheckedArr := GetPressKeyArr(KeyArrStr)
 
-        this.SaveKeyCheckData()
-        action := this.SureBtnAction
-        action(this.GetCommandStr())
-        this.ToggleFunc(false)
+        for key, name in this.ConMap
+            this.ui.Update(name, "Background", this.UnSelectColor)
 
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
+        for index, value in this.CheckedArr {
+            if (this.ConMap.Has(value))
+                this.ui.Update(this.ConMap[value], "Background", this.SelectColor)
         }
-        this.Gui.Hide()
+
+        this.UpdateJoyBtnDisplay()
     }
 
-    OnGuiClose() {
-        this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
+    UpdateJoyBtnDisplay() {
+        global MySoftData
+        joyBtnKeys := ["JoyA", "JoyB", "JoyX", "JoyY", "JoyLB", "JoyRB", "JoyLT", "JoyRT",
+            "JoyLS", "JoyRS", "JoyBack", "JoyStart", "JoyPad", "JoyHome"]
+        for key in joyBtnKeys {
+            if (this.ConMap.Has(key))
+                this.ui.Update(this.ConMap[key], "Content", MySoftData.GetJoyDisplayName(key))
         }
-        this.Gui.Hide()
     }
 
-    AddGui() {
-        MyGui := Gui(, this.ParentTile GetLang("按键检测"))
-        this.Gui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
+    ; ---------------- 数据 ----------------
+
+    _SetCombo(comboName, items, text) {
+        this.ui.Update(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this.ui.Update(comboName, "AddItem", it)
         }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
-
-        PosY := 10
-        PosX := 10
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 1240, 450), GetLang("请从下面按钮中选择要检测的按键："))
-        PosX := 20
-        PosY += 20
-        {
-
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("键盘"))
-            PosX := 20
-            PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 40, 25), "Esc")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Esc"))
-            this.ConMap.Set("Esc", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F1")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F1"))
-            this.ConMap.Set("F1", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F2")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F2"))
-            this.ConMap.Set("F2", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F3")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F3"))
-            this.ConMap.Set("F3", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F4")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F4"))
-            this.ConMap.Set("F4", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F5")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F5"))
-            this.ConMap.Set("F5", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F6")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F6"))
-            this.ConMap.Set("F6", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F7")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F7"))
-            this.ConMap.Set("F7", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F8")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F8"))
-            this.ConMap.Set("F8", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F9")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F9"))
-            this.ConMap.Set("F9", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F10")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F10"))
-            this.ConMap.Set("F10", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F11")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F11"))
-            this.ConMap.Set("F11", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F12")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("F12"))
-            this.ConMap.Set("F12", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "PrtScr")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("PrintScreen"))
-            this.ConMap.Set("PrintScreen", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "Scroll")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("ScrollLock"))
-            this.ConMap.Set("ScrollLock", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "Pause")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Pause"))
-            this.ConMap.Set("Pause", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "~")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("``"))
-            this.ConMap.Set("``", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "1")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("1"))
-            this.ConMap.Set("1", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "2")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("2"))
-            this.ConMap.Set("2", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "3")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("3"))
-            this.ConMap.Set("3", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "4")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("4"))
-            this.ConMap.Set("4", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "5")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("5"))
-            this.ConMap.Set("5", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "6")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("6"))
-            this.ConMap.Set("6", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "7")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("7"))
-            this.ConMap.Set("7", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "8")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("8"))
-            this.ConMap.Set("8", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "9")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("9"))
-            this.ConMap.Set("9", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "0")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("0"))
-            this.ConMap.Set("0", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "-")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("-"))
-            this.ConMap.Set("-", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "=")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("="))
-            this.ConMap.Set("=", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 85, 25), "Backspace")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("BS"))
-            this.ConMap.Set("BS", con)
-
-            PosX += 125
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "Ins")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Ins"))
-            this.ConMap.Set("Ins", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "Home")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Home"))
-            this.ConMap.Set("Home", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "PgUp")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("PgUp"))
-            this.ConMap.Set("PgUp", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Num")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumLock"))
-            this.ConMap.Set("NumLock", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "/")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadDiv"))
-            this.ConMap.Set("NumpadDiv", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "*")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadMult"))
-            this.ConMap.Set("NumpadMult", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "-")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadSub"))
-            this.ConMap.Set("NumpadSub", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Tab")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Tab"))
-            this.ConMap.Set("Tab", con)
-
-            PosX += 80
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Q")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("q"))
-            this.ConMap.Set("q", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "W")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("w"))
-            this.ConMap.Set("w", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "E")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("e"))
-            this.ConMap.Set("e", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "R")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("r"))
-            this.ConMap.Set("r", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "T")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("t"))
-            this.ConMap.Set("t", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Y")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("y"))
-            this.ConMap.Set("y", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "U")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("u"))
-            this.ConMap.Set("u", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "I")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("i"))
-            this.ConMap.Set("i", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "O")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("o"))
-            this.ConMap.Set("o", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "P")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("p"))
-            this.ConMap.Set("p", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "[")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("["))
-            this.ConMap.Set("[", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "]")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("]"))
-            this.ConMap.Set("]", con)
-
-            PosX += 55
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 50, 25), "\")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("\"))
-            this.ConMap.Set("\", con)
-
-            PosX += 90
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "Del")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Del"))
-            this.ConMap.Set("Del", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "End")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("End"))
-            this.ConMap.Set("End", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "PgDn")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("PgDn"))
-            this.ConMap.Set("PgDn", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "7")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad7"))
-            this.ConMap.Set("Numpad7", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "8")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad8"))
-            this.ConMap.Set("Numpad8", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "9")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad9"))
-            this.ConMap.Set("Numpad9", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "+")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadAdd"))
-            this.ConMap.Set("NumpadAdd", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 75, 25), "CapsLock")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("CapsLock"))
-            this.ConMap.Set("CapsLock", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "A")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("a"))
-            this.ConMap.Set("a", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "S")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("s"))
-            this.ConMap.Set("s", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "D")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("d"))
-            this.ConMap.Set("d", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "F")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("f"))
-            this.ConMap.Set("f", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "G")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("g"))
-            this.ConMap.Set("g", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "H")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("h"))
-            this.ConMap.Set("h", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "J")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("j"))
-            this.ConMap.Set("j", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "K")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("k"))
-            this.ConMap.Set("k", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "L")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("l"))
-            this.ConMap.Set("l", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), ";")
-            con.OnEvent("Click", (*) => this.OnCheckedKey(";"))
-            this.ConMap.Set(";", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "'")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("'"))
-            this.ConMap.Set("'", con)
-
-            PosX += 60
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 75, 25), "Enter")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Enter"))
-            this.ConMap.Set("Enter", con)
-
-            PosX += 365
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "4")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad4"))
-            this.ConMap.Set("Numpad4", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "5")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad5"))
-            this.ConMap.Set("Numpad5", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "6")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad6"))
-            this.ConMap.Set("Numpad6", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 85, 25), "LShift")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("LShift"))
-            this.ConMap.Set("LShift", con)
-
-            PosX += 110
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Z")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("z"))
-            this.ConMap.Set("z", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "X")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("x"))
-            this.ConMap.Set("x", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "C")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("c"))
-            this.ConMap.Set("c", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "V")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("v"))
-            this.ConMap.Set("v", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "B")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("b"))
-            this.ConMap.Set("b", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "N")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("n"))
-            this.ConMap.Set("n", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "M")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("m"))
-            this.ConMap.Set("m", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), ",")
-            con.OnEvent("Click", (*) => this.OnCheckedKey(","))
-            this.ConMap.Set(",", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), ".")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("."))
-            this.ConMap.Set(".", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "/")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("/"))
-            this.ConMap.Set("/", con)
-
-            PosX += 90
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 85, 25), "RShift")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("RShift"))
-            this.ConMap.Set("RShift", con)
-
-            PosX += 200
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "↑")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Up"))
-            this.ConMap.Set("Up", con)
-
-            PosX += 175
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "1")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad1"))
-            this.ConMap.Set("Numpad1", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "2")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad2"))
-            this.ConMap.Set("Numpad2", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "3")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad3"))
-            this.ConMap.Set("Numpad3", con)
-
-            PosX += 50
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Enter")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadEnter"))
-            this.ConMap.Set("NumpadEnter", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LCtrl")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("LCtrl"))
-            this.ConMap.Set("LCtrl", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LWin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("LWin"))
-            this.ConMap.Set("LWin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LAlt")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("LAlt"))
-            this.ConMap.Set("LAlt", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 210, 25), "Space")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Space"))
-            this.ConMap.Set("Space", con)
-
-            PosX += 225
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RAlt")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("RAlt"))
-            this.ConMap.Set("RAlt", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RWin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("RWin"))
-            this.ConMap.Set("RWin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "AppsKey")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("AppsKey"))
-            this.ConMap.Set("AppsKey", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RCtrl")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("RCtrl"))
-            this.ConMap.Set("RCtrl", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "←")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Left"))
-            this.ConMap.Set("Left", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "↓")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Down"))
-            this.ConMap.Set("Down", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 45, 25), "→")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Right"))
-            this.ConMap.Set("Right", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "0")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Numpad0"))
-            this.ConMap.Set("Numpad0", con)
-
-            PosX += 100
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 35, 25), "Del")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("NumpadDot"))
-            this.ConMap.Set("NumpadDot", con)
-
-            PosY += 30
-            PosX := 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Ctrl")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Ctrl"))
-            this.ConMap.Set("Ctrl", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Shift")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Shift"))
-            this.ConMap.Set("Shift", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "Alt")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Alt"))
-            this.ConMap.Set("Alt", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("后退"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Back"))
-            this.ConMap.Set("Browser_Back", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("前进"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Forward"))
-            this.ConMap.Set("Browser_Forward", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("刷新"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Refresh"))
-            this.ConMap.Set("Browser_Refresh", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("停止"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Stop"))
-            this.ConMap.Set("Browser_Stop", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("搜索"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Search"))
-            this.ConMap.Set("Browser_Search", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("收藏夹"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Favorites"))
-            this.ConMap.Set("Browser_Favorites", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("主页"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Browser_Home"))
-            this.ConMap.Set("Browser_Home", con)
-
-            PosX += 92
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("静音"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Volume_Mute"))
-            this.ConMap.Set("Volume_Mute", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("调低音量"
-            ))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Volume_Down"))
-            this.ConMap.Set("Volume_Down", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("增加音量"
-            ))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Volume_Up"))
-            this.ConMap.Set("Volume_Up", con)
-
-            PosX := 20
-            PosY += 30
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("此电脑"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Launch_App1"))
-            this.ConMap.Set("Launch_App1", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("计算器"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Launch_App2"))
-            this.ConMap.Set("Launch_App2", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("下一首"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Media_Next"))
-            this.ConMap.Set("Media_Next", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("上一首"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Media_Prev"))
-            this.ConMap.Set("Media_Prev", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("停止"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Media_Stop"))
-            this.ConMap.Set("Media_Stop", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 80, 25), GetLang(
-                "播放/暂停"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("Media_Play_Pause"))
-            this.ConMap.Set("Media_Play_Pause", con)
-
-            PosY += 30
-            PosX := 20
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("鼠标"))
-
-            PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("左键"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("LButton"))
-            this.ConMap.Set("LButton", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("中键"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("MButton"))
-            this.ConMap.Set("MButton", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("右键"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("RButton"))
-            this.ConMap.Set("RButton", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("下滚轮"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("WheelDown"))
-            this.ConMap.Set("WheelDown", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("上滚轮"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("WheelUp"))
-            this.ConMap.Set("WheelUp", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("滚轮左键"
-            ))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("WheelLeft"))
-            this.ConMap.Set("WheelLeft", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("滚轮右键"
-            ))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("WheelRight"))
-            this.ConMap.Set("WheelRight", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("侧键1"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("XButton1"))
-            this.ConMap.Set("XButton1", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("侧键2"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("XButton2"))
-            this.ConMap.Set("XButton2", con)
-
-            PosY += 30
-            PosX := 20
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄-按键"))
-            PosY += 20
-            joyBtnKeys := MySoftData.JoyBtnKeys
-            loop joyBtnKeys.Length {
-                key := joyBtnKeys[A_Index]
-                if (A_Index > 1)
-                    PosX += 75
-                con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), MySoftData.GetJoyDisplayName(key, MainSoftData.TriggerJoyType))
-                con.OnEvent("Click", ((k) => (*) => this.OnCheckedKey(k))(key))
-                this.ConMap.Set(key, con)
-            }
-
-            PosY += 30
-            PosX := 20
-            MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 25), GetLang("手柄-方向键、摇杆"))
-            PosY += 20
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("上"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyDpadUp"))
-            this.ConMap.Set("JoyDpadUp", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("下"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyDpadDown"))
-            this.ConMap.Set("JoyDpadDown", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("左"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyDpadLeft"))
-            this.ConMap.Set("JoyDpadLeft", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), GetLang("右"))
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyDpadRight"))
-            this.ConMap.Set("JoyDpadRight", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LXMin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisLXMin"))
-            this.ConMap.Set("JoyAxisLXMin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LXMax")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisLXMax"))
-            this.ConMap.Set("JoyAxisLXMax", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LYMin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisLYMin"))
-            this.ConMap.Set("JoyAxisLYMin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "LYMax")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisLYMax"))
-            this.ConMap.Set("JoyAxisLYMax", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RXMin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisRXMin"))
-            this.ConMap.Set("JoyAxisRXMin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RXMax")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisRXMax"))
-            this.ConMap.Set("JoyAxisRXMax", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RYMin")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisRYMin"))
-            this.ConMap.Set("JoyAxisRYMin", con)
-
-            PosX += 75
-            con := MyGui.Add("Text", Format("x{} y{} w{} h{} Border Center +0x200", PosX, PosY, 60, 25), "RYMax")
-            con.OnEvent("Click", (*) => this.OnCheckedKey("JoyAxisRYMax"))
-            this.ConMap.Set("JoyAxisRYMax", con)
-        }
-
-        PosY += 60
-        PosX := 200
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("检测模式:"))
-        PosX += 80
-        this.CheckTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h{}", PosX, PosY - 3, 120, 100), GetLangArr([
-            "同时按下",
-            "有一个按下"]))
-        this.CheckTypeCon.Value := 1
-
-        PosX += 200
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("检测类型:"))
-        PosX += 80
-        this.StateTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} h{}", PosX, PosY - 3, 120, 100), GetLangArr([
-            "物理状态",
-            "逻辑状态"]))
-        this.StateTypeCon.Value := 1
-
-        PosX += 240
-        Con := MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("结果变量："))
-
-        PosX += 80
-        this.VarNameCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R8", PosX, PosY - 5, 130), [])
-
-        PosY += 50
-        PosX := 300
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("清空"))
-        btnCon.OnEvent("Click", (*) => this.ClearCheckedArr())
-
-        PosX += 450
-        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
-        btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
-        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(1280, 580)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 1280, 580))
-    }
-
-    ShowGui(cmd) {
-        if (this.Gui != "") {
-            if (this.OwnerHwnd != "") {
-                this.Gui.Opt("+Owner" this.OwnerHwnd)
-            }
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-            for key, value in this.ConMap {
-                this.ConHwndMap.Set(value.Hwnd, value)
-            }
-        }
-
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
-        }
-
-        this.Init(cmd)
-        this.ToggleFunc(true)
+        this.ui.Update(comboName, "Text", text)
     }
 
     Init(cmd) {
@@ -941,54 +332,12 @@ class KeyCheckGui {
         }
         if (cmdArr.Length >= 2)
             this.KeyStr := cmdArr[2]
-        this.CheckTypeCon.Value := this.Data.CheckType ? this.Data.CheckType : 1
-        this.StateTypeCon.Value := this.Data.StateType ? this.Data.StateType : 1
-        this.VarNameCon.Delete()
-        this.VarNameCon.Add(this.DLVariableArr)
-        this.VarNameCon.Text := this.Data.VarName != "" ? this.Data.VarName : "Var1"
+
+        this.ui.Update("CheckTypeCon", "SelectedIndex", String((this.Data.CheckType ? this.Data.CheckType : 1) - 1))
+        this.ui.Update("StateTypeCon", "SelectedIndex", String((this.Data.StateType ? this.Data.StateType : 1) - 1))
+        this._SetCombo("VarNameCon", this.DLVariableArr, this.Data.VarName != "" ? this.Data.VarName : "Var1")
 
         this.RefreshCheckCon(this.KeyStr)
-    }
-
-    RefreshCheckCon(KeyArrStr) {
-        this.CheckedArr := GetPressKeyArr(KeyArrStr)
-
-        for key, value in this.ConMap {
-            value.State := 0
-            value.Opt(this.UnSelectColor)
-            value.Redraw()
-        }
-
-        for index, value in this.CheckedArr {
-            if (this.ConMap.Has(value)) {
-                con := this.ConMap.Get(value)
-                con.State := 1
-                con.Opt(this.SelectColor)
-                con.Redraw()
-            }
-        }
-
-        this.UpdateJoyBtnDisplay()
-    }
-
-    UpdateJoyBtnDisplay() {
-        joyType := MainSoftData.TriggerJoyType
-        for key in MySoftData.JoyBtnKeys {
-            if (this.ConMap.Has(key)) {
-                con := this.ConMap[key]
-                con.Value := MySoftData.GetJoyDisplayName(key, joyType)
-            }
-        }
-    }
-
-    ToggleFunc(state) {
-        WM_MOUSEMOVE := 0x200
-        if (state) {
-            OnMessage(WM_MOUSEMOVE, this.MouseMoveAction)
-        }
-        else {
-            OnMessage(WM_MOUSEMOVE, this.MouseMoveAction, 0)
-        }
     }
 
     CheckIfValid() {
@@ -998,7 +347,7 @@ class KeyCheckGui {
             return false
         }
 
-        varName := Trim(this.VarNameCon.Text)
+        varName := Trim(this.ui.Query("VarNameCon"))
         if (varName == "") {
             MsgBox(GetLang("请输入变量名！"))
             return false
@@ -1017,29 +366,61 @@ class KeyCheckGui {
     SaveKeyCheckData() {
         data := this.Data
         data.KeyArr := this.CheckedArr.Clone()
-        data.CheckType := this.CheckTypeCon.Value
-        data.StateType := this.StateTypeCon.Value
-        data.VarName := GetVarName(this.VarNameCon.Text)
+        data.CheckType := IsObject(this.ui) ? (Integer(this.ui.Query("CheckTypeCon>SelectedIndex")) + 1) : 1
+        data.StateType := IsObject(this.ui) ? (Integer(this.ui.Query("StateTypeCon>SelectedIndex")) + 1) : 1
+        data.VarName := GetVarName(this.ui.Query("VarNameCon"))
         MySoftData.GlobalVariMap[data.VarName] := true
 
         SaveMacroCMDData(data)
     }
 
-    OnMouseMove(wParam, lParam, msg, hwnd) {
-        IsLeven := this.HoverCon != "" && !this.ConHwndMap.Has(hwnd)
-        IsUpdate := this.ConHwndMap.Has(hwnd) && this.ConHwndMap.Get(hwnd) != this.HoverCon
-        if ((IsLeven || IsUpdate) && this.HoverCon != "") {
-            ColorStr := this.HoverCon.State ? this.SelectColor : this.UnSelectColor
-            this.HoverCon.Opt(ColorStr)
-            this.HoverCon.Redraw()
-            this.HoverCon := IsLeven ? "" : this.ConHwndMap.Get(hwnd)
-        }
+    OnSureBtnClick(state, ctrl, event) {
+        valid := this.CheckIfValid()
+        if (!valid)
+            return
 
-        if (IsUpdate) {
-            this.HoverCon := this.ConHwndMap.Get(hwnd)
-            ColorStr := this.HoverCon.State ? this.SelectHoverColor : this.UnSelectHoverColor
-            this.HoverCon.Opt(ColorStr)
-            this.HoverCon.Redraw()
+        this.SaveKeyCheckData()
+        action := this.SureBtnAction
+        action(this.GetCommandStr())
+        this.OnGuiClose()
+    }
+
+    ToggleFunc(state) {
+        ; 无 F1 热键；悬停高亮已跳过（桥接无通用 MouseEnter/MouseLeave）
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
         }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnGuiClose() {
+        this._CloseWindow()
     }
 }

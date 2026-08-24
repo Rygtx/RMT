@@ -10,15 +10,12 @@ GetSerialStr(CmdStr) {
 SetCMDSerialData(CMD) {
     paramArr := StrSplit(CMD, "_")
     paramArr[1] := GetCmdStr(paramArr[1])
-    IsMouseMove := StrCompare(paramArr[1], "移动", false) == 0
-    IsPressKey := StrCompare(paramArr[1], "按键", false) == 0
-    IsInterval := StrCompare(paramArr[1], "间隔", false) == 0
-    IsRMT := StrCompare(paramArr[1], "RMT指令", false) == 0
-    if (IsMouseMove || IsPressKey || IsInterval || IsRMT)
-        return
-
+    ; 阶段5：纯文本指令（间隔/按键/移动/RMT指令）已迁移到配置文件模式，
+    ; 与其它指令一样登记序列码（旧配置无序列号则跳过，避免 Integer("") 报错）
     textOnly := RegExReplace(paramArr[1], "\d+")
     numbersOnly := RegExReplace(paramArr[1], "\D+")
+    if (numbersOnly == "")          ; 旧纯文本格式（如 间隔_500）无序列号，跳过
+        return
     if (!SerialMap.Has(textOnly)) {
         SerialMap.Set(textOnly, SerialData(textOnly))
     }

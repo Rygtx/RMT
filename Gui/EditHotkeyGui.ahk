@@ -1,59 +1,137 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
+
+; =====================================================================
+; 快捷方式编辑 —— XAML 迁移版（独立实现）
+; 公开接口保持：ShowGui(ShowCon, KeyCon, OnlyTriggerKey) / AfterSureAction
+; =====================================================================
 
 class EditHotkeyGui {
     __new() {
+        this.ui := ""
         this.Gui := ""
+        this._closed := true
+        this._batch := []
+        this._batching := false
         this.ShowCon := ""
         this.KeyCon := ""
         this.OnlyTriggerKey := false
-        this.TriggerStrBtnCon := ""
-        this.AfterSureAction := ""  ; 确认选择后回调 (可选)
+        this.AfterSureAction := ""
     }
 
     ShowGui(ShowCon, KeyCon, OnlyTriggerKey) {
-        if (this.Gui != "") {
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
         this.ShowCon := ShowCon
         this.KeyCon := KeyCon
         this.OnlyTriggerKey := OnlyTriggerKey
-        this.TriggerStrBtnCon.Enabled := !this.OnlyTriggerKey
+        if (IsObject(this.ui))
+            this.ui.Update("BtnStr", "IsEnabled", !this.OnlyTriggerKey ? "True" : "False")
     }
 
-    AddGui() {
-        MyGui := Gui(, GetLang("快捷方式编辑"))
-        this.Gui := MyGui
-        MyGui.SetFont("S12 W550 Q2", MainSoftData.FontType)
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+    }
 
-        PosX := 75
-        PosY := 30
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), GetLang("快捷键"))
-        con.OnEvent("Click", (*) => this.OnEditHotKey(MyTriggerKeyGui))
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
 
-        PosX += 150
-        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 50), GetLang("字串"))
-        con.OnEvent("Click", (*) => this.OnEditHotKeyStr(MyTriggerStrGui))
-        this.TriggerStrBtnCon := con
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        title := GetLang("快捷方式编辑")
+        this._title := title
+        titleHeight := "30"
 
-        pos := GetCenterPosOnActiveMonitor(420, 120)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 420, 120))
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*")
+
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; === 内容 ===
+        btnRow := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnKey").Content(GetLang("快捷键")).Width(100).Height(50).MinHeight(50).Margin("0,0,30,0")
+        btnRow.Add("Button").Name("BtnStr").Content(GetLang("字串")).Width(100).Height(50).MinHeight(50)
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", 0)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="420" Height="120" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnKey", "Click", (*) => this.OnEditHotKey(MyTriggerKeyGui))
+        this.ui.OnEvent("BtnStr", "Click", (*) => this.OnEditHotKeyStr(MyTriggerStrGui))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
+        } finally {
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        this.ui := ""
+        this._closed := true
     }
 
     OnEditHotKey(gui) {
         triggerKey := this.KeyCon.Value
         gui.SureBtnAction := this.OnHotKeySureBtn.Bind(this)
         gui.ShowGui(triggerKey, 0, true)
-        this.Gui.Hide()
+        this._CloseWindow()
     }
 
     OnEditHotKeyStr(gui) {
         triggerStr := this.KeyCon.Value
         gui.SureBtnAction := this.OnHotStrSureBtn.Bind(this)
         gui.ShowGui(triggerStr, 0, true)
-        this.Gui.Hide()
+        this._CloseWindow()
     }
 
     OnHotKeySureBtn(sureTriggerStr, holdTime, *) {

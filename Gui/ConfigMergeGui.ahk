@@ -240,10 +240,8 @@ class ConfigMergeGui {
         this._applyingUI := true
         try {
             this.ui.Update("LocalConfigDDL", "ClearItems", "")
-            ns := 'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'
             for name in this._localSettings {
-                this.ui.Update("LocalConfigDDL", "AddXamlItem",
-                    '<ComboBoxItem ' ns ' Content="' this._XmlEsc(name) '"/>')
+                this.ui.Update("LocalConfigDDL", "AddItem", name)
             }
         } finally {
             this._applyingUI := false

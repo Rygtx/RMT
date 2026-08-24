@@ -20,8 +20,17 @@ SetGlobalData(macroStr, visitMap) {
         baseCmd := RTrim(cmdName, "0123456789")
         
         if (baseCmd == "按键") {
-            if (!MySoftData.HasJoyMacro && paramArr.Length >= 3)
-                MySoftData.HasJoyMacro := InStr(paramArr[2], "Joy")
+            ; 阶段5：新格式 按键<serial> 从 Data 读 KeyName；旧格式从参数读
+            if (!MySoftData.HasJoyMacro) {
+                SplitSerialTextAndNumbers(cmdName, &tOnly, &nOnly)
+                keyName := ""
+                if (nOnly != "") {
+                    try keyName := GetMacroCMDData(cmdName).KeyName
+                } else if (paramArr.Length >= 3) {
+                    keyName := paramArr[2]
+                }
+                MySoftData.HasJoyMacro := InStr(keyName, "Joy")
+            }
             continue
         }
             

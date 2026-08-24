@@ -1,118 +1,345 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
+
+; =====================================================================
+; 间隔编辑器 —— XAML 迁移版（独立实现）
+; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
+; =====================================================================
 
 class IntervalGui {
     __new() {
         this.ParentTile := ""
+        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
+        this._closed := true
+        this._batch := []
+        this._batching := false
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
-            if (this.OwnerHwnd != "") {
-                this.Gui.Opt("+Owner" this.OwnerHwnd)
-            }
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
-
+        global MySoftData
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
-        this.Init(cmd)
+        this._batching := true
+        try this.Init(cmd)
+        finally {
+            this._flushBatch()
+        }
+    }
+
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
+    }
+
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
+    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
+    _ComboPush(comboName, propertyName, value) {
+        if (this._batching)
+            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
+        else
+            this.ui.Update(comboName, propertyName, value)
+    }
+
+    _flushBatch() {
+        this._batching := false
+        if (IsObject(this.ui) && this._batch.Length > 0) {
+            this.ui.BatchUpdate(this._batch)
+            this._batch := []
+        }
+    }
+
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        title := this.ParentTile GetLang("间隔编辑器")
+        this._title := title
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*")
+
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; === 内容：TabControl（常规 / 错误处理）===
+        tc := main.Add("TabControl").Grid_Row(1).Margin("12,10,12,8").Name("MainTab")
+
+        ; ---- Tab1 常规 ----
+        ti1 := tc.Add("TabItem").Header(GetLang("常规"))
+        body := ti1.Add("Grid").Margin("16,14,16,14")
+        body.Rows("34", "34", "34", "34", "*")
+        ; 备注（阶段5）：放选项卡第一个位置
+        row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        row0.Add("TextBlock").Text(GetLang("备注：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        row1 := body.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
+        row1.Add("TextBlock").Text(GetLang("类型：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        combo := row1.Add("ComboBox").Name("TypeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        combo.Add("ComboBoxItem").Content(GetLang("固定")).Tag("1")
+        combo.Add("ComboBoxItem").Content(GetLang("随机")).Tag("2")
+
+        row2 := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        row2.Add("TextBlock").Text(GetLang("时间(毫秒)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        row2.Add("ComboBox").Name("TimeVarCon1").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        row3 := body.Add("StackPanel").Name("TimeRow2").Grid_Row(3).Orientation("Horizontal").VerticalAlignment("Center")
+        row3.Add("TextBlock").Text(GetLang("时间(毫秒)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        row3.Add("ComboBox").Name("TimeVarCon2").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        btnRow := body.Add("StackPanel").Grid_Row(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+
+        ; ---- Tab2 错误处理 ----
+        ti2 := tc.Add("TabItem").Header(GetLang("错误处理"))
+        body2 := ti2.Add("Grid").Margin("16,14,16,14")
+        body2.Rows("34", "34", "34", "*")
+        ehRow1 := body2.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow1.Add("TextBlock").Text(GetLang("错误处理：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehCombo := ehRow1.Add("ComboBox").Name("EHModeCombo").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0").SelectedIndex("0")
+            .VerticalContentAlignment("Center").FontSize("11").Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("停止运行")).Tag("stop")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("忽略错误并继续")).Tag("ignore")
+        ehCombo.Add("ComboBoxItem").Content(GetLang("重试")).Tag("retry")
+
+        ehRow2 := body2.Add("StackPanel").Name("EHRetryRow").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow2.Add("TextBlock").Text(GetLang("重试次数：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow2.Add("TextBox").Name("EHRetryCount").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehRow3 := body2.Add("StackPanel").Name("EHIntervalRow").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        ehRow3.Add("TextBlock").Text(GetLang("重试间隔(ms)：")).Width(92).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
+        ehRow3.Add("TextBox").Name("EHRetryInterval").Width(60).Height(26).MinHeight(26).Margin("4,0,0,0")
+            .VerticalContentAlignment("Center").TextAlignment("Center").FontSize("11").Padding("4,0")
+            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
+            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
+
+        ehBtnRow := body2.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        ehBtnRow.Add("Button").Name("BtnOk2").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="340" Height="330" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChange"))
+        this.ui.OnEvent("EHModeCombo", "SelectionChanged", ObjBindMethod(this, "OnEHModeChange"))
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+        this.ui.OnEvent("BtnOk2", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                if (this.OwnerHwnd != "")
+                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
+        } finally {
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    ; 设置可编辑 ComboBox 候选项 + 当前文本
+    _SetCombo(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        this._ComboPush(comboName, "Text", text)
+    }
+
+    _TypeValue() {
+        v := IsObject(this.ui) ? this.ui.Query("TypeCombo") : ""
+        return IsNumber(v) ? Integer(v) : 1
     }
 
     Init(cmd) {
+        ; 阶段5：指令改为配置文件模式（间隔<serial> → Ini JSON）。
+        ; 兼容旧格式 间隔_500（无序列号）：解析参数填充，点确定保存时才生成序列码
+        ; 兼容历史 |EH: 后缀（如有）：剥离后作为错误处理初值
+        eh := RMTParseErrHandle(cmd)
+        cmd := eh.cmd
+        this._ehCfg := eh.cfg
+
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         DLVarArr := GetGuiVarArr()
-        if (cmdArr.Length <= 1) {
-            this.TypeCon.Value := 1
-            SetDLConValue(this.TimeVarCon1, DLVarArr, "500")
-            SetDLConValue(this.TimeVarCon2, DLVarArr, "1000")
-        }
-        else {
+        ; 备注：指令串第二段（间隔<serial>_备注 或 旧 间隔_时间 均取第二段）
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+
+        this.Data := IntervalData()
+        SplitSerialTextAndNumbers(cmdArr.Length >= 1 ? cmdArr[1] : "", &textOnly, &numbersOnly)
+        if (numbersOnly != "") {
+            ; 新格式：间隔<serial> → 读配置文件
+            this.Data := GetMacroCMDData(cmdArr[1])
+            this._InitFromData()
+        } else if (cmdArr.Length <= 1) {
+            this.ui.Update("TypeCombo", "SelectedIndex", "0")
+            this._SetCombo("TimeVarCon1", DLVarArr, "500")
+            this._SetCombo("TimeVarCon2", DLVarArr, "1000")
+        } else {
+            ; 旧格式：间隔_500 或 间隔_100~200
             TimeArr := StrSplit(cmdArr[2], "~")
             if (TimeArr.Length <= 1) {
-                this.TypeCon.Value := 1
-                SetDLConValue(this.TimeVarCon1, DLVarArr, cmdArr[2])
-                SetDLConValue(this.TimeVarCon2, DLVarArr, "1000")
-            }
-            else {
-                this.TypeCon.Value := 2
-                SetDLConValue(this.TimeVarCon1, DLVarArr, TimeArr[1])
-                SetDLConValue(this.TimeVarCon2, DLVarArr, TimeArr[2])
+                this.ui.Update("TypeCombo", "SelectedIndex", "0")
+                this._SetCombo("TimeVarCon1", DLVarArr, cmdArr[2])
+                this._SetCombo("TimeVarCon2", DLVarArr, "1000")
+            } else {
+                this.ui.Update("TypeCombo", "SelectedIndex", "1")
+                this._SetCombo("TimeVarCon1", DLVarArr, TimeArr[1])
+                this._SetCombo("TimeVarCon2", DLVarArr, TimeArr[2])
             }
         }
         this.OnTypeChange()
+        this._InitEH()
     }
 
-    AddGui() {
-        MyGui := Gui(, this.ParentTile GetLang("间隔编辑器"))
-        this.Gui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
-        }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
-
-        PosX := 35
-        PosY := 10
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), GetLang("类型："))
-        PosX += 90
-        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 150), GetLangArr(["固定",
-            "随机"]))
-        this.TypeCon.OnEvent("Change", this.OnTypeChange.Bind(this))
-
-        PosX := 35
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), GetLang("时间(毫秒)："))
-        PosX += 90
-        this.TimeVarCon1 := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 150), [])
-
-        PosX := 35
-        PosY += 35
-        this.TimeVarArrCon2 := []
-        con := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 90, 20), GetLang("时间(毫秒)："))
-        this.TimeVarArrCon2.Push(con)
-        PosX += 90
-        this.TimeVarCon2 := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 150), [])
-        this.TimeVarArrCon2.Push(this.TimeVarCon2)
-
-        PosY += 40
-        PosX := 110
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
-        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-
-        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(320, 170)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 320, 170))
+    ; 从 Data 回填 UI（新格式读取）
+    _InitFromData() {
+        DLVarArr := GetGuiVarArr()
+        this.ui.Update("TypeCombo", "SelectedIndex", this.Data.Type == 2 ? "1" : "0")
+        this._SetCombo("TimeVarCon1", DLVarArr, this.Data.Time1)
+        this._SetCombo("TimeVarCon2", DLVarArr, this.Data.Time2)
     }
 
-    OnGuiClose() {
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+    ; 初始化错误处理页（阶段5：错误处理配置存 Data，随指令配置文件持久化）
+    _InitEH() {
+        mode := this.Data.HasOwnProp("ErrMode") ? this.Data.ErrMode : "stop"
+        ; 历史 |EH: 后缀优先（兼容旧数据）
+        if (IsObject(this._ehCfg))
+            mode := this._ehCfg.mode
+        idx := 0
+        for i, m in ["stop", "ignore", "retry"] {
+            if (m == mode) {
+                idx := i - 1
+                break
             }
         }
-        this.Gui.Hide()
+        this.ui.Update("EHModeCombo", "SelectedIndex", String(idx))
+        this.ui.Update("EHRetryCount", "Text", this.Data.HasOwnProp("ErrRetryCount") ? this.Data.ErrRetryCount : "3")
+        this.ui.Update("EHRetryInterval", "Text", this.Data.HasOwnProp("ErrRetryInterval") ? this.Data.ErrRetryInterval : "500")
+        this.OnEHModeChange()
     }
 
-    OnTypeChange(*) {
-        showTime2 := this.TypeCon.Value == 2
-        loop this.TimeVarArrCon2.Length {
-            this.TimeVarArrCon2[A_Index].Visible := showTime2
+    _EHMode() {
+        v := IsObject(this.ui) ? this.ui.Query("EHModeCombo>SelectedIndex") : ""
+        return IsNumber(v) ? Integer(v) : 0
+    }
+
+    OnEHModeChange(state := "", ctrl := "", event := "") {
+        showRetry := this._EHMode() == 2
+        if (IsObject(this.ui)) {
+            this.ui.Update("EHRetryRow", "Visibility", showRetry ? "Visible" : "Collapsed")
+            this.ui.Update("EHIntervalRow", "Visibility", showRetry ? "Visible" : "Collapsed")
         }
     }
 
-    OnClickSureBtn() {
+    ; 组装 Data 并保存到配置文件，返回 间隔<serial>_备注 指令字符串（阶段5）
+    GetCmdStr() {
+        this.Data.Type := this._TypeValue()
+        this.Data.Time1 := this.ui.Query("TimeVarCon1")
+        this.Data.Time2 := this.ui.Query("TimeVarCon2")
+        ; 错误处理
+        this.Data.ErrMode := ["stop", "ignore", "retry"][this._EHMode() + 1]
+        this.Data.ErrRetryCount := this.ui.Query("EHRetryCount")
+        this.Data.ErrRetryInterval := this.ui.Query("EHRetryInterval")
+
+        ; 生成序列码（首次保存分配，后续复用）
+        if (!this.Data.HasOwnProp("SerialStr") || this.Data.SerialStr == "")
+            this.Data.SerialStr := GetCMDSerialStr(GetLang("间隔"))
+        SaveMacroCMDData(this.Data)
+        ; 备注：用户备注优先，为空则自动生成操作内容
+        remark := Trim(this.ui.Query("RemarkCon"))
+        if (remark == "")
+            remark := this.Data.Type == 2
+                ? this.Data.Time1 "~" this.Data.Time2
+                : this.Data.Time1
+        return CorrectRemark(this.Data.SerialStr, remark)
+    }
+
+    OnTypeChange(state := "", ctrl := "", event := "") {
+        showTime2 := this._TypeValue() == 2
+        if (IsObject(this.ui))
+            this.ui.Update("TimeRow2", "Visibility", showTime2 ? "Visible" : "Collapsed")
+    }
+
+    OnClickSureBtn(state, ctrl, event) {
         if (this.SureBtnAction == "")
             return
 
-        timeText := this.TimeVarCon1.Text
+        timeText := this.ui.Query("TimeVarCon1")
         if (IsNumber(timeText)) {
             if (IsFloat(timeText) || timeText < 0) {
                 MsgBox(GetLang("请输入大于0的整数"))
@@ -120,8 +347,8 @@ class IntervalGui {
             }
         }
 
-        if (this.TypeCon.Value == 2) {
-            timeText := this.TimeVarCon2.Text
+        if (this._TypeValue() == 2) {
+            timeText := this.ui.Query("TimeVarCon2")
             if (IsNumber(timeText)) {
                 if (IsFloat(timeText) || timeText < 0) {
                     MsgBox(GetLang("请输入大于0的整数"))
@@ -129,8 +356,8 @@ class IntervalGui {
                 }
             }
 
-            if (IsNumber(this.TimeVarCon1.Text) && IsNumber(this.TimeVarCon2.Text)) {
-                if (this.TimeVarCon1.Text >= this.TimeVarCon2.Text) {
+            if (IsNumber(this.ui.Query("TimeVarCon1")) && IsNumber(this.ui.Query("TimeVarCon2"))) {
+                if (this.ui.Query("TimeVarCon1") >= this.ui.Query("TimeVarCon2")) {
                     MsgBox(GetLang("上面的时间需要小于下面的时间"))
                     return
                 }
@@ -139,18 +366,6 @@ class IntervalGui {
 
         action := this.SureBtnAction
         action(this.GetCmdStr())
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
-        }
-        this.Gui.Hide()
-    }
-
-    GetCmdStr() {
-        if (this.TypeCon.Value == 1) {
-            return Format("{}_{}", GetLang("间隔"), this.TimeVarCon1.Text)
-        }
-        return Format("{}_{}~{}", GetLang("间隔"), this.TimeVarCon1.Text, this.TimeVarCon2.Text)
+        this._CloseWindow()
     }
 }

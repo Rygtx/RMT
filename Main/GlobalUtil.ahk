@@ -13,6 +13,8 @@
 #Include Util\ToastUtil.ahk
 #Include RMTUtil.ahk
 #Include WorkPool.ahk
+#Include MainWindowXaml.ahk
+#Include VirtualListHost.ahk
 #Include UIUtil.ahk
 #Include TimingUtil.ahk
 #Include WindowHotkeyManager.ahk
@@ -21,6 +23,7 @@
 #Include TriggerKeyData.ahk
 #Include FolderPackager.ahk
 #Include Util\MacroClipboardUtil.ahk
+#Include Util\LogUtil.ahk
 #Include Util\ErrorHandler.ahk
 #Include Util\FixCompatUtil.ahk
 #Include ..\Plugins\ViGEm\AHK-ViGEm-Bus-v2.ahk
@@ -29,7 +32,6 @@
 #Include ..\Gui\TriggerStrGui.ahk
 #Include ..\Gui\TimingGui.ahk
 #Include ..\Gui\MacroSettingGui.ahk
-#Include ..\Gui\VerticalSlider.ahk
 #Include ..\Gui\SettingMgrGui.ahk
 #Include ..\Gui\EditHotkeyGui.ahk
 #Include ..\Gui\FreePasteGui.ahk
@@ -54,11 +56,14 @@
 #Include ..\Gui\FrontInfoGui.ahk
 #Include ..\Gui\CMDTipSettingGui.ahk
 #Include ..\Gui\CustomMsgBoxGui.ahk
+#Include ..\Gui\AgreementGui.ahk
 #Include ..\Gui\ErrorMsgBoxGui.ahk
+#Include ..\Gui\LogCenterGui.ahk
+#Include ..\Gui\LogSettingGui.ahk
 #Include ..\Gui\CustomInputGui.ahk
 #Include ..\Gui\InputBtnGui.ahk
+#Include ..\Gui\InputBtnXamlGui.ahk
 #Include ..\Gui\ConfigMergeGui.ahk
-#Include ..\Gui\ThankUIUtil.ahk
 #Include ..\Gui\TabItemUIUtil.ahk
 
 
@@ -66,6 +71,32 @@ SetWorkingDir A_ScriptDir
 DetectHiddenWindows true
 Persistent
 A_MaxHotkeysPerInterval := 400
+
+; ===== GuiFromHwnd 安全包装 =====
+; 原生子编辑器会 GuiFromHwnd(OwnerHwnd).Opt("+Disabled/-Disabled") 实现模态；
+; 当 Owner 是 XAML/WPF 窗口时 GuiFromHwnd 返回 ""，直接 .Opt() 会崩。
+; 这里兜底：WPF 窗口改用 WinSetEnabled 禁用/启用，保留模态行为。
+class SafeGuiOwnerNoop {
+    __New(hwnd) {
+        this.hwnd := hwnd
+    }
+    Opt(options) {
+        if (options == "+Disabled")
+            WinSetEnabled(0, "ahk_id " this.hwnd)
+        else if (options == "-Disabled")
+            WinSetEnabled(1, "ahk_id " this.hwnd)
+    }
+    __Get(name, args*) {
+        return ""
+    }
+    __Call(method, args*) {
+        return ""
+    }
+}
+SafeGuiFromHwnd(hwnd) {
+    g := GuiFromHwnd(hwnd)
+    return IsObject(g) ? g : SafeGuiOwnerNoop(hwnd)
+}
 
 
 OnError(ErrHandler)             ;注册全局错误处理器
@@ -96,7 +127,6 @@ global MySettingMgrGui := SettingMgrGui()
 global MyFrontInfoGui := FrontInfoGui()
 global MyCMDTipGui := CMDTipGui()
 global MyTimingGui := TimingGui()
-global MySlider := VerticalSlider()
 global MyTargetGui := TargetGui()
 global MyColorPanel := ColorPanelGui()
 global MyMsgboxGui := CustomMsgBoxGui()

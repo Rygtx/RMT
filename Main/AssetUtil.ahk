@@ -175,19 +175,19 @@ SaveClipToBitmap(filePath) {
     ; 保存位图到文件; 检查剪切板中是否有位图
     if !DllCall("IsClipboardFormatAvailable", "uint", 2)  ; 2 是 CF_BITMAP
     {
-        MsgBox(GetLang("剪切板中没有位图"))
+        RMTErrorShow(GetLang("剪切板中没有位图"), RMT_LV_WARN, "宏")
     }
 
     ; 打开剪切板
     if !DllCall("OpenClipboard", "ptr", 0) {
-        MsgBox(GetLang("无法打开剪切板"))
+        RMTErrorShow(GetLang("无法打开剪切板"), RMT_LV_WARN, "宏")
         return
     }
 
     ; 获取剪切板中的位图句柄
     hBitmap := DllCall("GetClipboardData", "uint", 2, "ptr")  ; 2 是 CF_BITMAP
     if !hBitmap {
-        MsgBox(GetLang("无法获取位图句柄"))
+        RMTErrorShow(GetLang("无法获取位图句柄"), RMT_LV_WARN, "宏")
         DllCall("CloseClipboard")
         return
     }
@@ -198,7 +198,7 @@ SaveClipToBitmap(filePath) {
     ; 创建 GDI+ 位图对象
     pBitmap := Gdip_CreateBitmapFromHBITMAP(hBitmap)
     if !pBitmap {
-        MsgBox(GetLang("无法创建 GDI+ 位图对象"))
+        RMTErrorShow(GetLang("无法创建 GDI+ 位图对象"), RMT_LV_WARN, "宏")
         return
     }
 
@@ -368,13 +368,15 @@ InitData() {
         "变量提取", ExVariableFile, "如果", CompareFile, "如果Pro", CompareProFile, "运算", OperationFile,
         "后台鼠标", BGMouseFile, "后台按键", BGKeyFile, "文本处理", TextOpsFile, "Timing", TimingFile, "数组", ArrayFile,
         "输入", InputFile, "文件读写", FileIOFile, "窗口管理", WindowManageFile, "按键检测", KeyCheckFile,
-        "注释", CommentFile, "抓图", ScreenShotFile, "图形节点", GraphNodeFile, "图形开始节点", GraphStartNodeFile)
+        "注释", CommentFile, "抓图", ScreenShotFile, "图形节点", GraphNodeFile, "图形开始节点", GraphStartNodeFile,
+        "间隔", IntervalFile, "按键", KeyDataFile, "移动", MoveDataFile, "RMT指令", RMTCMDFile)
     MySoftData.DataClassMap := Map("搜索", SearchData, "搜索Pro", SearchData, "移动Pro", MMProData,
         "输出", OutputData, "运行", RunData, "循环", LoopData, "宏操作", SubMacroData, "变量", VariableData,
         "变量提取", ExVariableData, "如果", CompareData, "如果Pro", CompareProData, "运算", OperationData,
         "后台鼠标", BGMouseData, "后台按键", BGKeyData, "文本处理", TextOpsData, "Timing", TimingData, "数组", ArrayData,
         "输入", InputData, "文件读写", FileIOData, "窗口管理", WindowManageData, "按键检测", KeyCheckData,
-        "注释", CommentData, "抓图", ScreenShotData, "图形节点", MacroGraphNode, "图形开始节点", MacroGraphStartNode)
+        "注释", CommentData, "抓图", ScreenShotData, "图形节点", MacroGraphNode, "图形开始节点", MacroGraphStartNode,
+        "间隔", IntervalData, "按键", KeyDataConfig, "移动", MoveDataConfig, "RMT指令", RMTCMDData)
 }
 
 ; 是否正在运行罗技软件（G HUB / LGS）
@@ -528,6 +530,16 @@ LoadMainSetting() {
         MainSoftData.MacroStopType := 1
     MainSoftData.SoftBGColor := IniRead(IniFile, IniSection, "SoftBGColor", "f0f0f0")
     MainSoftData.NoVariableTip := IniRead(IniFile, IniSection, "NoVariableTip", true)
+    ; 业务日志开关（统一日志 C 项阶段3）：默认关，开启后 Worker 写 Business.log 流水
+    global RMTLogBusinessEnabled
+    MainSoftData.BusinessLog := IniRead(IniFile, IniSection, "BusinessLog", false)
+    RMTLogBusinessEnabled := MainSoftData.BusinessLog
+    ; 日志与错误（C 项阶段5）
+    global RMTLogSysMinLevel
+    MainSoftData.SysLogMinLevel := IniRead(IniFile, IniSection, "SysLogMinLevel", "info")
+    RMTLogSysMinLevel := MainSoftData.SysLogMinLevel
+    MainSoftData.LogWarnBubble := IniRead(IniFile, IniSection, "LogWarnBubble", true)
+    MainSoftData.LogErrorBadge := IniRead(IniFile, IniSection, "LogErrorBadge", true)
     MySoftData.CMDTip := IniRead(IniFile, IniSection, "CMDTip", false)
     MainSoftData.CheckForeground := IniRead(IniFile, IniSection, "CheckForeground", false)
     MainSoftData.ScreenShotType := IniRead(IniFile, IniSection, "ScreenShotType", 3)
@@ -646,17 +658,10 @@ XamlUiDiag(msg, tag := "diag") {
 }
 
 ; 手柄按键输出诊断日志（排查：宏内 Joy 按键不生效）
-; 输出：主进程 A_WorkingDir\Log\JoyDebug.log；Worker 写到 A_ScriptDir\..\Log\JoyDebug.log
+; 归口统一日志（C 项）：debug 级（默认不写，设置页开启 Debug 后生效）
 JoyDebugLog(msg, tag := "joy") {
-    try {
-        isWorker := IsSet(MySoftData) && ObjHasOwnProp(MySoftData, "isWorker") && MySoftData.isWorker
-        logDir := isWorker ? (A_ScriptDir "\..\Log") : (A_WorkingDir "\Log")
-        if !DirExist(logDir)
-            DirCreate(logDir)
-        who := isWorker ? "Worker" : "Master"
-        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " +" A_TickCount " [" who "/" tag "] " msg "`n"
-            , logDir "\JoyDebug.log", "UTF-8")
-    }
+    who := (IsSet(MySoftData) && ObjHasOwnProp(MySoftData, "isWorker") && MySoftData.isWorker) ? "Worker" : "Master"
+    RMTLogSys(RMT_LV_DEBUG, who, "[" tag "] " msg)
 }
 
 ; 抓图指令诊断日志（排查：抓图后 Images\TempShot 下没有生成 Shot.png）
@@ -749,17 +754,29 @@ ApplyXamlTheme(ui, themeName, iniPath := "", useAppWinTheme := true) {
         themeData := ""
         try themeData := IniRead(iniPath, themeName)
         if (themeData != "") {
+            ; 合并为一次 BatchUpdate：theme 资源 ~30 条，逐条 Update 是 30 次同步 IPC 往返（拖慢开窗）
+            batch := []
             Loop Parse, themeData, "`n", "`r" {
                 parts := StrSplit(A_LoopField, "=", " `t", 2)
                 if (parts.Length == 2) {
                     key := Trim(parts[1])
                     val := Trim(parts[2])
-                    if (key == "Window_DWM")
-                        ui.Update("Window", "DWM", val)
+                    if (key == "Window_DWM") {
+                        ; 不透明窗口铺实色 BgColor，Mica 不可见且首帧闪紫：backdrop 置 0，保留 dark 模式
+                        if (ui.HasProp("xaml") && InStr(ui.xaml, 'AllowsTransparency="True"'))
+                            batch.Push({ControlName: "Window", PropertyName: "DWM", Value: val})
+                        else {
+                            dwmParts := StrSplit(val, ",", " `t")
+                            dwmDark := dwmParts.Length > 1 ? dwmParts[2] : "0"
+                            batch.Push({ControlName: "Window", PropertyName: "DWM", Value: "0," dwmDark})
+                        }
+                    }
                     else if (InStr(key, "Resource_") == 1)
-                        ui.Update("Resource", SubStr(key, 10), val)
+                        batch.Push({ControlName: "Resource", PropertyName: SubStr(key, 10), Value: val})
                 }
             }
+            if (batch.Length > 0 && ui.HasMethod("BatchUpdate"))
+                ui.BatchUpdate(batch)
         }
     }
     if (useAppWinTheme)
@@ -1108,8 +1125,8 @@ SaveTableItemMacro(index) {
 }
 
 GetSavedTableItemInfo(index) {
-    Saved := MainSoftData.MyGui.Submit()
-
+    ; XAML 版：数据统一从 tableItem 读取（RecycleTabItem/ReadTabValues 已同步控件值），
+    ; 原生 Gui.Submit() 回读语义已废弃（GuiAdapter.Submit 为 no-op），不再调用
     TKArrStr := ""
     HoldTimeArrStr := ""
     ModeArrStr := ""
@@ -2113,7 +2130,7 @@ ShowNoVariableTip(VarName) {
         str1 := GetLang("当前环境不存在变量") VarName
         str2 := Format(GetLang("tip1:请确保有创建变量-{}的相关指令"), VarName)
         str3 := Format(GetLang("tip2:请确保上述指令运行过"))
-        MsgBox(Format("{}`n{}`n{}", str1, str2, str3))
+        RMTErrorShow(Format("{}`n{}`n{}", str1, str2, str3), RMT_LV_WARN, "宏")
     }
 }
 

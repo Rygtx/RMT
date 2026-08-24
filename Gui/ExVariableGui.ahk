@@ -1,257 +1,260 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #Include ExVariableEditGui.ahk
+
+; =====================================================================
+; 变量提取编辑器 —— XAML 迁移版（独立实现）
+; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
+; =====================================================================
 
 class ExVariableGui {
     __new() {
         this.ParentTile := ""
+        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
-        this.RemarkCon := ""
-        this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
-
-        this.IsIgnoreExistCon := ""
-        this.ToggleConArr := []
-        this.VariableConArr := []
-        this.WinInfoArr := []
+        this._closed := true
+        this._batch := []
+        this._batching := false
         this.Data := ""
-
-        this.OCROptConArr := []
+        this.SerialStr := ""
+        this.SetAreaAction := (x1, y1, x2, y2) => this.OnSetSearchArea(x1, y1, x2, y2)
         this.MyEditGui := ExVariableEditGui()
     }
 
     ShowGui(cmd) {
-        if (this.Gui != "") {
-            if (this.OwnerHwnd != "") {
-                this.Gui.Opt("+Owner" this.OwnerHwnd)
-            }
-            this.Gui.Show()
-        }
-        else {
-            this.AddGui()
-        }
-
+        global MySoftData
+        if (IsObject(this.ui) && !this._closed)
+            this._CloseWindow()
+        this._BuildAndShow()
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-            }
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
         }
-
-        this.Init(cmd)
+        this._batching := true
+        try this.Init(cmd)
+        finally {
+            this._flushBatch()
+        }
         this.ToggleFunc(true)
         this.OnTypeChange()
     }
 
-    AddGui() {
-        MyGui := Gui(, this.ParentTile GetLang("变量提取编辑器"))
-        this.Gui := MyGui
-        if (this.OwnerHwnd != "") {
-            MyGui.Opt("+Owner" this.OwnerHwnd)
-        }
-        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
-
-        PosX := 10
-        PosY := 10
-        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80, 20), GetLang("快捷方式："))
-        PosX += 80
-        con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
-        con.Enabled := false
-
-        PosX += 90
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
-        btnCon.OnEvent("Click", (*) => this.TriggerMacro())
-
-        PosX += 90
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
-        PosX += 50
-        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
-
-        PosY += 35
-        PosX := 20
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 3, 75), GetLang("提取来源："))
-        this.ExtractTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX + 75, PosY - 2, 75), GetLangArr([
-            "屏幕", "剪切板", "窗口"]))
-        this.ExtractTypeCon.OnEvent("Change", this.OnTypeChange.Bind(this))
-        this.ExtractTypeCon.Value := 1
-
-        PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
-        this.WinInfoArr.Push(con)
-        PosX += 80
-        this.WinInfoCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 150), "")
-        this.WinInfoArr.Push(this.WinInfoCon)
-        PosX += 160
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY - 5, 50, 27), GetLang("编辑"))
-        btnCon.OnEvent("Click", this.OnClickWinEditBtn.Bind(this))
-        this.WinInfoArr.Push(btnCon)
-
-        PosX := 20
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("提取文本："))
-        this.ExtractStrCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 75, PosY - 3, 335), "")
-        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX + 420, PosY - 4, 50), "编辑")
-        con.OnEvent("Click", this.OnClickExtractBtn.Bind(this))
-
-        PosX := 20
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("提取次数:"))
-        PosX += 75
-        this.SearchCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 75))
-
-        PosX += 105
-        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("每次间隔："))
-        this.SearchIntervalCon := MyGui.Add("Edit", Format("x{} y{} w{} Center", PosX + 75, PosY - 5, 75))
-
-        PosX := 10
-        PosY += 30
-        con := MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 95), GetLang("提取选项:"))
-
-        PosX := 20
-        PosY += 25
-        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 25), "F1")
-        con.Enabled := false
-        PosX += 30
-        this.SelectToggleCon := MyGui.Add("Checkbox", Format("x{} y{} w{} h{} Left", PosX, PosY, 150, 25),
-        GetLang("左键框选搜索范围"))
-        this.SelectToggleCon.OnEvent("Click", (*) => this.OnClickSelectToggle())
-        this.OCROptConArr.Push(this.SelectToggleCon)
-
-        PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标X："))
-        this.OCROptConArr.Push(con)
-        PosX += 80
-        this.StartPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.OCROptConArr.Push(this.StartPosXCon)
-
-        PosX += 105
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("起始坐标Y："))
-        this.OCROptConArr.Push(con)
-        PosX += 80
-        this.StartPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.OCROptConArr.Push(this.StartPosYCon)
-
-        PosX := 20
-        PosY += 35
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY + 3, 75), GetLang("识别模型："))
-        this.OCROptConArr.Push(con)
-        PosX += 75
-        this.OCRTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{} Center", PosX, PosY - 2, 75), GetLangArr(["中文",
-            "英文"]))
-        this.OCRTypeCon.Value := 1
-        this.OCROptConArr.Push(this.OCRTypeCon)
-
-        PosX := 200
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标X："))
-        this.OCROptConArr.Push(con)
-        PosX += 80
-        this.EndPosXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.OCROptConArr.Push(this.EndPosXCon)
-
-        PosX += 105
-        con := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("终止坐标Y："))
-        this.OCROptConArr.Push(con)
-        PosX += 80
-        this.EndPosYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} Center", PosX, PosY - 5, 80))
-        this.OCROptConArr.Push(this.EndPosYCon)
-
-        PosX := 10
-        PosY += 40
-        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 540, 145), GetLang("结果保存选项:"))
-
-        PosX := 40
-        PosY += 20
-        this.IsIgnoreExistCon := MyGui.Add("Checkbox", Format("x{} y{} w{}", PosX, PosY, 180), GetLang("如果变量存在则不改变数值"))
-
-        PosX := 30
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("开关      变量名"))
-
-        PosX := 20
-        PosY += 20
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "1.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosX += 150
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "2.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosX += 150
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "3.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosX := 20
-        PosY += 35
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "4.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosX += 150
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "5.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosX += 150
-        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 3), "6.")
-        PosX += 20
-        con := MyGui.Add("Checkbox", Format("x{} y{} -Wrap w15", PosX, PosY + 3), "")
-        this.ToggleConArr.Push(con)
-
-        PosX += 20
-        con := MyGui.Add("ComboBox", Format("x{} y{} w{} R5 Center", PosX, PosY - 2, 100), [])
-        this.VariableConArr.Push(con)
-
-        PosY += 45
-        PosX := 210
-        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{} Center", PosX, PosY, 100, 40), GetLang("确定"))
-        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
-
-        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
-        pos := GetCenterPosOnActiveMonitor(560, 450)
-        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 560, 450))
+    Hwnd() {
+        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
     }
 
-    OnGuiClose() {
+    _EscapeXml(s) {
+        s := StrReplace(s, "&", "&amp;")
+        s := StrReplace(s, "<", "&lt;")
+        s := StrReplace(s, ">", "&gt;")
+        s := StrReplace(s, '"', "&quot;")
+        return s
+    }
+
+    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
+    _ComboPush(comboName, propertyName, value) {
+        if (this._batching)
+            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
+        else
+            this.ui.Update(comboName, propertyName, value)
+    }
+
+    _flushBatch() {
+        this._batching := false
+        if (IsObject(this.ui) && this._batch.Length > 0) {
+            this.ui.BatchUpdate(this._batch)
+            this._batch := []
+        }
+    }
+
+    _BuildAndShow() {
+        global MySoftData
+        this._closed := false
+        title := this.ParentTile GetLang("变量提取编辑器")
+        this._title := title
+        titleHeight := "30"
+
+        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
+        main.Rows(titleHeight, "*")
+
+        ; === 标题栏 ===
+        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
+        tbInner := tb.Add("Grid")
+        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
+        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
+        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
+        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+
+        ; === 内容 ===
+        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
+        body.Rows("34", "34", "34", "32", "Auto", "Auto", "*")
+
+        ; 行0：快捷方式
+        row0 := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").VerticalAlignment("Center")
+        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
+        row0.Add("TextBox").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
+        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("10,0,0,0")
+        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
+        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+
+        ; 行1：提取来源 + 窗口信息
+        row1 := body.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").VerticalAlignment("Center")
+        row1.Add("TextBlock").Text(GetLang("提取来源：")).VerticalAlignment("Center")
+        et := row1.Add("ComboBox").Name("ExtractTypeCombo").Width(70).Height(26).MinHeight(26).Margin("4,0,0,0")
+        et.Add("ComboBoxItem").Content(GetLang("屏幕")).Tag("1")
+        et.Add("ComboBoxItem").Content(GetLang("剪切板")).Tag("2")
+        et.Add("ComboBoxItem").Content(GetLang("窗口")).Tag("3")
+        winRow := row1.Add("StackPanel").Name("WinInfoRow").Orientation("Horizontal").Margin("12,0,0,0")
+        winRow.Add("TextBlock").Text(GetLang("窗口信息:")).VerticalAlignment("Center")
+        winRow.Add("TextBox").Name("WinInfoCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
+        winRow.Add("Button").Name("BtnWinEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        ; 行2：提取文本
+        row2 := body.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").VerticalAlignment("Center")
+        row2.Add("TextBlock").Text(GetLang("提取文本：")).VerticalAlignment("Center")
+        row2.Add("TextBox").Name("ExtractStrCon").Width(335).Height(24).MinHeight(24).Margin("4,0,0,0")
+        row2.Add("Button").Name("BtnExtractEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("4,0,0,0")
+
+        ; 行3：提取次数 + 每次间隔
+        row3 := body.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").VerticalAlignment("Center")
+        row3.Add("TextBlock").Text(GetLang("提取次数:")).VerticalAlignment("Center")
+        row3.Add("ComboBox").Name("SearchCountCombo").Width(70).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
+        row3.Add("TextBlock").Text(GetLang("每次间隔：")).VerticalAlignment("Center").Margin("12,0,0,0")
+        row3.Add("TextBox").Name("SearchIntervalCon").Width(70).Height(24).MinHeight(24).Margin("4,0,0,0")
+
+        ; 行4：提取选项 GroupBox
+        optGroup := body.Add("GroupBox").Grid_Row(4).Name("OptGroup").Header(GetLang("提取选项:"))
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
+        ocr := optGroup.Add("Grid").Name("OCRPanel").Margin("8,6")
+        ocr.Cols("25", "175", "80", "85", "80", "85")
+        ocr.Rows("30", "30")
+        ocr.Add("TextBlock").Grid_Row(0).Grid_Column(0).Text("F1").VerticalAlignment("Center")
+        ocr.Add("CheckBox").Grid_Row(0).Grid_Column(1).Name("SelectToggle").Content(GetLang("左键框选搜索范围")).VerticalAlignment("Center")
+        ocr.Add("TextBlock").Grid_Row(0).Grid_Column(2).Text(GetLang("起始坐标X：")).VerticalAlignment("Center")
+        ocr.Add("ComboBox").Grid_Row(0).Grid_Column(3).Name("StartPosX").Height(24).MinHeight(24).IsEditable("True")
+        ocr.Add("TextBlock").Grid_Row(0).Grid_Column(4).Text(GetLang("起始坐标Y：")).VerticalAlignment("Center")
+        ocr.Add("ComboBox").Grid_Row(0).Grid_Column(5).Name("StartPosY").Height(24).MinHeight(24).IsEditable("True")
+        ocr.Add("TextBlock").Grid_Row(1).Grid_Column(0).Grid_ColumnSpan(2).Text(GetLang("识别模型：")).VerticalAlignment("Center")
+        ocrType := ocr.Add("ComboBox").Grid_Row(1).Grid_Column(2).Name("OCRTypeCombo").Height(24).MinHeight(24)
+        ocrType.Add("ComboBoxItem").Content(GetLang("中文")).Tag("1")
+        ocrType.Add("ComboBoxItem").Content(GetLang("英文")).Tag("2")
+        ocr.Add("TextBlock").Grid_Row(1).Grid_Column(3).Text(GetLang("终止坐标X：")).VerticalAlignment("Center")
+        ocr.Add("ComboBox").Grid_Row(1).Grid_Column(4).Name("EndPosX").Height(24).MinHeight(24).IsEditable("True")
+        endY := ocr.Add("StackPanel").Grid_Row(1).Grid_Column(5).Orientation("Horizontal")
+        endY.Add("TextBlock").Text(GetLang("终止坐标Y：")).VerticalAlignment("Center")
+        endY.Add("ComboBox").Name("EndPosY").Width(85).Height(24).MinHeight(24).IsEditable("True")
+
+        ; 行5：结果保存选项 GroupBox
+        resGroup := body.Add("GroupBox").Grid_Row(5).Name("ResultGroup").Header(GetLang("结果保存选项:"))
+            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}").Margin("0,2,0,2")
+        res := resGroup.Add("Grid").Margin("8,6")
+        res.Rows("28", "26", "30", "30")
+        res.Cols("20", "140", "40", "140", "40", "140")
+        res.Add("CheckBox").Grid_Row(0).Grid_ColumnSpan(6).Name("IsIgnoreExist").Content(GetLang("如果变量存在则不改变数值")).VerticalAlignment("Center")
+        res.Add("TextBlock").Grid_Row(1).Grid_Column(1).Text(GetLang("开关      变量名")).VerticalAlignment("Center")
+        loop 6 {
+            row := (A_Index <= 3) ? 2 : 3
+            col := Mod((A_Index - 1), 3) * 2
+            res.Add("TextBlock").Grid_Row(row).Grid_Column(col).Text(A_Index ".").VerticalAlignment("Center")
+            res.Add("CheckBox").Grid_Row(row).Grid_Column(col + 1).Name("Tog" A_Index).VerticalAlignment("Center")
+            res.Add("ComboBox").Grid_Row(row).Grid_Column(col + 2).Name("Var" A_Index).Width(120).Height(24).MinHeight(24).IsEditable("True").HorizontalAlignment("Left")
+        }
+
+        ; 行6：确定
+        btnRow := body.Add("StackPanel").Grid_Row(6).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
+        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
+
+        ; === 创建 XAMLHost ===
+        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
+        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
+        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="560" Height="520" Opacity="0"')
+        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
+        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
+
+        ; === 事件 ===
+        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
+        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
+        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
+        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
+        this.ui.OnEvent("ExtractTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnTypeChange"))
+        this.ui.OnEvent("BtnWinEdit", "Click", ObjBindMethod(this, "OnClickWinEditBtn"))
+        this.ui.OnEvent("BtnExtractEdit", "Click", ObjBindMethod(this, "OnClickExtractBtn"))
+        this.ui.OnEvent("SelectToggle", "Click", ObjBindMethod(this, "OnClickSelectToggle"))
+        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
+
+        this.ui.Show()
+
+        gotHwnd := false
+        loop 40 {
+            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
+                gotHwnd := true
+                if (this.OwnerHwnd != "")
+                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
+                try WinActivate("ahk_id " this.ui.wpfHwnd)
+                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
+                break
+            }
+            Sleep(50)
+        }
+        if (!gotHwnd)
+            this._closed := true
+    }
+
+    OnWindowLoad(state, ctrl, event) {
+        try {
+            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
+            ApplyXamlTheme(this.ui, themeName)
+        } catch {
+        } finally {
+        }
+    }
+
+    OnWindowClosing(state, ctrl, event) {
         this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
         }
-        this.Gui.Hide()
+        this.ui := ""
+        this._closed := true
+    }
+
+    OnCancelClick(state, ctrl, event) {
+        this._CloseWindow()
+    }
+
+    _CloseWindow() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+        }
+        if (IsObject(this.ui)) {
+            try this.ui.Update("Window", "Close", "")
+        }
+        this.ui := ""
+        this._closed := true
+    }
+
+    _SetCombo(comboName, items, text) {
+        if (!IsObject(this.ui))
+            return
+        this._ComboPush(comboName, "ClearItems", "")
+        for it in items {
+            if (it == "")
+                continue
+            this._ComboPush(comboName, "AddItem", it)
+        }
+        this._ComboPush(comboName, "Text", text)
+    }
+
+    _TypeValue() {
+        v := IsObject(this.ui) ? this.ui.Query("ExtractTypeCombo") : ""
+        return IsNumber(v) ? Integer(v) : 1
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("变量提取")
-        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
+        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
 
@@ -263,33 +266,22 @@ class ExVariableGui {
         }
 
         loop this.Data.ToggleArr.Length {
-            this.ToggleConArr[A_Index].Value := this.Data.ToggleArr[A_Index]
-            this.VariableConArr[A_Index].Delete()
-            this.VariableConArr[A_Index].Add(GetGuiVarArr())
-            this.VariableConArr[A_Index].Text := this.Data.VariableArr[A_Index]
+            i := A_Index
+            this.ui.Update("Tog" i, "IsChecked", this.Data.ToggleArr[i] ? "True" : "False")
+            this._SetCombo("Var" i, GetGuiVarArr(), this.Data.VariableArr[i])
         }
-        this.IsIgnoreExistCon.Value := this.Data.IsIgnoreExist
-        this.ExtractStrCon.Value := this.Data.ExtractStr
-        this.ExtractTypeCon.Value := this.Data.ExtractType
-        this.WinInfoCon.Value := this.Data.WinInfo
-        this.OCRTypeCon.Value := this.Data.OCRType
+        this.ui.Update("IsIgnoreExist", "IsChecked", this.Data.IsIgnoreExist ? "True" : "False")
+        this.ui.Update("ExtractStrCon", "Text", this.Data.ExtractStr)
+        this.ui.Update("ExtractTypeCombo", "SelectedIndex", String(this.Data.ExtractType - 1))
+        this.ui.Update("WinInfoCon", "Text", this.Data.WinInfo)
+        this.ui.Update("OCRTypeCombo", "SelectedIndex", String(this.Data.OCRType - 1))
 
-        this.StartPosXCon.Delete()
-        this.StartPosXCon.Add(GetGuiVarArr())
-        this.StartPosYCon.Delete()
-        this.StartPosYCon.Add(GetGuiVarArr())
-        this.EndPosXCon.Delete()
-        this.EndPosXCon.Add(GetGuiVarArr())
-        this.EndPosYCon.Delete()
-        this.EndPosYCon.Add(GetGuiVarArr())
-        this.StartPosXCon.Text := this.Data.StartPosX
-        this.StartPosYCon.Text := this.Data.StartPosY
-        this.EndPosXCon.Text := this.Data.EndPosX
-        this.EndPosYCon.Text := this.Data.EndPosY
-        this.SearchCountCon.Delete()
-        this.SearchCountCon.Add([GetLang("无限")])
-        this.SearchCountCon.Text := this.Data.SearchCount == -1 ? GetLang("无限") : this.Data.SearchCount
-        this.SearchIntervalCon.Value := this.Data.SearchInterval
+        this._SetCombo("StartPosX", GetGuiVarArr(), this.Data.StartPosX)
+        this._SetCombo("StartPosY", GetGuiVarArr(), this.Data.StartPosY)
+        this._SetCombo("EndPosX", GetGuiVarArr(), this.Data.EndPosX)
+        this._SetCombo("EndPosY", GetGuiVarArr(), this.Data.EndPosY)
+        this._SetCombo("SearchCountCombo", [GetLang("无限")], this.Data.SearchCount == -1 ? GetLang("无限") : this.Data.SearchCount)
+        this.ui.Update("SearchIntervalCon", "Text", this.Data.SearchInterval)
     }
 
     ToggleFunc(state) {
@@ -304,114 +296,113 @@ class ExVariableGui {
         }
     }
 
-    OnTypeChange(*) {
-        IsOcr := this.ExtractTypeCon.Value == 1 || this.ExtractTypeCon.Value == 3
-        isWin := this.ExtractTypeCon.Value == 3
-        for index, value in this.OCROptConArr {
-            value.Enabled := IsOcr
-        }
-
-        for index, value in this.WinInfoArr {
-            value.Enabled := isWin
-        }
+    OnTypeChange(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        t := this._TypeValue()
+        IsOcr := t == 1 || t == 3
+        isWin := t == 3
+        this.ui.Update("OCRPanel", "IsEnabled", IsOcr ? "True" : "False")
+        this.ui.Update("WinInfoRow", "IsEnabled", isWin ? "True" : "False")
     }
 
-    OnClickWinEditBtn(*) {
+    OnClickWinEditBtn(state := "", ctrl := "", event := "") {
         MyFrontInfoGui.HideAction := () => this.ToggleFunc(true)
-        if (MainSoftData.IsModalSubGui && this.Gui != "") {
-            MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
+        if (MainSoftData.IsModalSubGui && this.ui != "") {
+            MyFrontInfoGui.OwnerHwnd := this.Hwnd()
         }
         else {
             MyFrontInfoGui.OwnerHwnd := ""
         }
-        MyFrontInfoGui.ShowGui(this.WinInfoCon)
+        ; 传值桥接（原生 FrontInfoGui 读写 .Value），不传字符串
+        MyFrontInfoGui.ShowGui(XamlValueBridge(this.ui, "WinInfoCon"))
     }
 
-    OnClickExtractBtn(*) {
+    OnClickExtractBtn(state := "", ctrl := "", event := "") {
         this.MyEditGui.SureAction := this.OnSureExtractAction.Bind(this)
-        if (MainSoftData.IsModalSubGui && this.Gui != "") {
-            this.MyEditGui.OwnerHwnd := this.Gui.Hwnd
+        if (MainSoftData.IsModalSubGui && this.ui != "") {
+            this.MyEditGui.OwnerHwnd := this.Hwnd()
         }
         else {
             this.MyEditGui.OwnerHwnd := ""
         }
-        this.MyEditGui.ShowGui(this.ExtractStrCon.Value)
+        this.MyEditGui.ShowGui(this.ui.Query("ExtractStrCon"))
     }
 
     OnSureExtractAction(ExtractStr, VariNum) {
-        this.ExtractStrCon.Value := ExtractStr
-        loop this.ToggleConArr.Length {
+        if (IsObject(this.ui))
+            this.ui.Update("ExtractStrCon", "Text", ExtractStr)
+        loop 6 {
             isTog := VariNum >= A_Index
-            this.ToggleConArr[A_Index].Value := isTog
+            this.ui.Update("Tog" A_Index, "IsChecked", isTog ? "True" : "False")
         }
     }
 
-    OnClickSureBtn() {
-        valid := this.CheckIfValid()
-        if (!valid)
+    OnClickSureBtn(state, ctrl, event) {
+        if (!this.CheckIfValid())
             return
         this.SaveExVariableData()
         this.ToggleFunc(false)
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
-
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try {
-                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-            }
-        }
-        this.Gui.Hide()
+        this._CloseWindow()
     }
 
-    OnClickSelectToggle() {
-        state := this.SelectToggleCon.Value
-        if (state == 1)
+    OnClickSelectToggle(state := "", ctrl := "", event := "") {
+        if (!IsObject(this.ui))
+            return
+        state := this.ui.Query("SelectToggle") == "True"
+        if (state)
             TogSelectArea(true, this.SetAreaAction)
         else
             TogSelectArea(false)
     }
 
     OnF1() {
-        this.SelectToggleCon.Value := 1
+        if (IsObject(this.ui))
+            this.ui.Update("SelectToggle", "IsChecked", "True")
         TogSelectArea(true, this.SetAreaAction)
     }
 
     OnSetSearchArea(x1, y1, x2, y2) {
-        this.SelectToggleCon.Value := 0
-        isWin := this.ExtractTypeCon.Value == 3
+        if (!IsObject(this.ui))
+            return
+        this.ui.Update("SelectToggle", "IsChecked", "False")
+        isWin := this._TypeValue() == 3
         Point1 := isWin ? GetWinPos(x1, y1) : [x1, y1]
         Point2 := isWin ? GetWinPos(x2, y2) : [x2, y2]
 
-        this.StartPosXCon.Text := Point1[1]
-        this.StartPosYCon.Text := Point1[2]
-        this.EndPosXCon.Text := Point2[1]
-        this.EndPosYCon.Text := Point2[2]
+        this.ui.Update("StartPosX", "Text", Point1[1])
+        this.ui.Update("StartPosY", "Text", Point1[2])
+        this.ui.Update("EndPosX", "Text", Point2[1])
+        this.ui.Update("EndPosY", "Text", Point2[2])
     }
 
     CheckIfValid() {
-        if (this.ExtractTypeCon.Value == 3 && this.WinInfoCon.Value == "") {
+        if (this._TypeValue() == 3 && this.ui.Query("WinInfoCon") == "") {
             MsgBox(GetLang("目标窗口信息不能为空"))
             return false
         }
 
-        if (!InStr(this.ExtractStrCon.Value, "&x") && !InStr(this.ExtractStrCon.Value, "&c")) {
-            if (this.ExtractStrCon.Value != "") {
+        if (!InStr(this.ui.Query("ExtractStrCon"), "&x") && !InStr(this.ui.Query("ExtractStrCon"), "&c")) {
+            if (this.ui.Query("ExtractStrCon") != "") {
                 MsgBox(GetLang("提取文本：不包含&x 或 &c 无法提取内容到变量中"))
                 return false
             }
         }
 
         ToggleArr := []
-        loop this.ToggleConArr.Length {
-            ToggleArr.Push(this.ToggleConArr[A_Index].Value)
-            if (this.ToggleConArr[A_Index].Value) {
-                if (IsNumber(this.VariableConArr[A_Index].Text)) {
+        loop 6 {
+            isOn := this.ui.Query("Tog" A_Index) == "True"
+            ToggleArr.Push(isOn)
+            if (isOn) {
+                varText := this.ui.Query("Var" A_Index)
+                if (IsNumber(varText)) {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能是纯数字"), A_Index))
                     return false
                 }
-
-                if (InStr(this.VariableConArr[A_Index].Text, "_")) {
+                if (InStr(varText, "_")) {
                     MsgBox(Format(GetLang("{}. 变量名不规范：变量名不能包含下划线"), A_Index))
                     return false
                 }
@@ -420,7 +411,7 @@ class ExVariableGui {
 
         ActiveLength := GetExVariableActiveLength(ToggleArr)
         if (ActiveLength > 1) {
-            ExtractStr := this.ExtractStrCon.Value
+            ExtractStr := this.ui.Query("ExtractStrCon")
             ExtractStr := StrReplace(ExtractStr, "&x", "", true, &XCount)
             ExtractStr := StrReplace(ExtractStr, "&c", "", true, &YCount)
             if (XCount + YCount < ActiveLength) {
@@ -428,13 +419,11 @@ class ExVariableGui {
                 return false
             }
         }
-
         return true
     }
 
-    TriggerMacro() {
-        valid := this.CheckIfValid()
-        if (!valid)
+    TriggerMacro(state := "", ctrl := "", event := "") {
+        if (!this.CheckIfValid())
             return
         this.SaveExVariableData()
         CommandStr := this.GetCommandStr()
@@ -443,7 +432,6 @@ class ExVariableGui {
         tableItem.PauseArr[1] := 0
         tableItem.ActionCount[1] := 0
         tableItem.index := 1
-
         this.TestExVariable(this.Data)
     }
 
@@ -464,7 +452,6 @@ class ExVariableGui {
             TextObjs := []
             if (!IsClipboardText())
                 return
-
             obj := Object()
             obj.Text := A_Clipboard
             TextObjs.Push(obj)
@@ -527,45 +514,42 @@ class ExVariableGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
+        CommandStr := CorrectRemark(CommandStr, this.ui.Query("RemarkCon"))
         return CommandStr
     }
 
     SaveExVariableData() {
-        this.Data.ExtractStr := this.ExtractStrCon.Value
-        this.Data.ExtractType := this.ExtractTypeCon.Value
-        this.Data.WinInfo := this.WinInfoCon.Value
-        this.Data.OCRType := this.OCRTypeCon.Value
-        this.Data.StartPosX := this.StartPosXCon.Text
-        this.Data.StartPosY := this.StartPosYCon.Text
-        this.Data.EndPosX := this.EndPosXCon.Text
-        this.Data.EndPosY := this.EndPosYCon.Text
-        this.Data.SearchCount := this.SearchCountCon.Text == GetLang("无限") ? -1 : this.SearchCountCon.Text
-        this.Data.SearchInterval := this.SearchIntervalCon.Value
-        this.Data.IsIgnoreExist := this.IsIgnoreExistCon.Value
+        this.Data.ExtractStr := this.ui.Query("ExtractStrCon")
+        this.Data.ExtractType := this._TypeValue()
+        this.Data.WinInfo := this.ui.Query("WinInfoCon")
+        this.Data.OCRType := (IsObject(this.ui) && IsNumber(this.ui.Query("OCRTypeCombo"))) ? Integer(this.ui.Query("OCRTypeCombo")) : 1
+        this.Data.StartPosX := this.ui.Query("StartPosX")
+        this.Data.StartPosY := this.ui.Query("StartPosY")
+        this.Data.EndPosX := this.ui.Query("EndPosX")
+        this.Data.EndPosY := this.ui.Query("EndPosY")
+        this.Data.SearchCount := this.ui.Query("SearchCountCombo") == GetLang("无限") ? -1 : this.ui.Query("SearchCountCombo")
+        this.Data.SearchInterval := this.ui.Query("SearchIntervalCon")
+        this.Data.IsIgnoreExist := this.ui.Query("IsIgnoreExist") == "True"
         loop this.Data.ToggleArr.Length {
-            this.Data.ToggleArr[A_Index] := this.ToggleConArr[A_Index].Value
-            this.Data.VariableArr[A_Index] := GetVarName(this.VariableConArr[A_Index].Text)
+            i := A_Index
+            this.Data.ToggleArr[i] := this.ui.Query("Tog" i) == "True"
+            this.Data.VariableArr[i] := GetVarName(this.ui.Query("Var" i))
         }
 
-        ; 添加全局变量，方便下拉选取
         loop this.Data.ToggleArr.Length {
             if (this.Data.ToggleArr[A_Index])
                 MySoftData.GlobalVariMap[this.Data.VariableArr[A_Index]] := true
         }
-
         SaveMacroCMDData(this.Data)
     }
 
     GetReplaceVarText(text) {
-        matches := []  ; 初始化空数组
-        pos := 1  ; 从字符串开头开始搜索
-
+        matches := []
+        pos := 1
         while (pos := RegExMatch(text, "\{(.*?)\}", &match, pos)) {
-            matches.Push(match[1])  ; 把花括号内的内容存入数组
-            pos += match.Len  ; 移动到匹配结束位置，继续搜索
+            matches.Push(match[1])
+            pos += match.Len
         }
-
         Content := text
         for index, value in matches {
             hasValue := this.TryGetVariableValue(&variValue, value, false)
@@ -580,20 +564,17 @@ class ExVariableGui {
             Value := variableName
             return true
         }
-
         if (variableName == GetLang("当前鼠标坐标X") || variableName == GetLang("当前鼠标坐标Y")) {
             CoordMode("Mouse", "Screen")
             MouseGetPos &mouseX, &mouseY
             Value := variableName == GetLang("当前鼠标坐标X") ? mouseX : mouseY
             return true
         }
-
         GlobalVariableMap := MySoftData.VariableMap
         if (GlobalVariableMap.Has(variableName)) {
             Value := GlobalVariableMap[variableName]
             return true
         }
-
         if (variTip)
             ShowNoVariableTip(variableName)
         return false

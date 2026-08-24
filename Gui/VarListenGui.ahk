@@ -234,7 +234,7 @@ class VarListenGui {
         this._rowKeys := []
         if (MainSoftData.MacroEditGui != "" && MainSoftData.MacroEditGui.Gui != "") {
             try {
-                style := WinGetStyle(MainSoftData.MacroEditGui.Gui)
+                style := WinGetStyle("ahk_id " MainSoftData.MacroEditGui.Gui.Hwnd)
                 if (style & 0x10000000)
                     MainSoftData.MacroEditGui.ToolMenu.Uncheck(GetLang("变量监视"))
             }
