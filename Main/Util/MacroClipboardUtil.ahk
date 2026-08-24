@@ -572,9 +572,8 @@ OnItemCopyMacroBtnClick(tableItem, CopyIndex, *) {
 }
 
 ; 粘贴宏指令集（从剪贴板读取完整指令集及配置）
-OnItemPasteMacroBtnClick(tableItem, btn, *) {
+OnItemPasteMacroBtnClick(tableItem, foldIndex, *) {
     foldInfo := tableItem.FoldInfo
-    foldIndex := tableItem.ConIndexMap[btn].itemConInfo.FoldIndex
     isMenu := CheckIsMenuMacroTable(tableItem.Index)
     if (isMenu) {
         IndexSpan := StrSplit(foldInfo.IndexSpanArr[foldIndex], "-")
@@ -622,12 +621,10 @@ OnItemPasteMacroBtnClick(tableItem, btn, *) {
         return
 
     foldInfo := tableItem.FoldInfo
-    foldIndex := tableItem.ConIndexMap[btn].itemConInfo.FoldIndex
     isMenu := CheckIsMenuMacroTable(tableItem.Index)
-    titleHeight := isMenu ? 85 : 55
     AddIndex := GetFoldAddItemIndex(foldInfo, foldIndex)
     if (foldInfo.FoldStateArr[foldIndex])
-        OnFoldBtnClick(tableItem, btn)
+        foldInfo.FoldStateArr[foldIndex] := false
 
     isFirst := foldInfo.IndexSpanArr[foldIndex] == "无-无"
     UpdateFoldIndexInfo(foldInfo, AddIndex, foldIndex, true)
@@ -783,25 +780,7 @@ OnItemPasteMacroBtnClick(tableItem, btn, *) {
         tableItem.VariableMapArr.InsertAt(AddIndex, VariableMap)
     }
 
-    PosY := 1000000
-    for index, value in tableItem.AllConArr {
-        if (foldIndex == value.FoldIndex && PosY > value.OriPosY)
-            PosY := value.OriPosY
-    }
-
-    PosY += titleHeight
-    if (isFirst) {
-        MainSoftData.TabCtrl.UseTab(tableItem.Index)
-        LoadItemFoldTip(tableItem, foldIndex, PosY)
-        MainSoftData.TabCtrl.UseTab()
-    }
-
-    afterHei := GetFoldGroupHeight(foldInfo, foldIndex, isMenu)
-    tableItem.AllGroup[foldIndex].Move(, , , afterHei)
-
-    addHei := isFirst ? 75 : 40
-    tableItem.FoldOffsetArr[foldIndex] += addHei
-    MySlider.RefreshTab()
+    MyMainWin.RenderTab(tableItem)
 
     MsgBox(GetLang("已粘贴宏"))
 }

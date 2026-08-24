@@ -484,37 +484,75 @@ class AppThemeUtil {
         actionHoverStroke := AppThemeUtil.ResolveColor(colors, "Win_ActionHoverStroke")
         progress := AppThemeUtil.ResolveColor(colors, "Win_ProgressBar")
 
-        try ui.Update("Resource", "TitleBarColor", titleBg)
-        try ui.Update("Resource", "TitleBarForeground", titleText)
-        try ui.Update("Resource", "BgColor", windowBg)
-        try ui.Update("Resource", "TextMain", labelColor)
-        try ui.Update("Resource", "ControlBg", windowBg)
-        try ui.Update("Resource", "ControlBorder", groupStroke)
-        try ui.Update("Resource", "GroupStroke", groupStroke)
-        try ui.Update("Resource", "GraphLine", graphLine)
-        try ui.Update("Resource", "GraphConn", graphConn)
-        try ui.Update("Resource", "GraphConnSel", graphConnSel)
-        try ui.Update("Resource", "InputBg", inputBg)
-        try ui.Update("Resource", "InputStroke", inputStroke)
-        try ui.Update("Resource", "InputText", inputText)
-        try ui.Update("Resource", "EditBg", editBg)
-        try ui.Update("Resource", "EditStroke", editStroke)
-        try ui.Update("Resource", "EditText", editText)
-        try ui.Update("Resource", "EditHoverBg", editHoverBg)
-        try ui.Update("Resource", "EditHoverStroke", editHoverStroke)
-        try ui.Update("Resource", "ActionBg", actionBg)
-        try ui.Update("Resource", "ActionStroke", actionStroke)
-        try ui.Update("Resource", "ActionText", actionText)
-        try ui.Update("Resource", "ActionHoverBg", actionHoverBg)
-        try ui.Update("Resource", "ActionHoverStroke", actionHoverStroke)
-        try ui.Update("Resource", "Accent", progress)
-        try ui.Update("Resource", "ProgressBar", progress)
-        ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
-        try ui.Update("Resource", "DropdownBg", inputBg)
-        ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
-        try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
-        try ui.Update("DragArea", "Background", titleBg)
-        try ui.Update("Window", "Background", windowBg)
+        ; 合并为一次 BatchUpdate：~28 条资源逐条 Update 是 28 次同步 IPC 往返（拖慢开窗）
+        if (ui.HasMethod("BatchUpdate")) {
+            batch := [
+                {ControlName: "Resource", PropertyName: "TitleBarColor", Value: titleBg},
+                {ControlName: "Resource", PropertyName: "TitleBarForeground", Value: titleText},
+                {ControlName: "Resource", PropertyName: "BgColor", Value: windowBg},
+                {ControlName: "Resource", PropertyName: "TextMain", Value: labelColor},
+                {ControlName: "Resource", PropertyName: "ControlBg", Value: windowBg},
+                {ControlName: "Resource", PropertyName: "ControlBorder", Value: groupStroke},
+                {ControlName: "Resource", PropertyName: "GroupStroke", Value: groupStroke},
+                {ControlName: "Resource", PropertyName: "GraphLine", Value: graphLine},
+                {ControlName: "Resource", PropertyName: "GraphConn", Value: graphConn},
+                {ControlName: "Resource", PropertyName: "GraphConnSel", Value: graphConnSel},
+                {ControlName: "Resource", PropertyName: "InputBg", Value: inputBg},
+                {ControlName: "Resource", PropertyName: "InputStroke", Value: inputStroke},
+                {ControlName: "Resource", PropertyName: "InputText", Value: inputText},
+                {ControlName: "Resource", PropertyName: "EditBg", Value: editBg},
+                {ControlName: "Resource", PropertyName: "EditStroke", Value: editStroke},
+                {ControlName: "Resource", PropertyName: "EditText", Value: editText},
+                {ControlName: "Resource", PropertyName: "EditHoverBg", Value: editHoverBg},
+                {ControlName: "Resource", PropertyName: "EditHoverStroke", Value: editHoverStroke},
+                {ControlName: "Resource", PropertyName: "ActionBg", Value: actionBg},
+                {ControlName: "Resource", PropertyName: "ActionStroke", Value: actionStroke},
+                {ControlName: "Resource", PropertyName: "ActionText", Value: actionText},
+                {ControlName: "Resource", PropertyName: "ActionHoverBg", Value: actionHoverBg},
+                {ControlName: "Resource", PropertyName: "ActionHoverStroke", Value: actionHoverStroke},
+                {ControlName: "Resource", PropertyName: "Accent", Value: progress},
+                {ControlName: "Resource", PropertyName: "ProgressBar", Value: progress},
+                ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
+                {ControlName: "Resource", PropertyName: "DropdownBg", Value: inputBg},
+                ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
+                {ControlName: "Resource", PropertyName: "ListAltBg", Value: AppThemeUtil.MakeListAltBg(titleBg)},
+                {ControlName: "DragArea", PropertyName: "Background", Value: titleBg},
+                {ControlName: "Window", PropertyName: "Background", Value: windowBg}
+            ]
+            ui.BatchUpdate(batch)
+        } else {
+            try ui.Update("Resource", "TitleBarColor", titleBg)
+            try ui.Update("Resource", "TitleBarForeground", titleText)
+            try ui.Update("Resource", "BgColor", windowBg)
+            try ui.Update("Resource", "TextMain", labelColor)
+            try ui.Update("Resource", "ControlBg", windowBg)
+            try ui.Update("Resource", "ControlBorder", groupStroke)
+            try ui.Update("Resource", "GroupStroke", groupStroke)
+            try ui.Update("Resource", "GraphLine", graphLine)
+            try ui.Update("Resource", "GraphConn", graphConn)
+            try ui.Update("Resource", "GraphConnSel", graphConnSel)
+            try ui.Update("Resource", "InputBg", inputBg)
+            try ui.Update("Resource", "InputStroke", inputStroke)
+            try ui.Update("Resource", "InputText", inputText)
+            try ui.Update("Resource", "EditBg", editBg)
+            try ui.Update("Resource", "EditStroke", editStroke)
+            try ui.Update("Resource", "EditText", editText)
+            try ui.Update("Resource", "EditHoverBg", editHoverBg)
+            try ui.Update("Resource", "EditHoverStroke", editHoverStroke)
+            try ui.Update("Resource", "ActionBg", actionBg)
+            try ui.Update("Resource", "ActionStroke", actionStroke)
+            try ui.Update("Resource", "ActionText", actionText)
+            try ui.Update("Resource", "ActionHoverBg", actionHoverBg)
+            try ui.Update("Resource", "ActionHoverStroke", actionHoverStroke)
+            try ui.Update("Resource", "Accent", progress)
+            try ui.Update("Resource", "ProgressBar", progress)
+            ; 下拉弹出层与输入框同色，避免浅色底 + 深色主题文字导致看不清
+            try ui.Update("Resource", "DropdownBg", inputBg)
+            ; 列表斑马纹：取标题色 RGB，降低透明度，随主题变化
+            try ui.Update("Resource", "ListAltBg", AppThemeUtil.MakeListAltBg(titleBg))
+            try ui.Update("DragArea", "Background", titleBg)
+            try ui.Update("Window", "Background", windowBg)
+        }
     }
 
     ; 列表交替行背景：标题色半透明（不同主题呈现不同色调）

@@ -188,7 +188,6 @@ class XDialog {
             ; Use a lightweight template without the 75KB component library for speed
             captionH := movable ? "45" : "0"
             startupLoc := owner ? "CenterOwner" : "CenterScreen"
-            fontF := options.HasProp("FontFamily") ? options.FontFamily : "Segoe UI Variable Display, Segoe UI, sans-serif"
             dialogTemplate := '
             (
                 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -197,7 +196,7 @@ class XDialog {
                         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
                         ShowInTaskbar="False"
                         WindowStartupLocation="%startupLoc%"
-                        TextElement.Foreground="{DynamicResource TextMain}" FontFamily="%fontFamily%">
+                        TextElement.Foreground="{DynamicResource TextMain}">
                     
                     <WindowChrome.WindowChrome>
                         <WindowChrome GlassFrameThickness="-1" CaptionHeight="%captionH%" CornerRadius="{DynamicResource WindowRadius}" />
@@ -213,7 +212,6 @@ class XDialog {
             )'
             dialogTemplate := StrReplace(dialogTemplate, "%startupLoc%", startupLoc)
             dialogTemplate := StrReplace(dialogTemplate, "%captionH%", captionH)
-            dialogTemplate := StrReplace(dialogTemplate, "%fontFamily%", fontF)
             dialogTemplate := StrReplace(dialogTemplate, "%bgRes%", bgRes)
             ui := XAMLHost(StrReplace(dialogTemplate, "%app%", main.ToString()), exePath, actualOwner)
         }

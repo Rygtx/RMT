@@ -388,7 +388,6 @@ class MenuWheelGui {
 
                 lbl := canvas.Add("TextBlock").Name("Label_" idx)
                 lbl.Text(sec.Name)
-                lbl.FontFamily("Segoe UI Variable Display, Segoe UI, sans-serif")
                 lbl.FontSize(fontSize).FontWeight("SemiBold")
                 lbl.Style("{StaticResource WheelLabelStyle_" idx "}")
                 lbl.TextAlignment("Center").TextTrimming("CharacterEllipsis")
@@ -412,7 +411,6 @@ class MenuWheelGui {
 
                 lbl := canvas.Add("TextBlock").Name("Label_" idx)
                 lbl.Text(sec.Name)
-                lbl.FontFamily("Segoe UI Variable Display, Segoe UI, sans-serif")
                 lbl.FontSize(fontSize).FontWeight("SemiBold")
                 lbl.Style("{StaticResource WheelLabelStyle_" idx "}")
                 lbl.TextAlignment("Center").TextTrimming("CharacterEllipsis")

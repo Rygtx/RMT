@@ -62,6 +62,8 @@ public class AhkWpfEngine
     public static extern IntPtr SetCursor(IntPtr hCursor);
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+    [DllImport("user32.dll")]
+    public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct MARGINS
@@ -104,6 +106,28 @@ public class AhkWpfEngine
     public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT lpPoint);
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDC(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    [DllImport("gdi32.dll")]
+    public static extern uint GetPixel(IntPtr hdc, int x, int y);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteDC(IntPtr hdc);
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteObject(IntPtr hObject);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr SelectObject(IntPtr hdc, IntPtr h);
+    [DllImport("gdi32.dll")]
+    public static extern bool BitBlt(IntPtr hdcDest, int x, int y, int w, int h, IntPtr hdcSrc, int x1, int y1, uint rop);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFO pbmi, uint usage, out IntPtr ppvBits, IntPtr hSection, uint offset);
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForSystem();
 
     public static bool EnableLogging = true;
     private static string _logDir = null;
@@ -167,6 +191,29 @@ public class AhkWpfEngine
     public struct MINMAXINFO { public POINT ptReserved; public POINT ptMaxSize; public POINT ptMaxPosition; public POINT ptMinTrackSize; public POINT ptMaxTrackSize; }
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT { public int x; public int y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAPINFOHEADER
+    {
+        public uint biSize;
+        public int biWidth;
+        public int biHeight;   // 负值 = 顶向下（(0,0) 左上）
+        public ushort biPlanes;
+        public ushort biBitCount;
+        public uint biCompression;
+        public uint biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public uint biClrUsed;
+        public uint biClrImportant;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAPINFO
+    {
+        public BITMAPINFOHEADER bmiHeader;
+        public uint bmiColors;
+    }
     [StructLayout(LayoutKind.Sequential)]
     public struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
     [StructLayout(LayoutKind.Sequential)]
@@ -302,6 +349,213 @@ public class AhkWpfEngine
     static double _ctxMenuClickDevY = 0;
     string _loadedDictionaryPath = null;
     static void InitHighlightBrushes() { } // Brushes initialized in static field initializers
+
+    // ===== 取色器（Picker）：预览渲染在 daemon 进程内本地完成，零 IPC =====
+    // 性能设计：采样 = 一次 BitBlt 抓 9×9 区域到内存 DIB（替代 81 次 GetPixel）；
+    //           渲染 = 9×9 像素 WriteableBitmap 单 Image（NearestNeighbor 放大，单元素失效）；
+    //           帧率双轨：面板位置/坐标/RGB 文本 30ms 跟手（33fps），
+    //                     网格内容 100ms（10fps，用户确认足够）——移动时面板跟手、颜色内容 10fps
+    private class PickerState
+    {
+        public Window Win;
+        public string WinId;
+        public System.Windows.Threading.DispatcherTimer Timer;
+        public int LastX = -1;
+        public int LastY = -1;
+        public string LastHex = "";
+        public long LastGridMs = 0;   // 上次网格刷新的 TickCount（100ms 节流）
+        public int GridN = 9;
+        public int CellSize = 12;   // DIP
+        public double PanelW = 0;
+        public double PanelH = 0;
+        // 采样缓冲：9×9 32bpp 顶向下 DIB
+        public IntPtr HdcMem = IntPtr.Zero;
+        public IntPtr Hbm = IntPtr.Zero;
+        public IntPtr DibBits = IntPtr.Zero;
+        public byte[] PixelBuf;      // 9*9*4 BGRA
+        public System.Windows.Media.Imaging.WriteableBitmap Wb;
+    }
+    private readonly System.Collections.Generic.Dictionary<string, PickerState> _pickers =
+        new System.Collections.Generic.Dictionary<string, PickerState>();
+
+    private void StartPicker(string winId, Window win, string param)
+    {
+        StopPicker(winId);
+        int gridN = 9, cellSize = 12;
+        if (!string.IsNullOrEmpty(param))
+        {
+            string[] pp = param.Split('|');
+            if (pp.Length >= 1) int.TryParse(pp[0], out gridN);
+            if (pp.Length >= 2) int.TryParse(pp[1], out cellSize);
+        }
+        // 合法性钳制（奇数 3..63，格子 2..24 DIP），异常回退默认值
+        if (gridN < 3 || gridN > 63 || gridN % 2 == 0) gridN = 9;
+        if (cellSize < 2 || cellSize > 24) cellSize = 12;
+        var st = new PickerState { Win = win, WinId = winId, GridN = gridN, CellSize = cellSize };
+        var panel = win.FindName("InfoPanel") as FrameworkElement;
+        if (panel != null)
+        {
+            st.PanelW = panel.ActualWidth;
+            st.PanelH = panel.ActualHeight;
+        }
+        // 创建 9×9 32bpp 顶向下 DIB（采样缓冲）
+        try
+        {
+            st.HdcMem = CreateCompatibleDC(IntPtr.Zero);
+            var bmi = new BITMAPINFO();
+            bmi.bmiHeader.biSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(BITMAPINFOHEADER));
+            bmi.bmiHeader.biWidth = st.GridN;
+            bmi.bmiHeader.biHeight = -st.GridN;   // 顶向下
+            bmi.bmiHeader.biPlanes = 1;
+            bmi.bmiHeader.biBitCount = 32;
+            bmi.bmiHeader.biCompression = 0;
+            st.Hbm = CreateDIBSection(st.HdcMem, ref bmi, 0, out st.DibBits, IntPtr.Zero, 0);
+            st.PixelBuf = new byte[st.GridN * st.GridN * 4];
+        }
+        catch { }
+
+        // 9×9 WriteableBitmap 挂在 GridImage 上（单元素渲染，NearestNeighbor 放大）
+        try
+        {
+            st.Wb = new System.Windows.Media.Imaging.WriteableBitmap(st.GridN, st.GridN, 96, 96,
+                System.Windows.Media.PixelFormats.Bgr32, null);
+            var img = win.FindName("GridImage") as Image;
+            if (img != null)
+                img.Source = st.Wb;
+        }
+        catch { }
+
+        // 30ms：面板位置/坐标跟手；网格内容在 PickerTick 内按 100ms 节流
+        st.Timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        st.Timer.Tick += (s, e) => PickerTick(st);
+        st.Timer.Start();
+        _pickers[winId] = st;
+    }
+
+    private void StopPicker(string winId)
+    {
+        PickerState st;
+        if (_pickers.TryGetValue(winId, out st))
+        {
+            try { if (st.Timer != null) st.Timer.Stop(); } catch { }
+            try { if (st.Hbm != IntPtr.Zero) DeleteObject(st.Hbm); } catch { }
+            try { if (st.HdcMem != IntPtr.Zero) DeleteDC(st.HdcMem); } catch { }
+            _pickers.Remove(winId);
+        }
+    }
+
+    private void PickerTick(PickerState st)
+    {
+        try
+        {
+            var win = st.Win;
+            if (win == null || !win.IsLoaded || st.Hbm == IntPtr.Zero || st.Wb == null)
+            {
+                StopPicker(st.WinId);
+                return;
+            }
+            POINT pt;
+            if (!GetCursorPos(out pt))
+                return;
+            int x = pt.x, y = pt.y;
+            bool moved = (x != st.LastX || y != st.LastY);
+            int half = (st.GridN - 1) / 2;
+
+            // 中心色（每 tick 读 1 像素，判断静止 + RGB 文本用）
+            string centerHex = "";
+            IntPtr hdc1 = GetDC(IntPtr.Zero);
+            if (hdc1 != IntPtr.Zero)
+            {
+                try
+                {
+                    uint v = GetPixel(hdc1, x, y);
+                    centerHex = (v & 0xFF).ToString("X2") + ((v >> 8) & 0xFF).ToString("X2") + ((v >> 16) & 0xFF).ToString("X2");
+                }
+                finally { ReleaseDC(IntPtr.Zero, hdc1); }
+            }
+
+            // 完全静止（位置与中心色都没变）→ 零渲染
+            if (!moved && centerHex == st.LastHex)
+                return;
+
+            // 高频轨（30ms）：面板位置 / 坐标 —— 移动时跟手
+            if (moved)
+            {
+                var coord = win.FindName("CoordText") as TextBlock;
+                if (coord != null)
+                    coord.Text = x + "," + y;
+
+                var panel = win.FindName("InfoPanel") as FrameworkElement;
+                if (panel != null)
+                {
+                    double scale = 1.0;
+                    try { scale = GetDpiForSystem() / 96.0; } catch { }
+                    double dipX = x / scale, dipY = y / scale;
+                    double pw = st.PanelW > 0 ? st.PanelW : panel.ActualWidth;
+                    double ph = st.PanelH > 0 ? st.PanelH : panel.ActualHeight;
+                    double px = dipX + 16, py = dipY + 16;
+                    double wD = win.ActualWidth, hD = win.ActualHeight;
+                    if (px + pw > wD)
+                        px = dipX - 16 - pw;
+                    if (py + ph > hD)
+                        py = dipY - 16 - ph;
+                    if (px < 0) px = 0;
+                    if (py < 0) py = 0;
+                    Canvas.SetLeft(panel, px);
+                    Canvas.SetTop(panel, py);
+                }
+            }
+
+            // RGB 文本：位置或中心色任一变化都更新（盖红窗位置不动时也实时刷新）
+            if (moved || centerHex != st.LastHex)
+            {
+                var rgb = win.FindName("RgbText") as TextBlock;
+                if (rgb != null)
+                    rgb.Text = "#" + centerHex;
+            }
+
+            // 低频轨（100ms 节流）：9×9 网格内容（移动时面板 33fps 跟手，网格内容恒 10fps）
+            long now = System.Environment.TickCount;
+            if (now - st.LastGridMs >= 100)
+            {
+                IntPtr hdcScreen = GetDC(IntPtr.Zero);
+                if (hdcScreen != IntPtr.Zero)
+                {
+                    try
+                    {
+                        SelectObject(st.HdcMem, st.Hbm);
+                        BitBlt(st.HdcMem, 0, 0, st.GridN, st.GridN, hdcScreen, x - half, y - half, 0x00CC0020);
+                    }
+                    finally { ReleaseDC(IntPtr.Zero, hdcScreen); }
+                }
+                byte[] buf = st.PixelBuf;
+                int stride = st.GridN * 4;
+                for (int i = 0; i < st.GridN * st.GridN; i++)
+                {
+                    int off = i * 4;
+                    buf[off] = System.Runtime.InteropServices.Marshal.ReadByte(st.DibBits, off);
+                    buf[off + 1] = System.Runtime.InteropServices.Marshal.ReadByte(st.DibBits, off + 1);
+                    buf[off + 2] = System.Runtime.InteropServices.Marshal.ReadByte(st.DibBits, off + 2);
+                    buf[off + 3] = 255;
+                }
+                st.Wb.WritePixels(new System.Windows.Int32Rect(0, 0, st.GridN, st.GridN), buf, stride, 0);
+
+                // 中心格高亮框（叠层）
+                var cbox = win.FindName("CenterBox") as FrameworkElement;
+                if (cbox != null)
+                {
+                    Canvas.SetLeft(cbox, half * st.CellSize - 1);
+                    Canvas.SetTop(cbox, half * st.CellSize - 1);
+                }
+                st.LastGridMs = now;
+            }
+
+            st.LastX = x;
+            st.LastY = y;
+            st.LastHex = centerHex;
+        }
+        catch { }
+    }
 
     static AhkWpfEngine()
     {
@@ -1307,6 +1561,23 @@ public class AhkWpfEngine
         if (isDaemon)
         {
             win.Show();
+            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
+            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
+            if (!win.AllowsTransparency && win.Opacity < 1)
+            {
+                try
+                {
+                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        int ex = GetWindowLong(hwnd, -20);
+                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
+                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
+                        win.Resources["_NativeAlphaPending"] = true;
+                    }
+                }
+                catch { }
+            }
         }
         else
         {
@@ -1925,6 +2196,23 @@ public class AhkWpfEngine
         if (isDaemon)
         {
             win.Show();
+            // 非透明窗口首帧 present 前 HWND 可见（WPF Opacity 只影响首帧后的合成）：
+            // 原生把窗口设成全透明，直到 AHK 置 Opacity=1 再恢复，避免首帧闪 DWM 玻璃底（紫闪）
+            if (!win.AllowsTransparency && win.Opacity < 1)
+            {
+                try
+                {
+                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        int ex = GetWindowLong(hwnd, -20);
+                        SetWindowLong(hwnd, -20, new IntPtr(ex | 0x80000)); // WS_EX_LAYERED
+                        SetLayeredWindowAttributes(hwnd, 0, 0, 0x2);        // LWA_ALPHA=0 全透明
+                        win.Resources["_NativeAlphaPending"] = true;
+                    }
+                }
+                catch { }
+            }
         }
         else
         {
@@ -2315,6 +2603,36 @@ public class AhkWpfEngine
                 return;
             }
 
+            // 可编辑 ComboBox：TextChanged 是内嵌 TextBox（PART_EditableTextBox）的 CLR 事件，
+            // ComboBox 自身没有该事件，下方反射 GetEvent 会失败导致绑定静默丢失
+            // （如 SearchProGui 坐标框 TextChanged→预览刷新不生效、TextOpsGui ArgsNameCon 同理）。
+            // 显式挂内嵌 TextBox 的 TextChanged，事件名仍以 ComboBox 名上报，AHK 侧绑定不变。
+            if (eventName == "TextChanged" && ctrl is System.Windows.Controls.ComboBox)
+            {
+                var combo = (System.Windows.Controls.ComboBox)ctrl;
+                if (combo.IsEditable)
+                {
+                    System.Windows.Controls.TextBox hookedTb = null;
+                    combo.Loaded += (s, e) =>
+                    {
+                        try
+                        {
+                            combo.ApplyTemplate();
+                            var tb = combo.Template != null
+                                ? combo.Template.FindName("PART_EditableTextBox", combo) as System.Windows.Controls.TextBox
+                                : null;
+                            if (tb != null && hookedTb == null)
+                            {
+                                hookedTb = tb;
+                                tb.TextChanged += (s2, e2) => DumpState(ctrlName, eventName);
+                            }
+                        }
+                        catch { }
+                    };
+                }
+                return;
+            }
+
             if (eventName == "IsVisibleChanged")
             {
                 if (ctrl is UIElement)
@@ -2353,6 +2671,52 @@ public class AhkWpfEngine
                                 DumpStateWithArgs(ctrlName, baseEvt, e);
                         };
                     }
+                }
+                return;
+            }
+
+            // KeyCapture：通用按键捕获（Hotkey 控件用）。控件聚焦时按下任意键，映射成 AHK 键名发回。
+            if (eventName == "KeyCapture")
+            {
+                if (ctrl is UIElement)
+                {
+                    UIElement ue = (UIElement)ctrl;
+                    ue.PreviewKeyDown += (s, e) =>
+                    {
+                        string ahkKey = KeyToAhkName(e);
+                        if (ahkKey != "")
+                        {
+                            e.Handled = true;
+                            SendToAhkAsync("EVENT|" + winId + "|" + ctrlName + "|KeyCapture|" + LengthPrefix(ahkKey) + "\n");
+                        }
+                    };
+                }
+                return;
+            }
+
+            // PreviewMouseLeftButtonDown：双击树条目时置 Handled，阻止 TreeViewItem 默认展开/折叠切换
+            if (eventName == "PreviewMouseLeftButtonDown")
+            {
+                if (ctrl is UIElement)
+                {
+                    ((UIElement)ctrl).PreviewMouseLeftButtonDown += (s, e) =>
+                    {
+                        if (e.ClickCount >= 2)
+                        {
+                            DependencyObject orig = e.OriginalSource as DependencyObject;
+                            bool onExpander = false;
+                            while (orig != null && !(orig is System.Windows.Controls.TreeViewItem) && !(orig is System.Windows.Controls.TreeView))
+                            {
+                                if (orig is System.Windows.Controls.Primitives.ToggleButton)
+                                    onExpander = true;   // 点在展开箭头上
+                                orig = System.Windows.Media.VisualTreeHelper.GetParent(orig);
+                            }
+                            // 双击条目内容才阻止展开切换；双击箭头让它正常每次切换
+                            if (orig is System.Windows.Controls.TreeViewItem && !onExpander)
+                                e.Handled = true;
+                        }
+                        DumpStateWithArgs(ctrlName, eventName, e);
+                    };
                 }
                 return;
             }
@@ -2560,8 +2924,10 @@ public class AhkWpfEngine
     private static string LengthPrefix(string val)
     {
         if (val == null) val = "";
-        int byteLen = Encoding.UTF8.GetByteCount(val);
-        return byteLen + ":" + val;
+        // 转义 \r\n 为 &#x0D;/&#x0A;，避免多行值把按 \n 拆行的载荷截断（AHK DecodeValue 侧对称还原）
+        string escaped = val.Replace("\r", "&#x0D;").Replace("\n", "&#x0A;");
+        int byteLen = Encoding.UTF8.GetByteCount(escaped);
+        return byteLen + ":" + escaped;
     }
 
     // Reusable helper: extract the current value of a named control.
@@ -2578,6 +2944,27 @@ public class AhkWpfEngine
             }
         }
         return sb.ToString();
+    }
+
+    // 遍历 TreeView 可视树，收集所有已实现（可见）的 TreeViewItem
+    private void CollectTreeViewItems(DependencyObject parent, System.Collections.Generic.List<System.Windows.Controls.TreeViewItem> result)
+    {
+        if (parent is System.Windows.Controls.TreeViewItem)
+            result.Add((System.Windows.Controls.TreeViewItem)parent);
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < n; i++)
+            CollectTreeViewItems(System.Windows.Media.VisualTreeHelper.GetChild(parent, i), result);
+    }
+
+    // 收集 ListBox 里所有已实现（可见）的 ListBoxItem（逻辑树卡片，Items 里直接是 ListBoxItem）
+    private void CollectListBoxItems(System.Windows.Controls.ListBox lb, System.Collections.Generic.List<System.Windows.Controls.ListBoxItem> result)
+    {
+        foreach (object item in lb.Items)
+        {
+            var lbi = item as System.Windows.Controls.ListBoxItem;
+            if (lbi != null)
+                result.Add(lbi);
+        }
     }
 
     private string GetControlValue(string trackName)
@@ -2608,10 +2995,148 @@ public class AhkWpfEngine
         // --- Suffix queries (rich component data) ---
         if (suffix != null)
         {
+            // HitTest:x;y —— 在指定控件上命中测试（坐标相对该控件），向上找 TreeViewItem，
+            // 返回 "Tag|top/bottom"（top=光标在上半，bottom=下半；供插入上/下判定）
+            if (suffix.StartsWith("HitTest:"))
+            {
+                string[] hxy = suffix.Substring("HitTest:".Length).Split(';');
+                double hx, hy;
+                if (hxy.Length == 2
+                    && double.TryParse(hxy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hx)
+                    && double.TryParse(hxy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hy))
+                {
+                    var rootVisual = c as System.Windows.Media.Visual;
+                    if (rootVisual != null)
+                    {
+                        var hitRes = System.Windows.Media.VisualTreeHelper.HitTest(rootVisual, new System.Windows.Point(hx, hy));
+                        DependencyObject dep = hitRes != null ? hitRes.VisualHit as DependencyObject : null;
+                        // ListBox 卡片命中：找 ListBoxItem，isExpander=命中 Arrow_* 命名元素（展开箭头）
+                        if (c is System.Windows.Controls.ListBox)
+                        {
+                            bool isCardExpander = false;
+                            while (dep != null && !(dep is System.Windows.Controls.ListBoxItem) && !(dep is System.Windows.Controls.ListBox))
+                            {
+                                var fe = dep as System.Windows.FrameworkElement;
+                                if (fe != null && fe.Name != null && fe.Name.StartsWith("Arrow_"))
+                                    isCardExpander = true;
+                                dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                            }
+                            var lbi = dep as System.Windows.Controls.ListBoxItem;
+                            if (lbi != null && lbi.Tag != null)
+                            {
+                                try
+                                {
+                                    var origin = lbi.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                    val = lbi.Tag.ToString() + "|" + (hy < origin.Y + lbi.ActualHeight / 2.0 ? "top" : "bottom") + "|" + (isCardExpander ? "1" : "0")
+                                        + "|" + origin.Y.ToString(inv) + "|" + lbi.ActualHeight.ToString(inv);
+                                }
+                                catch
+                                {
+                                    val = lbi.Tag.ToString() + "|" + (isCardExpander ? "1" : "0") + "|0|0";
+                                }
+                            }
+                            else if (dep is System.Windows.Controls.ListBox)
+                            {
+                                // 卡片间空隙/空白区：按 Y 找包含该点的卡片
+                                var items = new System.Collections.Generic.List<System.Windows.Controls.ListBoxItem>();
+                                CollectListBoxItems((System.Windows.Controls.ListBox)dep, items);
+                                foreach (var it in items)
+                                {
+                                    try
+                                    {
+                                        var itOrigin = it.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                        if (hy >= itOrigin.Y && hy < itOrigin.Y + it.ActualHeight)
+                                        {
+                                            var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                            val = it.Tag.ToString() + "|" + (hy < itOrigin.Y + it.ActualHeight / 2.0 ? "top" : "bottom") + "|0"
+                                                + "|" + itOrigin.Y.ToString(inv) + "|" + it.ActualHeight.ToString(inv);
+                                            break;
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                            return val;
+                        }
+                        // 命中 ToggleButton = 展开箭头（需与条目内容区分：点箭头只折叠，不选择/不双击）
+                        bool isExpander = false;
+                        // 停在 TreeViewItem（命中条目）或 TreeView（命中树但不在条目上，行间/空白区）
+                        while (dep != null && !(dep is System.Windows.Controls.TreeViewItem) && !(dep is System.Windows.Controls.TreeView))
+                        {
+                            if (dep is System.Windows.Controls.Primitives.ToggleButton)
+                                isExpander = true;
+                            dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                        }
+                        var tvi = dep as System.Windows.Controls.TreeViewItem;
+                        if (tvi != null && tvi.Tag != null)
+                        {
+                            try
+                            {
+                                // 相对被命中的控件（win 或 tree）换算纵向位置，与 hy 同坐标系
+                                var origin = tvi.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                val = tvi.Tag.ToString() + "|" + (hy < origin.Y + tvi.ActualHeight / 2.0 ? "top" : "bottom") + "|" + (isExpander ? "1" : "0")
+                                    + "|" + origin.Y.ToString(inv) + "|" + tvi.ActualHeight.ToString(inv);
+                            }
+                            catch
+                            {
+                                val = tvi.Tag.ToString() + "|" + (isExpander ? "1" : "0") + "|0|0";
+                            }
+                        }
+                        else if (dep is System.Windows.Controls.TreeView)
+                        {
+                            // 行间/条目行空白区（文字右侧）：按 Y 找包含该点的条目（相邻行无间隙，总能命中一行）
+                            var items = new System.Collections.Generic.List<System.Windows.Controls.TreeViewItem>();
+                            CollectTreeViewItems((System.Windows.Controls.TreeView)dep, items);
+                            foreach (var it in items)
+                            {
+                                try
+                                {
+                                    var itOrigin = it.TransformToAncestor(rootVisual).Transform(new System.Windows.Point(0, 0));
+                                    if (hy >= itOrigin.Y && hy < itOrigin.Y + it.ActualHeight)
+                                    {
+                                        var inv = System.Globalization.CultureInfo.InvariantCulture;
+                                        val = it.Tag.ToString() + "|" + (hy < itOrigin.Y + it.ActualHeight / 2.0 ? "top" : "bottom") + "|0"
+                                            + "|" + itOrigin.Y.ToString(inv) + "|" + it.ActualHeight.ToString(inv);
+                                        break;
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                }
+                return val;
+            }
+            // IsOverTree:x;y —— 命中测试点是否落在 TreeView 内（空白树区也算），用于拖放"出树即取消"
+            if (suffix.StartsWith("IsOverTree:"))
+            {
+                string[] hxy = suffix.Substring("IsOverTree:".Length).Split(';');
+                double hx, hy;
+                if (hxy.Length == 2
+                    && double.TryParse(hxy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hx)
+                    && double.TryParse(hxy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out hy))
+                {
+                    var rootVisual = c as System.Windows.Media.Visual;
+                    if (rootVisual != null)
+                    {
+                        var hitRes = System.Windows.Media.VisualTreeHelper.HitTest(rootVisual, new System.Windows.Point(hx, hy));
+                        DependencyObject dep = hitRes != null ? hitRes.VisualHit as DependencyObject : null;
+                        while (dep != null && !(dep is System.Windows.Controls.TreeView) && !(dep is System.Windows.Controls.ListBox))
+                            dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+                        val = (dep is System.Windows.Controls.TreeView || dep is System.Windows.Controls.ListBox) ? "1" : "";
+                    }
+                }
+                return val;
+            }
             switch (suffix)
             {
                 case "CaretIndex":
                     if (c is TextBox) val = ((TextBox)c).CaretIndex.ToString();
+                    break;
+                case "FirstVisibleLine":
+                    if (c is TextBox) val = ((TextBox)c).GetFirstVisibleLineIndex().ToString();
                     break;
                 case "Count":
                     if (c is ItemsControl) val = ((ItemsControl)c).Items.Count.ToString();
@@ -3154,11 +3679,87 @@ public class AhkWpfEngine
                 var sb = new StringBuilder("EVENT|" + winId + "|" + cName + "|" + eName + "|" + LengthPrefix(coords) + "\n");
                 sb.Append(cName + "=" + LengthPrefix(coords) + "\n");
                 sb.Append("DragCoords=" + LengthPrefix(coords) + "\n");
+                if (e is System.Windows.Input.MouseButtonEventArgs)
+                    sb.Append("ClickCount=" + LengthPrefix(((System.Windows.Input.MouseButtonEventArgs)e).ClickCount.ToString()) + "\n");
                 SendToAhkAsync(sb.ToString());
                 return;
             }
         }
         DumpState(cName, eName);
+    }
+
+    // 把 WPF Key 映射成 AHK 键名（与 KeyGui 按键网格 value 一致）
+    private static string KeyToAhkName(System.Windows.Input.KeyEventArgs e)
+    {
+        var key = (e.Key == System.Windows.Input.Key.System) ? e.SystemKey : e.Key;
+        if (key >= System.Windows.Input.Key.A && key <= System.Windows.Input.Key.Z)
+            return key.ToString().ToLowerInvariant();
+        if (key >= System.Windows.Input.Key.D0 && key <= System.Windows.Input.Key.D9)
+            return key.ToString().Substring(1); // "D1" -> "1"
+        switch (key)
+        {
+            case System.Windows.Input.Key.Escape: return "Esc";
+            case System.Windows.Input.Key.F1: case System.Windows.Input.Key.F2: case System.Windows.Input.Key.F3:
+            case System.Windows.Input.Key.F4: case System.Windows.Input.Key.F5: case System.Windows.Input.Key.F6:
+            case System.Windows.Input.Key.F7: case System.Windows.Input.Key.F8: case System.Windows.Input.Key.F9:
+            case System.Windows.Input.Key.F10: case System.Windows.Input.Key.F11: case System.Windows.Input.Key.F12:
+                return key.ToString();
+            case System.Windows.Input.Key.Space: return "Space";
+            case System.Windows.Input.Key.Enter: return "Enter";
+            case System.Windows.Input.Key.Back: return "BS";
+            case System.Windows.Input.Key.Tab: return "Tab";
+            case System.Windows.Input.Key.Oem3: return "`";
+            case System.Windows.Input.Key.OemMinus: return "-";
+            case System.Windows.Input.Key.OemPlus: return "=";
+            case System.Windows.Input.Key.OemOpenBrackets: return "[";
+            case System.Windows.Input.Key.OemCloseBrackets: return "]";
+            case System.Windows.Input.Key.OemBackslash: return "\\";
+            case System.Windows.Input.Key.OemSemicolon: return ";";
+            case System.Windows.Input.Key.OemQuotes: return "'";
+            case System.Windows.Input.Key.OemComma: return ",";
+            case System.Windows.Input.Key.OemPeriod: return ".";
+            case System.Windows.Input.Key.OemQuestion: return "/";
+            case System.Windows.Input.Key.Left: return "Left";
+            case System.Windows.Input.Key.Right: return "Right";
+            case System.Windows.Input.Key.Up: return "Up";
+            case System.Windows.Input.Key.Down: return "Down";
+            case System.Windows.Input.Key.Insert: return "Ins";
+            case System.Windows.Input.Key.Delete: return "Del";
+            case System.Windows.Input.Key.Home: return "Home";
+            case System.Windows.Input.Key.End: return "End";
+            case System.Windows.Input.Key.PageUp: return "PgUp";
+            case System.Windows.Input.Key.PageDown: return "PgDn";
+            case System.Windows.Input.Key.NumLock: return "NumLock";
+            case System.Windows.Input.Key.NumPad0: return "Numpad0";
+            case System.Windows.Input.Key.NumPad1: return "Numpad1";
+            case System.Windows.Input.Key.NumPad2: return "Numpad2";
+            case System.Windows.Input.Key.NumPad3: return "Numpad3";
+            case System.Windows.Input.Key.NumPad4: return "Numpad4";
+            case System.Windows.Input.Key.NumPad5: return "Numpad5";
+            case System.Windows.Input.Key.NumPad6: return "Numpad6";
+            case System.Windows.Input.Key.NumPad7: return "Numpad7";
+            case System.Windows.Input.Key.NumPad8: return "Numpad8";
+            case System.Windows.Input.Key.NumPad9: return "Numpad9";
+            case System.Windows.Input.Key.Divide: return "NumpadDiv";
+            case System.Windows.Input.Key.Multiply: return "NumpadMult";
+            case System.Windows.Input.Key.Subtract: return "NumpadSub";
+            case System.Windows.Input.Key.Add: return "NumpadAdd";
+            case System.Windows.Input.Key.Decimal: return "NumpadDot";
+            case System.Windows.Input.Key.LeftShift: return "LShift";
+            case System.Windows.Input.Key.RightShift: return "RShift";
+            case System.Windows.Input.Key.LeftCtrl: return "LCtrl";
+            case System.Windows.Input.Key.RightCtrl: return "RCtrl";
+            case System.Windows.Input.Key.LeftAlt: return "LAlt";
+            case System.Windows.Input.Key.RightAlt: return "RAlt";
+            case System.Windows.Input.Key.LWin: return "LWin";
+            case System.Windows.Input.Key.RWin: return "RWin";
+            case System.Windows.Input.Key.Apps: return "AppsKey";
+            case System.Windows.Input.Key.CapsLock: return "CapsLock";
+            case System.Windows.Input.Key.PrintScreen: return "PrintScreen";
+            case System.Windows.Input.Key.Scroll: return "ScrollLock";
+            case System.Windows.Input.Key.Pause: return "Pause";
+        }
+        return "";
     }
 
     private System.Collections.Generic.Dictionary<string, DateTime> lastEventSendTimes = new System.Collections.Generic.Dictionary<string, DateTime>();
@@ -4208,6 +4809,59 @@ public class AhkWpfEngine
                         Console.WriteLine("XamlParse Error: " + ex.Message);
                     }
                 }
+                else if (parts[1] == "InsertXamlItem" && ctrl is ItemsControl)
+                {
+                    // 在指定索引插入卡片 XAML（value = "<index>|<xaml>"），用于逻辑树增量增删
+                    _controlCache.Clear();
+                    try
+                    {
+                        string[] idxXaml = parts[2].Split(new[] { '|' }, 2);
+                        int insertIdx;
+                        if (idxXaml.Length == 2 && int.TryParse(idxXaml[0], out insertIdx))
+                        {
+                            object element = XamlReader.Parse(idxXaml[1]);
+                            var visited = new System.Collections.Generic.HashSet<object>();
+                            Action<object> regNames = null;
+                            regNames = new Action<object>((object obj) =>
+                            {
+                                if (obj == null || !visited.Add(obj)) return;
+                                var fe = obj as FrameworkElement;
+                                if (fe != null && !string.IsNullOrEmpty(fe.Name))
+                                {
+                                    try
+                                    {
+                                        var ns = NameScope.GetNameScope(win);
+                                        if (ns != null) { try { ns.UnregisterName(fe.Name); } catch { } ns.RegisterName(fe.Name, fe); }
+                                        else { try { win.UnregisterName(fe.Name); } catch { } win.RegisterName(fe.Name, fe); }
+                                    }
+                                    catch { }
+                                }
+                                var dobj = obj as DependencyObject;
+                                if (dobj != null)
+                                {
+                                    foreach (object child in System.Windows.LogicalTreeHelper.GetChildren(dobj)) regNames(child);
+                                    var cc = dobj as System.Windows.Controls.ContentControl;
+                                    if (cc != null && cc.Content != null) regNames(cc.Content);
+                                    var dec = dobj as System.Windows.Controls.Decorator;
+                                    if (dec != null && dec.Child != null) regNames(dec.Child);
+                                    var panel = dobj as System.Windows.Controls.Panel;
+                                    if (panel != null) { foreach (UIElement c in panel.Children) regNames(c); }
+                                    var ic = dobj as ItemsControl;
+                                    if (ic != null) { foreach (object item in ic.Items) regNames(item); }
+                                }
+                            });
+                            regNames(element);
+                            if (insertIdx < 0) insertIdx = 0;
+                            if (insertIdx > ((ItemsControl)ctrl).Items.Count) insertIdx = ((ItemsControl)ctrl).Items.Count;
+                            ((ItemsControl)ctrl).Items.Insert(insertIdx, element);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { System.IO.File.AppendAllText(GetLogPath("AhkWpfDebug.log"), "XamlParse Error in InsertXamlItem:\n" + ex.ToString() + "\n\n"); } catch { }
+                        Console.WriteLine("XamlParse Error: " + ex.Message);
+                    }
+                }
                 else if (parts[1] == "SelectByTag" && ctrl is TreeView)
                 {
                     string tagHash = parts[2];
@@ -4239,6 +4893,20 @@ public class AhkWpfEngine
                     {
                         result.IsSelected = true;
                         result.BringIntoView();
+                    }
+                }
+                else if (parts[1] == "SelectByTag" && ctrl is ListBox)
+                {
+                    // 逻辑树卡片：按 Tag 找到卡片并滚到可见（不设 SelectedItem，选中视觉由勾选标记承担）
+                    string tagHash = parts[2];
+                    foreach (object item in ((ListBox)ctrl).Items)
+                    {
+                        var lbi = item as ListBoxItem;
+                        if (lbi != null && lbi.Tag != null && lbi.Tag.ToString() == tagHash)
+                        {
+                            ((ListBox)ctrl).ScrollIntoView(lbi);
+                            break;
+                        }
                     }
                 }
                 else if (parts[1] == "Document" && ctrl is RichTextBox)
@@ -4331,6 +4999,11 @@ public class AhkWpfEngine
                         {
                             var lbi = (System.Windows.Controls.ListBoxItem)item;
                             match = (lbi.Content != null && lbi.Content.ToString() == parts[2]);
+                        }
+                        if (!match && item is FrameworkElement)
+                        {
+                            var fe = (FrameworkElement)item;
+                            match = (fe.Tag != null && fe.Tag.ToString() == parts[2]);
                         }
                         if (match)
                         {
@@ -4441,6 +5114,21 @@ public class AhkWpfEngine
                 else if (parts[1] == "BindEvent")
                 {
                     BindEvent(parts[0], parts[2]);
+                }
+                // Epic5 虚拟列表命令（只加不改既有契约；ListBox 守卫，实现见文件尾 VirtualListHost 类）
+                else if (parts[1].StartsWith("VL_") && ctrl is ListBox)
+                {
+                    VirtualListHost.Dispatch(win, winId, (ListBox)ctrl, parts[1], parts[2], t => SendToAhk(t));
+                }
+                // 取色器（Picker）：预览渲染在 daemon 进程内本地驱动，零 IPC（确认时 AHK 本地读坐标+颜色）
+                // parts[2] = "GridN|CellSize"（DIP），缺省 9|12
+                else if (parts[1] == "PickerStart" && ctrl is Window)
+                {
+                    StartPicker(winId, (Window)ctrl, parts.Length >= 3 ? parts[2] : "");
+                }
+                else if (parts[1] == "PickerStop" && ctrl is Window)
+                {
+                    StopPicker(winId);
                 }
 #if ENABLE_WEBVIEW
                 else if (parts[1] == "Navigate" && ctrl is Microsoft.Web.WebView2.Wpf.WebView2) {
@@ -6621,6 +7309,12 @@ public class AhkWpfEngine
                     else if (ctrl is System.Windows.Controls.ScrollViewer)
                         ((System.Windows.Controls.ScrollViewer)ctrl).ScrollToEnd();
                 }
+                else if (parts[1] == "ScrollToLine" && ctrl is System.Windows.Controls.TextBox)
+                {
+                    int ln;
+                    if (int.TryParse(parts[2], out ln))
+                        ((System.Windows.Controls.TextBox)ctrl).ScrollToLine(ln);
+                }
                 else if (parts[1] == "LineUp")
                 {
                     if (ctrl is System.Windows.Controls.TextBox)
@@ -6776,6 +7470,23 @@ public class AhkWpfEngine
                         else if (pt == "Geometry") val = System.Windows.Media.Geometry.Parse(parts[2]);
                         else val = Convert.ChangeType(parts[2], prop.PropertyType);
                         prop.SetValue(ctrl, val, null);
+                        // 创建时原生隐藏的窗口：AHK 置 Opacity 时恢复可见（清除 WS_EX_LAYERED alpha）
+                        if (ctrl == win && parts[1] == "Opacity" && win.Resources.Contains("_NativeAlphaPending"))
+                        {
+                            try
+                            {
+                                win.Resources.Remove("_NativeAlphaPending");
+                                IntPtr wHwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                                if (wHwnd != IntPtr.Zero)
+                                {
+                                    SetLayeredWindowAttributes(wHwnd, 0, 255, 0x2);
+                                    // 恢复正常窗口（去掉 WS_EX_LAYERED），避免持续 layered 丢阴影
+                                    int ex = GetWindowLong(wHwnd, -20);
+                                    SetWindowLong(wHwnd, -20, new IntPtr(ex & ~0x80000));
+                                }
+                            }
+                            catch { }
+                        }
                         // AHK 收起临时拖线时同步复位拖线状态机
                         if (parts[1] == "Visibility" && ctrl == tempConnection && val is Visibility
                             && (Visibility)val == Visibility.Collapsed)
@@ -13818,6 +14529,631 @@ public class AhkInProcessBootstrapper
         } catch { }
         return null;
     }
+}
+
+// ---- Epic5 虚拟列表（VL_* 命令，只加不改既有桥接契约）----
+// 载体：ListBox + ObservableCollection + DataTemplate + VirtualizingStackPanel(Recycling)。
+// 行 ID 约定 R<t>_<i>，折叠头 F<t>_<f>；字段分隔 \x1F(US)、行分隔 \x1E(RS)。
+// 事件回传：EVENT|<winId>|<listName>|VL_CLICK|LengthPrefix("id\x1Faction")
+//           EVENT|<winId>|<listName>|VL_CHANGE|LengthPrefix("id\x1Ffield\x1Fvalue")
+//           EVENT|<winId>|<listName>|VL_COMMIT_ALL|首行空，后续 k=LengthPrefix("id\x1Ffield\x1Fvalue")
+// 批量结构变更集合：ResetTo 只发一次 Reset 通知。逐条 RemoveAt/Insert 触发容器回收抖动
+// （ComboBox 重绑复位→伪 SelectionChanged→重入布局），折叠 250ms 即此根源。
+public class VListCollection : System.Collections.ObjectModel.ObservableCollection<object>
+{
+    public void ResetTo(System.Collections.Generic.IList<object> newItems)
+    {
+        this.Items.Clear();
+        for (int i = 0; i < newItems.Count; i++)
+            this.Items.Add(newItems[i]);
+        this.OnCollectionChanged(new System.Collections.Specialized.NotifyCollectionChangedEventArgs(
+            System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
+    }
+}
+
+public class VirtualListHost
+{
+    private static readonly System.Collections.Generic.Dictionary<string, VirtualListHost> _hosts =
+        new System.Collections.Generic.Dictionary<string, VirtualListHost>();
+
+    private System.Windows.Window _win;
+    private string _winId, _listName;
+    private Action<string> _send;
+    private ListBox _lb;
+    private VListCollection _items = new VListCollection();
+    private System.Collections.Generic.Dictionary<string, object> _byId =
+        new System.Collections.Generic.Dictionary<string, object>();
+    private bool _hooked;
+    private string _anchorId;
+    private bool _suppressCommit;
+    private bool _suppressChange; // 结构操作布局期：压制容器回收产生的伪 SelectionChanged/LostFocus
+    // 表类型 enabled 标志（VL_INIT 首行 T<t>_0 注入，per host 恒定）；默认 true 兼容不带标志的调用
+    private bool _tkBtnEn = true;
+    private bool _tkTypeEn = true;
+    private bool _loopEn = true;
+    private bool _foldTKTypeEn = true;
+    // 吸顶折叠头：overlay 容器 + 当前钉住的 fold + 惰性 ScrollViewer
+    private System.Windows.Controls.ContentControl _sticky;
+    private VListFold _stickyFold;
+    private System.Windows.Controls.ScrollViewer _sv;
+
+    public static void Dispatch(System.Windows.Window win, string winId, ListBox lb, string cmd, string val, Action<string> send)
+    {
+        string key = winId + "|" + lb.Name;
+        VirtualListHost host;
+        if (!_hosts.TryGetValue(key, out host))
+        {
+            host = new VirtualListHost(win, winId, lb.Name, send);
+            _hosts[key] = host;
+        }
+        host.Link(lb);
+        switch (cmd)
+        {
+            case "VL_INIT": host.Rebuild(val); break;
+            case "VL_ROW": host.SetRow(val); break;
+            case "VL_FOLD": host.SetFold(val); break;
+            case "VL_MOVE": host.Move(val); break;
+            case "VL_COMMIT_ALL": host.CommitAll(); break;
+        }
+    }
+
+    private VirtualListHost(System.Windows.Window win, string winId, string listName, Action<string> send)
+    {
+        _win = win; _winId = winId; _listName = listName; _send = send;
+    }
+
+    private void Link(ListBox lb)
+    {
+        if (_lb == lb) return;
+        _lb = lb;
+        if (_lb != null && !_hooked)
+        {
+            _hooked = true;
+            _lb.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(OnClick));
+            _lb.AddHandler(Selector.SelectionChangedEvent, new SelectionChangedEventHandler(OnSelectionChanged));
+            _lb.AddHandler(System.Windows.UIElement.LostKeyboardFocusEvent, new System.Windows.Input.KeyboardFocusChangedEventHandler(OnLostFocus));
+            _lb.AddHandler(System.Windows.UIElement.MouseRightButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler(OnRightUp), true);
+            _lb.ItemTemplateSelector = new VLTemplateSelector(_win);
+            // 容器模板剥成裸 ContentPresenter：SelectionMode=Single 仅为合法值，实际无选中高亮/键盘焦点
+            var lbiStyle = new System.Windows.Style(typeof(System.Windows.Controls.ListBoxItem));
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.FocusableProperty, false));
+            var lbiTemplate = new System.Windows.Controls.ControlTemplate(typeof(System.Windows.Controls.ListBoxItem))
+            { VisualTree = new System.Windows.FrameworkElementFactory(typeof(System.Windows.Controls.ContentPresenter)) };
+            lbiStyle.Setters.Add(new System.Windows.Setter(System.Windows.Controls.ListBoxItem.TemplateProperty, lbiTemplate));
+            _lb.ItemContainerStyle = lbiStyle;
+            // 吸顶折叠头 overlay（VLSticky_<t>）：惰性查找 + 复用 RmtFoldHeader 模板 + 同一套事件回传
+            EnsureSticky();
+        }
+    }
+
+    // 惰性查找 overlay：视觉树未加载时找不到，窗口 Loaded 后重试；滚动/结构操作也触发
+    private void EnsureSticky()
+    {
+        if (_sticky != null || _win == null) return;
+        string sn = _listName.Replace("FoldList_", "VLSticky_"); // FoldList_1 → VLSticky_1
+        _sticky = FindControlByName(_win, sn) as System.Windows.Controls.ContentControl;
+        if (_sticky == null)
+            _sticky = _win.FindName(sn) as System.Windows.Controls.ContentControl;
+        if (_sticky == null && !_win.IsLoaded)
+        {
+            // 窗口未加载完：VL_INIT 可能早于视觉树就绪，Loaded 后重试一次并立即算吸顶
+            _win.Loaded += (s, e) => { EnsureSticky(); UpdateSticky(); };
+            return;
+        }
+        if (_sticky != null)
+        {
+            _sticky.ContentTemplate = _win.FindResource("RmtFoldHeader") as System.Windows.DataTemplate;
+            _sticky.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(OnClick));
+            _sticky.AddHandler(System.Windows.UIElement.LostKeyboardFocusEvent, new System.Windows.Input.KeyboardFocusChangedEventHandler(OnLostFocus));
+            _sticky.AddHandler(System.Windows.UIElement.MouseRightButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler(OnRightUp), true);
+            _sticky.AddHandler(Selector.SelectionChangedEvent, new SelectionChangedEventHandler(OnSelectionChanged));
+        }
+    }
+
+    // ---- 结构命令 ----
+
+    private void Rebuild(string val)
+    {
+        _anchorId = FirstVisibleId();
+        _byId.Clear();
+        _items.Clear();
+        VListFold inFold = null;
+        string[] lines = val.Split('\x1E');
+        foreach (string line in lines)
+        {
+            if (line.Length == 0) continue;
+            string[] f = line.Split('\x1F');
+            if (f.Length == 0 || f[0].Length == 0) continue;
+            if (f[0][0] == 'T')
+            {
+                // 表类型标志行：T<t>_0\x1FtkBtnEn\x1FtkTypeEn\x1FloopEn\x1FfoldTKTypeEn
+                _tkBtnEn = f.Length > 1 && f[1] == "1";
+                _tkTypeEn = f.Length > 2 && f[2] == "1";
+                _loopEn = f.Length > 3 && f[3] == "1";
+                _foldTKTypeEn = f.Length > 4 && f[4] == "1";
+                continue;
+            }
+            if (f[0][0] == 'F')
+            {
+                VListFold fo = new VListFold();
+                fo.Id = f[0];
+                fo.FoldRemark = f.Length > 1 ? f[1] : "";
+                fo.FoldFront = f.Length > 2 ? f[2] : "";
+                fo.FoldForbid = f.Length > 3 && f[3] == "1";
+                fo.FoldTKType = f.Length > 4 ? ParseInt(f[4]) : 0;
+                fo.FoldTK = f.Length > 5 ? f[5] : "";
+                fo.Folded = f.Length > 6 && f[6] == "1";
+                fo.ShowTKRow = f.Length > 7 && f[7] == "1";
+                fo.FoldTKTypeEnabled = _foldTKTypeEn;
+                _byId[fo.Id] = fo;
+                _items.Add(fo);
+                inFold = fo.Folded ? fo : null; // 折叠态 fold 吸收入后续行
+            }
+            else if (inFold != null)
+            {
+                VListRow r = ParseRow(f);
+                r.TKBtnEnabled = _tkBtnEn; r.TKTypeEnabled = _tkTypeEn; r.LoopEnabled = _loopEn;
+                _byId[r.Id] = r;
+                inFold.ChildRows.Add(r);
+            }
+            else
+            {
+                VListRow r = ParseRow(f);
+                r.TKBtnEnabled = _tkBtnEn; r.TKTypeEnabled = _tkTypeEn; r.LoopEnabled = _loopEn;
+                _byId[r.Id] = r;
+                _items.Add(r);
+            }
+        }
+        if (_lb != null)
+        {
+            // 结构重建布局期压制容器回收产生的伪 SelectionChanged/LostFocus（同 SetFold）
+            _suppressChange = true;
+            _lb.ItemsSource = _items;
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(() => _suppressChange = false));
+            RestoreAnchor();
+            _stickyFold = null;
+            // 布局落定后再算吸顶（offset 此时才有效）
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(UpdateSticky));
+        }
+    }
+
+    private void SetRow(string val)
+    {
+        string[] f = val.Split('\x1F');
+        if (f.Length < 2) return;
+        object o;
+        if (!_byId.TryGetValue(f[0], out o)) return;
+        VListRow r = o as VListRow;
+        if (r == null) return;
+        if (f.Length > 1) r.Remark = f[1];
+        if (f.Length > 2) r.TKStr = f[2];
+        if (f.Length > 3) r.TKType = ParseInt(f[3]);
+        if (f.Length > 4) r.LoopText = f[4];
+        if (f.Length > 5) r.Forbid = f[5] == "1";
+        if (f.Length > 6) r.ColorHex = f[6];
+    }
+
+    private void SetFold(string val)
+    {
+        string[] f = val.Split('\x1F');
+        if (f.Length < 2) return;
+        object o;
+        if (!_byId.TryGetValue(f[0], out o)) return;
+        VListFold fo = o as VListFold;
+        if (fo == null) return;
+        _anchorId = FirstVisibleId();
+        bool fold = f[1] == "1";
+        var newItems = new System.Collections.Generic.List<object>(_items.Count);
+        if (fold && !fo.Folded)
+        {
+            fo.ChildRows.Clear();
+            bool absorbing = false;
+            foreach (object it in _items)
+            {
+                if (ReferenceEquals(it, fo)) { newItems.Add(fo); absorbing = true; }
+                else if (absorbing && it is VListRow)
+                {
+                    VListRow r = (VListRow)it;
+                    fo.ChildRows.Add(r);
+                    _byId.Remove(r.Id);
+                }
+                else
+                {
+                    if (absorbing && !(it is VListRow)) absorbing = false; // 遇下一折叠头停止吸收
+                    newItems.Add(it);
+                }
+            }
+            fo.Folded = true;
+        }
+        else if (!fold && fo.Folded)
+        {
+            foreach (object it in _items)
+            {
+                newItems.Add(it);
+                if (ReferenceEquals(it, fo))
+                {
+                    foreach (VListRow r in fo.ChildRows)
+                    {
+                        newItems.Add(r);
+                        _byId[r.Id] = r;
+                    }
+                }
+            }
+            fo.ChildRows.Clear();
+            fo.Folded = false;
+        }
+        else
+        {
+            return; // 已是目标态
+        }
+        _items.ResetTo(newItems); // 一次 Reset 通知，避免逐条 RemoveAt/Insert 的容器回收抖动
+        // 压制结构变更后的布局期容器回收伪事件（SelectionChanged/LostFocus），布局落定后恢复
+        if (_lb != null)
+        {
+            _suppressChange = true;
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new System.Action(() => _suppressChange = false));
+            RestoreAnchor();
+            // 布局落定后再算吸顶
+            _lb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new System.Action(UpdateSticky));
+        }
+        else
+        {
+            RestoreAnchor();
+        }
+    }
+
+    private void Move(string val)
+    {
+        string[] f = val.Split('\x1F');
+        if (f.Length < 2) return;
+        object a, b;
+        if (!_byId.TryGetValue(f[0], out a) || !_byId.TryGetValue(f[1], out b)) return;
+        _anchorId = FirstVisibleId();
+        int ia = _items.IndexOf(a), ib = _items.IndexOf(b);
+        if (ia < 0 || ib < 0) return;
+        object tmp = _items[ia];
+        _items[ia] = _items[ib];
+        _items[ib] = tmp;
+        // 槽位交换后对象跟随新位置：Id/SeqNo 必须同步交换，否则后续 VL_ROW 按 Id
+        // 命中旧位置对象、把内容写回原槽位（现象：序号动了、内容没动），且 _byId 失配。
+        string tmpId = ((VLItem)a).Id;
+        ((VLItem)a).Id = ((VLItem)b).Id;
+        ((VLItem)b).Id = tmpId;
+        _byId.Remove(f[0]); _byId.Remove(f[1]);
+        _byId[((VLItem)a).Id] = a;
+        _byId[((VLItem)b).Id] = b;
+        VListRow ra = a as VListRow, rb = b as VListRow;
+        if (ra != null && rb != null)
+        {
+            string tmpSeq = ra.SeqNo;
+            ra.SeqNo = rb.SeqNo;
+            rb.SeqNo = tmpSeq;
+        }
+        RestoreAnchor();
+    }
+
+    // ---- 容器级事件路由 ----
+
+    private void OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressCommit) return;
+        FrameworkElement fe = FindTagged(e.OriginalSource as FrameworkElement);
+        if (fe == null) return;
+        string tag = (string)fe.Tag;
+        VLItem item = fe.DataContext as VLItem;
+        if (item == null) return;
+        if (tag == "Forbid" || tag == "FoldForbid")
+        {
+            CheckBox cb = fe as CheckBox;
+            SendChange(item.Id, tag, cb != null && cb.IsChecked == true ? "1" : "0");
+        }
+        else
+        {
+            SendClick(item.Id, tag);
+        }
+    }
+
+    private void OnRightUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        FrameworkElement fe = FindTagged(e.OriginalSource as FrameworkElement);
+        if (fe == null) return;
+        string tag = (string)fe.Tag;
+        if (tag != "TKBtn" && tag != "FoldFront") return; // 仅触发键按钮支持右键自定义
+        VLItem item = fe.DataContext as VLItem;
+        if (item == null) return;
+        SendClick(item.Id, tag + "R");
+    }
+
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressCommit || _suppressChange) return;
+        ComboBox cb = e.OriginalSource as ComboBox;
+        if (cb == null) return;
+        string tag = cb.Tag as string;
+        if (tag != "TKType" && tag != "FoldTKType") return;
+        VLItem item = cb.DataContext as VLItem;
+        if (item == null) return;
+        SendChange(item.Id, tag, cb.SelectedIndex.ToString());
+    }
+
+    private void OnLostFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressCommit || _suppressChange) return;
+        TextBox tb = e.OriginalSource as TextBox;
+        ComboBox cb = e.OriginalSource as ComboBox;
+        if (tb == null && cb == null) return;
+        FrameworkElement fe = FindTagged(e.OriginalSource as FrameworkElement);
+        if (fe == null) return;
+        string tag = (string)fe.Tag;
+        if (tag != "Remark" && tag != "Loop" && tag != "FoldRemark" && tag != "FoldFront" && tag != "FoldTK") return;
+        VLItem item = fe.DataContext as VLItem;
+        if (item == null) return;
+        SendChange(item.Id, tag, tb != null ? tb.Text : cb.Text);
+    }
+
+    // e.OriginalSource 可能是控件内部元素（TextBlock/ContentPresenter），向上找最近带 Tag 的祖先
+    private static FrameworkElement FindTagged(FrameworkElement fe)
+    {
+        DependencyObject d = fe;
+        while (d != null)
+        {
+            FrameworkElement el = d as FrameworkElement;
+            if (el != null && el.Tag is string && ((string)el.Tag).Length > 0)
+                return el;
+            d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+        }
+        return null;
+    }
+
+    // ---- 回传与兜底提交 ----
+
+    private void SendClick(string id, string action)
+    {
+        _send("EVENT|" + _winId + "|" + _listName + "|VL_CLICK|" + LengthPrefix(id + "\x1F" + action));
+    }
+
+    private void SendChange(string id, string field, string value)
+    {
+        _send("EVENT|" + _winId + "|" + _listName + "|VL_CHANGE|" + LengthPrefix(id + "\x1F" + field + "\x1F" + value));
+    }
+
+    private void CommitAll()
+    {
+        if (_lb == null) return;
+        _suppressCommit = true;
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            int n = 0;
+            foreach (object o in _items)
+            {
+                if (o is VListRow)
+                {
+                    VListRow r = (VListRow)o;
+                    AppendCommit(sb, ref n, r, "Remark", r.Remark);
+                    AppendCommit(sb, ref n, r, "TKType", r.TKType.ToString());
+                    AppendCommit(sb, ref n, r, "Loop", r.LoopText);
+                    AppendCommit(sb, ref n, r, "Forbid", r.Forbid ? "1" : "0");
+                }
+                else
+                {
+                    VListFold fo = (VListFold)o;
+                    AppendCommit(sb, ref n, fo, "FoldRemark", fo.FoldRemark);
+                    AppendCommit(sb, ref n, fo, "FoldFront", fo.FoldFront);
+                    AppendCommit(sb, ref n, fo, "FoldTK", fo.FoldTK);
+                    AppendCommit(sb, ref n, fo, "FoldForbid", fo.FoldForbid ? "1" : "0");
+                }
+            }
+            if (n == 0) return;
+            _send("EVENT|" + _winId + "|" + _listName + "|VL_COMMIT_ALL|\n" + sb.ToString());
+        }
+        finally { _suppressCommit = false; }
+    }
+
+    private void AppendCommit(System.Text.StringBuilder sb, ref int n, VLItem item, string field, string value)
+    {
+        if (sb.Length > 0) sb.Append('\n');
+        sb.Append(n).Append('=').Append(LengthPrefix(item.Id + "\x1F" + field + "\x1F" + value));
+        n++;
+    }
+
+    // ---- 视口锚定 ----
+
+    private string FirstVisibleId()
+    {
+        if (_lb == null) return null;
+        var gen = _lb.ItemContainerGenerator;
+        for (int i = 0; i < _items.Count; i++)
+        {
+            ListBoxItem c = gen.ContainerFromIndex(i) as ListBoxItem;
+            if (c != null && c.IsVisible)
+            {
+                VLItem it = _items[i] as VLItem;
+                if (it != null) return it.Id;
+            }
+        }
+        return null;
+    }
+
+    private void RestoreAnchor()
+    {
+        if (_anchorId == null) return;
+        object o;
+        if (!_byId.TryGetValue(_anchorId, out o)) return;
+        int idx = _items.IndexOf(o);
+        if (idx < 0) return;
+        // 直接按项索引设偏移：ScrollIntoView 的 EnsureVisible 会强制布局（折叠实测 ~65ms），
+        // ScrollToVerticalOffset 仅设偏移，由后续布局一次性实现视口。
+        System.Windows.Controls.ScrollViewer sv = FindVisualChild<System.Windows.Controls.ScrollViewer>(_lb);
+        if (sv == null) return;
+        sv.ScrollToVerticalOffset(idx);
+    }
+
+    // ---- 吸顶折叠头（sticky fold header） ----
+    // 模块头随滚动滑出视口时，overlay 把它钉在列表顶部；模块头仍完整可见时取消钉。
+    private void UpdateSticky()
+    {
+        if (_lb == null) return;
+        EnsureSticky();
+        if (_sticky == null) return;
+        try
+        {
+            if (_sv == null)
+            {
+                _sv = FindVisualChild<System.Windows.Controls.ScrollViewer>(_lb);
+                if (_sv != null)
+                    _sv.ScrollChanged += (s, e) => UpdateSticky();
+            }
+            // 判定统一用逻辑单位：CanContentScroll=True 时 VerticalOffset 是项索引（非像素），
+            // 而 fold 在 _items 的下标同为项单位，两者可比。头已滚过视口顶（off>idx）→ 钉住该头。
+            double off = _sv.VerticalOffset;
+            VListFold pin = null;
+            for (int i = 0; i < _items.Count; i++)
+            {
+                VListFold fo = _items[i] as VListFold;
+                if (fo == null) continue;
+                if (off > i) pin = fo;
+                else break; // 第一个还完整的头，之后不再扫
+            }
+            SetStickyFold(pin);
+        }
+        catch { }
+    }
+
+    private void SetStickyFold(VListFold fo)
+    {
+        if (ReferenceEquals(fo, _stickyFold)) return;
+        _stickyFold = fo;
+        if (fo == null)
+        {
+            _sticky.Content = null;
+            _sticky.Visibility = System.Windows.Visibility.Collapsed;
+        }
+        else
+        {
+            _sticky.Content = fo;
+            _sticky.Visibility = System.Windows.Visibility.Visible;
+        }
+    }
+
+    private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < n; i++)
+        {
+            DependencyObject c = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (c is T) return (T)c;
+            T r = FindVisualChild<T>(c);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    // 深搜按 Name 找控件（VLSticky overlay 不在命名作用域，FindName 取不到）
+    private static System.Windows.FrameworkElement FindControlByName(DependencyObject parent, string name)
+    {
+        System.Windows.FrameworkElement fe = parent as System.Windows.FrameworkElement;
+        if (fe != null && fe.Name == name) return fe;
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < n; i++)
+        {
+            System.Windows.FrameworkElement r = FindControlByName(System.Windows.Media.VisualTreeHelper.GetChild(parent, i), name);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    // ---- 解析工具 ----
+
+    private static VListRow ParseRow(string[] f)
+    {
+        VListRow r = new VListRow();
+        r.Id = f[0];
+        r.Remark = f.Length > 1 ? f[1] : "";
+        r.TKStr = f.Length > 2 ? f[2] : "";
+        r.TKType = f.Length > 3 ? ParseInt(f[3]) : 0;
+        r.LoopText = f.Length > 4 ? f[4] : "";
+        r.Forbid = f.Length > 5 && f[5] == "1";
+        r.ColorHex = f.Length > 6 ? f[6] : "";
+        r.SeqNo = f.Length > 7 ? f[7] : "";
+        return r;
+    }
+
+    private static int ParseInt(string s)
+    {
+        int v;
+        return int.TryParse(s, out v) ? v : 0;
+    }
+
+    private static string LengthPrefix(string val)
+    {
+        if (val == null) val = "";
+        string escaped = val.Replace("\r", "&#x0D;").Replace("\n", "&#x0A;");
+        int byteLen = System.Text.Encoding.UTF8.GetByteCount(escaped);
+        return byteLen + ":" + escaped;
+    }
+}
+
+// 数据模板选择：按 item 类型选 RmtMacroRow / RmtFoldHeader（模板由 AHK 注入 Window.Resources）
+public class VLTemplateSelector : System.Windows.Controls.DataTemplateSelector
+{
+    private System.Windows.Window _win;
+    public VLTemplateSelector(System.Windows.Window win) { _win = win; }
+    public override System.Windows.DataTemplate SelectTemplate(object item, DependencyObject container)
+    {
+        if (item is VListFold)
+        {
+            object r = _win.FindResource("RmtFoldHeader");
+            if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
+        }
+        else if (item is VListRow)
+        {
+            object r = _win.FindResource("RmtMacroRow");
+            if (r is System.Windows.DataTemplate) return (System.Windows.DataTemplate)r;
+        }
+        return null;
+    }
+}
+
+public abstract class VLItem : System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+    public string Id;
+    protected void Set<T>(ref T field, T value, string name)
+    {
+        field = value;
+        if (PropertyChanged != null)
+            PropertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
+}
+
+public class VListRow : VLItem
+{
+    public string Remark { get { return _Remark; } set { Set(ref _Remark, value, "Remark"); } } private string _Remark;
+    public string TKStr { get { return _TKStr; } set { Set(ref _TKStr, value, "TKStr"); } } private string _TKStr;
+    public int TKType { get { return _TKType; } set { Set(ref _TKType, value, "TKType"); } } private int _TKType;
+    public string LoopText { get { return _LoopText; } set { Set(ref _LoopText, value, "LoopText"); } } private string _LoopText;
+    public bool Forbid { get { return _Forbid; } set { Set(ref _Forbid, value, "Forbid"); } } private bool _Forbid;
+    public string ColorHex { get { return _ColorHex; } set { Set(ref _ColorHex, value, "ColorHex"); } } private string _ColorHex;
+    public string SeqNo { get; set; }
+    public bool TKBtnEnabled { get; set; }
+    public bool TKTypeEnabled { get; set; }
+    public bool LoopEnabled { get; set; }
+}
+
+public class VListFold : VLItem
+{
+    public string FoldRemark { get { return _FoldRemark; } set { Set(ref _FoldRemark, value, "FoldRemark"); } } private string _FoldRemark;
+    public string FoldFront { get { return _FoldFront; } set { Set(ref _FoldFront, value, "FoldFront"); } } private string _FoldFront;
+    public bool FoldForbid { get { return _FoldForbid; } set { Set(ref _FoldForbid, value, "FoldForbid"); } } private bool _FoldForbid;
+    public int FoldTKType { get { return _FoldTKType; } set { Set(ref _FoldTKType, value, "FoldTKType"); } } private int _FoldTKType;
+    public string FoldTK { get { return _FoldTK; } set { Set(ref _FoldTK, value, "FoldTK"); } } private string _FoldTK;
+    public bool Folded { get { return _Folded; } set { Set(ref _Folded, value, "Folded"); } } private bool _Folded;
+    public bool ShowTKRow { get; set; }
+    public bool FoldTKTypeEnabled { get; set; }
+    public string ShowTKRowVisibility { get { return ShowTKRow ? "Visible" : "Collapsed"; } }
+    public System.Collections.Generic.List<VListRow> ChildRows = new System.Collections.Generic.List<VListRow>();
 }
 
 

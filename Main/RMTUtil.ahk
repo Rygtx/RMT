@@ -23,11 +23,24 @@ OnSaveSetting(*) {
     if (!isValid)
         return
 
+    ; 先取窗口位置再隐藏，用户感知窗口立即关闭；后续保存/Reload 在隐藏窗口下进行
+    SaveCurWinPos()
+    MainSoftData.MyGui.Hide()
+
     OnKillAllMacro()
 
     if (MyWorkPool != "") {
         MyWorkPool.Clear()
         MyWorkPool := ""
+    }
+
+    ; Epic5：虚拟化列表保存前兜底提交实体化行全字段（覆盖纯键盘后未失焦路径）。
+    ; VL_COMMIT_ALL 回传经 SetTimer(-1) 异步写模型，Sleep(-1) 处理 pending timer 后再读，防丢
+    for t in [1, 2, 3, 4, 5, 6, 7] {
+        if (MyMainWin._useVirtual.Has(t)) {
+            MyMainWin._vl.CommitAll(t)
+            Sleep(-1)
+        }
     }
 
     loop MainSoftData.TabNameArr.Length {
@@ -63,6 +76,10 @@ OnSaveSetting(*) {
     CheckAndAddDirty("MutiThreadNum", MainSoftData.MutiThreadNum)
     CheckAndAddDirty("SoftBGColor", MainSoftData.SoftBGColor)
     CheckAndAddDirty("NoVariableTip", MainSoftData.NoVariableTip)
+    CheckAndAddDirty("BusinessLog", MainSoftData.BusinessLog)
+    CheckAndAddDirty("SysLogMinLevel", MainSoftData.SysLogMinLevel)
+    CheckAndAddDirty("LogWarnBubble", MainSoftData.LogWarnBubble)
+    CheckAndAddDirty("LogErrorBadge", MainSoftData.LogErrorBadge)
     CheckAndAddDirty("CheckForeground", MainSoftData.CheckForeground)
     CheckAndAddDirty("IsAdminStart", MainSoftData.IsAdminStart)
     CheckAndAddDirty("CMDTip", MySoftData.CMDTip)
@@ -105,8 +122,6 @@ OnSaveSetting(*) {
     CheckAndAddDirty("LastShowMonth", MainSoftData.LastShowMonth)
     CheckAndAddDirty("HasSaved", true)
     CheckAndAddDirty("IsReload", true)
-
-    SaveCurWinPos()
 
     ; CMD窗口设置
     CheckAndAddDirty("CMDPosX", MainSoftData.CMDPosX)
@@ -171,7 +186,7 @@ OnTriggerJoyTypeSettingChange(ctrl, info) {
 SaveCurWinPos() {
     MyGui := MainSoftData.MyGui
     MyGui.GetPos(&x, &y, &w, &h)
-    IniWrite(Format("{}π{}", x, y), IniFile, IniSection, "LastWinPos")
+    IniWrite(Format("{}π{}π{}π{}", x, y, w, h), IniFile, IniSection, "LastWinPos")
 
     ListenGui := MyVarListenGui.Gui
     if (MyVarListenGui.Gui != "") {
@@ -185,11 +200,11 @@ OnEditCMDTipGui() {
 }
 
 OnTabValueChanged(*) {
-    tableItem := MySoftData.TableInfo[MainSoftData.TabCtrl.Value]
-    MySlider.SwitchTab(tableItem)
+    ; 滑块已删除；当前页索引由 MainWin.OnTabChanged 同步到 MainSoftData.TableIndex
 }
 
 SwapTableContent(tableItem, indexA, indexB) {
+    ; 持久配置数组（保存到文件，必须跟随宏内容移动，否则上/下移后保存会错位）
     SwapArrValue(tableItem.SerialArr, indexA, indexB)
     SwapArrValue(tableItem.RemarkArr, indexA, indexB)
     SwapArrValue(tableItem.TKArr, indexA, indexB)
@@ -199,6 +214,23 @@ SwapTableContent(tableItem, indexA, indexB) {
     SwapArrValue(tableItem.LoopCountArr, indexA, indexB)
     SwapArrValue(tableItem.ForbidArr, indexA, indexB)
     SwapArrValue(tableItem.IcoPathArr, indexA, indexB)
+    SwapArrValue(tableItem.UnorderedTriggerArr, indexA, indexB)
+    SwapArrValue(tableItem.TimingSerialArr, indexA, indexB)
+    SwapArrValue(tableItem.ModeArr, indexA, indexB)
+    SwapArrValue(tableItem.StartTipSoundArr, indexA, indexB)
+    SwapArrValue(tableItem.EndTipSoundArr, indexA, indexB)
+    ; 运行时状态数组（与 ModeArr 等长，InitSingleTableState 统一初始化）
+    ; 颜色点跟随宏内容：行移动后状态显示与新位置宏保持一致（原仅交换 9 数组导致颜色点错位）
+    SwapArrValue(tableItem.ColorStateArr, indexA, indexB)
+    SwapArrValue(tableItem.HoldKeyArr, indexA, indexB)
+    SwapArrValue(tableItem.KilledArr, indexA, indexB)
+    SwapArrValue(tableItem.PauseArr, indexA, indexB)
+    SwapArrValue(tableItem.ActionCount, indexA, indexB)
+    SwapArrValue(tableItem.ToggleStateArr, indexA, indexB)
+    SwapArrValue(tableItem.ToggleActionArr, indexA, indexB)
+    SwapArrValue(tableItem.VariableMapArr, indexA, indexB)
+    SwapArrValue(tableItem.IsWorkIndexArr, indexA, indexB)
+    SwapArrValue(tableItem.GraphBranchCountArr, indexA, indexB)
 }
 
 SwapArrValue(Arr, indexA, indexB, valueType := 1) {
@@ -411,6 +443,11 @@ InitFilePath() {
     global ScreenShotFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\ScreenShotFile.ini"
     global GraphNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphNodeFile.ini"
     global GraphStartNodeFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.ini"
+    ; 阶段5：纯文本指令迁移到配置文件模式（间隔/按键/移动/RMT指令）
+    global IntervalFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\IntervalFile.ini"
+    global KeyDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\KeyDataFile.ini"
+    global MoveDataFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\MoveDataFile.ini"
+    global RMTCMDFile := A_WorkingDir "\Setting\" MySoftData.CurSettingName "\RMTCMDFile.ini"
     global ProjectRootDir := A_ScriptDir
 }
 
@@ -641,16 +678,8 @@ SetTableItemState(tableIndex, itemIndex, State) {
 }
 
 RefreshItemColorUI(tableIndex, itemIndex) {
-    tableItem := MySoftData.TableInfo[tableIndex]
-    State := tableItem.ColorStateArr[itemIndex]
-    isVisible := State != 0
-
-    ItemUsePool := ItemUseConPoolMap[tableItem.Index]
-    if (ItemUsePool.Has(itemIndex)) {
-        ItemConObj := ItemUsePool[itemIndex]
-        ItemConObj.ColorCon.Value := GetItemColorValue(State)
-        ItemConObj.ColorCon.Visible := isVisible
-    }
+    global MyMainWin
+    MyMainWin.UpdateItemColor(tableIndex, itemIndex)
 }
 
 CancelTableItemStopState(tableIndex, itemIndex) {
@@ -1471,6 +1500,7 @@ OnTriggerSepcialItemMacro(MacroStr) {
     tableItem.ActionCount[1] := 0
     tableItem.index := 1
     tableItem.ColorStateArr[1] := 1
+    tableItem.RemarkArr[1] := "" ; F5 单跑无备注，占位空值（业务日志读取需有该下标）
 
     UpdateMacroRunningCount(0, 1)
     RefreshItemColorUI(tableItem.Index, 1)
