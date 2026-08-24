@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 
 namespace RMT
 {
@@ -9,15 +10,20 @@ namespace RMT
         /// <summary>
         /// 获取服务器状态原始 JSON 字符串，由 AHK 侧解析
         /// </summary>
-        public string GetStatus()
+        /// <param name="version">当前版本号，如 1.2.1_x64</param>
+        public string GetStatus(string version = "")
         {
             string deviceId = Device.GetDeviceId();
             if (deviceId == "")
                 return "";
 
+            if (!NetworkInterface.GetIsNetworkAvailable())
+                return "";
+
             try
             {
-                string Url = "http://39.108.96.160:3000/getstatus?id=" + deviceId;
+                string Url = "http://39.108.96.160:3000/getstatus?id=" + Uri.EscapeDataString(deviceId)
+                    + "&version=" + Uri.EscapeDataString(version ?? "");
                 using (var httpClient = new HttpClient())
                 {
                     var response = httpClient.GetAsync(Url).Result;

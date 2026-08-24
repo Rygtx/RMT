@@ -331,7 +331,7 @@ InitRMTHttpPlugin() {
         RMTPath := A_ScriptDir "\Plugins\RMT\RMT.dll"
         RMT_ASM := CLR_LoadLibrary(RMTPath)
         RMT_Http := RMT_ASM.CreateInstance("RMT.Http")
-        ApplyRMTServerStatus(RMT_Http.GetStatus())
+        ApplyRMTServerStatus(RMT_Http.GetStatus(RMT_VERSION_DISPLAY))
     } catch {
         RMT_Http := ""
         RMT_HasDotNet := false
