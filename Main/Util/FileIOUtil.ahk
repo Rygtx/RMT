@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 SetFileIOGlobalData(Data) {
     CurType := Data.OperType
@@ -44,7 +44,7 @@ ReadExcel(Data, tableItem, index) {
             RowEnd := Integer(RowEnd), ColEnd := Integer(ColEnd)
             err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
             if (err != "") {
-                RMTErrorShow(err, RMT_LV_WARN, "宏")
+                MsgBox(err)
                 return
             }
             IsOk := ExcelRangeRowToRead(FilePath, Data.NameOrSerial, Row, Col, RowEnd, ColEnd, &ResArr)
@@ -58,7 +58,7 @@ ReadExcel(Data, tableItem, index) {
             RowEnd := Integer(RowEnd), ColEnd := Integer(ColEnd)
             err := CheckExcelRegionBounds(Row, Col, RowEnd, ColEnd)
             if (err != "") {
-                RMTErrorShow(err, RMT_LV_WARN, "宏")
+                MsgBox(err)
                 return
             }
             IsOk := ExcelRangeColToRead(FilePath, Data.NameOrSerial, Row, Col, RowEnd, ColEnd, &ResArr)
@@ -162,7 +162,7 @@ WriteTextFile(Data, tableItem, index) {
         case "覆盖写入":
             FileObj := FileOpen(FilePath, "w", Data.Encoding)
             if !FileObj
-                RMTErrorShow("文件打开失败: " FilePath, RMT_LV_ERROR, "宏")
+                MsgBox("文件打开失败: " FilePath)
 
             FileObj.Write(Content)
             FileObj.Close()

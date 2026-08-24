@@ -1,314 +1,247 @@
 #Requires AutoHotkey v2.0
 
-; =====================================================================
-; 后台鼠标编辑器 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
-; =====================================================================
-
 class BGMouseGui {
     __new() {
         this.ParentTile := ""
-        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
-        this._closed := true
-        this._batch := []
-        this._batching := false
+        this.RemarkCon := ""
         this.RefreshInfoAction := () => this.RefreshInfo()
+
+        this.CurTitleCon := ""
+        this.CurPosCon := ""
+
+        this.TargetTitleCon := ""
+        this.OperateTypeTitle := ""
+        this.OperateTypeCon := ""
+        this.MouseTypeCon := ""
+        this.PosXCon := ""
+        this.PosYCon := ""
+        this.PosVarXCon := ""
+        this.PosVarYCon := ""
+        this.ScrollVTitle := ""
+        this.ScrollVCon := ""
+        this.ScrollHTitle := ""
+        this.ScrollHCon := ""
+        this.ClickTimeTitle := ""
+        this.ClickTimeCon := ""
         this.Data := ""
-        this.SerialStr := ""
     }
 
     ShowGui(cmd) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)
-            this._CloseWindow()
-        this._BuildAndShow()
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
+            this.Gui.Show()
+        }
+        else {
+            this.AddGui()
+        }
+
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
-        this._batching := true
-        try this.Init(cmd)
-        finally {
-            this._flushBatch()
-        }
+
+        this.Init(cmd)
         this.OnRefresh()
         this.ToggleFunc(true)
     }
 
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
-    }
-
-    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
-    _ComboPush(comboName, propertyName, value) {
-        if (this._batching)
-            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
-        else
-            this.ui.Update(comboName, propertyName, value)
-    }
-
-    _flushBatch() {
-        this._batching := false
-        if (IsObject(this.ui) && this._batch.Length > 0) {
-            this.ui.BatchUpdate(this._batch)
-            this._batch := []
+    AddGui() {
+        MyGui := Gui(, this.ParentTile GetLang("后台鼠标编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
         }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("快捷方式："))
+        PosX += 80
+        con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
+        con.Enabled := false
+
+        PosX += 80
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
+        btnCon.OnEvent("Click", (*) => this.TriggerMacro())
+        Con := MyGui.Add("Button", Format("x{} y{} w30", PosX + 82, PosY - 5), "?")
+        Con.OnEvent("Click", (*) => this.OnClickHelpBtn())
+
+        PosX += 120
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
+        PosX += 50
+        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+
+        PosY += 25
+        PosX := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 500), GetLang("F1:确定信息"))
+
+        PosX := 10
+        PosY += 20
+        this.CurTitleCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 450, 40), GetLang("当前窗口信息:RMT"))
+        PosX := 10
+        PosY += 40
+        this.CurPosCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 380, 20), GetLang("当前窗口坐标:0,0"))
+
+        PosX := 10
+        PosY += 30
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口信息:"))
+        PosX += 80
+        this.TargetTitleCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 220), "")
+
+        PosX += 230
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 100), GetLang("编辑"))
+        btnCon.OnEvent("Click", this.OnClickEditBtn.Bind(this))
+
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("鼠标按键:"))
+        PosX += 80
+        this.MouseTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), GetLangArr(["左键",
+            "中键", "右键",
+            "滚轮"]))
+        this.MouseTypeCon.OnEvent("Change", (*) => this.OnRefresh())
+
+        PosX += 150
+        this.OperateTypeTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("操作类型:"))
+        PosX += 80
+        this.OperateTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 3, 100), GetLangArr(["点击",
+            "双击", "按下",
+            "松开"]))
+        this.OperateTypeCon.OnEvent("Change", (*) => this.OnRefresh())
+
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口坐标X:"))
+        PosX += 80
+        this.PosVarXCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 100), [])
+
+        PosX += 150
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("窗口坐标Y:"))
+        PosX += 80
+        this.PosVarYCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 3, 100), [])
+
+        PosX := 10
+        PosY += 40
+        this.ScrollVTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("垂直滚动:"))
+        PosX += 80
+        this.ScrollVCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
+        PosX += 150
+        this.ScrollHTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("水平滚动"))
+        PosX += 80
+        this.ScrollHCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 100), "")
+
+        PosX := 10
+        PosY += 40
+        this.ClickTimeTitle := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 75), GetLang("点击时间:"))
+        this.ClickTimeTitle.Visible := false
+        PosX += 80
+        this.ClickTimeCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 3, 70), "")
+        this.ClickTimeCon.Visible := false
+
+        ; PosY += 100
+        PosX := 200
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 335)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 335))
     }
 
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := this.ParentTile GetLang("后台鼠标编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,6")
-        body.Rows("34", "26", "40", "22", "34", "34", "36", "36", "34", "*")
-        body.Cols("90", "120", "90", "120")
-
-        ; 行0：快捷方式 + 执行指令 + 备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
-        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("6,0,0,0")
-        row0.Add("Button").Name("BtnHelp").Content("?").Width(30).Height(26).MinHeight(26).Margin("4,0,0,0")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("12,0,0,0")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
-
-        ; 行1：F1
-        body.Add("TextBlock").Grid_Row(1).Grid_ColumnSpan(4).Text(GetLang("F1:确定信息")).VerticalAlignment("Center")
-
-        ; 行2-3：当前信息
-        body.Add("TextBlock").Grid_Row(2).Grid_ColumnSpan(4).Name("CurTitleCon").Text(GetLang("当前窗口信息:RMT")).VerticalAlignment("Center")
-        body.Add("TextBlock").Grid_Row(3).Grid_ColumnSpan(4).Name("CurPosCon").Text(GetLang("当前窗口坐标:0,0")).VerticalAlignment("Center")
-
-        ; 行4：窗口信息
-        row4 := body.Add("StackPanel").Grid_Row(4).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row4.Add("TextBlock").Text(GetLang("窗口信息:")).VerticalAlignment("Center").Width(70)
-        row4.Add("TextBox").Name("TargetTitleCon").Width(240).Height(24).MinHeight(24)
-        row4.Add("Button").Name("BtnEdit").Content(GetLang("编辑")).Height(26).MinHeight(26).Margin("4,0,0,0")
-
-        ; 行5：鼠标按键 + 操作类型
-        body.Add("TextBlock").Grid_Row(5).Grid_Column(0).Text(GetLang("鼠标按键:")).VerticalAlignment("Center")
-        mt := body.Add("ComboBox").Grid_Row(5).Grid_Column(1).Name("MouseTypeCombo").Height(26).MinHeight(26)
-        for m in GetLangArr(["左键", "中键", "右键", "滚轮"])
-            mt.Add("ComboBoxItem").Content(m)
-        operRow := body.Add("StackPanel").Name("OperateRow").Grid_Row(5).Grid_Column(2).Grid_ColumnSpan(2).Orientation("Horizontal").VerticalAlignment("Center")
-        operRow.Add("TextBlock").Text(GetLang("操作类型:")).VerticalAlignment("Center")
-        ot := operRow.Add("ComboBox").Name("OperateTypeCombo").Width(100).Height(26).MinHeight(26).Margin("4,0,0,0")
-        for o in GetLangArr(["点击", "双击", "按下", "松开"])
-            ot.Add("ComboBoxItem").Content(o)
-
-        ; 行6：坐标X/Y
-        body.Add("TextBlock").Grid_Row(6).Grid_Column(0).Text(GetLang("窗口坐标X:")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(6).Grid_Column(1).Name("PosVarX").Height(26).MinHeight(26).IsEditable("True")
-        body.Add("TextBlock").Grid_Row(6).Grid_Column(2).Text(GetLang("窗口坐标Y:")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(6).Grid_Column(3).Name("PosVarY").Height(26).MinHeight(26).IsEditable("True")
-
-        ; 行7：滚动
-        scrollRow := body.Add("StackPanel").Grid_Row(7).Grid_ColumnSpan(4).Name("ScrollRow").Orientation("Horizontal").VerticalAlignment("Center")
-        scrollRow.Add("TextBlock").Text(GetLang("垂直滚动:")).VerticalAlignment("Center").Width(70)
-        scrollRow.Add("TextBox").Name("ScrollV").Width(90).Height(24).MinHeight(24)
-        scrollRow.Add("TextBlock").Text(GetLang("水平滚动:")).VerticalAlignment("Center").Margin("14,0,0,0")
-        scrollRow.Add("TextBox").Name("ScrollH").Width(90).Height(24).MinHeight(24)
-
-        ; 行8：点击时间
-        clickRow := body.Add("StackPanel").Grid_Row(8).Grid_ColumnSpan(4).Name("ClickTimeRow").Orientation("Horizontal").VerticalAlignment("Center")
-        clickRow.Add("TextBlock").Text(GetLang("点击时间:")).VerticalAlignment("Center").Width(70)
-        clickRow.Add("TextBox").Name("ClickTimeCon").Width(70).Height(24).MinHeight(24)
-
-        ; 行9：确定
-        btnRow := body.Add("StackPanel").Grid_Row(9).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="520" Height="350" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
-        this.ui.OnEvent("BtnHelp", "Click", ObjBindMethod(this, "OnClickHelpBtn"))
-        this.ui.OnEvent("MouseTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
-        this.ui.OnEvent("OperateTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
-        this.ui.OnEvent("BtnEdit", "Click", ObjBindMethod(this, "OnClickEditBtn"))
-        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
-            Sleep(50)
         }
-        if (!gotHwnd)
-            this._closed := true
-    }
-
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
-    }
-
-    OnWindowClosing(state, ctrl, event) {
-        try this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        this.ui := ""
-        this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        try this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        this.ui := ""
-        this._closed := true
-    }
-
-    _SetCombo(comboName, items, text) {
-        if (!IsObject(this.ui))
-            return
-        this._ComboPush(comboName, "ClearItems", "")
-        for it in items {
-            if (it == "")
-                continue
-            this._ComboPush(comboName, "AddItem", it)
-        }
-        this._ComboPush(comboName, "Text", text)
-    }
-
-    _MouseValue() {
-        v := IsObject(this.ui) ? this.ui.Query("MouseTypeCombo>SelectedIndex") : ""
-        return IsNumber(v) ? Integer(v) + 1 : 1
-    }
-    _OperValue() {
-        v := IsObject(this.ui) ? this.ui.Query("OperateTypeCombo>SelectedIndex") : ""
-        return IsNumber(v) ? Integer(v) + 1 : 1
+        this.Gui.Hide()
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("后台鼠标")
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
 
-        this.ui.Update("TargetTitleCon", "Text", this.Data.TargetTitle != "" ? this.Data.TargetTitle : "")
-        this.ui.Update("OperateTypeCombo", "SelectedIndex", String(this.Data.OperateType - 1))
-        this.ui.Update("MouseTypeCombo", "SelectedIndex", String(this.Data.MouseType - 1))
-        this.ui.Update("ClickTimeCon", "Text", this.Data.ClickTime)
-        this._SetCombo("PosVarX", GetGuiVarArr(0), GetLang(this.Data.PosVarX))
-        this._SetCombo("PosVarY", GetGuiVarArr(0), GetLang(this.Data.PosVarY))
-        this.ui.Update("ScrollV", "Text", this.Data.ScrollV)
-        this.ui.Update("ScrollH", "Text", this.Data.ScrollH)
+        this.TargetTitleCon.Value := this.Data.TargetTitle != "" ? this.Data.TargetTitle : this.TargetTitleCon.Value
+        this.OperateTypeCon.Value := this.Data.OperateType
+        this.MouseTypeCon.Value := this.Data.MouseType
+        this.ClickTimeCon.Value := this.Data.ClickTime
+        this.PosVarXCon.Delete()
+        this.PosVarXCon.Add(GetGuiVarArr(0))
+        this.PosVarXCon.Text := GetLang(this.Data.PosVarX)
+        this.PosVarYCon.Delete()
+        this.PosVarYCon.Add(GetGuiVarArr(0))
+        this.PosVarYCon.Text := GetLang(this.Data.PosVarY)
+        this.ScrollVCon.Value := this.Data.ScrollV
+        this.ScrollHCon.Value := this.Data.ScrollH
     }
 
-    OnRefresh(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
-            return
-        isScroll := this._MouseValue() == 4
-        this._Vis("OperateRow", !isScroll)
-        this._Vis("ScrollRow", isScroll)
-        isClickOrDClick := this._OperValue() == 1 || this._OperValue() == 2
+    OnRefresh() {
+        isScroll := this.MouseTypeCon.Value == 4    ;滚轮
+        this.OperateTypeTitle.Visible := !isScroll
+        this.OperateTypeCon.Visible := !isScroll
+        this.ScrollVTitle.Visible := isScroll
+        this.ScrollVCon.Visible := isScroll
+        this.ScrollHTitle.Visible := isScroll
+        this.ScrollHCon.Visible := isScroll
+
+        isClickOrDClick := this.OperateTypeCon.Value == 1 || this.OperateTypeCon.Value == 2
         showClickTime := !isScroll && isClickOrDClick
-        this._Vis("ClickTimeRow", showClickTime)
-    }
-
-    _Vis(name, show) {
-        if (IsObject(this.ui))
-            this.ui.Update(name, "Visibility", show ? "Visible" : "Collapsed")
+        this.ClickTimeTitle.Visible := showClickTime
+        this.ClickTimeCon.Visible := showClickTime
     }
 
     ToggleFunc(state) {
+        MacroAction := (*) => this.TriggerMacro()
         if (state) {
-            try SetTimer this.RefreshInfoAction, 100
-            try Hotkey("!l", (*) => this.TriggerMacro(), "On")
-            try Hotkey("F1", (*) => this.OnF1(), "On")
+            SetTimer this.RefreshInfoAction, 100
+            Hotkey("!l", MacroAction, "On")
+            Hotkey("F1", (*) => this.OnF1(), "On")
         }
         else {
-            try SetTimer this.RefreshInfoAction, 0
-            try Hotkey("!l", (*) => this.TriggerMacro(), "Off")
-            try Hotkey("F1", (*) => this.OnF1(), "Off")
+            SetTimer this.RefreshInfoAction, 0
+            Hotkey("!l", MacroAction, "Off")
+            Hotkey("F1", (*) => this.OnF1(), "Off")
         }
     }
 
     OnF1() {
-        if (!IsObject(this.ui))
-            return
         CoordMode("Mouse", "Window")
         MouseGetPos &mouseX, &mouseY, &winId
         try {
             title := WinGetTitle(winId)
             className := WinGetClass(winId)
             try {
-                WinPID := WinGetPID("ahk_id " winId)
+                WinPID := WinGetPID("ahk_id " WinID)
                 process := ProcessGetName(WinPID)
             }
             catch {
                 process := ""
             }
-            this.ui.Update("TargetTitleCon", "Text", title "⎖" className "⎖" process)
+            this.TargetTitleCon.Value := title "⎖" className "⎖" process
         }
+
         PosArr := GetCurWinPos()
-        this.ui.Update("PosVarX", "Text", PosArr[1])
-        this.ui.Update("PosVarY", "Text", PosArr[2])
+        this.PosVarXCon.Text := PosArr[1]
+        this.PosVarYCon.Text := PosArr[2]
     }
 
     RefreshInfo() {
-        if (!IsObject(this.ui))
-            return
         CoordMode("Mouse", "Screen")
         MouseGetPos &mouseX, &mouseY, &oriId
         PosArr := GetCurWinPos()
         try {
-            this.ui.Update("CurPosCon", "Text", Format("{}{},{}", GetLang("当前窗口坐标:"), PosArr[1], PosArr[2]))
+            this.CurPosCon.Value := GetLang("当前窗口坐标: ") PosArr[1] "," PosArr[2]
+            this.CurPosCon.Value := Format("{}{},{}", GetLang("当前窗口坐标:"), PosArr[1], PosArr[2])
+
             title := WinGetTitle(oriId)
             className := WinGetClass(oriId)
             try {
@@ -318,45 +251,53 @@ class BGMouseGui {
             catch {
                 process := ""
             }
-            this.ui.Update("CurTitleCon", "Text", Format("{}{}⎖{}⎖{}", GetLang("当前窗口信息:"), title, className, process))
+
+            this.CurTitleCon.Value := Format("{}{}⎖{}⎖{}", GetLang("当前窗口信息:"), title, className, process)
         }
     }
 
-    OnClickEditBtn(state := "", ctrl := "", event := "") {
-        if (MainSoftData.IsModalSubGui && this.ui != "") {
-            MyFrontInfoGui.OwnerHwnd := this.Hwnd()
+    OnClickEditBtn(*) {
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            MyFrontInfoGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
             MyFrontInfoGui.OwnerHwnd := ""
         }
-        MyFrontInfoGui.ShowGui(XamlValueBridge(this.ui, "TargetTitleCon"))
+        MyFrontInfoGui.ShowGui(this.TargetTitleCon)
     }
 
-    OnClickSureBtn(state, ctrl, event) {
-        if (!this.CheckIfValid())
+    OnClickSureBtn() {
+        valid := this.CheckIfValid()
+        if (!valid)
             return
         this.SaveBGMouseData()
+        this.ToggleFunc(false)
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
-        this.ToggleFunc(false)
-        this._CloseWindow()
-        if (action != "")
-            action(CommandStr)
+        action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     CheckIfValid() {
-        if (this.ui.Query("TargetTitleCon") == "") {
+        if (this.TargetTitleCon.Value == "") {
             MsgBox(GetLang("目标窗口信息不能为空"))
             return false
         }
         return true
     }
 
-    TriggerMacro(state := "", ctrl := "", event := "") {
-        if (!IsNumber(this.ui.Query("PosVarX")) || !IsNumber(this.ui.Query("PosVarY"))) {
+    TriggerMacro() {
+        if (!IsNumber(this.PosVarXCon.Text) || !IsNumber(this.PosVarYCon.Text)) {
             MsgBox(GetLang("坐标中存在变量，无法在编辑器模式下执行指令"))
-            return
+            return false
         }
+
         this.SaveBGMouseData()
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
@@ -365,27 +306,29 @@ class BGMouseGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        CommandStr := CorrectRemark(CommandStr, this.ui.Query("RemarkCon"))
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 
     SaveBGMouseData() {
-        this.Data.TargetTitle := this.ui.Query("TargetTitleCon")
-        this.Data.OperateType := this._OperValue()
-        this.Data.MouseType := this._MouseValue()
-        this.Data.PosVarX := GetLangKey(this.ui.Query("PosVarX"))
-        this.Data.PosVarY := GetLangKey(this.ui.Query("PosVarY"))
-        this.Data.ClickTime := this.ui.Query("ClickTimeCon")
-        this.Data.ScrollV := this.ui.Query("ScrollV")
-        this.Data.ScrollH := this.ui.Query("ScrollH")
+        this.Data.TargetTitle := this.TargetTitleCon.Value
+        this.Data.OperateType := this.OperateTypeCon.Value
+        this.Data.MouseType := this.MouseTypeCon.Value
+        this.Data.PosVarX := GetLangKey(this.PosVarXCon.Text)
+        this.Data.PosVarY := GetLangKey(this.PosVarYCon.Text)
+        this.Data.ClickTime := this.ClickTimeCon.Value
+        this.Data.ScrollV := this.ScrollVCon.Value
+        this.Data.ScrollH := this.ScrollHCon.Value
+
         SaveMacroCMDData(this.Data)
     }
 
-    OnClickHelpBtn(state := "", ctrl := "", event := "") {
+    OnClickHelpBtn() {
         str1 := GetLang("该指令需要管理员身份运行软件")
         str2 := GetLang("该指令部分窗口可能无效")
         str3 := GetLang("tip1:可通过对浏览器界面配置检测指令的正确性")
         str4 := GetLang("tip2:若浏览器界面正常，实际窗口无效，那就是该窗口不支持后台功能")
+
         str := Format("{}`n{}`n{}`n{}", str1, str2, str3, str4)
         MsgBox(str, GetLang("后台操作说明"))
     }

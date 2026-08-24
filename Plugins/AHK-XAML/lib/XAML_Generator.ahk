@@ -271,7 +271,7 @@ class XAMLElement {
                             safeStr := StrReplace(safeStr, ">", "&gt;"),
                             safeStr := StrReplace(safeStr, '"', "&quot;"),
                             safeStr := StrReplace(safeStr, "'", "&apos;"),
-                            runs .= (currentType == 1) ? '<Run FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="' safeStr '"/>' : '<Run Text="' safeStr '"/>',
+                            runs .= (currentType == 1) ? '<Run FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="' safeStr '"/>' : '<Run FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif" Text="' safeStr '"/>',
                             currentStr := ""
                         ) : ""
                     )

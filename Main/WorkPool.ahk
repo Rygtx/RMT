@@ -110,7 +110,6 @@ class WorkPool {
         this.lostWorkerCheckFunc := ""
         this.rxPollFunc := ""
         this.residualCheckFunc := ""
-        this._inputGuis := Map()      ; 活动输入弹窗实例（key=req）：每个 Worker 请求独立实例，支持并发弹窗
 
         OnMessage(WM_LOAD_WORK, ObjBindMethod(this, "OnWorkerReady"))
         OnMessage(WM_WORKER_TO_MASTER, ObjBindMethod(this, "OnWorkerToMaster"))
@@ -205,11 +204,9 @@ class WorkPool {
         this.pending[idx] := wd
 
         Run(Format('"{}" {} {} {}'
-            ; parentHwnd 必须用主进程窗口（A_ScriptHwnd）：XAML 迁移后 MyGui.Hwnd 是 daemon 进程窗口，
-            ; Worker PostMessage 到它收不到主进程 OnMessage，导致 Worker→主进程消息（MsgSendHandler/输入请求）全部失效
             , this.workerExe
             , idx
-            , A_ScriptHwnd
+            , MainSoftData.MyGui.Hwnd
             , this.mainPID), , , &pid)
 
         wd.pid := pid
@@ -1031,13 +1028,6 @@ class WorkPool {
                         MsgBoxContent(args[1])
                     case "TT":
                         ToolTipContent(args[1])
-                    case "IP":
-                        ; Worker 请求输入框：创建独立实例弹窗（不同宏/Worker 并发，互不阻塞；共享主进程 daemon）
-                        ; 异步创建：避免在消息轮询/OnMessage 上下文同步 XAMLHost（主进程单线程会与 daemon 回传互堵）
-                        SetTimer((*) => this._ShowInputDialog(wd, false, args.Length >= 1 ? args[1] : "", args.Length >= 2 ? args[2] : ""), -10)
-                    case "IB":
-                        ; Worker 请求输入按钮条：创建独立实例，结果回传对应 Worker
-                        SetTimer((*) => this._ShowInputDialog(wd, true, args.Length >= 1 ? args[1] : "1"), -10)
                     case "MC":
                         MacroCount(args[1])
                     case "JY":
@@ -1071,19 +1061,7 @@ class WorkPool {
                         p := StrSplit(args[2], ".")
                         RemoveAtGlobalArray(args[1], p[1], p[2], wd.idx)
                     case "ER":
-                        ; Worker 错误上报（统一日志 C 项）：payload = "级别|workerIdx|完整信息"
-                        ; 主进程聚合到错误中心 + 写系统日志；错误中心已有 ErrorList 累积显示
-                        try {
-                            erParts := StrSplit(args[1], "|", , 3)
-                            erLevel := erParts.Length >= 1 ? erParts[1] : "error"
-                            erSrc := erParts.Length >= 2 ? ("Worker#" erParts[2]) : ("Worker#" wd.idx)
-                            erMsg := erParts.Length >= 3 ? erParts[3] : args[1]
-                            ; 走 RMTErrorShow 统一按级别通知（warn 气泡 / error 错误中心，均可开关）
-                            RMTErrorShow("宏执行异常: " erMsg, erLevel, erSrc)
-                        } catch {
-                            RMTLogSys(RMT_LV_ERROR, "Worker#" wd.idx, "ER解析失败: " args[1])
-                            MyErrorMsgBoxGui.ShowGui(args[1])
-                        }
+                        MyErrorMsgBoxGui.ShowGui(args[1])
                     case "ST":
                         StopMacro(args[1], args[2])
                     case "HK":
@@ -1103,61 +1081,6 @@ class WorkPool {
                 }
             } catch {
             }
-        }
-    }
-
-    ; Worker 输入弹窗：每个请求创建独立实例（不同宏/Worker 并发弹窗，互不阻塞；共享主进程 daemon）
-    _ShowInputDialog(wd, isBtn, args*) {
-        req := { wd: wd, done: false }
-        this._inputGuis[req] := true   ; 追踪活动实例
-        GraphPoolLog("输入请求处理", Format("wd=#{1} type={2}", wd.idx, isBtn ? "btn" : "input"))
-        try {
-            if (isBtn) {
-                ; 输入按钮条：独立 InputBtnXamlGui 实例（XAML，复用主进程 daemon，多窗口并发）
-                gui := InputBtnXamlGui()
-                req.gui := gui
-                gui.TrueAction := (*) => this._SendInputResult(req, "IBR", "true")
-                gui.FalseAction := (*) => this._SendInputResult(req, "IBR", "false")
-                gui.ContinueAction := (*) => this._SendInputResult(req, "IBR", "continue")
-                gui.CancelAction := (*) => this._SendInputResult(req, "IBR", "cancel")
-                gui.HideAction := (*) => this._SendInputResult(req, "IBR", "cancel")
-                gui.ShowGui(Integer(args[1]))
-            } else {
-                ; XAML 输入框：独立 CustomInputGui 实例（复用主进程 daemon，多窗口并发）
-                gui := CustomInputGui()
-                req.gui := gui
-                gui.SureAction := (val) => this._SendInputResult(req, "IPR", "1", val)
-                gui.HideAction := (*) => this._SendInputResult(req, "IPR", "0", "")
-                gui.CloseAction := (*) => this._SendInputResult(req, "IPR", "0", "")
-                gui.ShowGui(args[1], args.Length >= 2 ? args[2] : "")
-            }
-        } catch as e {
-            GraphPoolLog("输入弹窗异常", Format("err={1} wd=#{2}", e.Message, wd.idx))
-            this._SendInputResult(req, "IPR", "0", "")
-        }
-    }
-
-    ; 回传输入结果给对应 Worker（同一请求只回传一次）；窗口由实例自身的关闭流程处理
-    _SendInputResult(req, opcode, args*) {
-        if (req.done)
-            return
-        req.done := true
-        this._inputGuis.Delete(req)
-        try req.gui := ""
-        catch {
-            ; 注意：catch 必须带大括号。AHK v2 中 catch 后无大括号时，
-            ; 语句体延续到下一个 try/catch/finally，会把下方的回传 try 块整体吞掉
-            ; （曾因调试埋点清理删掉 catch 与 try 之间的日志行而触发，导致回传永不执行）
-        }
-        try {
-            payload := EncodeBatch(EncodeCommand(opcode, args*))
-            ok := this.PushTask(req.wd, MsgType.EVENT, 0, payload)
-            argStr := ""
-            for a in args
-                argStr .= (argStr != "" ? "," : "") a
-            GraphPoolLog("输入回传", Format("wd=#{1} op={2} args=[{3}] push={4}", req.wd.idx, opcode, argStr, ok))
-        } catch as e {
-            GraphPoolLog("输入回传失败", Format("err={1} wd=#{2}", e.Message, req.wd.idx))
         }
     }
 

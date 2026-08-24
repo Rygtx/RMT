@@ -1,298 +1,234 @@
-#Requires AutoHotkey v2.0
-
-; =====================================================================
-; 宏操作编辑器 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile
-; =====================================================================
+﻿#Requires AutoHotkey v2.0
 
 class SubMacroGui {
     __new() {
         this.ParentTile := ""
-        this.ui := ""
         this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
-        this._closed := true
-        this._batch := []
-        this._batching := false
-        this.Data := ""
-        this.SerialStr := ""
-        this._syncing := false
+        this.RemarkCon := ""
     }
 
     ShowGui(cmd) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)
-            this._CloseWindow()
-        this._BuildAndShow()
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
+            this.Gui.Show()
+        }
+        else {
+            this.AddGui()
+        }
+
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
-        this._batching := true
-        try this.Init(cmd)
-        finally {
-            this._flushBatch()
-        }
+
+        this.Init(cmd)
         this.OnRefresh()
         this.ToggleFunc(true)
     }
 
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
-    }
-
-    ; batching 中入队，_flushBatch 一次性 BatchUpdate（合并 Init 的多次 Update 为一次 IPC）
-    _ComboPush(comboName, propertyName, value) {
-        if (this._batching)
-            this._batch.Push({ControlName: comboName, PropertyName: propertyName, Value: value})
-        else
-            this.ui.Update(comboName, propertyName, value)
-    }
-
-    _flushBatch() {
-        this._batching := false
-        if (IsObject(this.ui) && this._batch.Length > 0) {
-            this.ui.BatchUpdate(this._batch)
-            this._batch := []
+    AddGui() {
+        MyGui := Gui(, this.ParentTile GetLang("宏操作编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
         }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("快捷方式："))
+        PosX += 80
+        con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
+        con.Enabled := false
+
+        PosX += 90
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
+        btnCon.OnEvent("Click", (*) => this.TriggerMacro())
+
+        PosX += 90
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
+        PosX += 50
+        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
+
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏类型："))
+
+        PosX += 70
+        this.TypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["当前宏", "按键宏",
+            "字串宏",
+            "菜单宏", "界面宏", "定时宏", "宏"]))
+        this.TypeCon.Value := 1
+        this.TypeCon.OnEvent("Change", (*) => this.OnRefresh())
+
+        PosX += 140
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("宏序号："))
+
+        PosX += 65
+        this.DropDownIndexCon := MyGui.Add("DropDownList", Format("x{} y{} w{} R8", PosX, PosY - 5, 185), [])
+
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("操作类型:"))
+
+        PosX += 70
+        this.CallTypeCon := MyGui.Add("DropDownList", Format("x{} y{} w{}", PosX, PosY - 5, 110), GetLangArr(["插入到当前宏",
+            "触发", "暂停", "取消暂停", "终止"]))
+        this.CallTypeCon.Value := 1
+        this.CallTypeCon.OnEvent("Change", (*) => this.OnRefresh())
+
+        PosX += 140
+        this.InsertCountTipCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 70, 20), GetLang("插入次数："))
+
+        PosX += 65
+        this.InsertCountCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 5, 130), [])
+
+        PosX := 10
+        PosY += 25
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("插入到当前宏: 指定宏 按插入次数 插入到当前宏"))
+
+        PosX := 10
+        PosY += 25
+        MyGui.Add("Text", Format("x{} y{} h{}", PosX, PosY, 20), GetLang("触发: 运行指定宏，指定宏和当前宏同时执行"))
+
+        PosY += 30
+        PosX := 200
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 220)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 220))
     }
 
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := this.ParentTile GetLang("宏操作编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("10,8")
-        body.Rows("34", "36", "36", "26", "26", "*")
-        body.Cols("80", "120", "80", "200")
-
-        ; 行0：快捷方式 + 执行指令 + 备注
-        row0 := body.Add("StackPanel").Grid_Row(0).Grid_ColumnSpan(4).Orientation("Horizontal").VerticalAlignment("Center")
-        row0.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        row0.Add("TextBox").Width(60).Height(24).MinHeight(24).Margin("4,0,0,0").Text("!l").IsReadOnly("True")
-        row0.Add("Button").Name("BtnExecute").Content(GetLang("执行指令")).Height(26).MinHeight(26).Margin("10,0,0,0")
-        row0.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("14,0,0,0")
-        row0.Add("TextBox").Name("RemarkCon").Width(150).Height(24).MinHeight(24).Margin("4,0,0,0")
-
-        ; 行1：宏类型 + 宏序号
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(0).Text(GetLang("宏类型：")).VerticalAlignment("Center")
-        tc := body.Add("ComboBox").Grid_Row(1).Grid_Column(1).Name("TypeCombo").Height(26).MinHeight(26)
-        for t in GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
-            tc.Add("ComboBoxItem").Content(t)
-        body.Add("TextBlock").Grid_Row(1).Grid_Column(2).Text(GetLang("宏序号：")).VerticalAlignment("Center")
-        body.Add("ComboBox").Grid_Row(1).Grid_Column(3).Name("DropDownIndexCombo").Height(26).MinHeight(26)
-
-        ; 行2：操作类型 + 插入次数
-        body.Add("TextBlock").Grid_Row(2).Grid_Column(0).Text(GetLang("操作类型:")).VerticalAlignment("Center")
-        ct := body.Add("ComboBox").Grid_Row(2).Grid_Column(1).Name("CallTypeCombo").Height(26).MinHeight(26)
-        for c in GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
-            ct.Add("ComboBoxItem").Content(c)
-        insertRow := body.Add("StackPanel").Name("InsertRow").Grid_Row(2).Grid_Column(2).Grid_ColumnSpan(2).Orientation("Horizontal").VerticalAlignment("Center")
-        insertRow.Add("TextBlock").Text(GetLang("插入次数：")).VerticalAlignment("Center")
-        insertRow.Add("ComboBox").Name("InsertCountCombo").Width(120).Height(26).MinHeight(26).Margin("4,0,0,0").IsEditable("True")
-
-        ; 行3-4：提示
-        body.Add("TextBlock").Grid_Row(3).Grid_ColumnSpan(4).Text(GetLang("插入到当前宏: 指定宏 按插入次数 插入到当前宏")).VerticalAlignment("Center")
-        body.Add("TextBlock").Grid_Row(4).Grid_ColumnSpan(4).Text(GetLang("触发: 运行指定宏，指定宏和当前宏同时执行")).VerticalAlignment("Center")
-
-        ; 行5：确定
-        btnRow := body.Add("StackPanel").Grid_Row(5).Grid_ColumnSpan(4).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="500" Height="235" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnExecute", "Click", ObjBindMethod(this, "TriggerMacro"))
-        this.ui.OnEvent("TypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
-        this.ui.OnEvent("CallTypeCombo", "SelectionChanged", ObjBindMethod(this, "OnRefresh"))
-        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
+    OnGuiClose() {
+        this.ToggleFunc(false)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
-            Sleep(50)
         }
-        if (!gotHwnd)
-            this._closed := true
+        this.Gui.Hide()
     }
-
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
-        }
-    }
-
-    OnWindowClosing(state, ctrl, event) {
-        try this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        this.ui := ""
-        this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        try this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        this.ui := ""
-        this._closed := true
-    }
-
-    _SetCombo(comboName, items, text) {
-        if (!IsObject(this.ui))
-            return
-        this._ComboPush(comboName, "ClearItems", "")
-        for it in items {
-            if (it == "")
-                continue
-            this._ComboPush(comboName, "AddItem", it)
-        }
-        this._ComboPush(comboName, "Text", text)
-    }
-
-    _SelIndex(comboName) {
-        v := IsObject(this.ui) ? this.ui.Query(comboName ">SelectedIndex") : ""
-        return IsNumber(v) ? Integer(v) : 0
-    }
-
-    _TypeValue() => this._SelIndex("TypeCombo") + 1
-    _CallValue() => this._SelIndex("CallTypeCombo") + 1
 
     Init(cmd) {
         cmdArr := cmd != "" ? SplitCommand(cmd) : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("宏操作")
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(2)
 
         macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
         callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
-        this.ui.Update("TypeCombo", "SelectedIndex", String(this._LangArrIndex(macroTypes, this.Data.MacroType) - 1))
-        this.ui.Update("CallTypeCombo", "SelectedIndex", String(this._LangArrIndex(callTypes, this.Data.CallType) - 1))
-        this._SetCombo("InsertCountCombo", this.DLVariableArr, GetLang(this.Data.InsertCount))
+        this.TypeCon.Value := this._LangArrIndex(macroTypes, this.Data.MacroType)
+        this.CallTypeCon.Value := this._LangArrIndex(callTypes, this.Data.CallType)
+        this.InsertCountCon.Delete()
+        this.InsertCountCon.Add(this.DLVariableArr)
+        this.InsertCountCon.Text := GetLang(this.Data.InsertCount)
+
+        tableIndex := GetTableIndex(this.Data.MacroType)
+        this.DropDownIndexCon.Delete()
+        if (this.Data.MacroType != "当前宏") {
+            DropDownArr := []
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
+            }
+            this.DropDownIndexCon.Delete()
+            this.DropDownIndexCon.Add(DropDownArr)
+            if (DropDownArr.Length >= this.Data.Index)
+                this.DropDownIndexCon.Value := this.Data.Index
+        }
+
+        ;尝试修正序号
+        if (this.Data.MacroType != "当前宏") {
+            SerialArr := MySoftData.TableInfo[tableIndex].SerialArr
+            if (SerialArr.Length < this.Data.Index || SerialArr[this.Data.Index] != this.Data.MacroSerial) {
+                loop SerialArr.Length {
+                    if (SerialArr[A_Index] == this.Data.MacroSerial) {
+                        this.DropDownIndexCon.Value := A_Index
+                        break
+                    }
+                }
+            }
+        }
     }
 
     ToggleFunc(state) {
+        MacroAction := (*) => this.TriggerMacro()
         if (state) {
-            try Hotkey("!l", (*) => this.TriggerMacro(), "On")
+            Hotkey("!l", MacroAction, "On")
         }
         else {
-            try Hotkey("!l", (*) => this.TriggerMacro(), "Off")
+            Hotkey("!l", MacroAction, "Off")
         }
     }
 
-    OnRefresh(state := "", ctrl := "", event := "") {
-        if (!IsObject(this.ui))
-            return
-        this._syncing := true
-        try {
-            macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
-            typeValue := this._TypeValue()
-            EnableIndex := typeValue != 1
-            this.ui.Update("DropDownIndexCombo", "IsEnabled", EnableIndex ? "True" : "False")
-            if (EnableIndex) {
-                lastIndex := Max(1, this._SelIndex("DropDownIndexCombo") + 1)
-                tableIndex := GetTableIndex(GetLangKey(macroTypes[typeValue]))
-                DropDownArr := []
-                for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
-                    DropDownArr.Push(A_Index ". " Remark)
-                }
-                this.ui.Update("DropDownIndexCombo", "ClearItems", "")
-                for it in DropDownArr
-                    this.ui.Update("DropDownIndexCombo", "AddItem", it)
-                if (DropDownArr.Length >= lastIndex)
-                    this.ui.Update("DropDownIndexCombo", "SelectedIndex", String(lastIndex - 1))
-                else if (DropDownArr.Length >= 1)
-                    this.ui.Update("DropDownIndexCombo", "SelectedIndex", "0")
-            } else {
-                this.ui.Update("DropDownIndexCombo", "ClearItems", "")
+    OnRefresh() {
+        macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
+        EnableIndex := this.TypeCon.Value != 1
+        this.DropDownIndexCon.Enabled := EnableIndex
+        if (EnableIndex) {
+            lastIndex := Max(1, this.DropDownIndexCon.Value)
+            tableIndex := GetTableIndex(GetLangKey(macroTypes[this.TypeCon.Value]))
+            DropDownArr := []
+            for index, Remark in MySoftData.TableInfo[tableIndex].RemarkArr {
+                DropDownArr.Push(A_Index ". " Remark)
             }
+            this.DropDownIndexCon.Delete()
+            this.DropDownIndexCon.Add(DropDownArr)
 
-            ShowInsert := this._CallValue() == 1
-            this.ui.Update("InsertRow", "Visibility", ShowInsert ? "Visible" : "Collapsed")
-        } finally {
-            this._syncing := false
+            if (DropDownArr.Length >= lastIndex)
+                this.DropDownIndexCon.Value := lastIndex
+            else if (DropDownArr.Length >= 1)
+                this.DropDownIndexCon.Value := 1
         }
+        else {
+            this.DropDownIndexCon.Delete()
+        }
+
+        ShowInsert := this.CallTypeCon.Value == 1
+        this.InsertCountTipCon.Visible := ShowInsert
+        this.InsertCountCon.Visible := ShowInsert
     }
 
-    OnClickSureBtn(state, ctrl, event) {
-        if (!this.CheckIfValid())
+    OnClickSureBtn() {
+        valid := this.CheckIfValid()
+        if (!valid)
             return
         this.SaveSubMacroData()
+        this.ToggleFunc(false)
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
-        this.ToggleFunc(false)
-        this._CloseWindow()
-        if (action != "")
-            action(CommandStr)
+        action(CommandStr)
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     CheckIfValid() {
-        tableIndex := GetTableIndex(GetLangKey(this.ui.Query("TypeCombo")))
-        SerialArr := this._TypeValue() == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
+        tableIndex := GetTableIndex(GetLangKey(this.TypeCon.Text))
+        SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
 
         if (SerialArr != "") {
-            idx := this._SelIndex("DropDownIndexCombo") + 1
-            if (idx > SerialArr.Length || idx == 0) {
+            if (this.DropDownIndexCon.Value > SerialArr.Length || this.DropDownIndexCon.Value == 0) {
                 MsgBox(GetLang("配置无效，序号不正确"))
                 return false
             }
         }
+
         return true
     }
 
-    TriggerMacro(state := "", ctrl := "", event := "") {
+    TriggerMacro() {
         this.SaveSubMacroData()
         OnTriggerSepcialItemMacro(this.GetCommandStr())
     }
@@ -301,14 +237,14 @@ class SubMacroGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        Remark := this.ui.Query("RemarkCon")
+        Remark := this.RemarkCon.Value
         if (ShouldAutoGenerateRemark(Remark)) {
             OperTipArr := GetLangArr(["插入", "触发", "暂停", "取消暂停", "终止"])
             IntervarlStr := MainSoftData.Lang == "中文" ? "" : " "
             MacroTypeArr := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
-            OperStr := OperTipArr[this._CallValue()]
-            TypeStr := MacroTypeArr[this._TypeValue()]
-            SerialStr := this._TypeValue() == 1 ? "" : (this._SelIndex("DropDownIndexCombo") + 1)
+            OperStr := OperTipArr[this.CallTypeCon.Value]
+            TypeStr := MacroTypeArr[this.TypeCon.Value]
+            SerialStr := this.TypeCon.Value == 1 ? "" : this.DropDownIndexCon.value
             Remark := OperStr IntervarlStr TypeStr SerialStr
         }
         CommandStr := CorrectRemark(CommandStr, Remark)
@@ -318,14 +254,15 @@ class SubMacroGui {
     SaveSubMacroData() {
         macroTypes := GetLangArr(["当前宏", "按键宏", "字串宏", "菜单宏", "界面宏", "定时宏", "宏"])
         callTypes := GetLangArr(["插入到当前宏", "触发", "暂停", "取消暂停", "终止"])
-        this.Data.MacroType := GetLangKey(macroTypes[this._TypeValue()])
-        this.Data.Index := this._SelIndex("DropDownIndexCombo") + 1
-        this.Data.CallType := GetLangKey(callTypes[this._CallValue()])
-        this.Data.InsertCount := GetLangKey(this.ui.Query("InsertCountCombo"))
+        this.Data.MacroType := GetLangKey(macroTypes[this.TypeCon.Value])
+        this.Data.Index := this.DropDownIndexCon.value
+        this.Data.CallType := GetLangKey(callTypes[this.CallTypeCon.Value])
+        this.Data.InsertCount := GetLangKey(this.InsertCountCon.Text)
 
         tableIndex := GetTableIndex(this.Data.MacroType)
-        SerialArr := this._TypeValue() == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
+        SerialArr := this.TypeCon.Value == 1 ? "" : MySoftData.TableInfo[tableIndex].SerialArr
         this.Data.MacroSerial := SerialArr != "" ? SerialArr[this.Data.Index] : ""
+
         SaveMacroCMDData(this.Data)
     }
 

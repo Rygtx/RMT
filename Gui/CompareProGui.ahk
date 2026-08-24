@@ -1,35 +1,17 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #Include CompareProEditItemGui.ahk
-
-; =====================================================================
-; 如果Pro编辑器 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(cmd) / SureBtnAction / OwnerHwnd / ParentTile / Hwnd()
-; 原生 ListView（三列：条件/关系/指令）→ ListBox 行模型 this.LVRowArr（[condiStr, logicStr, macro]），
-;   每行 AddXamlItem 注入 ListBoxItem（Tag=行号，Grid 三列 TextBlock），行命中用桥接 ListBox HitTest；
-;   双击/右键经 PreviewMouseLeft/RightButtonDown + 延迟处理（同 UseExplainGui 模式）。
-; 与 CompareProEditItemGui（分支编辑器）联动契约不变：ShowGui(EditType, DataArr, logicStr, macro, controlType) /
-;   SureBtnAction(condiStr, logicStr, macro, controlType) / DLVariableArr / ParentTile / OwnerHwnd。
-; =====================================================================
 
 class CompareProGui {
     __new() {
         this.ParentTile := ""
-        this.Gui := ""          ; 原生 Gui 对象占位（XAML 版不再使用，保留成员）
-        this.ui := ""
+        this.Gui := ""
         this.SureBtnAction := ""
         this.OwnerHwnd := ""
-        this.RemarkCon := ""    ; 原生 Edit 占位（XAML 版控件名 RemarkCon）
+        this.RemarkCon := ""
         this.MacroGui := ""
-        this.FocusCon := ""     ; 原生确定按钮占位（XAML 版无原生控件可传，见 OnEditItem）
+        this.FocusCon := ""
         this.ItemEditGui := ""
         this.ContextMenu := ""
-        this.LVCon := ""        ; 原生 ListView 占位（XAML 版为 ListBox 控件名 "LVCon"）
-        this._closed := true
-
-        this.LVRowArr := []     ; 列表行模型：[condiStr, logicStr, macro]
-        this.CurItme := 0       ; 右键目标行（保留原生拼写）
-        this._clickCoord := ""
-        this._rightClickCoord := ""
 
         this.CompareTypeStrArr := GetLangArr(["大于", "大于等于", "等于", "小于等于",
             "小于", "字符包含", "变量存在", "正则匹配"])
@@ -40,275 +22,120 @@ class CompareProGui {
         this.Data := ""
     }
 
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
-    }
-
     ShowGui(cmd) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)   ; XAML 窗口不支持隐藏复用：关旧重建
-            this._CloseWindow()
-        this._BuildAndShow()
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
+            this.Gui.Show()
         }
+        else {
+            this.AddGui()
+        }
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
+        }
+
         this.Init(cmd)
         this.ToggleFunc(true)
     }
 
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := this.ParentTile GetLang("如果Pro编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "38", "*", "52")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 顶部工具行 ===
-        top := main.Add("StackPanel").Grid_Row(1).Orientation("Horizontal").Margin("10,5")
-        top.Add("TextBlock").Text(GetLang("快捷方式：")).VerticalAlignment("Center")
-        top.Add("TextBlock").Text("!l").VerticalAlignment("Center").Margin("4,0,0,0").Opacity("0.6")
-        top.Add("Button").Name("BtnTrigger").Content(GetLang("执行指令")).Width(80).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
-        top.Add("TextBlock").Text(GetLang("备注：")).VerticalAlignment("Center").Margin("12,0,0,0")
-        top.Add("TextBox").Name("RemarkCon").Width(150).Height(26).MinHeight(26).Margin("4,0,0,0")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
-
-        ; === 条件列表（三列：条件/关系/指令）===
-        lvWrap := main.Add("Grid").Grid_Row(2).Margin("10,2,10,0")
-        ; 去 ListBoxItem 默认内边距/外边距，内容横向拉伸（保留默认选中高亮）
-        lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>'
-        lvWrap.Add("ListBox").Name("LVCon")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .VirtualizingPanel_IsVirtualizing("False")
-            .ScrollViewer_HorizontalScrollBarVisibility("Disabled").ScrollViewer_VerticalScrollBarVisibility("Auto")
-            .InjectResources(lbStyle)
-
-        ; === 底部按钮 ===
-        btnRow := main.Add("StackPanel").Grid_Row(3).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(34).MinHeight(34).Margin("4,0").Cursor("Hand")
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="540" Height="440" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnTrigger", "Click", (*) => this.TriggerMacro())
-        this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        ; 列表行：双击编辑、右键菜单（桥接 ListBox HitTest 命中行，Tag=行号）
-        this.ui.OnEvent("LVCon", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnLVLeftDown"))
-        this.ui.OnEvent("LVCon", "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnLVRightDown"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
+    AddGui() {
+        MyGui := Gui(, this.ParentTile GetLang("如果Pro编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
         }
-        if (!gotHwnd)
-            this._closed := true
-    }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
-    ; ---------------- 列表行模型（等价原生 ListView） ----------------
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("快捷方式："))
+        PosX += 70
+        con := MyGui.Add("Hotkey", Format("x{} y{} w{}", PosX, PosY - 3, 70), "!l")
+        con.Enabled := false
 
-    _RefreshLV() {
-        if (!IsObject(this.ui))
-            return
-        this.ui.Update("LVCon", "ClearItems", "")
-        loop this.LVRowArr.Length {
-            row := this.LVRowArr[A_Index]
-            this.ui.Update("LVCon", "AddXamlItem", this._LVRowXml(A_Index, row[1], row[2], row[3]))
-        }
-    }
+        PosX += 90
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 5, 80), GetLang("执行指令"))
+        btnCon.OnEvent("Click", (*) => this.TriggerMacro())
 
-    _LVRowXml(index, condiStr, logicStr, macro) {
-        return '<ListBoxItem xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-            . ' Tag="' index '" HorizontalContentAlignment="Stretch">'
-            . '<Grid Margin="8,2">'
-            . '<Grid.ColumnDefinitions>'
-            . '<ColumnDefinition Width="250"/>'
-            . '<ColumnDefinition Width="50"/>'
-            . '<ColumnDefinition Width="*"/>'
-            . '</Grid.ColumnDefinitions>'
-            . '<TextBlock Grid.Column="0" Text="' this._EscapeXml(condiStr) '" TextTrimming="CharacterEllipsis"'
-            . ' ToolTip="' this._EscapeXml(condiStr) '" VerticalAlignment="Center" FontSize="12"/>'
-            . '<TextBlock Grid.Column="1" Text="' this._EscapeXml(logicStr) '" HorizontalAlignment="Center"'
-            . ' VerticalAlignment="Center" FontSize="12"/>'
-            . '<TextBlock Grid.Column="2" Text="' this._EscapeXml(macro) '" TextTrimming="CharacterEllipsis"'
-            . ' ToolTip="' this._EscapeXml(macro) '" VerticalAlignment="Center" FontSize="12" Margin="8,0,0,0"/>'
-            . '</Grid></ListBoxItem>'
-    }
+        PosX += 90
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 50), GetLang("备注："))
+        PosX += 50
+        this.RemarkCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 5, 150), "")
 
-    ; ---------------- 列表行命中测试（桥接 ListBox HitTest） ----------------
+        PosX := 10
+        PosY += 30
+        this.LVCon := MyGui.Add("ListView", Format("x{} y{} w480 h280 -LV0x10 NoSort", PosX, PosY), GetLangArr(["条件",
+            "关系", "指令"]))
+        this.LVCon.OnEvent("ContextMenu", this.ShowContextMenu.Bind(this))
+        this.LVCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))
+        ; 设置列宽（单位：px）
+        this.LVCon.ModifyCol(1, 260) ; 第一列宽度
+        this.LVCon.ModifyCol(2, 50) ; 自动填充剩余宽度
+        this.LVCon.ModifyCol(3, 150) ; 自动填充剩余宽度
 
-    _EventCoord(state, ctrlName) {
-        coord := ""
-        if (IsObject(state) && state.Has(ctrlName))
-            coord := state[ctrlName]
-        if (coord == "")
-            return ""
-        parts := StrSplit(coord, ",")
-        if (parts.Length != 2)
-            return ""
-        return Trim(parts[1]) ";" Trim(parts[2])
-    }
+        PosY += 290
+        PosX := 190
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+        this.FocusCon := btnCon
 
-    _HitTest(ctrlName, coord) {
-        if (!IsObject(this.ui) || coord == "")
-            return ""
-        return this.ui.Query(ctrlName ">HitTest:" coord)
-    }
-
-    _OnLVLeftDown(state, ctrl, event) {
-        if (!IsObject(this.ui))
-            return
-        clickCount := 1
-        if (IsObject(state) && state.Has("ClickCount")) {
-            cc := state["ClickCount"]
-            if (IsNumber(cc))
-                clickCount := Integer(cc)
-        }
-        if (clickCount < 2)
-            return
-        this._clickCoord := this._EventCoord(state, "LVCon")
-        SetTimer(ObjBindMethod(this, "_ProcessLVLeftClick"), -20)
-    }
-
-    _ProcessLVLeftClick() {
-        if (!IsObject(this.ui))
-            return
-        coord := this._clickCoord
-        this._clickCoord := ""
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        row := StrSplit(tagSlot, "|")[1]
-        if (!IsNumber(row) || Integer(row) < 1)
-            return
-        this.OnDoubleClick("", Integer(row))
-    }
-
-    _OnLVRightDown(state, ctrl, event) {
-        if (!IsObject(this.ui))
-            return
-        this._rightClickCoord := this._EventCoord(state, "LVCon")
-        SetTimer(ObjBindMethod(this, "_ProcessLVRightClick"), -20)
-    }
-
-    _ProcessLVRightClick() {
-        if (!IsObject(this.ui))
-            return
-        coord := this._rightClickCoord
-        this._rightClickCoord := ""
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        row := StrSplit(tagSlot, "|")[1]
-        if (!IsNumber(row) || Integer(row) < 1)
-            return
-        this.ShowContextMenu("", Integer(row), true, 0, 0)
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
+        pos := GetCenterPosOnActiveMonitor(500, 380)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 500, 380))
     }
 
     OnGuiClose() {
-        this._CloseWindow()
-    }
-
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
-    }
-
-    OnWindowClosing(state, ctrl, event) {
-        try this.ToggleFunc(false)
+        this.ToggleFunc(false)
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
         }
-        this.ui := ""
-        this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        try this.ToggleFunc(false)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        this.ui := ""
-        this._closed := true
+        this.Gui.Hide()
     }
 
     Init(cmd) {
         cmdArr := cmd != "" ? StrSplit(cmd, "_") : []
         this.SerialStr := cmdArr.Length >= 1 ? cmdArr[1] : GetCMDSerialStr("如果Pro")
-        this.ui.Update("RemarkCon", "Text", cmdArr.Length >= 2 ? cmdArr[2] : "")
+        this.RemarkCon.Value := cmdArr.Length >= 2 ? cmdArr[2] : ""
         this.Data := GetMacroCMDData(this.SerialStr)
         this.DLVariableArr := GetGuiVarArr(1)
 
-        this.LVRowArr := []
+        this.LVCon.Delete()
         loop this.Data.MacroArr.Length {
-            condiStr := ""
-            ItemIndex := A_Index
-            loop this.Data.VariNameArr[ItemIndex].Length {
-                condiStr .= GetLang(this.Data.VariNameArr[ItemIndex][A_Index]) " " this.CompareTypeStrArr[this.Data.CompareTypeArr[
-                    ItemIndex][A_Index]] " " GetLang(this.Data.VariableArr[ItemIndex][A_Index])
-                condiStr .= "⎖"
-            }
-            condiStr := Trim(condiStr, "⎖")
+            condiStr := this.FormatBranchCondiStr(this.Data, A_Index)
             logicStr := this.Data.LogicTypeArr[A_Index] == 1 ? GetLang("且") : GetLang("或")
             macro := GetLangMacro(this.Data.MacroArr[A_Index], 1)
-
-            this.LVRowArr.Push([condiStr, logicStr, macro])
+            this.LVCon.Add(, condiStr, logicStr, macro)
         }
-        this.LVRowArr.Push([GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1)])
-        this._RefreshLV()
-        ; 原生 Init 末尾 LVCon.Focus() 用于解决原生 ListView 第一次双击无效；
-        ; XAML 版双击走 PreviewMouseLeftButtonDown + ClickCount 命中，不依赖焦点，省略。
+        this.LVCon.Add(, GetLang("以上都不是"), "", GetLangMacro(this.Data.DefaultMacro, 1))
+        this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
+    }
+
+    ; 与「如果」一致：变量存在不拼右侧值；多条件用 ⎕ 分隔
+    FormatBranchCondiStr(Data, itemIndex) {
+        condiStr := ""
+        loop Data.VariNameArr[itemIndex].Length {
+            cmp := Data.CompareTypeArr[itemIndex][A_Index]
+            name := GetLang(Data.VariNameArr[itemIndex][A_Index])
+            typeStr := (cmp >= 1 && cmp <= this.CompareTypeStrArr.Length)
+                ? this.CompareTypeStrArr[cmp] : this.CompareTypeStrArr[1]
+            if (cmp != 7)
+                condiStr .= name " " typeStr " " GetLang(Data.VariableArr[itemIndex][A_Index])
+            else
+                condiStr .= name " " typeStr
+            condiStr .= "⎖"
+        }
+        return Trim(condiStr, "⎖")
+    }
+
+    DefaultBranchCondiStr() {
+        return GetLang("Var1") " " GetLang("等于") " " GetLang("Var1")
     }
 
     ToggleFunc(state) {
@@ -338,10 +165,7 @@ class CompareProGui {
             this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
         }
         this.CurItme := item
-        ; 原生 ListView ContextMenu 事件给屏幕坐标；XAML 版右键事件只有控件相对坐标，
-        ; 用当前鼠标位置（右键按下时即点击点）作为菜单坐标，等价。
-        MouseGetPos(&mx, &my)
-        this.ContextMenu.Show(mx, my)
+        this.ContextMenu.Show(x, y)
     }
 
     OnDoubleClick(ctrl, item) {
@@ -351,7 +175,7 @@ class CompareProGui {
     }
 
     MenuHandler(cmdStr) {
-        isFinally := this.LVRowArr[this.CurItme][1] == GetLang("以上都不是")
+        isFinally := this.LVCon.GetText(this.CurItme, 1) == GetLang("以上都不是")
         switch cmdStr {
             case GetLang("编辑"):
             {
@@ -360,8 +184,7 @@ class CompareProGui {
             case GetLang("向上插入分支"):
             {
                 this.Data.ControlTypeArr.InsertAt(this.CurItme, "无")
-                this.LVRowArr.InsertAt(this.CurItme, [GetLang("Var1 大于 Var1"), GetLang("且"), ""])
-                this._RefreshLV()
+                this.LVCon.Insert(this.CurItme, , this.DefaultBranchCondiStr(), GetLang("且"), "")
             }
             case GetLang("向下插入分支"):
             {
@@ -370,8 +193,7 @@ class CompareProGui {
                     return
                 }
                 this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, "无")
-                this.LVRowArr.InsertAt(this.CurItme + 1, [GetLang("Var1 大于 Var1"), GetLang("且"), ""])
-                this._RefreshLV()
+                this.LVCon.Insert(this.CurItme + 1, , this.DefaultBranchCondiStr(), GetLang("且"), "")
             }
             case GetLang("向上移动"):
             {
@@ -383,20 +205,26 @@ class CompareProGui {
                     MsgBox(GetLang("第一个分支不能上移"))
                     return
                 }
-                row := this.LVRowArr.RemoveAt(this.CurItme)
-                this.LVRowArr.InsertAt(this.CurItme - 1, row)
-                this._RefreshLV()
+                this.LVCon.Insert(this.CurItme - 1, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
+                    2), this.LVCon.GetText(this.CurItme, 3))
+                this.LVCon.Delete(this.CurItme + 1)
+                ct := this.Data.ControlTypeArr[this.CurItme]
+                this.Data.ControlTypeArr.RemoveAt(this.CurItme)
+                this.Data.ControlTypeArr.InsertAt(this.CurItme - 1, ct)
             }
             case GetLang("向下移动"):
             {
-                if (isFinally || this.LVRowArr.Length == this.CurItme + 1) {
+                if (isFinally || this.LVCon.GetCount() == this.CurItme + 1) {
                     MsgBox(GetLang("最后的分支不能变更顺序"))
                     return
                 }
 
-                row := this.LVRowArr.RemoveAt(this.CurItme)
-                this.LVRowArr.InsertAt(this.CurItme + 1, row)
-                this._RefreshLV()
+                this.LVCon.Insert(this.CurItme + 2, , this.LVCon.GetText(this.CurItme, 1), this.LVCon.GetText(this.CurItme,
+                    2), this.LVCon.GetText(this.CurItme, 3))
+                this.LVCon.Delete(this.CurItme)
+                ct := this.Data.ControlTypeArr[this.CurItme]
+                this.Data.ControlTypeArr.RemoveAt(this.CurItme)
+                this.Data.ControlTypeArr.InsertAt(this.CurItme + 1, ct)
             }
             case GetLang("删除"):
             {
@@ -404,8 +232,9 @@ class CompareProGui {
                     MsgBox(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"))
                     return
                 }
-                this.LVRowArr.RemoveAt(this.CurItme)
-                this._RefreshLV()
+                this.LVCon.Delete(this.CurItme)
+                if (this.CurItme <= this.Data.ControlTypeArr.Length)
+                    this.Data.ControlTypeArr.RemoveAt(this.CurItme)
             }
         }
     }
@@ -415,11 +244,11 @@ class CompareProGui {
             this.ItemEditGui := CompareProEditItemGui()
             this.ItemEditGui.SureFocusCon := this.FocusCon
         }
-        ParentTile := StrReplace(this._title, GetLang("编辑器"), "")
+        ParentTile := StrReplace(this.Gui.Title, GetLang("编辑器"), "")
         this.ItemEditGui.ParentTile := ParentTile "-"
 
-        if (MainSoftData.IsModalSubGui && this.Hwnd() != 0) {
-            this.ItemEditGui.OwnerHwnd := this.Hwnd()
+        if (MainSoftData.IsModalSubGui && this.Gui != "") {
+            this.ItemEditGui.OwnerHwnd := this.Gui.Hwnd
         }
         else {
             this.ItemEditGui.OwnerHwnd := ""
@@ -427,35 +256,41 @@ class CompareProGui {
 
         this.ItemEditGui.DLVariableArr := this.DLVariableArr
         NumberIndex := item
-        EditType := this.LVRowArr[item][1] == GetLang("以上都不是") ? 2 : 1
-        DataArr := this.GetCondiStrDataArr(this.LVRowArr[item][1])
-        logicStr := this.LVRowArr[item][2]
-        macro := this.LVRowArr[item][3]
+        EditType := this.LVCon.GetText(item, 1) == GetLang("以上都不是") ? 2 : 1
+        DataArr := this.GetCondiStrDataArr(this.LVCon.GetText(item, 1))
+        logicStr := this.LVCon.GetText(item, 2)
+        macro := this.LVCon.GetText(item, 3)
         controlType := EditType == 1 ? this.Data.ControlTypeArr[NumberIndex] : this.Data.DefaultControlType
         this.ItemEditGui.ShowGui(EditType, DataArr, logicStr, macro, controlType)
         this.ItemEditGui.SureBtnAction := this.OnSureEditItem.Bind(this, item)
     }
 
     OnSureEditItem(item, condiStr, logicStr, macro, controlType) {
-        this.LVRowArr[item] := [condiStr, logicStr, macro]
-        this._RefreshLV()
+        this.LVCon.Modify(item, , condiStr, logicStr, macro)
         NumberIndex := item
-        EditType := this.LVRowArr[item][1] == GetLang("以上都不是") ? 2 : 1
+        EditType := this.LVCon.GetText(item, 1) == GetLang("以上都不是") ? 2 : 1
         if (EditType == 1)
             this.Data.ControlTypeArr[NumberIndex] := controlType
-        else
+        else 
             this.Data.DefaultControlType := controlType
     }
 
-    OnClickSureBtn(state, ctrl, event) {
+    OnClickSureBtn() {
         valid := this.CheckIfValid()
         if (!valid)
             return
         this.SaveCompareProData()
+        this.ToggleFunc(false)
         CommandStr := this.GetCommandStr()
         action := this.SureBtnAction
         action(CommandStr)
-        this._CloseWindow()
+
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     CheckIfValid() {
@@ -471,22 +306,18 @@ class CompareProGui {
         textOnly := RegExReplace(this.Data.SerialStr, "\d+")
         numbersOnly := RegExReplace(this.Data.SerialStr, "\D+")
         CommandStr := Format("{}{}", GetLang(textOnly), numbersOnly)
-        remark := IsObject(this.ui) ? this.ui.Query("RemarkCon") : ""
-        CommandStr := CorrectRemark(CommandStr, remark)
+        CommandStr := CorrectRemark(CommandStr, this.RemarkCon.Value)
         return CommandStr
     }
 
     GetItemNumber(nodeItemID) {
-        ; 原生基于 ListView.GetPrev 逐行上溯（NoSort 下行号即行数）；
-        ; XAML 版行模型按索引等价，保留接口。
-        if (!IsNumber(nodeItemID))
-            return 1
-        n := Integer(nodeItemID)
-        if (n < 1)
-            return 1
-        if (n > this.LVRowArr.Length)
-            return this.LVRowArr.Length
-        return n
+        ItemNumber := 1
+        PreItemID := this.LVCon.GetPrev(nodeItemID)
+        while (PreItemID != 0) {
+            ItemNumber += 1
+            PreItemID := this.LVCon.GetPrev(PreItemID)
+        }
+        return ItemNumber
     }
 
     GetCondiStrDataArr(condiStr) {
@@ -496,15 +327,47 @@ class CompareProGui {
         VariableArr := []
         if (condiStr != GetLang("以上都不是")) {
             loop condiStrArr.Length {
-                itemCondiArr := StrSplit(condiStrArr[A_Index], " ")
-                Variable := itemCondiArr.Length >= 3 ? itemCondiArr[3] : ""
-                VariNameArr.Push(itemCondiArr[1])
-                CompareTypeArr.Push(this.CompareTypeStrMap[itemCondiArr[2]])
-                VariableArr.Push(Variable)
+                parsed := this.ParseSingleCondi(condiStrArr[A_Index])
+                VariNameArr.Push(parsed[1])
+                CompareTypeArr.Push(parsed[2])
+                VariableArr.Push(parsed[3])
             }
         }
 
         return [VariNameArr, CompareTypeArr, VariableArr]
+    }
+
+    ; 按已知比较符拆分，避免变量名/值中的空格被截断（如 "a b 等于 hello world"）
+    ParseSingleCondi(item) {
+        item := Trim(item)
+        if (item == "")
+            return ["", 1, ""]
+
+        ; 长操作符优先，避免「大于」先于「大于等于」误匹配；含英文 "Var Exists" 等带空格文案
+        opOrder := [GetLang("大于等于"), GetLang("小于等于"), GetLang("字符包含"), GetLang("变量存在"),
+            GetLang("正则匹配"), GetLang("大于"), GetLang("等于"), GetLang("小于")]
+        for typeStr in opOrder {
+            if (!this.CompareTypeStrMap.Has(typeStr))
+                continue
+            typeId := this.CompareTypeStrMap[typeStr]
+            mid := " " typeStr " "
+            pos := InStr(item, mid)
+            if (pos > 0) {
+                name := SubStr(item, 1, pos - 1)
+                value := SubStr(item, pos + StrLen(mid))
+                return [name, typeId, value]
+            }
+            ; 「变量存在」无右侧值：name + 空格 + 操作符
+            if (typeId == 7) {
+                endNeedle := " " typeStr
+                endLen := StrLen(endNeedle)
+                if (StrLen(item) > endLen && SubStr(item, StrLen(item) - endLen + 1) == endNeedle)
+                    return [SubStr(item, 1, StrLen(item) - endLen), typeId, ""]
+            }
+        }
+
+        ; 兜底：无法识别操作符时尽量保留整段为变量名
+        return [item, 1, ""]
     }
 
     SaveCompareProData() {
@@ -513,19 +376,26 @@ class CompareProGui {
         this.Data.VariableArr := []
         this.Data.LogicTypeArr := []
         this.Data.MacroArr := []
-        loop this.LVRowArr.Length {
-            if (A_Index == this.LVRowArr.Length) {
-                this.Data.DefaultMacro := GetLangMacro(this.LVRowArr[A_Index][3], 2)
+        loop this.LVCon.GetCount() {
+            if (A_Index == this.LVCon.GetCount()) {
+                this.Data.DefaultMacro := GetLangMacro(this.LVCon.GetText(A_Index, 3), 2)
                 break
             }
-            CondiDataArr := this.GetCondiStrDataArr(this.LVRowArr[A_Index][1])
-            LogicType := this.LVRowArr[A_Index][2] == GetLang("且") ? 1 : 2
-            this.Data.VariNameArr.Push(GetLangKey(CondiDataArr[1]))
+            CondiDataArr := this.GetCondiStrDataArr(this.LVCon.GetText(A_Index, 1))
+            LogicType := this.LVCon.GetText(A_Index, 2) == GetLang("且") ? 1 : 2
+            ; 与「如果」一致：变量名/比较值存中文 key（GetLangKey）
+            this.Data.VariNameArr.Push(GetLangKeyArr(CondiDataArr[1]))
             this.Data.CompareTypeArr.Push(CondiDataArr[2])
-            this.Data.VariableArr.Push(GetLangKey(CondiDataArr[3]))
+            this.Data.VariableArr.Push(GetLangKeyArr(CondiDataArr[3]))
             this.Data.LogicTypeArr.Push(LogicType)
-            this.Data.MacroArr.Push(GetLangMacro(this.LVRowArr[A_Index][3], 2))
+            this.Data.MacroArr.Push(GetLangMacro(this.LVCon.GetText(A_Index, 3), 2))
         }
+
+        ; 分支数与流程控制数组对齐（插入/删除后可能残留）
+        while (this.Data.ControlTypeArr.Length > this.Data.MacroArr.Length)
+            this.Data.ControlTypeArr.Pop()
+        while (this.Data.ControlTypeArr.Length < this.Data.MacroArr.Length)
+            this.Data.ControlTypeArr.Push("无")
 
         SaveMacroCMDData(this.Data)
     }

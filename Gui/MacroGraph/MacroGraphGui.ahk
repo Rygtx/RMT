@@ -451,34 +451,12 @@ class MacroGraphGui {
 
 
     _DefaultObj(cmdName) {
-        if (cmdName == GetLang("间隔")) {
-            ; 阶段5：配置化（间隔<serial>_备注，参数存 IntervalFile.ini）
-            serial := GetCMDSerialStr("间隔")
-            data := IntervalData()
-            data.SerialStr := serial
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, data.Time1))
-        }
-        if (cmdName == GetLang("按键")) {
-            ; 阶段5：配置化
-            serial := GetCMDSerialStr("按键")
-            data := KeyDataConfig()
-            data.SerialStr := serial
-            data.KeyName := "a"
-            data.KeyType := 3
-            data.HoldTime := 100
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, "a_" GetLang("点击")))
-        }
-        if (cmdName == GetLang("移动")) {
-            ; 阶段5：配置化
-            serial := GetCMDSerialStr("移动")
-            data := MoveDataConfig()
-            data.SerialStr := serial
-            data.Speed := 90
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, "0 0"))
-        }
+        if (cmdName == GetLang("间隔"))
+            return this._MakeNode(GetLang("间隔") "_500")
+        if (cmdName == GetLang("按键"))
+            return this._MakeNode(GetLang("按键") "_a_" GetLang("点击") "_100")
+        if (cmdName == GetLang("移动"))
+            return this._MakeNode(GetLang("移动") "_0_0_90")
         if (cmdName == GetLang("移动Pro")) {
             ; 移动Pro 走 INI 持久化（参数存 MMProFile.ini，CurCMD 仅为序列码引用，与执行引擎一致）
             serial := GetCMDSerialStr("移动Pro")
@@ -509,14 +487,8 @@ class MacroGraphGui {
             SaveMacroCMDData(data)
             return this._MakeNode(serial)
         }
-        if (cmdName == GetLang("RMT指令")) {
-            ; 阶段5：配置化（RMT指令<serial>_截图，参数存 RMTCMDFile.ini）
-            serial := GetCMDSerialStr("RMT指令")
-            data := RMTCMDData()
-            data.SerialStr := serial
-            SaveMacroCMDData(data)
-            return this._MakeNode(CorrectRemark(serial, data.CmdStr))
-        }
+        if (cmdName == GetLang("RMT指令"))
+            return this._MakeNode(GetLang("RMT指令") "_" GetLang("全部") "_" GetLang("截图"))
         for key in this._FormalIniCmdKeys() {
             if (cmdName == GetLang(key)) {
                 serial := GetCMDSerialStr(key)

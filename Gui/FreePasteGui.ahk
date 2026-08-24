@@ -1,19 +1,7 @@
-#Requires AutoHotkey v2.0
-
-; =====================================================================
-; 自由粘贴面板 —— XAML 迁移版
-; 公开接口保持：ShowGui() / DestroyGui / _wheelCb（UIUtil.ahk:64 外部清零）
-; 面板为无边框置顶小窗：显示剪贴板图片/文本，滚轮缩放（文本字号5~20，图片×1.15/0.85），
-; 左键拖拽移动，双击关闭；支持多面板并存（GuiMap 以窗口句柄为键）。
-; 尺寸自适应：窗口 SizeToContent="WidthAndHeight"，内容 FontSize/Width/Height 变化即自动跟随。
-; =====================================================================
-
-class FreePasteGui {
+﻿class FreePasteGui {
     __new() {
         this.GuiMap := Map()
         this._wheelCb := ""
-        this.ui := ""
-        this.curGui := ""
     }
 
     ShowGui() {
@@ -26,18 +14,12 @@ class FreePasteGui {
         }
     }
 
-    DestroyGui(ui) {
-        this._RemoveUi(ui)
-        if (IsObject(ui)) {
-            try ui.Update("Window", "Close", "")
-        }
-    }
-
-    ; 从 GuiMap 移除面板；全部面板销毁后取消订阅滚轮热键（幂等，双路径共用）
-    _RemoveUi(ui) {
-        hwnd := (IsObject(ui) && ui.HasProp("wpfHwnd")) ? ui.wpfHwnd : 0
-        if (hwnd != 0 && this.GuiMap.Has(hwnd))
+    DestroyGui(gui) {
+        hwnd := gui.Hwnd
+        gui.Destroy()
+        if (this.GuiMap.Has(hwnd))
             this.GuiMap.Delete(hwnd)
+        ; 所有窗口都销毁后取消订阅滚轮热键
         if (this.GuiMap.Count == 0 && this._wheelCb) {
             WinHotkey.UnsubscribeMouse("WheelUp", this._wheelCb)
             WinHotkey.UnsubscribeMouse("WheelDown", this._wheelCb)
@@ -50,109 +32,70 @@ class FreePasteGui {
         isImage := DllCall("IsClipboardFormatAvailable", "UInt", 8)  ; CF_DIB = 8
         isText := IsClipboardText()
 
-        if (isImage || isText)
-            this._BuildAndShow(isImage, isText)
-    }
+        if (isImage || isText) {
+            ; 创建GUI
+            this.curGui := Gui("+AlwaysOnTop +ToolWindow -Caption -Resize -DPIScale")
+            this.curGui.Title := "RMT-FreePaste"
+            this.curGui.MarginX := !isImage && isText ? 10 : 0
+            this.curGui.MarginY := !isImage && isText ? 10 : 0
+            this.curGui.BackColor := "FFFFFF"  ; 默认背景色
+            this.curGui.SetFont("S13 W550 Q2", MainSoftData.FontType)
 
-    _BuildAndShow(isImage, isText) {
-        global MySoftData
-        title := "RMT-FreePaste"
-        this._title := title
-
-        main := XAML_Generator("Grid").Name("OverlayCon").Background("White")
+            guiData := FreePasteData(this.curGui)
+            this.GuiMap.Set(this.curGui.Hwnd, guiData)
+        }
 
         if (isImage) {
             CurrentDateTime := FormatTime(, "MM月dd日HH-mm-ss")
             filePath := A_WorkingDir "\Images\FreePaste\" CurrentDateTime ".png"
             SaveClipToBitmap(filePath)
-            size := GetImageSize(filePath)
-            this._imgPath := filePath
-            main.Add("Image").Name("ImageCon").Width(size[1]).Height(size[2]).Stretch("Uniform")
-                .Source(StrReplace(filePath, "\", "/"))
+            this.pic := this.curGui.Add("Picture", "", filePath)
+            ; 获取实际图片尺寸
+            this.pic.GetPos(, , &width, &height)
+
+            guiData.InitImage(this.pic, width, height)
         }
         else if (isText) {
             clipText := A_Clipboard
-            main.Add("TextBlock").Name("TextCon").Text(clipText).FontSize(13).FontWeight("SemiBold")
-                .Margin("10").Foreground("#FF000000")
+            ; 创建文本控件时不要指定固定大小
+            this.textCtrl := this.curGui.Add("Text", "", clipText)
+            ; 获取实际文本尺寸
+            this.textCtrl.GetPos(, , &textW, &textH)
+            width := textW + this.curGui.MarginX * 2
+            height := textH + this.curGui.MarginY * 2
+
+            this.curGui.SetFont("S5")
+            minCon := this.curGui.Add("Text", "", clipText)
+            minCon.GetPos(, , &minW, &minH)
+            minCon.Visible := false
+
+            this.curGui.SetFont("S20")
+            maxCon := this.curGui.Add("Text", "", clipText)
+            maxCon.GetPos(, , &maxW, &maxH)
+            maxCon.Visible := false
+
+            guiData.InitText(this.textCtrl, minW, minH, maxW, maxH)
         }
 
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", "0")
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", 0)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="RMT-FreePaste" Width="300" Height="200" SizeToContent="WidthAndHeight" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'ResizeMode="CanResize"', 'ResizeMode="NoResize"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'WindowStartupLocation="CenterScreen"', 'WindowStartupLocation="CenterScreen" Topmost="True" ShowInTaskbar="False"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件（闭包捕获本面板 ui，支持多面板并存；事件回调为异步 SetTimer，勿做阻塞操作）===
-        localUi := this.ui
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing").Bind(localUi))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("OverlayCon", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "OnOverlayMouseDown").Bind(localUi))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                localHwnd := this.ui.wpfHwnd
-                try WinActivate("ahk_id " localHwnd)
-                try SetTimer((*) => localUi.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd) {
-            this.ui := ""
-            return
-        }
-
-        ; 登记 GuiMap（以窗口句柄为键，滚轮回调/双击/关闭共用）
-        guiData := FreePasteData(this.ui)
-        if (isImage)
-            guiData.InitImage("ImageCon", size[1], size[2])
-        else if (isText)
-            guiData.InitText("TextCon")
-        guiData.InitOverlay("OverlayCon")
-        this.GuiMap.Set(this.ui.wpfHwnd, guiData)
-        this.curGui := this.ui
-    }
-
-    ; 左键单击拖拽窗口，双击销毁面板（与原生 Click/DoubleClick 语义一致）
-    OnOverlayMouseDown(ui, state, ctrl, event) {
-        clickCount := (IsObject(state) && state.Has("ClickCount")) ? state["ClickCount"] : "1"
-        if (clickCount == "2" || clickCount == 2) {
-            this.DestroyGui(ui)
-        }
-        else {
-            hwnd := (IsObject(ui) && ui.HasProp("wpfHwnd")) ? ui.wpfHwnd : 0
-            if (hwnd != 0)
-                PostMessage(0xA1, 2, , , "ahk_id " hwnd)  ; WM_NCLBUTTONDOWN, HTCAPTION：拖拽移动
+        if (isImage || isText) {
+            ; 添加透明覆盖控件（覆盖整个窗口）
+            this.overlay := this.curGui.Add("Text", "x0 y0 w" width " h" height " BackgroundTrans +E0x200")
+            ; 将事件绑定到覆盖控件
+            this.overlay.OnEvent("Click", this.GuiDrag.Bind(this, this.curGui))
+            this.overlay.OnEvent("DoubleClick", this.DoubleClick.Bind(this, this.curGui))
+            guiData.InitOverlay(this.overlay)
+            this.curGui.Show("w" width " h" height)
         }
     }
 
-    OnWindowClosing(ui, state, ctrl, event) {
-        this._RemoveUi(ui)
-        if (this.curGui == ui)
-            this.curGui := ""
-        if (this.ui == ui)
-            this.ui := ""
+    DoubleClick(gui, *) {
+        this.DestroyGui(gui)
+        gui := ""
     }
 
-    OnWindowLoad(state, ctrl, event) {
-        ; 粘贴面板固定白底黑字，不套主题，保持与原生 BackColor=FFFFFF 一致
-    }
-
-    ; 拖动函数（原生 PostMessage 语义，仅目标窗口句柄改为 wpfHwnd）
-    GuiDrag(hwnd, *) {
-        PostMessage(0xA1, 2, , , "ahk_id " hwnd)
-    }
-
-    ; 双击关闭（保留原方法名，参数语义从原生 Gui 对象改为面板 ui）
-    DoubleClick(ui, *) {
-        this.DestroyGui(ui)
+    ; 拖动函数
+    GuiDrag(gui, *) {
+        PostMessage(0xA1, 2, , , gui)
     }
 
     _OnWheel(key) {
@@ -172,47 +115,54 @@ class FreePasteGui {
             guiData.FontSize += valueSymbol
             guiData.FontSize := Min(guiData.FontSize, 20)
             guiData.FontSize := Max(guiData.FontSize, 5)
-            ; SizeToContent 下窗口自动跟随字号缩放
-            guiData.ui.Update("TextCon", "FontSize", String(guiData.FontSize))
+            adjustWid := guiData.FontSize == 5 || guiData.FontSize == 20 ? 0 : 30
+            adjustHid := guiData.FontSize == 5 || guiData.FontSize == 20 ? 0 : 15
+            width := guiData.TextMinWid + ((guiData.TextMaxWid - guiData.TextMinWid) / 15) * (guiData.FontSize - 5) +
+            adjustWid
+            height := guiData.TextMinHei + ((guiData.TextMaxHei - guiData.TextMinHei) / 15) * (guiData.FontSize - 5) + adjustHid
+
+            guiData.TextCon.SetFont(Format("S{}", guiData.FontSize))
+            guiData.TextCon.Redraw()
+            guiData.TextCon.Move(, , width, height)
+            guiData.OverlayCon.Move(, , width, height)
+            guiData.Gui.Show("w" width " h" height)
         }
 
         if (guiData.Type == 2) {
             guiData.ImageWidth *= valueScale
             guiData.ImageHeight *= valueScale
-            ; SizeToContent 下窗口自动跟随图片尺寸缩放
-            guiData.ui.Update("ImageCon", "Width", String(Round(guiData.ImageWidth)))
-            guiData.ui.Update("ImageCon", "Height", String(Round(guiData.ImageHeight)))
+
+            guiData.ImageCon.Move(, , guiData.ImageWidth, guiData.ImageHeight)
+            guiData.OverlayCon.Move(, , guiData.ImageWidth, guiData.ImageHeight)
+            guiData.ImageCon.Redraw()
+            guiData.Gui.Show("w" guiData.ImageWidth " h" guiData.ImageHeight)
         }
     }
 }
 
 class FreePasteData {
-    __New(ui) {
-        this.ui := ui
-        this.Gui := ui          ; 兼容原字段名（原为原生 Gui 对象）
-        this.Type := 0
-        this.FontSize := 13
-        this.ImageWidth := 0
-        this.ImageHeight := 0
-        this.TextCon := ""
-        this.ImageCon := ""
-        this.OverlayCon := ""
+    __New(gui) {
+        this.Gui := gui
     }
 
-    InitText(textConName) {
+    InitText(textCon, minWidth, minHeight, maxWidth, maxHeight) {
         this.Type := 1
-        this.TextCon := textConName
+        this.TextCon := textCon
         this.FontSize := 13
+        this.TextMinWid := minWidth + this.Gui.MarginX * 2
+        this.TextMaxWid := maxWidth + this.Gui.MarginX * 2
+        this.TextMinHei := minHeight + this.Gui.MarginY * 2
+        this.TextMaxHei := maxHeight + this.Gui.MarginY * 2
     }
 
-    InitImage(imageConName, width, height) {
+    InitImage(imageCon, width, height) {
         this.Type := 2
-        this.ImageCon := imageConName
+        this.ImageCon := imageCon
         this.ImageWidth := width
         this.ImageHeight := height
     }
 
-    InitOverlay(overlayConName) {
-        this.OverlayCon := overlayConName
+    InitOverlay(overlayCon) {
+        this.OverlayCon := overlayCon
     }
 }

@@ -1,156 +1,33 @@
-#Requires AutoHotkey v2.0
-
-; =====================================================================
-; 提取文本编辑器 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(ExtractStr) / SureAction / OwnerHwnd
-; =====================================================================
+﻿#Requires AutoHotkey v2.0
 
 class ExVariableEditGui {
     __new() {
-        this.ui := ""
         this.Gui := ""
         this.OwnerHwnd := ""
         this.SureAction := ""
-        this._closed := true
-        this._batch := []
-        this._batching := false
+
+        this.OriTextCon := ""
+        this.VarTextConArr := []
     }
 
     ShowGui(ExtractStr) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)
-            this._CloseWindow()
-        this._BuildAndShow()
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-        }
-        this.Init(ExtractStr)
-    }
-
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
-    }
-
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := GetLang("提取文本编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 内容 ===
-        body := main.Add("Grid").Grid_Row(1).Margin("15,10")
-        body.Rows("Auto", "24", "*", "34", "34", "34", "34", "34", "34", "*")
-        body.Cols("90", "100")
-
-        tip1 := GetLang("源文本内容：请输入 提取范围 或 剪切板 的文本内容")
-        tip2 := GetLang("提取内容：请输入你需要提取的变量内容")
-        tip3 := GetLang("将根据 源文本内容 和 提取内容 自动生成提取文本")
-        tip4 := GetLang("提示1：源文本内容空时，将提取所有内容到第一个变量中")
-        tip5 := GetLang("提示2：源文本内容不需要太多，包含提取内容即可")
-        body.Add("TextBlock").Grid_Row(0).Grid_ColumnSpan(2).Text(Format("{}`n{}`n{}`n{}`n{}", tip1, tip2, tip3, tip4, tip5))
-            .TextWrapping("Wrap").Margin("0,0,0,6")
-
-        body.Add("TextBlock").Grid_Row(1).Grid_ColumnSpan(2).Text(GetLang("源文本内容：")).VerticalAlignment("Center")
-        body.Add("TextBox").Grid_Row(2).Grid_ColumnSpan(2).Name("OriTextCon").AcceptsReturn("True").TextWrapping("Wrap")
-            .VerticalContentAlignment("Top").Margin("0,2,0,4")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .ScrollViewer_VerticalScrollBarVisibility("Auto")
-
-        ; 6 行提取内容
-        loop 6 {
-            r := A_Index + 2
-            body.Add("TextBlock").Grid_Row(r).Grid_Column(0).Text(Format("{}" A_Index ":", GetLang("提取内容"))).VerticalAlignment("Center")
-            body.Add("TextBox").Grid_Row(r).Grid_Column(1).Name("VarText" A_Index).Height(26).MinHeight(26)
-                .VerticalContentAlignment("Center")
-                .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-                .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        }
-
-        btnRow := body.Add("StackPanel").Grid_Row(9).Grid_ColumnSpan(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        btnRow.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36)
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="480" Height="378" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("BtnOk", "Click", ObjBindMethod(this, "OnSureBtnClick"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
             }
-            Sleep(50)
+            this.Gui.Show()
         }
-        if (!gotHwnd)
-            this._closed := true
-    }
-
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
+        else {
+            this.AddGui()
         }
-    }
 
-    OnWindowClosing(state, ctrl, event) {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
-        this.ui := ""
-        this._closed := true
-    }
 
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        this.ui := ""
-        this._closed := true
+        this.Init(ExtractStr)
     }
 
     Init(ExtractStr) {
@@ -165,29 +42,103 @@ class ExVariableEditGui {
                 Text := GetLang("<数字>")
                 CurPos := NextNum + 1
             }
+
             TextConArr.Push(Text)
             NextText := InStr(ExtractStr, "&c", true, CurPos)
             NextNum := InStr(ExtractStr, "&x", true, CurPos)
         }
         ExtractStr := StrReplace(ExtractStr, "&c", GetLang("<内容>"))
         ExtractStr := StrReplace(ExtractStr, "&x", GetLang("<数字>"))
-        this.ui.Update("OriTextCon", "Text", ExtractStr)
-        loop 6 {
-            val := (TextConArr.Length >= A_Index) ? TextConArr[A_Index] : ""
-            this.ui.Update("VarText" A_Index, "Text", val)
+        this.OriTextCon.Value := ExtractStr
+        for index, TextCon in this.VarTextConArr {
+            TextCon.Value := ""
+            if (TextConArr.Length >= index)
+                TextCon.Value := TextConArr[index]
         }
     }
 
+    AddGui() {
+        MyGui := Gui(, GetLang("提取文本编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
+
+        PosX := 15
+        PosY := 10
+        tip1 := GetLang("源文本内容：请输入 提取范围 或 剪切板 的文本内容")
+        tip2 := GetLang("提取内容：请输入你需要提取的变量内容")
+        tip3 := GetLang("将根据 源文本内容 和 提取内容 自动生成提取文本")
+        tip4 := GetLang("提示1：源文本内容空时，将提取所有内容到第一个变量中")
+        tip5 := GetLang("提示2：源文本内容不需要太多，包含提取内容即可")
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), Format("{}`n{}`n{}`n{}`n{}", tip1, tip2, tip3, tip4, tip5))
+        PosY += 110
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("源文本内容："))
+        PosY += 25
+        this.OriTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY, 430, 50), "")
+
+        PosY += 60
+        PosX := 15
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}1:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosX += 245
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}2:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosY += 35
+        PosX := 15
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}3:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosX += 245
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}4:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosY += 35
+        PosX := 15
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}5:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosX += 245
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY + 2), Format("{}6:", GetLang("提取内容")))
+        con := MyGui.Add("Edit", Format("x{} y{} w{}", PosX + 85, PosY, 100), "")
+        this.VarTextConArr.Push(con)
+
+        PosX := 190
+        PosY += 40
+        con := MyGui.Add("Button", Format("x{} y{} w100 h40", PosX, PosY), GetLang("确定"))
+        con.OnEvent("Click", (*) => this.OnSureBtnClick())
+        MyGui.OnEvent("Close", (*) => this.OnClose())
+        pos := GetCenterPosOnActiveMonitor(480, 370)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 480, 370))
+    }
+
+    OnClose(*) {
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
+    }
+
     CheckIfValid() {
-        ExtractStr := this.ui.Query("OriTextCon")
-        loop 6 {
-            conVal := this.ui.Query("VarText" A_Index)
-            if (conVal == "")
+        ExtractStr := this.OriTextCon.Value
+        for index, con in this.VarTextConArr {
+            if (con.Value == "")
                 break
-            isContain := InStr(ExtractStr, conVal)
-            ExtractStr := StrReplace(ExtractStr, conVal, "", true, &OutputVarCount, 1)
+
+            isContain := InStr(ExtractStr, con.Value)
+            ExtractStr := StrReplace(ExtractStr, con.Value, "", true, &OutputVarCount, 1)
             if (!isContain) {
-                tipStr := Format("{}{}:{}", GetLang("提取内容"), A_Index, GetLang("未在源文本内容中出现，请修改"))
+                tipStr := Format("{}{}:{}", GetLang("提取内容"), index, GetLang("未在源文本内容中出现，请修改"))
                 MsgBox(tipStr)
                 return false
             }
@@ -196,26 +147,26 @@ class ExVariableEditGui {
     }
 
     GetExtractStr() {
-        ExtractStr := this.ui.Query("OriTextCon")
-        if (this.ui.Query("VarText1") == "")
+        ExtractStr := this.OriTextCon.Value
+        if (this.VarTextConArr[1].Value == "")
             return ""
-        loop 6 {
-            text := this.ui.Query("VarText" A_Index)
-            if (text == "")
-                break
+
+        for index, con in this.VarTextConArr {
+            text := con.Value
             isNum := IsNumber(text) || text == GetLang("<数字>")
             replaceStr := isNum ? "&x" : "&c"
-            ExtractStr := StrReplace(ExtractStr, text, replaceStr, true, &OutputVarCount, 1)
+
+            ExtractStr := StrReplace(ExtractStr, con.Value, replaceStr, true, &OutputVarCount, 1)
         }
         return ExtractStr
     }
 
     GetVariNum() {
-        if (this.ui.Query("VarText1") == "")
+        if (this.VarTextConArr[1].Value == "")
             return 1
         Count := 0
-        loop 6 {
-            if (this.ui.Query("VarText" A_Index) != "") {
+        for index, con in this.VarTextConArr {
+            if (con.Value != "") {
                 Count++
                 continue
             }
@@ -224,13 +175,20 @@ class ExVariableEditGui {
         return Count
     }
 
-    OnSureBtnClick(state, ctrl, event) {
-        if (!this.CheckIfValid())
+    OnSureBtnClick() {
+        isValid := this.CheckIfValid()
+        if (!isValid)
             return
+
         Action := this.SureAction
         ExtractStr := this.GetExtractStr()
         VariableNum := this.GetVariNum()
         Action(ExtractStr, VariableNum)
-        this._CloseWindow()
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 }

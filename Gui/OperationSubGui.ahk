@@ -1,245 +1,155 @@
-#Requires AutoHotkey v2.0
-
-; =====================================================================
-; 运算子编辑器 —— XAML 迁移版（嵌套编辑器）
-; 公开接口保持：ShowGui(Index, ExpressStr) / AddGui() / Gui / SureBtnAction
-;   / OwnerHwnd / ParentTile / Index
-; 调用方：Gui/OperationGui.ahk:229-245、Gui/MacroGraph/MacroGraphFormal.ahk:569-582
-; =====================================================================
+﻿#Requires AutoHotkey v2.0
 
 class OperationSubGui {
     __new() {
         this.ParentTile := ""
         this.Gui := ""
-        this.ui := ""
         this.OwnerHwnd := ""
         this.SureBtnAction := ""
+        this.FocusCon := ""
         this.Index := 0
-        this.DLVariableArr := []
-        this._closed := true
-        ; 运算符按钮：符号 → 控件名（WPF Name 不允许运算符字符）
-        this._OpBtnPairs := [["+", "BtnOpAdd"], ["-", "BtnOpSub"], ["*", "BtnOpMul"],
-            ["/", "BtnOpDiv"], ["%", "BtnOpMod"], ["^", "BtnOpPow"],
-            ["(", "BtnOpLParen"], [")", "BtnOpRParen"]]
-    }
-
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
+        this.ExpressionCon := ""
+        this.OperaVariableCon := ""  ; 恢复下拉框
     }
 
     ShowGui(Index, ExpressStr) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)   ; XAML 窗口不支持隐藏复用：关旧重建
-            this._CloseWindow()
-        this._BuildAndShow()
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
-        }
-        this.Init(Index, ExpressStr)
-    }
-
-    ; 兼容接口：原生 AddGui() 创建并显示窗口（MacroGraphFormal.ahk:577 直接调用）。
-    ; XAML 版只负责建窗（数据为空），随后 ShowGui 关旧重建并填充数据。
-    AddGui() {
-        if (IsObject(this.ui) && !this._closed)
-            return
-        this._BuildAndShow()
-    }
-
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := this.ParentTile GetLang("运算编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 内容 ===
-        body := main.Add("StackPanel").Grid_Row(1).Margin("10,8,10,10")
-
-        ; 运算符说明（两行）
-        body.Add("TextBlock").Text(Format("{}`n{}", GetLang(
-            "运算符：+（加）、-（减）、*（乘）、（/）除、（%）取余"), GetLang("^（乘方）、()（括号）")))
-            .TextWrapping("Wrap").Foreground("{DynamicResource TextMain}").FontSize("12")
-
-        ; 当前运算表达式（可编辑）
-        body.Add("TextBlock").Text(GetLang("当前运算表达式（可编辑）")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        body.Add("TextBox").Name("ExpressionCon").Height(26).MinHeight(26).Margin("0,4,0,0")
-            .VerticalContentAlignment("Center").Padding("4,0").FontSize("11")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-
-        ; 操作运算符：第一行 + - * / % ^
-        body.Add("TextBlock").Text(GetLang("操作运算符")).Margin("0,8,0,0").Foreground("{DynamicResource TextMain}").FontSize("12")
-        opRow1 := body.Add("StackPanel").Orientation("Horizontal").Margin("0,4,0,0")
-        loop 6 {
-            pair := this._OpBtnPairs[A_Index]
-            opRow1.Add("Button").Name(pair[2]).Content(pair[1]).Width(50).Height(30).MinHeight(30).Margin("0,0,8,0").Cursor("Hand")
-        }
-        ; 操作运算符：第二行 ( )
-        opRow2 := body.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        loop 2 {
-            pair := this._OpBtnPairs[A_Index + 6]
-            opRow2.Add("Button").Name(pair[2]).Content(pair[1]).Width(50).Height(30).MinHeight(30).Margin("0,0,8,0").Cursor("Hand")
-        }
-
-        ; 变量：恢复下拉框 + 添加
-        varRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,8,0,0")
-        varRow.Add("TextBlock").Text(GetLang("变量：")).VerticalAlignment("Center").Foreground("{DynamicResource TextMain}").FontSize("12")
-        varRow.Add("ComboBox").Name("OperaVariableCon").Width(150).Height(26).MinHeight(26).Margin("8,0,0,0")
-            .VerticalContentAlignment("Center").FontSize("11")
-            .Foreground("{DynamicResource InputText}").Background("{DynamicResource InputBg}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-        varRow.Add("Button").Name("BtnAddVariable").Content(GetLang("添加")).Height(26).MinHeight(26).Margin("8,0,0,0").Cursor("Hand")
-
-        ; 底部按钮：计算结果 / 退格 / 确定
-        btnRow := body.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").Margin("0,10,0,0")
-        btnRow.Add("Button").Name("BtnCalcResult").Content(GetLang("计算结果")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnBackspace").Content(GetLang("退格")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-        btnRow.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(36).MinHeight(36).Margin("4,0").Cursor("Hand")
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.Gui := this.ui   ; 兼容访问器：外部仅做空判断（MacroGraphFormal.ahk:576）
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="370" Height="330" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        for pair in this._OpBtnPairs
-            this.ui.OnEvent(pair[2], "Click", this.OnClickOperatorBtn.Bind(this, pair[1]))
-        this.ui.OnEvent("BtnAddVariable", "Click", ObjBindMethod(this, "OnVariableChanged"))
-        this.ui.OnEvent("BtnCalcResult", "Click", ObjBindMethod(this, "OnCalculateResultBtnClick"))
-        this.ui.OnEvent("BtnBackspace", "Click", ObjBindMethod(this, "OnBackspaceBtnClick"))
-        this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
             }
-            Sleep(50)
         }
-        if (!gotHwnd)
-            this._closed := true
-    }
+        else {
+            this.AddGui()
+        }
 
-    Init(Index, ExpressStr) {
-        this.DLVariableArr := GetGuiVarArr(6)   ; 6-可运算变量
+        this.DLVariableArr := GetGuiVarArr(6)
         this.Index := Index
 
-        ; 初始化变量列表下拉框（每次打开都重建，等价原生 Delete+Add+Text）
-        this.ui.Update("OperaVariableCon", "ClearItems", "")
-        for item in this.DLVariableArr {
-            if (item == "")
-                continue
-            this.ui.Update("OperaVariableCon", "AddItem", item)
-        }
-        if (this.DLVariableArr.Length > 0)
-            this.ui.Update("OperaVariableCon", "Text", this.DLVariableArr[1])
+        ; 初始化变量列表下拉框
+        this.OperaVariableCon.Delete()
+        this.OperaVariableCon.Add(this.DLVariableArr)
+        this.OperaVariableCon.Text := this.DLVariableArr[1]
         ; 设置表达式（每次打开都要设置）
-        this.ui.Update("ExpressionCon", "Text", ExpressStr)
-        ; 聚焦表达式输入框（原生聚焦“当前运算表达式”标签，等价迁移为聚焦可编辑框）
-        try this.ui.Update("ExpressionCon", "Focus", "True")
-    }
+        this.ExpressionCon.Value := ExpressStr
 
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        } finally {
+        if (this.Gui != "" && this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+            }
         }
+        this.Gui.Show()
+        this.FocusCon.Focus()
     }
 
-    OnWindowClosing(state, ctrl, event) {
+    AddGui() {
+        MyGui := Gui(, this.ParentTile GetLang("运算编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
+        }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
+
+        PosX := 10
+        PosY := 10
+        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 400), Format("{}`n{}", GetLang(
+            "运算符：+（加）、-（减）、*（乘）、（/）除、（%）取余"), GetLang("^（乘方）、()（括号）")))
+
+        PosX := 10
+        PosY += 40
+        this.FocusCon := MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 300, 20), GetLang("当前运算表达式（可编辑）"))
+        PosY += 20
+        this.ExpressionCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY, 350), "")
+        this.ExpressionCon.Enabled := true  ; 改为可编辑
+
+        PosX := 10
+        PosY += 30
+        MyGui.Add("Text", Format("x{} y{} w{} h{}", PosX, PosY, 300, 20), GetLang("操作运算符"))
+        PosX := 10
+        PosY += 20
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 50, 30), "+")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("+"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 60, PosY, 50, 30), "-")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("-"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 120, PosY, 50, 30), "*")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("*"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 180, PosY, 50, 30), "/")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("/"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 240, PosY, 50, 30), "%")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("%"))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 300, PosY, 50, 30), "^")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("^"))
+
+        PosY += 40
+        PosX := 10
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 50, 30), "(")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn("("))
+        con := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 60, PosY, 50, 30), ")")
+        con.OnEvent("Click", (*) => this.OnClickOperatorBtn(")"))
+
+        PosY += 45
+        PosX := 10
+        MyGui.Add("Text", Format("x{} y{} w{}", PosX, PosY, 120), GetLang("变量："))
+        PosX += 50
+        this.OperaVariableCon := MyGui.Add("ComboBox", Format("x{} y{} w{} R5", PosX, PosY - 2, 150), [])
+        PosX += 155
+        Con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY - 4, 50), GetLang("添加"))
+        Con.OnEvent("Click", (*) => this.OnVariableChanged())
+
+        PosY += 45
+        PosX := 25
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("计算结果"))
+        btnCon.OnEvent("Click", (*) => this.OnCalculateResultBtnClick())
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 110, PosY, 100, 40), GetLang("退格"))
+        btnCon.OnEvent("Click", (*) => this.OnBackspaceBtnClick())
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX + 220, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+
+        MyGui.OnEvent("Close", (*) => this.OnClose())
+        pos := GetCenterPosOnActiveMonitor(370, 310)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 370, 310))
+    }
+
+    OnClose(*) {
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
         }
-        this.ui := ""
-        this.Gui := ""
-        this._closed := true
+        this.Gui.Hide()
     }
 
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        this.ui := ""
-        this.Gui := ""
-        this._closed := true
-    }
-
-    OnClickOperatorBtn(Symbol, state := "", ctrl := "", event := "") {
+    OnClickOperatorBtn(Symbol) {
         ; 所有运算符直接添加到表达式
-        if (!IsObject(this.ui))
-            return
-        expr := this.ui.Query("ExpressionCon")
-        this.ui.Update("ExpressionCon", "Text", expr Symbol)
+        this.ExpressionCon.Value := this.ExpressionCon.Value Symbol
     }
 
-    OnVariableChanged(state := "", ctrl := "", event := "") {
+    OnVariableChanged() {
         ; 当用户选择变量时，自动添加到表达式
-        if (!IsObject(this.ui))
-            return
-        VarName := this.ui.Query("OperaVariableCon")
+        VarName := this.OperaVariableCon.Text
         if (VarName != "") {
-            currentExpr := this.ui.Query("ExpressionCon")
-            this.ui.Update("ExpressionCon", "Text", currentExpr "{" VarName "}")
+            ; 如果当前表达式不为空且不是运算符，添加一个空格
+            currentExpr := this.ExpressionCon.Value
+            if (currentExpr != "" && !InStr("+-*/%^().", SubStr(currentExpr, -1))) {
+                this.ExpressionCon.Value := currentExpr "{" VarName "}"
+            } else {
+                this.ExpressionCon.Value := currentExpr "{" VarName "}"
+            }
         }
     }
 
-    OnBackspaceBtnClick(state := "", ctrl := "", event := "") {
-        ; 删除最后一个字符
-        if (!IsObject(this.ui))
-            return
-        expr := this.ui.Query("ExpressionCon")
+    OnBackspaceBtnClick() {
+        ; 获取当前表达式
+        expr := this.ExpressionCon.Value
         if (expr == "")
             return
-        this.ui.Update("ExpressionCon", "Text", SubStr(expr, 1, -1))
+
+        ; 删除最后一个字符
+        this.ExpressionCon.Value := SubStr(expr, 1, -1)
     }
 
-    OnCalculateResultBtnClick(state := "", ctrl := "", event := "") {
+    OnCalculateResultBtnClick() {
         ; 计算当前表达式的结果
-        if (!IsObject(this.ui))
-            return
-        expr := this.ui.Query("ExpressionCon")
+        expr := this.ExpressionCon.Value
         if (expr == "") {
             MsgBox(GetLang("表达式不能为空"))
             return
@@ -300,12 +210,12 @@ class OperationSubGui {
         }
     }
 
-    OnClickSureBtn(state := "", ctrl := "", event := "") {
+    OnClickSureBtn() {
         if (this.SureBtnAction == "")
             return
 
         ; 获取表达式
-        expression := IsObject(this.ui) ? this.ui.Query("ExpressionCon") : ""
+        expression := this.ExpressionCon.Value
 
         ; 校验表达式语法（仅当表达式不为空且非基础值时）
         if (expression != "") {
@@ -351,7 +261,12 @@ class OperationSubGui {
 
         action := this.SureBtnAction
         action(this.Index, expression)
-        this._CloseWindow()
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     ; 检查表达式基本语法

@@ -26,28 +26,13 @@
 #Include WindowManageGui.ahk
 #include KeyCheckGui.ahk
 #Include CommentGui.ahk
-#Include MacroEditModel.ahk
 
 class MacroEditGui {
     static Hotkeys := ["f5", "f6", "delete"]
 
     __new() {
         this.ParentTile := ""
-        this.ui := ""                     ; XAMLHost 实例
-        this._closed := true
-        this._dragEnabled := false        ; 原生 OnMessage 拖拽保持禁用（WPF 手动拖拽独立实现）
-        this._dragCandidate := ""         ; P6 手动拖拽候选 {fromLeft, gui, name, source, sx, sy}
-        this._dragActive := false
-        this._dragSource := ""
-        this._dragTarget := ""
-        this._dragSlot := ""
-        this._lastDragTip := ""            ; 拖拽提示缓存，防 ToolTip 每帧重建闪烁
-        this._treeClickCoord := ""
-        this._rightClickCoord := ""
-        this._hkIds := []
-        this._topOn := false
-        this._title := ""
-        this.Gui := ""                         ; 打开时置为 facade（兼容外部 .Gui.Hwnd / .Title / .Hide），关闭时复位为空
+        this.Gui := ""
         this.GuiMenu := ""
         this.DebugItemID := 0
         this.CurrentItemID := 0
@@ -65,6 +50,7 @@ class MacroEditGui {
         this.SaveBtnAction := ""
         this.SaveBtnCtrl := {}
         this.SubGuiMap := map()
+        this.OpenedSubGuis := []  ; 多开时额外创建的子指令编辑器实例
         this.MacroTreeViewCon := ""
         this.MacroEditTextCon := ""
         this.CmdEditType := 1  ;1添加指令 2修改当前指令 3向上插入指令 4 向下插入指令
@@ -72,9 +58,8 @@ class MacroEditGui {
         this.LastItemID := "" ;最后的itemID
         this.ContextMenu := ""
         this.BranchContextMenu := ""
-        this._lastGenCfg := Chr(0)      ; 右键菜单配置缓存（变化时废弃重建）
-        this._lastBranchCfg := Chr(0)   ; 分支菜单配置缓存（变化时废弃重建）
-        this.OpenedSubGuis := []        ; 多开时额外创建的子指令编辑器实例
+        this._lastGenCfg := Chr(0)
+        this._lastBranchCfg := Chr(0)
         this.RecordMacroCon := ""
         this.DefaultFocusCon := ""
         this.SubMacroLastIndex := 0
@@ -118,30 +103,6 @@ class MacroEditGui {
         GetLang("文本处理"), "Icon24", GetLang("数组"), "Icon25", GetLang("输入"), "Icon26", GetLang("文件读写"), "Icon27",
         GetLang("流程控制"), "Icon28", GetLang("窗口管理"), "Icon29", GetLang("按键检测"), "Icon30", GetLang("注释"), "Icon31",
         GetLang("抓图"), "Icon32")
-
-        ; IconN → 图标文件（顺序与原 IL_Add 一致）
-        this.IconFileByNumber := Map(
-            "Icon1", "Images\Soft\Interval.png", "Icon2", "Images\Soft\Key.png",
-            "Icon3", "Images\Soft\Search.png", "Icon4", "Images\Soft\SearchPro.png",
-            "Icon5", "Images\Soft\Move.png", "Icon6", "Images\Soft\MovePro.png",
-            "Icon7", "Images\Soft\Output.png", "Icon8", "Images\Soft\Run.png",
-            "Icon9", "Images\Soft\Loop.png", "Icon10", "Images\Soft\Sub.png",
-            "Icon11", "Images\Soft\Var.png", "Icon12", "Images\Soft\Extract.png",
-            "Icon13", "Images\Soft\If.png", "Icon14", "Images\Soft\IfPro.png",
-            "Icon15", "Images\Soft\Operation.png", "Icon16", "Images\Soft\rabit.png",
-            "Icon17", "Images\Soft\Mouse.png", "Icon18", "Images\Soft\Key.png",
-            "Icon19", "Images\Soft\True.png", "Icon20", "Images\Soft\False.png",
-            "Icon21", "Images\Soft\LoopCount.png", "Icon22", "Images\Soft\Condition.png",
-            "Icon23", "Images\Soft\LoopBody.png", "Icon24", "Images\Soft\TextOps.png",
-            "Icon25", "Images\Soft\Arr.png", "Icon26", "Images\Soft\Input.png",
-            "Icon27", "Images\Soft\FileIO.png", "Icon28", "Images\Soft\Control.png",
-            "Icon29", "Images\Soft\WindowManage.png", "Icon30", "Images\Soft\KeyCheck.png",
-            "Icon31", "Images\Soft\Comment.png", "Icon32", "Images\Soft\ScreenShot.png")
-
-        ; 指令名 → 图标文件（XAML 树节点 Image.Source 用）
-        this.CmdIconFileMap := Map()
-        for name, iconN in this.IconMap
-            this.CmdIconFileMap[name] := this.IconFileByNumber.Get(iconN, "")
     }
 
     InitSubGuiConfigs() {
@@ -187,13 +148,52 @@ class MacroEditGui {
 
     ShowGui(CommandStr, ShowSaveBtn) {
         global MySoftData
-        ; XAML 窗口不支持隐藏复用：已打开的实例先关掉再重建
-        if (IsObject(this.ui) && !this._closed)
-            this._CloseWindow()
-        this._BuildAndShow()
+        if (this.Gui != "") {
+            if (this.OwnerHwnd != "") {
+                this.Gui.Opt("+Owner" this.OwnerHwnd)
+            }
+            this.Gui.Show()
+        }
+        else {
+            this.AddGui()
+            ImageListID := IL_Create(30)
+            this.MacroTreeViewCon.SetImageList(ImageListID)
+            IL_Add(ImageListID, "Images\Soft\Interval.png")
+            IL_Add(ImageListID, "Images\Soft\Key.png")
+            IL_Add(ImageListID, "Images\Soft\Search.png")
+            IL_Add(ImageListID, "Images\Soft\SearchPro.png")
+            IL_Add(ImageListID, "Images\Soft\Move.png")
+            IL_Add(ImageListID, "Images\Soft\MovePro.png")
+            IL_Add(ImageListID, "Images\Soft\Output.png")
+            IL_Add(ImageListID, "Images\Soft\Run.png")
+            IL_Add(ImageListID, "Images\Soft\Loop.png")
+            IL_Add(ImageListID, "Images\Soft\Sub.png")
+            IL_Add(ImageListID, "Images\Soft\Var.png")
+            IL_Add(ImageListID, "Images\Soft\Extract.png")
+            IL_Add(ImageListID, "Images\Soft\If.png")
+            IL_Add(ImageListID, "Images\Soft\IfPro.png")
+            IL_Add(ImageListID, "Images\Soft\Operation.png")
+            IL_Add(ImageListID, "Images\Soft\rabit.png")
+            IL_Add(ImageListID, "Images\Soft\Mouse.png")
+            IL_Add(ImageListID, "Images\Soft\Key.png")
+            IL_Add(ImageListID, "Images\Soft\True.png")
+            IL_Add(ImageListID, "Images\Soft\False.png")
+            IL_Add(ImageListID, "Images\Soft\LoopCount.png")    ;21 循环次数
+            IL_Add(ImageListID, "Images\Soft\Condition.png")
+            IL_Add(ImageListID, "Images\Soft\LoopBody.png")
+            IL_Add(ImageListID, "Images\Soft\TextOps.png")
+            IL_Add(ImageListID, "Images\Soft\Arr.png")
+            IL_Add(ImageListID, "Images\Soft\Input.png")
+            IL_Add(ImageListID, "Images\Soft\FileIO.png")   ;27 标记一下
+            IL_Add(ImageListID, "Images\Soft\Control.png")
+            IL_Add(ImageListID, "Images\Soft\WindowManage.png")   ;29 窗口管理
+            IL_Add(ImageListID, "Images\Soft\KeyCheck.png")   ;30 按键检测
+            IL_Add(ImageListID, "Images\Soft\Comment.png")   ;31 注释
+            IL_Add(ImageListID, "Images\Soft\ScreenShot.png")
+        }
 
         ; 注册快捷键热键（仅编辑器前台时拦截，失焦时按键透传给其他程序；关闭时注销）
-        this._hkIds := WinHotkey.Register(["F5", "F6", "Delete", "$^c", "$^v"], ObjBindMethod(this, "_OnHotkey"), this.Hwnd())
+        this._hkIds := WinHotkey.Register(["F5", "F6", "Delete", "$^c", "$^v"], ObjBindMethod(this, "_OnHotkey"), this.Gui.Hwnd)
 
         ; 注册拖拽消息监听（先注销再注册，避免重复打开时叠多个处理器）
         OnMessage(0x0201, this._lbtnHandler, 0)
@@ -202,7 +202,7 @@ class MacroEditGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                SafeGuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
+                GuiFromHwnd(this.OwnerHwnd).Opt("+Disabled")
             }
         }
 
@@ -210,381 +210,161 @@ class MacroEditGui {
         MainSoftData.MacroEditGui := this
         this.InitGuiMenu()
         this.Init(CommandStr, ShowSaveBtn)
-        SetTimer(ObjBindMethod(this, "_FadeIn"), -10)
     }
 
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
-    }
-
-    ; 支持子菜单的 MenuItem 模板（全局主题模板缺子菜单支持，与 MacroGraph 共用方案）
-    _MenuItemSubmenuStyle() {
-        return ''
-            . '<Style TargetType="MenuItem">'
-            .   '<Setter Property="Background" Value="Transparent"/>'
-            .   '<Setter Property="Foreground" Value="{DynamicResource TextMain}"/>'
-            .   '<Setter Property="Padding" Value="10,8"/>'
-            .   '<Setter Property="Template"><Setter.Value>'
-            .     '<ControlTemplate TargetType="MenuItem">'
-            .       '<Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="3">'
-            .         '<Grid>'
-            .           '<Grid.ColumnDefinitions>'
-            .             '<ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>'
-            .           '</Grid.ColumnDefinitions>'
-            .           '<ContentPresenter ContentSource="Icon" Margin="0,0,8,0" VerticalAlignment="Center"/>'
-            .           '<ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>'
-            .           '<TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextSub}" Margin="15,0,0,0" VerticalAlignment="Center"/>'
-            .           '<Path Grid.Column="3" x:Name="ArrowPath" Data="M0,0 L4,4 L0,8 Z" Fill="{DynamicResource TextMain}" Margin="8,0,2,0" VerticalAlignment="Center" Visibility="Collapsed"/>'
-            .           '<Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Right" HorizontalOffset="-3" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Focusable="False">'
-            .             '<Border FlowDirection="LeftToRight" Background="{DynamicResource DropdownBg}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" CornerRadius="3" Padding="4,4,0,4" MinWidth="180">'
-            .               '<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" MaxHeight="400" Margin="0" Padding="0"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" Margin="0,0,4,0"/></ScrollViewer>'
-            .             '</Border>'
-            .           '</Popup>'
-            .         '</Grid>'
-            .       '</Border>'
-            .       '<ControlTemplate.Triggers>'
-            .         '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="White"/></Trigger>'
-            .         '<Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="White"/></Trigger>'
-            .         '<Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource TextSub}"/></Trigger>'
-            .         '<Trigger Property="HasItems" Value="True"><Setter TargetName="ArrowPath" Property="Visibility" Value="Visible"/></Trigger>'
-            .         '<MultiTrigger><MultiTrigger.Conditions><Condition Property="IsMouseOver" Value="True"/><Condition Property="HasItems" Value="True"/></MultiTrigger.Conditions><Setter Property="IsSubmenuOpen" Value="True"/></MultiTrigger>'
-            .       '</ControlTemplate.Triggers>'
-            .     '</ControlTemplate>'
-            .   '</Setter.Value></Setter>'
-            . '</Style>'
-    }
-
-    ; 支持滚轮滑动的 ContextMenu 模板
-    _ContextMenuScrollStyle() {
-        return ''
-            . '<Style TargetType="ContextMenu">'
-            .   '<Setter Property="Template"><Setter.Value>'
-            .     '<ControlTemplate TargetType="ContextMenu">'
-            .       '<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="4">'
-            .         '<ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False">'
-            .           '<ItemsPresenter/>'
-            .         '</ScrollViewer>'
-            .       '</Border>'
-            .     '</ControlTemplate>'
-            .   '</Setter.Value></Setter>'
-            . '</Style>'
-    }
-
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        this.Gui := MacroEditGuiFacade(this)
-        title := this.ParentTile GetLang("宏指令编辑器")
-        this._title := title
-        titleHeight := "30"
-
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*")
-
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
-
-        ; === 主体 ===
-        body := main.Add("Grid").Grid_Row(1)
-        body.Rows("30", "*")
-
-        ; 菜单栏：按钮 + ContextMenu（桥接有成熟先例 MG_CM，Menu 控件本桥接未验证过）
-        menuBar := body.Add("StackPanel").Grid_Row(0).Orientation("Horizontal").Margin("2,2,0,0").Background("{DynamicResource BgColor}")
-        dbgBtn := menuBar.Add("Button").Name("BtnMenuDebug").Content(GetLang("调试")).Cursor("Hand").Background("Transparent").BorderThickness("0").Padding("10,3")
-        dbgHost := menuBar.Add("Border").Name("MenuDebugHost").Width("0").Height("0").Visibility("Collapsed")
-        dbgCM := dbgHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MenuDebugCM").MinWidth("160").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
-        dbgCM.Add("MenuItem").Name("MenuRunF5").Header(GetLang("运行(F5)"))
-        dbgCM.Add("MenuItem").Name("MenuRunF6").Header(GetLang("单步运行(F6)"))
-        dbgCM.Add("MenuItem").Name("MenuKill").Header(GetLang("终止"))
-        toolBtn := menuBar.Add("Button").Name("BtnMenuTool").Content(GetLang("工具")).Cursor("Hand").Background("Transparent").BorderThickness("0").Padding("10,3").Margin("8,0,0,0")
-        toolHost := menuBar.Add("Border").Name("MenuToolHost").Width("0").Height("0").Visibility("Collapsed")
-        toolCM := toolHost.Add("Border.ContextMenu").Add("ContextMenu").Name("MenuToolCM").MinWidth("160").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
-        toolCM.Add("MenuItem").Name("MenuVarListen").Header(GetLang("变量监视")).IsCheckable("True")
-        toolCM.Add("MenuItem").Name("MenuCmdTip").Header(GetLang("指令显示")).IsCheckable("True")
-        toolCM.Add("MenuItem").Name("MenuTopMost").Header(GetLang("窗口置顶")).IsCheckable("True")
-
-        ; 树右键菜单（普通指令 / 分支容器），挂在 0 尺寸隐藏 Border 上，Placement=MousePoint
-        treeCtxHost := menuBar.Add("Border").Name("TreeCtxHost").Width("0").Height("0").Visibility("Collapsed")
-        treeCtx := treeCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("TreeCtxMenu").MinWidth("180").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
-        treeCtx.Add("MenuItem").Name("MenuEditCmd").Header(GetLang("编辑"))
-        treeCtx.Add("MenuItem").Name("MenuSkipCmd").Header(GetLang("跳过指令"))
-        treeCtx.Add("MenuItem").Name("MenuDebugCmd").Header(GetLang("调试起点"))
-        treeCtx.Add("Separator")
-        miInsert := treeCtx.Add("MenuItem").Name("MenuInsertCmd").Header(GetLang("插入指令"))
-        for index, value in this.CMDStrArr
-            miInsert.Add("MenuItem").Name("MenuInsert_" index).Header(value)
-        treeCtx.Add("Separator")
-        treeCtx.Add("MenuItem").Name("MenuCopyCmd").Header(GetLang("复制"))
-        treeCtx.Add("MenuItem").Name("MenuPasteCmd").Header(GetLang("粘贴"))
-        treeCtx.Add("Separator")
-        treeCtx.Add("MenuItem").Name("MenuDeleteCmd").Header(GetLang("删除"))
-
-        branchCtxHost := menuBar.Add("Border").Name("BranchCtxHost").Width("0").Height("0").Visibility("Collapsed")
-        branchCtx := branchCtxHost.Add("Border.ContextMenu").Add("ContextMenu").Name("BranchCtxMenu").MinWidth("180").Placement("MousePoint").Background("{DynamicResource DropdownBg}").BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").Foreground("{DynamicResource TextMain}").InjectResources(this._ContextMenuScrollStyle()).InjectResources(this._MenuItemSubmenuStyle())
-        miAdd := branchCtx.Add("MenuItem").Name("MenuBranchAddCmd").Header(GetLang("添加指令"))
-        for index, value in this.CMDStrArr
-            miAdd.Add("MenuItem").Name("MenuBranchAdd_" index).Header(value)
-        branchCtx.Add("Separator")
-        branchCtx.Add("MenuItem").Name("MenuBranchDelete").Header(GetLang("删除"))
-
-        content := body.Add("Grid").Grid_Row(1)
-        content.Cols("210", "*")
-        content.Rows("42", "30", "*", "48")
-
-        ; 左侧指令面板
-        left := content.Add("GroupBox").Grid_Column(0).Grid_RowSpan(4).Header(GetLang("指令选项")).Margin("5,4,2,4")
-            .BorderBrush("{DynamicResource ControlBorder}").BorderThickness("1").Foreground("{DynamicResource TextMain}")
-        leftGrid := left.Add("UniformGrid").Columns(2)
-        for config in this.SubGuiConfig {
-            btnName := "CmdBtn_" config.propName
-            b := leftGrid.Add("Button").Name(btnName).Height(32).Margin("2").Background("Transparent").BorderThickness("0")
-                .Cursor("Hand").HorizontalContentAlignment("Center").VerticalContentAlignment("Center")
-            sp := b.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-            sp.Add("Image").Source(StrReplace(A_WorkingDir "\" config.icon, "\", "/")).Width(16).Height(16).Margin("0,0,4,0")
-            sp.Add("TextBlock").Text(GetLang(config.name)).FontSize(11)
+    AddGui() {
+        MyGui := Gui(, this.ParentTile GetLang("宏指令编辑器"))
+        this.Gui := MyGui
+        if (this.OwnerHwnd != "") {
+            MyGui.Opt("+Owner" this.OwnerHwnd)
         }
+        MyGui.SetFont("S10 W550 Q2", MainSoftData.FontType)
 
-        ; 顶部工具条
-        toolRow := content.Add("Grid").Grid_Column(1).Grid_Row(0).Margin("10,8,10,0")
-        toolRow.Cols("*", "Auto")
-        leftStack := toolRow.Add("StackPanel").Grid_Column(0).Orientation("Horizontal")
-        leftStack.Add("TextBlock").Text(GetLang("编辑模式：")).VerticalAlignment("Center")
-        combo := leftStack.Add("ComboBox").Name("EditModeCombo").Width(86).Height(26).MinHeight(26).SelectedIndex("0").Margin("4,0")
-        combo.Add("ComboBoxItem").Content(GetLang("逻辑树")).Tag("1")
-        combo.Add("ComboBoxItem").Content(GetLang("文本")).Tag("2")
-        leftStack.Add("CheckBox").Name("RecordTog").Content(GetLang("指令录制")).VerticalAlignment("Center").Margin("12,0,0,0")
-        leftStack.Add("TextBlock").Name("RecordHotkeyText").Text(FormatHotkeyDisplay(MainSoftData.ToolRecordMacroHotKey)).Opacity("0.6").VerticalAlignment("Center").Margin("6,0,0,0")
-        toolRow.Add("Button").Grid_Column(1).Name("BtnGraphNode").Content(GetLang("图形节点")).Height(28).MinHeight(28).Padding("10,3").Margin("6,0,0,0")
+        PosY := 10
+        PosX := 5
+        MyGui.Add("GroupBox", Format("x{} y{} w{} h{}", PosX, PosY, 205, 530), GetLang("指令选项"))
 
-        ; 当前宏指令行
-        row1 := content.Add("StackPanel").Grid_Column(1).Grid_Row(1).Orientation("Horizontal").Margin("10,4,10,0")
-        row1.Add("TextBlock").Text(GetLang("当前宏指令")).VerticalAlignment("Center")
-        row1.Add("Button").Name("BtnExpand").Content(GetLang("全部展开")).Padding("8,3").Margin("10,0,0,0")
-        row1.Add("Button").Name("BtnCollapse").Content(GetLang("全部折叠")).Padding("8,3").Margin("6,0,0,0")
-
-        ; 树 / 文本视图
-        view := content.Add("Grid").Grid_Column(1).Grid_Row(2).Margin("10,0,10,0")
-        ; 关虚拟化（注入真实 ListBoxItem，虚拟化会导致插入后滚动条复位）+ 去 ListBoxItem 默认内边距/选中高亮
-        lbStyle := '<Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>'
-        view.Add("ListBox").Name("MacroTree").Background("{DynamicResource BgColor}").Foreground("{DynamicResource TextMain}")
-            .BorderThickness("0")
-            .VirtualizingPanel_IsVirtualizing("False")
-            .ScrollViewer_HorizontalScrollBarVisibility("Auto").ScrollViewer_VerticalScrollBarVisibility("Auto")
-            .InjectResources(lbStyle)
-        ; 拖拽插入指示线（覆盖在树上，拖拽时定位，不重建树）
-        view.Add("Border").Name("DragInsertLine").Height(2).HorizontalAlignment("Stretch").VerticalAlignment("Top")
-            .Background("{DynamicResource Accent}").BorderThickness(0)
-            .SetProp("Panel.ZIndex", "10").Visibility("Collapsed").IsHitTestVisible("False")
-        view.Add("TextBox").Name("MacroText").AcceptsReturn("True").FontSize("12").Visibility("Collapsed")
-            .VerticalContentAlignment("Top")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .ScrollViewer_HorizontalScrollBarVisibility("Auto").ScrollViewer_VerticalScrollBarVisibility("Auto")
-
-        ; 底部按钮
-        bottom := content.Add("StackPanel").Grid_Column(1).Grid_Row(3).Orientation("Horizontal").Margin("10,6,10,0").HorizontalAlignment("Center")
-        bottom.Add("Button").Name("BtnBack").Content(GetLang("退格")).Width(100).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("BtnClear").Content(GetLang("清空指令")).Width(100).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("BtnOk").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0")
-        bottom.Add("Button").Name("SaveBtn").Content(GetLang("应用并保存")).Width(100).Height(32).MinHeight(32).Margin("4,0")
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", this.OwnerHwnd)
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="945" Height="570" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        groupBoxStyle := '<Style TargetType="GroupBox"><Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{DynamicResource TextMain}"/></Style>'
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', groupBoxStyle)
-
-        ; === 控件适配器 ===
-        this.MacroTreeViewCon := MacroTreeAdapter(this.ui, "MacroTree")
-        this.MacroTreeViewCon.SetIconMap(this.IconFileByNumber)
-        this.MacroEditTextCon := MacroTextBox(this.ui, "MacroText")
-        this.EditModeCon := MacroCombo(this.ui, "EditModeCombo")
-        this.RecordMacroCon := MacroCheckBox(this.ui, "RecordTog")
-        this.SaveBtnCtrl := MacroButton(this.ui, "SaveBtn")
-        this.ToolMenu := MacroMenuAdapter(this.ui)
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("EditModeCombo", "SelectionChanged", ObjBindMethod(this, "OnChangeEditMode"))
-        this.ui.OnEvent("RecordTog", "Click", ObjBindMethod(this, "OnClickRecordTog"))
-        this.ui.OnEvent("BtnBack", "Click", (*) => this.Backspace())
-        this.ui.OnEvent("BtnClear", "Click", (*) => this.ClearStr())
-        this.ui.OnEvent("BtnOk", "Click", (*) => this.OnSureBtnClick())
-        this.ui.OnEvent("SaveBtn", "Click", (*) => this.OnSaveBtnClick())
-        this.ui.OnEvent("BtnExpand", "Click", (*) => this.ExpandAll())
-        this.ui.OnEvent("BtnCollapse", "Click", (*) => this.CollapseAll())
-        this.ui.OnEvent("BtnGraphNode", "Click", ObjBindMethod(this, "OnSwitchToGraphEditor"))
-        this.ui.OnEvent("BtnMenuDebug", "Click", (*) => this.ui.Update("MenuDebugCM", "IsOpen", "True"))
-        this.ui.OnEvent("BtnMenuTool", "Click", (*) => this.ui.Update("MenuToolCM", "IsOpen", "True"))
-        this.ui.OnEvent("MenuRunF5", "Click", (*) => this.MenuHandler(GetLang("运行(F5)")))
-        this.ui.OnEvent("MenuRunF6", "Click", (*) => this.MenuHandler(GetLang("单步运行(F6)")))
-        this.ui.OnEvent("MenuKill", "Click", (*) => this.MenuHandler(GetLang("终止")))
-        this.ui.OnEvent("MenuVarListen", "Click", (*) => this.MenuHandler(GetLang("变量监视")))
-        this.ui.OnEvent("MenuCmdTip", "Click", (*) => this.MenuHandler(GetLang("指令显示")))
-        this.ui.OnEvent("MenuTopMost", "Click", (*) => this.MenuHandler(GetLang("窗口置顶")))
-
-        ; 树右键菜单项
-        this.ui.OnEvent("MenuEditCmd", "Click", (*) => this.ContentMenuHandler(GetLang("编辑")))
-        this.ui.OnEvent("MenuSkipCmd", "Click", (*) => this.ContentMenuHandler("Skip"))
-        this.ui.OnEvent("MenuDebugCmd", "Click", (*) => this.ContentMenuHandler("Debug"))
-        this.ui.OnEvent("MenuCopyCmd", "Click", (*) => this.ContentMenuHandler(GetLang("复制")))
-        this.ui.OnEvent("MenuPasteCmd", "Click", (*) => this.ContentMenuHandler(GetLang("粘贴")))
-        this.ui.OnEvent("MenuDeleteCmd", "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
-        this.ui.OnEvent("MenuBranchDelete", "Click", (*) => this.ContentMenuHandler(GetLang("删除")))
-        for index, value in this.CMDStrArr {
-            this.ui.OnEvent("MenuInsert_" index, "Click", this.ContentMenuHandler.Bind(this, "Next_" value))
-            this.ui.OnEvent("MenuBranchAdd_" index, "Click", this.ContentMenuHandler.Bind(this, "Add_" value))
-        }
-
-        ; 树左/右击（多选 + 右键菜单 + 拖拽 + 双击编辑；双击在 PreviewMouseLeftButtonDown 里按 ClickCount 判定）
-        this.ui.OnEvent("MacroTree", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnTreePreviewLeftDown"))
-        this.ui.OnEvent("MacroTree", "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnTreePreviewRightDown"))
-        ; 拖拽移动/松开绑在窗口级：WPF 按钮按下会捕获鼠标，TreeView 收不到移动事件
-        this.ui.OnEvent("Window", "PreviewMouseMove", ObjBindMethod(this, "_OnTreeDragMove"))
-        this.ui.OnEvent("Window", "PreviewMouseLeftButtonUp", ObjBindMethod(this, "_OnTreeDragDrop"))
-
+        PosY += 20
+        PosX := 10
+        index := 0
         for config in this.SubGuiConfig {
             guiInstance := this.%config.propName%
-            btnName := "CmdBtn_" config.propName
-            this.ui.OnEvent(btnName, "Click", CreateSubGuiClickHandler(this, guiInstance))
-            this.ui.OnEvent(btnName, "PreviewMouseLeftButtonDown", this._OnPanelDragStart.Bind(this, guiInstance, GetLang(config.name)))
-        }
-
-        this.ui.Track("EditModeCombo")
-        this.ui.Track("MacroText")
-        this.ui.Track("MacroTree")
-
-        ; WPF ComboBox 默认 SelectedIndex=-1（不自动选第一项），强制选中「逻辑树」
-        this.ui.Update("EditModeCombo", "SelectedIndex", "0")
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                if (this.OwnerHwnd != "")
-                    try this.ui.Update("Window", "NativeOwner", String(this.OwnerHwnd))
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                break
+            this.AddIconBtn(MyGui, PosX, PosY, config.icon,
+                GetLang(config.name), CreateSubGuiClickHandler(this, guiInstance), guiInstance)
+            index += 1
+            if (index & 1) {
+                PosX += 105
+            } else {
+                PosX := 10
+                PosY += 40
             }
-            Sleep(50)
         }
-        if (!gotHwnd)
-            this._closed := true
+
+        PosX := 225
+        PosY := 15
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("编辑模式："))
+        PosX += 70
+        this.EditModeCon := MyGui.Add("DropDownList", Format("x{} y{} w80", PosX, PosY - 3), GetLangArr(["逻辑树", "文本"]))
+        this.EditModeCon.Value := 1
+        this.EditModeCon.OnEvent("Change", this.OnChangeEditMode.Bind(this))
+
+        PosX := 430
+        this.RecordMacroCon := MyGui.Add("Checkbox", Format("x{} y{}", PosX, PosY), GetLang("指令录制"))
+        this.RecordMacroCon.Value := false
+        this.RecordMacroCon.OnEvent("Click", this.OnClickRecordTog.Bind(this))
+        PosX += 85
+        isHotKey := CheckIsNormalHotKey(MainSoftData.ToolRecordMacroHotKey)
+        CtrlType := isHotKey ? "Hotkey" : "Text"
+        con := MyGui.Add(CtrlType, Format("x{} y{} w{}", posX, posY - 3, 100), MainSoftData.ToolRecordMacroHotKey
+        )
+        con.Enabled := false
+
+        ; 指令显示区：左 215、宽 710 → 右边框 925；图形节点按钮右对齐该边框
+        cmdViewLeft := 215
+        cmdViewW := 710
+        graphBtnW := 80
+        graphBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", cmdViewLeft + cmdViewW - graphBtnW, PosY - 5, graphBtnW, 26), GetLang("图形节点"))
+        graphBtn.OnEvent("Click", this.OnSwitchToGraphEditor.Bind(this))
+
+        PosX := 210
+        PosY += 25
+        MyGui.Add("Text", Format("x{} y{}", PosX + 10, PosY), GetLang("当前宏指令"))
+        expandBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 85, PosY, 80, 20), GetLang("全部展开"))
+        expandBtn.OnEvent("Click", (*) => this.ExpandAll())
+        collapseBtn := MyGui.Add("Button", Format("x{} y{} w{} h{} center", PosX + 220, PosY, 80, 20), GetLang("全部折叠"))
+        collapseBtn.OnEvent("Click", (*) => this.CollapseAll())
+
+        PosY += 20
+        ; +Check：利用原生 Check 狀態顯示多選項目，避免改動節點文字。
+        this.MacroTreeViewCon := MyGui.Add("TreeView", Format("x{} y{} w{} h{}", cmdViewLeft, PosY, cmdViewW, 435),
+        "+Check")
+        this.MacroTreeViewCon.OnEvent("ContextMenu", this.ShowContextMenu.Bind(this))  ; 右键菜单事件
+        this.MacroTreeViewCon.OnEvent("DoubleClick", this.OnDoubleClick.Bind(this))  ; 双击编辑指令
+
+        this.MacroEditTextCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", cmdViewLeft, PosY, cmdViewW, 435), "")
+        this.MacroEditTextCon.Visible := false
+
+        PosX := 215
+        PosY := 500
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("退格"))
+        btnCon.OnEvent("Click", (*) => this.Backspace())
+
+        PosX += 150
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("清空指令"))
+        btnCon.OnEvent("Click", (*) => this.ClearStr())
+
+        PosX += 150
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnSureBtnClick())
+
+        PosX += 150
+        this.SaveBtnCtrl := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX, PosY, 40, 100), GetLang("应用并保存"))
+        this.SaveBtnCtrl.OnEvent("Click", (*) => this.OnSaveBtnClick())
+
+        pos := GetCenterPosOnActiveMonitor(945, 570)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 945, 570))
+        MyGui.OnEvent("Close", (*) => this.OnGuiClose())
     }
 
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
-    }
+    AddIconBtn(MyGui, PosX, PosY, ImgFile, LabelText, ClickAction, guiInstance) {
+        IconSize := 16
+        BtnW := 75
+        ImgY := PosY + (30 - IconSize) // 2
+        picCon := MyGui.Add("Picture", Format("x{} y{} w{} h{}", PosX, ImgY, IconSize, IconSize), ImgFile)
+        btnCon := MyGui.Add("Button", Format("x{} y{} h{} w{} center", PosX + IconSize, PosY, 30, BtnW), LabelText)
+        btnCon.SetFont(Format("S{} W{} Q{}", 11, 400, 5))
+        btnCon.OnEvent("Click", ClickAction)
 
-    _FadeIn() {
-        if (IsObject(this.ui) && this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd)
-            this.ui.Update("Window", "Opacity", "1")
-    }
-
-    OnWindowClosing(state, ctrl, event) {
-        if (this._hkIds.Length > 0) {
-            WinHotkey.UnregisterAll(this._hkIds)
-            this._hkIds := []
-        }
-        OnMessage(0x0201, this._lbtnHandler, 0)
-        OnMessage(0x004E, this._notifyHandler, 0)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        this._dragActive := false
-        this._dragCandidate := ""
-        this._dragSource := ""
-        if (IsObject(this.MacroTreeViewCon))
-            this.MacroTreeViewCon._suppressRender := false
-        ToolTip()
-        this.ui := ""
-        this.Gui := ""
-        this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (this._hkIds.Length > 0) {
-            WinHotkey.UnregisterAll(this._hkIds)
-            this._hkIds := []
-        }
-        OnMessage(0x0201, this._lbtnHandler, 0)
-        OnMessage(0x004E, this._notifyHandler, 0)
-        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
-            try SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
-        }
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        this._dragActive := false
-        this._dragCandidate := ""
-        this._dragSource := ""
-        if (IsObject(this.MacroTreeViewCon))
-            this.MacroTreeViewCon._suppressRender := false
-        ToolTip()
-        this.ui := ""
-        this.Gui := ""
-        this._closed := true
-    }
-
-    _HideWindow() {
-        if (IsObject(this.ui))
-            this.ui.Update("Window", "Close", "")
+        this.DragSourceMap[picCon.Hwnd] := {gui: guiInstance, name: LabelText, isMove: false}
+        this.DragSourceMap[btnCon.Hwnd] := {gui: guiInstance, name: LabelText, isMove: false}
     }
 
     InitGuiMenu() {
-        ; 菜单已在 _BuildAndShow 中以 XAML 构建；这里只按窗口可见状态同步初始勾选
-        if (this.ToolMenu == "")
+        if (this.GuiMenu != "")
             return
+
+        ; 创建菜单栏
+        MyMenuBar := MenuBar()
+
+        ; === 文件菜单 ===
+        ExeMenu := Menu()
+        ExeMenu.Add(GetLang("运行(F5)"), this.MenuHandler.Bind(this))
+        ExeMenu.Add(GetLang("单步运行(F6)"), this.MenuHandler.Bind(this))
+        ExeMenu.Add(GetLang("终止"), this.MenuHandler.Bind(this))
+
+        ; === 编辑菜单 ===
+        this.ToolMenu := Menu()
+        this.ToolMenu.Add(GetLang("变量监视"), this.MenuHandler.Bind(this))
+        this.ToolMenu.Add(GetLang("指令显示"), this.MenuHandler.Bind(this))
+        this.ToolMenu.Add(GetLang("窗口置顶"), this.MenuHandler.Bind(this))
+
+        ; === 添加到菜单栏 ===
+        MyMenuBar.Add(GetLang("调试"), ExeMenu)
+        MyMenuBar.Add(GetLang("工具"), this.ToolMenu)
+
+        if (MyVarListenGui.Gui != "" && MyVarListenGui.Gui.Hwnd) {
+            style := WinGetStyle(MyVarListenGui.Gui.Hwnd)
+            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+            if (isVisible)
+                this.ToolMenu.Check(GetLang("变量监视"))
+        }
+
+        if (MyCMDTipGui.Gui != "" && MyCMDTipGui.Gui.Hwnd) {
+            style := WinGetStyle(MyCMDTipGui.Gui.Hwnd)
+            isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
+            if (isVisible)
+                this.ToolMenu.Check(GetLang("指令显示"))
+        }
+
         try {
-            if (MyVarListenGui.Gui != "" && MyVarListenGui.Gui.Hwnd) {
-                style := WinGetStyle("ahk_id " MyVarListenGui.Gui.Hwnd)
-                if (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-                    this.ToolMenu.Check(GetLang("变量监视"))
+            exStyle := DllCall("GetWindowLongPtr", "Ptr", this.Gui.Hwnd, "Int", -20, "UInt") ; GWL_EXSTYLE = -20
+            isTop := (exStyle & 0x00000008)
+            if (isTop) {
+                this.ToolMenu.Check(GetLang("窗口置顶"))
             }
         }
-        try {
-            if (MyCMDTipGui.Gui != "" && MyCMDTipGui.Gui.Hwnd) {
-                style := WinGetStyle("ahk_id " MyCMDTipGui.Gui.Hwnd)
-                if (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
-                    this.ToolMenu.Check(GetLang("指令显示"))
-            }
-        }
-        try {
-            if (this.Hwnd()) {
-                exStyle := DllCall("GetWindowLongPtr", "Ptr", this.Hwnd(), "Int", -20, "UInt") ; GWL_EXSTYLE = -20
-                if (exStyle & 0x00000008) {
-                    this._topOn := true
-                    this.ToolMenu.Check(GetLang("窗口置顶"))
-                }
-            }
-        }
+
+        this.Gui.MenuBar := MyMenuBar
     }
 
     Init(MacroStr, ShowSaveBtn) {
@@ -596,10 +376,10 @@ class MacroEditGui {
         this.InitMacroText(MacroStr)
 
         this.ClearMultiSelection()
-        firstItem := this.MacroTreeViewCon.GetNext(0)
+        firstItem := 0
+        try firstItem := this.MacroTreeViewCon.GetNext(0)
         this.MacroTreeViewCon.Focus()
-        if (firstItem)
-            this.SetMultiSelected(firstItem, true)
+        this._SelectCurrent(firstItem)
     }
 
     Backspace() {
@@ -617,13 +397,10 @@ class MacroEditGui {
                 cmdArr.Pop()
             MacroStr := GetMacroStrByCmdArr(cmdArr)
 
-            ; 保留滚动位置（#3）：改前抓首行，改后滚回
-            firstVisible := IsObject(this.ui) ? this.ui.Query("MacroText>FirstVisibleLine") : ""
+            ; 回到替换前的滑动值
+            firstVisible := SendMessage(0xCE, 0, 0, this.MacroEditTextCon) ; EM_GETFIRSTVISIBLELINE = 0xCE
             this.InitMacroText(MacroStr)
-            if (firstVisible != "" && IsObject(this.ui))
-                this.ui.Update("MacroText", "ScrollToLine", firstVisible)
-            else
-                this.MacroEditTextCon.ScrollToEnd()
+            SendMessage(0xB6, 0, firstVisible, this.MacroEditTextCon) ; EM_LINESCROLL = 0xB6
         }
     }
 
@@ -632,12 +409,7 @@ class MacroEditGui {
         this.MacroEditTextCon.Value := ""
     }
 
-    OnChangeEditMode(state, ctrl, event) {
-        ; ComboBoxItem 的 Tag 即模式值（"1"=逻辑树 "2"=文本）
-        if (IsObject(state) && state.Has("EditModeCombo") && state["EditModeCombo"] != "")
-            this.EditModeCon._value := Integer(state["EditModeCombo"])
-        else
-            this.EditModeCon._value := 1
+    OnChangeEditMode(*) {
         MacroStr := this.GetMacroStr()
         this.MacroTreeViewCon.Visible := this.EditModeCon.Value == 1
         this.MacroEditTextCon.Visible := this.EditModeCon.Value == 2
@@ -681,11 +453,11 @@ class MacroEditGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
 
-        this._HideWindow()
+        this.Gui.Hide()
 
         action := this.SaveBtnAction
         action()
@@ -702,16 +474,25 @@ class MacroEditGui {
 
         if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
             try {
-                SafeGuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
             }
         }
 
-        this._HideWindow()
+        this.Gui.Hide()
         this.SureFocusCon.Focus()
     }
 
     OnGuiClose() {
-        this._CloseWindow()
+        if (this._hkIds.Length > 0)
+            WinHotkey.UnregisterAll(this._hkIds)
+        OnMessage(0x0201, this._lbtnHandler, 0)
+        OnMessage(0x004E, this._notifyHandler, 0)
+        if (this.OwnerHwnd != "" && MainSoftData.IsModalSubGui) {
+            try {
+                GuiFromHwnd(this.OwnerHwnd).Opt("-Disabled")
+            }
+        }
+        this.Gui.Hide()
     }
 
     GetMacroStr() {
@@ -755,7 +536,7 @@ class MacroEditGui {
             }
 
             ; 从配置加载顺序，若无则使用默认顺序
-            genKeys := (genCfg != "") ? StrSplit(genCfg, ",") : ["Edit", "Skip", "Debug", "Separator", "Insert", "Separator", "Copy", "SharedCopy", "Paste", "Separator", "Delete"]
+            genKeys := (genCfg != "") ? StrSplit(genCfg, ",") : ["Edit", "Skip", "Debug", "Separator", "Insert", "Separator", "Copy", "Paste", "Separator", "Delete"]
 
             for k in genKeys {
                 switch k {
@@ -798,7 +579,7 @@ class MacroEditGui {
             }
 
             ; 从配置加载顺序
-            branchKeys := (branchCfg != "") ? StrSplit(branchCfg, ",") : ["Add", "Separator", "BranchCopy", "BranchSharedCopy", "Paste", "Separator", "Delete"]
+            branchKeys := (branchCfg != "") ? StrSplit(branchCfg, ",") : ["Add", "Separator", "BranchCopy", "Paste", "Separator", "Delete"]
 
             for k in branchKeys {
                 switch k {
@@ -891,311 +672,6 @@ class MacroEditGui {
                     this.OnDeleteCmd()
             }
         }
-    }
-
-    ; 从事件 state 读 DragCoords（相对绑定控件的 DIP 坐标），返回 "x;y"；读不到返回 ""
-    _EventCoord(state, ctrlName) {
-        coord := ""
-        if (IsObject(state) && state.Has("DragCoords"))
-            coord := state["DragCoords"]
-        else if (IsObject(state) && state.Has(ctrlName))
-            coord := state[ctrlName]
-        if (coord == "")
-            return ""
-        parts := StrSplit(coord, ",")
-        if (parts.Length != 2)
-            return ""
-        return Trim(parts[1]) ";" Trim(parts[2])
-    }
-
-    ; 命中测试（坐标相对 ctrlName），返回 "tag|top/bottom" 或 ""
-    _HitTest(ctrlName, coord) {
-        if (!IsObject(this.ui) || coord == "")
-            return ""
-        return this.ui.Query(ctrlName ">HitTest:" coord)
-    }
-
-    ; WPF 树双击：命中测试定位节点打开编辑器；WPF 默认双击展开/折叠，定向还原到双击前状态（不整树重渲染）
-    _OnTreeDoubleClick(state, ctrl, event) {
-        if (this.EditModeCon.Value != 1 || !IsObject(this.ui))
-            return
-        coord := this._EventCoord(state, "MacroTree")
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("MacroTree", coord)
-        if (tagSlot == "")
-            return
-        parts := StrSplit(tagSlot, "|")
-        itemID := parts[1]
-        ; 点在展开箭头上：只折叠，不打开编辑器；叶子无子节点则正常打开编辑器
-        if (parts.Length > 2 && parts[3] == "1" && this.MacroTreeViewCon.GetChild(itemID) != 0)
-            return
-        this.OnDoubleClick(this.MacroTreeViewCon, itemID)
-    }
-
-    ; WPF 树左键按下：记录拖拽候选，延迟到选中完成后再处理多选（Ctrl/Shift/普通）
-    _OnTreePreviewLeftDown(state, ctrl, event) {
-        if (this.EditModeCon.Value != 1 || !IsObject(this.ui))
-            return
-        ; 双击：打开编辑器（C# 已对树条目双击置 Handled，阻止展开/折叠切换）
-        clickCount := 1
-        if (IsObject(state) && state.Has("ClickCount")) {
-            cc := state["ClickCount"]
-            if (IsNumber(cc))
-                clickCount := Integer(cc)
-        }
-        if (clickCount >= 2) {
-            this._OnTreeDoubleClick(state, ctrl, event)
-            return
-        }
-        ; 新按下：清掉上次可能残留的拖拽激活态
-        this._dragActive := false
-        this._dragTarget := ""
-        this._dragSlot := ""
-        coord := this._EventCoord(state, "MacroTree")
-        CoordMode("Mouse", "Screen")
-        MouseGetPos(&sx, &sy)
-        source := ""
-        if (coord != "") {
-            tagSlot := this._HitTest("MacroTree", coord)
-            if (tagSlot != "") {
-                parts := StrSplit(tagSlot, "|")
-                source := parts[1]
-            }
-        }
-        this._dragCandidate := {fromLeft: false, gui: "", name: "", source: source, sx: sx, sy: sy}
-        this._treeClickCoord := coord
-        SetTimer(ObjBindMethod(this, "_ProcessTreeLeftClick"), -20)
-    }
-
-    ; 左面板按钮按下：拖拽候选（fromLeft）
-    _OnPanelDragStart(guiInstance, displayName, state, ctrl, event) {
-        if (this.EditModeCon.Value != 1 || !IsObject(this.ui))
-            return
-        this._dragActive := false
-        this._dragTarget := ""
-        this._dragSlot := ""
-        CoordMode("Mouse", "Screen")
-        MouseGetPos(&sx, &sy)
-        this._dragCandidate := {fromLeft: true, gui: guiInstance, name: displayName, source: "", sx: sx, sy: sy}
-    }
-
-    ; 窗口级鼠标移动：检测拖拽启动；命中树得插入线位置（不重建树）
-    _OnTreeDragMove(state, ctrl, event) {
-        if (!IsObject(this._dragCandidate))
-            return
-        if (!GetKeyState("LButton", "P")) {
-            this._DragEndReset()
-            return
-        }
-        if (!this._dragActive) {
-            cand := this._dragCandidate
-            CoordMode("Mouse", "Screen")
-            MouseGetPos(&cx, &cy)
-            if (Abs(cx - cand.sx) > 8 || Abs(cy - cand.sy) > 8) {
-                this._dragActive := true
-                this.MacroTreeViewCon._suppressRender := true   ; 拖拽期间禁全量重建
-            }
-        }
-        if (this._dragActive) {
-            coord := this._EventCoord(state, "Window")
-            this._dragTarget := ""
-            this._dragSlot := ""
-            lineY := -1
-            if (coord != "") {
-                treeCoord := this._TreeCoord(coord)
-                if (treeCoord != "") {
-                    tagSlot := this._HitTest("MacroTree", treeCoord)
-                    if (tagSlot != "") {
-                        parts := StrSplit(tagSlot, "|")
-                        this._dragTarget := parts[1]
-                        this._dragSlot := parts.Length > 1 ? parts[2] : ""
-                        if (this._dragTarget != "" && parts.Length >= 4) {
-                            originY := IsNumber(parts[4]) ? parts[4] : 0
-                            h := IsNumber(parts[5]) ? parts[5] : 0
-                            lineY := (this._dragSlot == "top") ? originY : originY + h
-                        }
-                    }
-                }
-            }
-            if (lineY >= 0) {
-                try this.ui.Update("DragInsertLine", "Margin", "1," Integer(lineY) ",1,0")
-                try this.ui.Update("DragInsertLine", "Visibility", "Visible")
-            } else
-                try this.ui.Update("DragInsertLine", "Visibility", "Collapsed")
-            name := this._dragCandidate.fromLeft ? this._dragCandidate.name : this.MacroTreeViewCon.GetText(this._dragCandidate.source)
-            tip := GetLang("拖动插入: ") name
-            if (this._dragTarget != "") {
-                ttext := this.MacroTreeViewCon.GetText(this._dragTarget)
-                if (this.IsContainerNode(ttext))
-                    tip .= "`n" GetLang("目标: 插入到 ") ttext GetLang(" 内部")
-                else if (SubStr(StrReplace(ttext, "→", ""), 1, 1) == "⎖")
-                    tip .= "`n" GetLang("提示: 无法移动到此位置")
-                else
-                    tip .= "`n" GetLang("目标: 插入到 ") ttext GetLang(this._dragSlot == "top" ? " 上方" : " 下方")
-            } else
-                tip .= "`n" GetLang("目标: 追加到末尾")
-            ; 提示文本变化才刷新，避免每帧重建 ToolTip 闪烁
-            if (tip != this._lastDragTip) {
-                this._lastDragTip := tip
-                ToolTip(tip)
-            }
-        }
-    }
-
-    ; 窗口坐标 → 树坐标（用于命中树取插入线位置）
-    _TreeCoord(winCoord) {
-        if (!IsObject(this.ui))
-            return ""
-        pos := this.ui.Query("MacroTree>Position")
-        if (pos == "")
-            return ""
-        pp := StrSplit(pos, ",")
-        wc := StrSplit(winCoord, ";")
-        if (pp.Length != 2 || wc.Length != 2)
-            return ""
-        return (wc[1] - pp[1]) ";" (wc[2] - pp[2])
-    }
-
-    ; 拖拽结束/取消统一复位：恢复渲染、隐藏插入线、清 ToolTip
-    _DragEndReset() {
-        this._dragActive := false
-        this._dragCandidate := ""
-        this._dragTarget := ""
-        this._dragSlot := ""
-        this._lastDragTip := ""
-        if (IsObject(this.MacroTreeViewCon))
-            this.MacroTreeViewCon._suppressRender := false
-        if (IsObject(this.ui)) {
-            try this.ui.Update("DragInsertLine", "Visibility", "Collapsed")
-        }
-        ToolTip()
-    }
-
-    ; 窗口级松开左键：执行拖放（释放点不在树上则取消）
-    _OnTreeDragDrop(state, ctrl, event) {
-        if (!this._dragActive || !IsObject(this._dragCandidate))
-            return
-        cand := this._dragCandidate
-        coord := this._EventCoord(state, "Window")
-        overTree := (coord != "" && IsObject(this.ui) && this.ui.Query("Window>IsOverTree:" coord) == "1")
-        this._DragEndReset()
-        this._dragCancelled := true
-        SetTimer((*) => this._dragCancelled := false, -300)
-        if (!overTree)
-            return
-        ; 用释放点重新命中测试，取最终目标（转树内坐标后命中列表，扁平列表无 TreeView 命中）
-        target := ""
-        slot := ""
-        if (coord != "") {
-            treeCoord := this._TreeCoord(coord)
-            tagSlot := (treeCoord != "") ? this._HitTest("MacroTree", treeCoord) : ""
-            if (tagSlot != "") {
-                parts := StrSplit(tagSlot, "|")
-                target := parts[1]
-                slot := parts.Length > 1 ? parts[2] : ""
-            }
-        }
-        if (cand.fromLeft) {
-            this.CurItemID := target
-            if (target == "") {
-                this.OnOpenSubGui(cand.gui, 1)
-                return
-            }
-            text := this.MacroTreeViewCon.GetText(target)
-            if (SubStr(StrReplace(text, "→", ""), 1, 1) == "⎖")
-                return
-            if (this.IsContainerNode(text)) {
-                this.OnOpenSubGui(cand.gui, 5)
-            } else {
-                this.OnOpenSubGui(cand.gui, slot == "top" ? 3 : 4)
-            }
-            return
-        }
-        ; 树内移动：源 = 按下时命中的节点，目标 = 拖放时命中的节点
-        source := cand.source
-        if (source == "")
-            return
-        if (target == "") {
-            this.MoveTreeViewItem(source, 0, 0, 1)
-            return
-        }
-        if (target == source)
-            return
-        if (this.IsDescendantOrSelf(this.MacroTreeViewCon, source, target))
-            return
-        text := this.MacroTreeViewCon.GetText(target)
-        if (SubStr(StrReplace(text, "→", ""), 1, 1) == "⎖")
-            return
-        if (this.IsContainerNode(text)) {
-            this.MoveTreeViewItem(source, target, target, 5)
-        } else {
-            destParent := this.MacroTreeViewCon.GetParent(target)
-            this.MoveTreeViewItem(source, destParent, target, slot == "top" ? 3 : 4)
-        }
-    }
-
-    _ProcessTreeLeftClick() {
-        if (!IsObject(this.ui))
-            return
-        coord := this._treeClickCoord
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("MacroTree", coord)
-        if (tagSlot == "")
-            return
-        parts := StrSplit(tagSlot, "|")
-        itemID := parts[1]
-        ; 点在展开箭头上：切换展开/折叠（扁平列表无 WPF 原生箭头）；叶子无子节点则落到下方正常选择
-        if (parts.Length > 2 && parts[3] == "1") {
-            if (this.MacroTreeViewCon.GetChild(itemID) != 0) {
-                this.MacroTreeViewCon.Modify(itemID, this.MacroTreeViewCon.IsExpanded(itemID) ? "Collapse" : "Expand")
-                return
-            }
-        }
-        if (GetKeyState("Shift", "P"))
-            this.SelectMultiRange(this.MultiSelectAnchor, itemID)
-        else if (GetKeyState("Ctrl", "P"))
-            this.ToggleMultiSelection(itemID)
-        else
-            this.SetSingleMultiSelection(itemID)
-        this.CurItemID := itemID
-        this.MacroTreeViewCon.Modify(itemID, "Select")
-    }
-
-    ; WPF 树右键按下：记录命中坐标，延迟弹右键菜单（命中不到节点不弹，不误改多选）
-    _OnTreePreviewRightDown(state, ctrl, event) {
-        if (this.EditModeCon.Value != 1 || !IsObject(this.ui))
-            return
-        this._rightClickCoord := this._EventCoord(state, "MacroTree")
-        SetTimer(ObjBindMethod(this, "_ProcessTreeRightClick"), -20)
-    }
-
-    _ProcessTreeRightClick() {
-        if (!IsObject(this.ui))
-            return
-        coord := this._rightClickCoord
-        this._rightClickCoord := ""
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("MacroTree", coord)
-        if (tagSlot == "")
-            return
-        itemID := StrSplit(tagSlot, "|")[1]
-        this.CurItemID := itemID
-        itemText := this.MacroTreeViewCon.GetText(itemID)
-        cleanItemText := StrReplace(itemText, "→", "")
-        if (cleanItemText == "" || SubStr(cleanItemText, 1, 1) == "⎖")
-            return
-        if (this.IsContainerNode(itemText)) {
-            this.ui.Update("BranchCtxMenu", "IsOpen", "True")
-            return
-        }
-        SkipMenuText := SubStr(cleanItemText, 1, 2) == "🚫" ? GetLang("取消跳过") : GetLang("跳过指令")
-        DebugMenuText := SubStr(cleanItemText, 1, 1) == "⭐" ? GetLang("取消调试起点") : GetLang("调试起点")
-        this.ui.Update("MenuSkipCmd", "Header", SkipMenuText)
-        this.ui.Update("MenuDebugCmd", "Header", DebugMenuText)
-        this.ui.Update("TreeCtxMenu", "IsOpen", "True")
     }
 
     OnDoubleClick(ctrl, item) {
@@ -1384,9 +860,7 @@ class MacroEditGui {
             }
             case GetLang("窗口置顶"):
             {
-                this._topOn := !this._topOn
-                if (IsObject(this.ui))
-                    this.ui.Update("Window", "Topmost", this._topOn ? "True" : "False")
+                WinSetAlwaysOnTop(-1, this.Gui)
                 this.ToolMenu.ToggleCheck(GetLang("窗口置顶"))
             }
             case GetLang("运行(F5)"):
@@ -1460,7 +934,27 @@ class MacroEditGui {
     }
 
     ContentMenuHandler(cmdStr, *) {
-        itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+        ; 右键菜单关闭后焦点可能落到主界面（菜单归主脚本所有，关闭时焦点不会自动回到编辑器），
+        ; 先激活编辑器，避免主界面覆盖逻辑树编辑器
+        XamlUiDiag("MenuHandler START cmd=" cmdStr " active=" WinGetID("A") " title=" WinGetTitle("A") " editor=" this.Gui.Hwnd, "focus")
+        try WinActivate("ahk_id " this.Gui.Hwnd)
+        XamlUiDiag("MenuHandler AFTER activate active=" WinGetID("A") " title=" WinGetTitle("A"), "focus")
+
+        ; 粘贴：允许空树/无选中（追加到根层）；其它操作仍需有效节点
+        if (cmdStr == GetLang("粘贴")) {
+            this.PasteClipboardCommands(A_Clipboard)
+            if (Trim(A_Clipboard, " `t`r`n") != "")
+                Toast.Show(GetLang("已粘贴"))
+            return
+        }
+
+        ; 无有效选中节点时（如刚删除后），复制/删除等快捷键不应报错
+        if (!this.CurItemID)
+            return
+        try
+            itemText := this.MacroTreeViewCon.GetText(this.CurItemID)
+        catch
+            return
         ; 清理→前缀用于状态判断
         cleanItemText := StrReplace(itemText, "→", "")
         paramsArr := StrSplit(cmdStr, "_")
@@ -1473,6 +967,44 @@ class MacroEditGui {
         }
 
         switch cmdStr {
+            case "BranchCopy":
+            {
+                ; 分支／循环体容器不是实际指令，复制时应复制其内部宏内容。
+                if (!this.IsContainerNode(cleanItemText))
+                    return
+
+                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
+                if (branchMacroStr == "") {
+                    SetClipboard("")
+                } else {
+                    cmds := SplitMacro(branchMacroStr)
+                    copyStr := ""
+                    for _, text in cmds {
+                        text := Trim(text, " `t`r`n")
+                        if (text == "")
+                            continue
+                        text := StrReplace(text, "⭐", "")
+                        text := StrReplace(text, "→", "")
+                        cmd := FullCopyCmd(text)
+                        if (cmd != "")
+                            copyStr .= (copyStr == "" ? "" : ",") cmd
+                    }
+                    SetClipboard(copyStr)
+                }
+                Toast.Show(GetLang("已复制"))
+                return
+            }
+            case "BranchSharedCopy":
+            {
+                ; 共享复制保留分支內部的原始宏文字，不重新分配内部序列号。
+                if (!this.IsContainerNode(cleanItemText))
+                    return
+
+                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
+                SetClipboard(branchMacroStr)
+                Toast.Show(GetLang("已复制"))
+                return
+            }
             case GetLang("编辑"):
             {
                 paramsArr := StrSplit(cleanItemText, "_")
@@ -1488,13 +1020,58 @@ class MacroEditGui {
             }
             case "Skip":
             {
-                if (SubStr(cleanItemText, 1, 1) == "⭐") {
-                    MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                selectedItems := this.GetMultiSelectedItems()
+
+                ; 单条：沿用原逻辑，只处理右键项
+                if (selectedItems.Length <= 1) {
+                    if (SubStr(cleanItemText, 1, 1) == "⭐") {
+                        MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                        return
+                    }
+                    IsToSkip := SubStr(cleanItemText, 1, 2) != "🚫"
+                    CommandStr := IsToSkip ? "🚫" cleanItemText : SubStr(cleanItemText, 3)
+                    this.OnModifyCmd(CommandStr)
                     return
                 }
+
+                ; 多选：跳过/取消跳过应用到所有选中项
+                for itemID in selectedItems {
+                    text := this.MacroTreeViewCon.GetText(itemID)
+                    if (SubStr(StrReplace(text, "→", ""), 1, 1) == "⭐") {
+                        MsgBox(GetLang("调试起点不能跳过"), "", "Owner" this.Gui.Hwnd)
+                        return
+                    }
+                }
+
+                this.ResetDebugState()
+                ; 根据右键项决定跳过/取消跳过方向（与菜单文案一致）
                 IsToSkip := SubStr(cleanItemText, 1, 2) != "🚫"
-                CommandStr := IsToSkip ? "🚫" cleanItemText : SubStr(cleanItemText, 3)
-                this.OnModifyCmd(CommandStr)
+                parentID := this.MacroTreeViewCon.GetParent(selectedItems[1])
+
+                ; 先逐项切换 🚫 前缀（跳过只是文本标记，改文本即可），再统一刷新父分支
+                for itemID in selectedItems {
+                    text := this.MacroTreeViewCon.GetText(itemID)
+                    clean := StrReplace(text, "→", "")
+                    hasSkip := SubStr(clean, 1, 2) == "🚫"
+                    if (hasSkip == IsToSkip)
+                        continue
+                    newCmd := IsToSkip ? "🚫" clean : SubStr(clean, 3)
+                    this.MacroTreeViewCon.Modify(itemID, , MySoftData.FormatCmdJoyDisplay(newCmd))
+                }
+
+                if (parentID == 0) {
+                    ; 根层：对分支命令重建子节点（跳过则隐藏子项）
+                    for itemID in selectedItems
+                        this.RefreshTree(itemID)
+                } else {
+                    ; 容器层：把修改后的子宏统一写回父分支数据，再刷新
+                    macroStr := this.GetTreeMacroStr(parentID)
+                    realItemID := this.MacroTreeViewCon.GetParent(parentID)
+                    realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
+                    this.SaveCommandData(realCommandStr, macroStr, parentID)
+                    this.RefreshTree(realItemID)
+                }
+                this.ClearMultiSelection()
             }
             case "Debug":
                 if (SubStr(cleanItemText, 1, 2) == "🚫") {
@@ -1511,6 +1088,7 @@ class MacroEditGui {
                 if (selectedItems.Length <= 1) {
                     newCmd := FullCopyCmd(cleanItemText)
                     SetClipboard(newCmd)
+                    Toast.Show(GetLang("已复制"))
                     return
                 }
 
@@ -1532,10 +1110,7 @@ class MacroEditGui {
                 }
                 if (copyStr != "")
                     SetClipboard(copyStr)
-            }
-            case GetLang("粘贴"):
-            {
-                this.PasteClipboardCommands(A_Clipboard)
+                Toast.Show(GetLang("已复制"))
             }
             case "SharedCopy":
             {
@@ -1564,43 +1139,6 @@ class MacroEditGui {
                 if (copyStr != "")
                     SetClipboard(copyStr)
                 Toast.Show(GetLang("已复制"))
-            }
-            case "BranchCopy":
-            {
-                ; 分支／循环体容器不是实际指令，复制时应复制其内部宏内容。
-                if (!this.IsContainerNode(cleanItemText))
-                    return
-
-                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
-                if (branchMacroStr == "") {
-                    SetClipboard("")
-                } else {
-                    cmds := SplitMacro(branchMacroStr)
-                    copyStr := ""
-                    for _, text in cmds {
-                        text := Trim(text, " `t`r`n")
-                        if (text == "")
-                            continue
-                        text := StrReplace(text, "⭐", "")
-                        text := StrReplace(text, "→", "")
-                        cmd := FullCopyCmd(text)
-                        if (cmd != "")
-                            copyStr .= (copyStr == "" ? "" : ",") cmd
-                    }
-                    SetClipboard(copyStr)
-                }
-                Toast.Show(GetLang("已复制"))
-            }
-            case "BranchSharedCopy":
-            {
-                ; 共享复制保留分支內部的原始宏文字，不重新分配内部序列号。
-                if (!this.IsContainerNode(cleanItemText))
-                    return
-
-                branchMacroStr := this.GetTreeMacroStr(this.CurItemID)
-                SetClipboard(branchMacroStr)
-                Toast.Show(GetLang("已复制"))
-                return
             }
             case GetLang("删除"):
             {
@@ -1781,13 +1319,16 @@ class MacroEditGui {
         CommandStr := this.MacroTreeViewCon.GetText(itemID)
         paramsArr := StrSplit(CommandStr, "_")
 
+        ; 重建分支时先禁用重绘，避免逐条删除/重建节点引起树形控件闪烁（与 InitTreeView 一致）
+        this.MacroTreeViewCon.Opt("-Redraw")
         subItem := this.MacroTreeViewCon.GetChild(itemID)
         while (subItem) {
             this.MacroTreeViewCon.Delete(subItem)
             subItem := this.MacroTreeViewCon.GetChild(itemID)
         }
         this.TreeAddBranch(itemID, CommandStr)
-        ; 不再 TreeExpand：新节点默认 expanded，增量增删已呈现完整分支，无需全量重建
+        this.TreeExpand(itemID, 2)
+        this.MacroTreeViewCon.Opt("+Redraw")
     }
 
     TreeAddBranch(root, cmdStr) {
@@ -1888,11 +1429,15 @@ class MacroEditGui {
         }
     }
 
-    ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     ; 子指令窗口是否正在显示（用于同类型多开判断）
-    ; XAML 版用 _closed 生命周期标志判断（原生版用 WS_VISIBLE）
     IsSubGuiVisible(subGui) {
-        return IsObject(subGui) && ObjHasOwnProp(subGui, "_closed") && !subGui._closed
+        if (!IsObject(subGui) || !ObjHasOwnProp(subGui, "Gui") || subGui.Gui == "")
+            return false
+        try {
+            return (WinGetStyle(subGui.Gui.Hwnd) & 0x10000000) != 0  ; WS_VISIBLE
+        } catch {
+            return false
+        }
     }
 
     ; 收集某共享子 GUI 同类型的全部实例（共享 + 多开额外实例）
@@ -1933,6 +1478,7 @@ class MacroEditGui {
         return newGui
     }
 
+    ;打开子指令编辑器 modeType 1:默认行尾追加 2:编辑修改 3:上方插入 4:下方插入 5:真假节点添加
     OnOpenSubGui(subGui, modeType := 1) {
         this.CmdEditType := modeType
         editType := modeType
@@ -1975,7 +1521,7 @@ class MacroEditGui {
         subGui.ShowGui("")
     }
 
-    ;确定子指令编辑器（editType/itemId 为打开时捕获的上下文，多开时互不干扰）
+    ;确定子指令编辑器（editType/itemId 为打开时捕获的上下文）
     OnSubGuiSureBtnClick(CommandStr, editType := 1, itemId := 0) {
         style := WinGetStyle(this.Gui.Hwnd)
         isVisible := (style & 0x10000000)  ; 0x10000000 = WS_VISIBLE
@@ -2019,6 +1565,7 @@ class MacroEditGui {
             root := this.MacroTreeViewCon.Add(displayStr, 0, iconStr)
             this.TreeAddBranch(root, CommandStr)
             this.LastItemID := root
+            this._SelectCurrent(root)
         }
         else {
             MacroStr := this.GetMacroStr()
@@ -2026,13 +1573,10 @@ class MacroEditGui {
             cmdArr := SplitMacro(MacroStr)
             MacroStr := GetMacroStrByCmdArr(cmdArr)
 
-            ; 保留滚动位置（#3）
-            firstVisible := IsObject(this.ui) ? this.ui.Query("MacroText>FirstVisibleLine") : ""
+            ; 回到替换前的滑动值
+            firstVisible := SendMessage(0xCE, 0, 0, this.MacroEditTextCon) ; EM_GETFIRSTVISIBLELINE = 0xCE
             this.InitMacroText(MacroStr)
-            if (firstVisible != "" && IsObject(this.ui))
-                this.ui.Update("MacroText", "ScrollToLine", firstVisible)
-            else
-                this.MacroEditTextCon.ScrollToEnd()
+            SendMessage(0xB6, 0, firstVisible, this.MacroEditTextCon) ; EM_LINESCROLL = 0xB6
         }
     }
 
@@ -2042,9 +1586,7 @@ class MacroEditGui {
         this.MacroTreeViewCon.Modify(this.CurItemID, , MySoftData.FormatCmdJoyDisplay(CommandStr))
         ParentID := this.MacroTreeViewCon.GetParent(this.CurItemID)
         if (ParentID == 0) {
-            ; 仅分支指令（有子节点）修改结构时重建；叶子修改无需
-            if (this.MacroTreeViewCon.GetChild(this.CurItemID) != 0)
-                this.RefreshTree(this.CurItemID)
+            this.RefreshTree(this.CurItemID)
             return
         }
 
@@ -2053,8 +1595,7 @@ class MacroEditGui {
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
 
         this.SaveCommandData(RealCommandStr, macroStr, ParentID)
-        if (this.MacroTreeViewCon.GetChild(this.CurItemID) != 0)
-            this.RefreshTree(RealItemID)
+        this.RefreshTree(RealItemID)
     }
 
     OnPreMoveCmd() {
@@ -2110,6 +1651,7 @@ class MacroEditGui {
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
 
         this.SaveCommandData(RealCommandStr, macroStr, ParentID)
+        this.RefreshTree(RealItemID)
     }
 
     ; Delete 熱鍵與右鍵「刪除」共用這個入口。
@@ -2128,7 +1670,6 @@ class MacroEditGui {
         if (selectedItems.Length == 1) {
             this.CurItemID := selectedItems[1]
             this._DeleteSingleCmd(this.CurItemID)
-            this.ClearMultiSelection()
             return
         }
 
@@ -2140,7 +1681,6 @@ class MacroEditGui {
                 this.SetSingleMultiSelection(this.CurItemID ? this.CurItemID : selectedItems[1])
                 this.CurItemID := this.CurItemID ? this.CurItemID : selectedItems[1]
                 this._DeleteSingleCmd(this.CurItemID)
-                this.ClearMultiSelection()
                 return
             }
         }
@@ -2151,8 +1691,9 @@ class MacroEditGui {
                 itemID := selectedItems[selectedItems.Length - A_Index + 1]
                 try this.MacroTreeViewCon.Delete(itemID)
             }
-            this.CurItemID := 0
-            this.ClearMultiSelection()
+            firstID := 0
+            try firstID := this.MacroTreeViewCon.GetNext(0)
+            this._SelectCurrent(firstID)
             return
         }
 
@@ -2165,8 +1706,9 @@ class MacroEditGui {
         if (parentIsContainer) {
             realItemID := this.MacroTreeViewCon.GetParent(parentID)
             if (!realItemID) {
-                this.CurItemID := 0
-                this.ClearMultiSelection()
+                firstID := 0
+                try firstID := this.MacroTreeViewCon.GetNext(0)
+                this._SelectCurrent(firstID)
                 return
             }
             realCommandStr := this.MacroTreeViewCon.GetText(realItemID)
@@ -2206,7 +1748,8 @@ class MacroEditGui {
             }
 
             itemID := containerItems.RemoveAt(bestIndex)
-            this.SaveCommandData(realCommandStr, "", itemID)
+            ; 如果Pro 条件分支：显式标记删除，避免与「空分支宏」混淆
+            this.SaveCommandData(realCommandStr, "删除条件", itemID)
         }
 
         ; 一般子指令才直接 Delete；從後往前刪，避免 TreeView handle 互相影響。
@@ -2225,8 +1768,7 @@ class MacroEditGui {
         }
 
         this.RefreshTree(realItemID)
-        this.CurItemID := 0
-        this.ClearMultiSelection()
+        this._SelectCurrent(realItemID)
     }
 
     ; 單一指令的刪除邏輯。容器節點不能直接 Delete，只能清空它所代表的分支。
@@ -2234,7 +1776,20 @@ class MacroEditGui {
         if (!itemID)
             return
 
-        itemText := this.MacroTreeViewCon.GetText(itemID)
+        try
+            itemText := this.MacroTreeViewCon.GetText(itemID)
+        catch {
+            ; 節點已失效（例如剛被刪除）：清空選中，避免快捷鍵反覆報錯
+            this._SelectCurrent(0)
+            return
+        }
+
+        ; 刪除前記錄同層鄰居，供刪除後轉移選中
+        nextID := 0
+        prevID := 0
+        try nextID := this.MacroTreeViewCon.GetNext(itemID)
+        try prevID := this.MacroTreeViewCon.GetPrev(itemID)
+
         isContainer := this.IsContainerNode(itemText)
         ParentID := this.MacroTreeViewCon.GetParent(itemID)
 
@@ -2242,14 +1797,16 @@ class MacroEditGui {
         if (ParentID == 0) {
             if (!isContainer)
                 this.MacroTreeViewCon.Delete(itemID)
+            this._SelectAfterDelete(0, nextID, prevID)
             return
         }
 
         NodeItemID := itemID
         RealItemID := ParentID
-        macroStr := ""
+        ; 容器节点（如果Pro 条件等）：删除分支本身，不是清空宏
+        macroStr := isContainer ? "删除条件" : ""
 
-        ; 普通指令：直接刪除，再將同層剩餘內容寫回父容器。
+        ; 普通指令：直接删除，再将同层剩余内容写回父容器。
         if (!isContainer) {
             this.MacroTreeViewCon.Delete(itemID)
             NodeItemID := ParentID
@@ -2263,9 +1820,40 @@ class MacroEditGui {
 
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, NodeItemID)
-        ; 普通指令删除已增量完成；仅清空容器分支时才需重建
-        if (isContainer)
-            this.RefreshTree(RealItemID)
+        this.RefreshTree(RealItemID)
+
+        ; RefreshTree 會重建分支，舊鄰居失效，改選中父分支節點
+        this._SelectAfterDelete(RealItemID, 0, 0)
+    }
+
+    ; 刪除節點後轉移選中：優先下一個同層，其次上一個同層，最後父級；都沒有則清空
+    _SelectAfterDelete(parentID, nextID, prevID) {
+        target := 0
+        for _, id in [nextID, prevID, parentID] {
+            if (!id)
+                continue
+            try {
+                txt := this.MacroTreeViewCon.GetText(id)
+                if (txt != "" && SubStr(txt, 1, 1) != "⎖") {
+                    target := id
+                    break
+                }
+            } catch {
+                continue
+            }
+        }
+        this._SelectCurrent(target)
+    }
+
+    ; 把節點設為目前選中項（單選狀態 + 原生高亮）；itemID 為 0 時清空選中
+    _SelectCurrent(itemID) {
+        this.CurItemID := itemID
+        if (!itemID) {
+            this.ClearMultiSelection()
+            return
+        }
+        this.SetSingleMultiSelection(itemID)
+        try this.MacroTreeViewCon.Modify(itemID, "Select")
     }
 
     ;插入指令
@@ -2277,14 +1865,17 @@ class MacroEditGui {
         Seq := PreItemID == 0 ? "First" : PreItemID
         iconStr := this.GetCmdIconStr(CommandStr)
         newItemID := this.MacroTreeViewCon.Add(displayStr, ParentID, Seq " " iconStr)
-        this.TreeAddBranch(newItemID, CommandStr)
-        if (ParentID == 0)
+        if (ParentID == 0) {
+            this.TreeAddBranch(newItemID, CommandStr)
+            this._SelectCurrent(newItemID)
             return
+        }
 
         macroStr := this.GetTreeMacroStr(ParentID)
         RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, ParentID)
+        this.RefreshTree(RealItemID)
     }
 
     ; 插入一條指令；返回刷新後可繼續作為插入錨點的 TreeView ItemID。
@@ -2304,17 +1895,19 @@ class MacroEditGui {
 
         anchorItemID := this.CurItemID
         ParentID := this.MacroTreeViewCon.GetParent(anchorItemID)
+        insertNumber := 0
+        if (ParentID != 0)
+            insertNumber := this.GetItemNumber(anchorItemID) + 1
 
         displayStr := MySoftData.FormatCmdJoyDisplay(CommandStr)
         iconStr := this.GetCmdIconStr(CommandStr)
         newItemID := this.MacroTreeViewCon.Add(displayStr, ParentID, anchorItemID " " iconStr)
         if (anchorItemID == this.LastItemID)
             this.LastItemID := newItemID
-        this.TreeAddBranch(newItemID, CommandStr)
 
         if (ParentID == 0) {
-            this.CurItemID := newItemID
-            this.MacroTreeViewCon.Modify(newItemID, "Select")
+            this.TreeAddBranch(newItemID, CommandStr)
+            this._SelectCurrent(newItemID)
             return newItemID
         }
 
@@ -2322,11 +1915,33 @@ class MacroEditGui {
         RealItemID := this.MacroTreeViewCon.GetParent(ParentID)
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, ParentID)
+        this.RefreshTree(RealItemID)
 
-        ; 不再 RefreshTree：newItemID 保持有效，直接选中
-        this.CurItemID := newItemID
-        this.MacroTreeViewCon.Modify(newItemID, "Select")
-        return newItemID
+        ; RefreshTree 會重建整個分支，舊的 newItemID 已失效。
+        ; 依原本插入位置重新找回新節點，讓下一條指令可以繼續插在它後面。
+        if (insertNumber > 0) {
+            childID := this.MacroTreeViewCon.GetChild(ParentID)
+            index := 1
+            foundID := 0
+            while (childID) {
+                text := this.MacroTreeViewCon.GetText(childID)
+                if (SubStr(text, 1, 1) != "⎖") {
+                    if (index == insertNumber) {
+                        foundID := childID
+                        break
+                    }
+                    index += 1
+                }
+                childID := this.MacroTreeViewCon.GetNext(childID)
+            }
+            if (foundID) {
+                this._SelectCurrent(foundID)
+                return foundID
+            }
+        }
+
+        this.CurItemID := 0
+        return 0
     }
 
     ; 粘貼到真/假/循環體/條件容器節點內部：把指令追加到該分支末尾並回寫。
@@ -2352,6 +1967,7 @@ class MacroEditGui {
     }
 
     ; 將剪貼簿中的單條或多條宏指令逐條貼上。
+    ; 無選中/空樹：追加到根層末尾（等同添加指令）。
     PasteClipboardCommands(ClipboardStr) {
         ClipboardStr := Trim(ClipboardStr, " `t`r`n")
         if (ClipboardStr == "")
@@ -2382,7 +1998,7 @@ class MacroEditGui {
                     firstInserted := this.CurItemID
             }
             if (firstInserted)
-                this.MacroTreeViewCon.Modify(firstInserted, "Select")
+                this._SelectCurrent(firstInserted)
             return
         }
 
@@ -2417,7 +2033,7 @@ class MacroEditGui {
                     firstInserted := insertedID
             }
             if (firstInserted)
-                this.MacroTreeViewCon.Modify(firstInserted, "Select")
+                this._SelectCurrent(firstInserted)
             return
         }
 
@@ -2470,11 +2086,8 @@ class MacroEditGui {
         ; 找到插入區段最後一條，讓後續操作仍停在貼上的內容附近。
         targetIndex := anchorIndex + cmds.Length
         targetID := this.GetNthCommandChild(newParentID, targetIndex)
-        if (targetID) {
-            this.CurItemID := targetID
-            this.MultiSelectAnchor := targetID
-            this.MacroTreeViewCon.Modify(targetID, "Select")
-        }
+        if (targetID)
+            this._SelectCurrent(targetID)
     }
 
     ; 取得 parent 的第 N 個直接子節點（1-based）。
@@ -2516,12 +2129,12 @@ class MacroEditGui {
         displayStr := MySoftData.FormatCmdJoyDisplay(CommandStr)
         iconStr := this.GetCmdIconStr(CommandStr)
         newItemID := this.MacroTreeViewCon.Add(displayStr, this.CurItemID, iconStr)
-        this.TreeAddBranch(newItemID, CommandStr)
         macroStr := this.GetTreeMacroStr(this.CurItemID)
 
         RealItemID := this.MacroTreeViewCon.GetParent(this.CurItemID)
         RealCommandStr := this.MacroTreeViewCon.GetText(RealItemID)
         this.SaveCommandData(RealCommandStr, macroStr, this.CurItemID)
+        this.RefreshTree(RealItemID)
     }
 
     OnSubNodeEdit(nodeItemID, macroStr) {
@@ -2530,6 +2143,18 @@ class MacroEditGui {
         macroStr := macroStr == "" ? " " : macroStr
         this.SaveCommandData(RealCommandStr, macroStr, nodeItemID)
         this.RefreshTree(RealItemID)
+    }
+
+    TreeExpand(ItemID, Num) {
+        if (Num == 0)
+            return
+
+        rootItemID := this.MacroTreeViewCon.GetChild(ItemID)
+        while (rootItemID) {
+            this.MacroTreeViewCon.Modify(rootItemID, "Expand")
+            this.TreeExpand(rootItemID, Num - 1)
+            rootItemID := this.MacroTreeViewCon.GetNext(rootItemID)
+        }
     }
 
     ExpandAll() {
@@ -2569,7 +2194,7 @@ class MacroEditGui {
             childID := this.MacroTreeViewCon.GetNext(childID)
         }
         if (this.MacroTreeViewCon.GetChild(ItemID))
-            this.MacroTreeViewCon.Modify(ItemID, "Collapse")
+            SendMessage(0x1102, 0x1, ItemID, this.MacroTreeViewCon)
     }
 
     GetTreeMacroStr(ItemID) {
@@ -2614,12 +2239,7 @@ class MacroEditGui {
     ClearMultiSelection() {
         if (!IsObject(this.MultiSelectItems))
             this.MultiSelectItems := Map()
-        if (this.MultiSelectItems.Count == 0) {
-            this.MultiSelectAnchor := 0
-            return
-        }
 
-        ; 逐项更新 ✓ 标记（不触发全量渲染）
         for itemID in this.MultiSelectItems {
             try this.MacroTreeViewCon.Modify(itemID, "-Check")
         }
@@ -2704,11 +2324,8 @@ class MacroEditGui {
         paramArr[1] := GetCmdStr(paramArr[1])
 
         textOnly := RegExReplace(paramArr[1], "\d+")
-        if (this.CmdIconFileMap.Has(textOnly)) {
-            rel := this.CmdIconFileMap[textOnly]
-            full := A_WorkingDir "\" rel
-            if (FileExist(full))
-                return StrReplace(full, "\", "/")
+        if (this.IconMap.Has(textOnly)) {
+            return this.IconMap.Get(textOnly)
         }
         return ""
     }
@@ -2737,20 +2354,24 @@ class MacroEditGui {
         }
         else if (cmd == GetLang("如果Pro")) {
             if (ItemNumber > Data.VariNameArr.Length) {
-                if (macroStr == "")
-                    MsgBox("最后的分支不能删除，已清空分支指令")
-                Data.DefaultMacro := Trim(macroStr)
+                ; 兜底分支不可删除，仅允许清空指令
+                if (macroStr == "删除条件" || macroStr == "")
+                    MsgBox(GetLang("最后的分支不能删除，若无需该分支请清空分支指令"))
+                Data.DefaultMacro := (macroStr == "空条件" || macroStr == "删除条件") ? "" : Trim(macroStr)
             }
             else {
-                if (macroStr == "空条件") {
-                    Data.MacroArr[ItemNumber] := ""
-                }
-                else if (macroStr == "") {
+                ; 删除条件：显式删除该分支；空条件/空串：仅清空分支宏，保留条件本身
+                if (macroStr == "删除条件") {
+                    if (Data.ControlTypeArr.Length >= ItemNumber)
+                        Data.ControlTypeArr.RemoveAt(ItemNumber)
                     Data.VariNameArr.RemoveAt(ItemNumber)
                     Data.CompareTypeArr.RemoveAt(ItemNumber)
                     Data.VariableArr.RemoveAt(ItemNumber)
                     Data.LogicTypeArr.RemoveAt(ItemNumber)
                     Data.MacroArr.RemoveAt(ItemNumber)
+                }
+                else if (macroStr == "空条件" || macroStr == "") {
+                    Data.MacroArr[ItemNumber] := ""
                 }
                 else {
                     Data.MacroArr[ItemNumber] := Trim(macroStr)
@@ -2778,13 +2399,20 @@ class MacroEditGui {
     }
 
     _OnLButtonDown(wParam, lParam, msg, hwnd) {
-        ; P6 才接入 XAML 拖拽；此前 WPF 窗口的 WM_LBUTTONDOWN 全部忽略
-        if (!this._dragEnabled)
+        if (!this.Gui)
             return
-        if (!this.Gui || !WinActive("ahk_id " this.Gui.Hwnd))
+        ; 控件可能在保存/重载期间被销毁，访问 .Hwnd 会抛 "The control is destroyed."
+        try
+            guiHwnd := this.Gui.Hwnd
+        catch
+            return
+        if (!WinActive("ahk_id " guiHwnd))
             return
 
-        hwndTV := this.MacroTreeViewCon.Hwnd
+        try
+            hwndTV := this.MacroTreeViewCon.Hwnd
+        catch
+            return
         isFromLeft := this.DragSourceMap.Has(hwnd)
         isFromTV := (hwnd == hwndTV)
 
@@ -2999,7 +2627,11 @@ class MacroEditGui {
         if (!this.Gui || !this.MacroTreeViewCon || !lParam)
             return
 
-        treeHwnd := this.MacroTreeViewCon.Hwnd
+        ; 控件可能在保存/重载期间被销毁，访问 .Hwnd 会抛 "The control is destroyed."
+        try
+            treeHwnd := this.MacroTreeViewCon.Hwnd
+        catch
+            return
         if (!treeHwnd)
             return
 
@@ -3044,7 +2676,7 @@ class MacroEditGui {
             return
 
         ; 多選項目：整行高亮，而不是只靠 CheckBox。
-        ; 使用亮藍背景 + 白色文字，滑鼠移開後仍保持。
+        ; 使用橙色背景 + 白色文字，滑鼠移開後仍保持。
         NumPut("UInt", 0xFFFFFF, lParam, clrTextOffset)
         NumPut("UInt", 0x2D6CDF, lParam, clrTextBkOffset)
 
@@ -3134,7 +2766,13 @@ class MacroEditGui {
             this.SaveCommandData(RealDestCommandStr, macroStrDest, destParent)
         }
 
-        ; 移动已由 Add + TreeAddBranch + Delete 增量完成，不再 RefreshTree
+        if (sourceParent != 0) {
+            this.RefreshTree(RealSourceItemID)
+        }
+        if (destParent != 0 && destParent != sourceParent) {
+            this.RefreshTree(RealDestItemID)
+        }
+
         if (destParent != 0) {
             child := this.MacroTreeViewCon.GetChild(destParent)
             while (child) {

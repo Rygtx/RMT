@@ -14,14 +14,45 @@ global _graphPoolLogPath := ""
 global _graphPoolLogInitialized := false
 
 GraphPoolLog(tag, detail := "") {
-    ; 归口统一日志（C 项）：GraphPool 语义归入系统日志 info 级
-    who := MySoftData.isWorker ? ("Worker#" workIndex) : "Master"
-    msg := detail != "" ? (tag " " detail) : tag
-    RMTLogSys(RMT_LV_INFO, who, msg)
+    global MyWorkPool, workIndex, _graphPoolLogBuffer, _graphPoolLogPath, _graphPoolLogInitialized
+    static flushSize := 1024 * 50   ; 50KB缓冲
+    
+    if (!_graphPoolLogInitialized) {
+        _graphPoolLogPath := GraphPoolLogPath()
+        _graphPoolLogInitialized := true
+        SetTimer(FlushLogBufferAsync, 5000)  ; 每5秒异步刷新一次
+    }
+    
+    if (MySoftData.isWorker)
+        head := Format("[{}] [W{}] {}", A_Now, workIndex, tag)
+    else {
+        stats := (MyWorkPool != "" && IsObject(MyWorkPool)) ? MyWorkPool.GetPoolStatsStr() : "pool=未初始化"
+        head := Format("[{}] [Master] {} ({})", A_Now, tag, stats)
+    }
+    line := detail != "" ? head " " detail "`n" : head "`n"
+    
+    _graphPoolLogBuffer .= line
+    
+    if (StrLen(_graphPoolLogBuffer) >= flushSize) {
+        SetTimer(FlushLogBufferAsync, -1)  ; 立即异步刷新（不阻塞当前线程）
+    }
 }
 
 FlushLogBufferAsync() {
-    ; 已归口 RMTLog（LogUtil 自带缓冲+异步刷新），此函数保留为空壳兼容旧调用
+    global _graphPoolLogBuffer, _graphPoolLogPath, _graphPoolLogInitialized
+    
+    if (!_graphPoolLogInitialized || _graphPoolLogBuffer == "")
+        return
+    
+    buffer := _graphPoolLogBuffer
+    _graphPoolLogBuffer := ""
+    
+    try {
+        logDir := MySoftData.isWorker ? A_ScriptDir "\..\Log" : A_ScriptDir "\Log"
+        if !DirExist(logDir)
+            DirCreate(logDir)
+        FileAppend(buffer, _graphPoolLogPath, "UTF-8")
+    }
 }
 
 IsGraphNodeSerial(serialStr) {

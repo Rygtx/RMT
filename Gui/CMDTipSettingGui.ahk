@@ -220,7 +220,6 @@ class CMDTipSettingGui {
             .VerticalAlignment("Center").Width(labelStyle.w)
         rowPath.Add("TextBox").Name("LogFilePathCon")
             .Width(180).Height(24).MinHeight(24).VerticalContentAlignment("Center").Padding("4,0")
-            .TextAlignment("Left").FontSize(11)
             .Foreground("{DynamicResource InputText}")
             .Background("{DynamicResource InputBg}")
             .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")

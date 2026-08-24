@@ -1,15 +1,8 @@
-#Requires AutoHotkey v2.0
-
-; =====================================================================
-; 使用说明编辑器 —— XAML 迁移版（独立实现）
-; 公开接口保持：ShowGui(SettingPath) / Mode / ModeAction
-; ListView 图片列表迁 ListBox（缩略图 + 文件名，双击打开、右键删除，用桥接 ListBox 命中测试）
-; =====================================================================
+﻿#Requires AutoHotkey v2.0
 
 class UseExplainGui {
     __new() {
         this.Gui := ""
-        this.ui := ""
         this.ContextMenu := ""
         this.AuthorCon := ""
         this.EffectCon := ""
@@ -22,211 +15,87 @@ class UseExplainGui {
         this.Mode := 1  ;1查看模式  2上传确认模式
         this.HasChange := false
         this.ModeAction := ""
-        this.RowNumber := 0
-        this._closed := true
-    }
-
-    Hwnd() {
-        return (IsObject(this.ui) && this.ui.HasProp("wpfHwnd")) ? this.ui.wpfHwnd : 0
-    }
-
-    _EscapeXml(s) {
-        s := StrReplace(s, "&", "&amp;")
-        s := StrReplace(s, "<", "&lt;")
-        s := StrReplace(s, ">", "&gt;")
-        s := StrReplace(s, '"', "&quot;")
-        return s
     }
 
     ShowGui(SettingPath) {
-        global MySoftData
-        if (IsObject(this.ui) && !this._closed)
-            this._CloseWindow()
-        this._BuildAndShow()
+        if (this.Gui != "") {
+            this.Gui.Show()
+        }
+        else {
+            this.AddGui()
+        }
         this.Init(SettingPath)
+        this.LVCon.Focus()  ; 🔥 强制获得焦点，解决第一次双击无效问题
     }
 
-    _BuildAndShow() {
-        global MySoftData
-        this._closed := false
-        title := GetLang("使用说明")
-        this._title := title
-        titleHeight := "30"
+    AddGui() {
+        MyGui := Gui(, GetLang("使用说明"))
+        this.Gui := MyGui
+        MyGui.SetFont("S11 W550 Q2", MainSoftData.FontType)
 
-        main := XAML_Generator("Grid").Background("{DynamicResource BgColor}").TextElement_FontSize("12")
-        main.Rows(titleHeight, "*", "44")
+        PosX := 10
+        PosY := 10
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("配置名称："))
 
-        ; === 标题栏 ===
-        tb := main.Add("Border").Grid_Row(0).Background("{DynamicResource TitleBarColor}").Name("DragArea")
-        tbInner := tb.Add("Grid")
-        tbInner.Add("TextBlock").Text(title).Foreground("{DynamicResource TitleBarForeground}").FontSize(12).FontWeight("SemiBold").VerticalAlignment("Center").Margin("12,0,0,0")
-        BtnGroup := tbInner.Add("StackPanel").Orientation("Horizontal").HorizontalAlignment("Right")
-        closeBtn := BtnGroup.Add("Button").Name("BtnClosePanel").WindowChrome_IsHitTestVisibleInChrome("True").Width(40).Background("Transparent").Foreground("{DynamicResource TitleBarForeground}").BorderThickness(0)
-        closeBtn.Add("TextBlock").Text(Chr(0xE8BB)).FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets").FontSize(10).VerticalAlignment("Center").HorizontalAlignment("Center")
+        PosX := 100
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), MySoftData.CurSettingName)
 
-        ; === 主体 ===
-        body := main.Add("StackPanel").Grid_Row(1).Orientation("Vertical").Margin("10,4")
+        PosX := 10
+        PosY += 30
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("作者："))
+        PosX := 100
+        this.AuthorCon := MyGui.Add("Edit", Format("x{} y{} w{}", PosX, PosY - 2, 480))
+        this.AuthorCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
-        nameRow := body.Add("StackPanel").Orientation("Horizontal")
-        nameRow.Add("TextBlock").Text(GetLang("配置名称：")).VerticalAlignment("Center")
-        nameRow.Add("TextBlock").Text(MySoftData.CurSettingName).VerticalAlignment("Center").Margin("4,0,0,0")
+        PosX := 10
+        PosY += 40
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("配置作用："))
+        PosX := 100
+        this.EffectCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 60))
+        this.EffectCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
-        authorRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
-        authorRow.Add("TextBlock").Text(GetLang("作者：")).Width(80).VerticalAlignment("Center")
-        authorRow.Add("TextBox").Name("AuthorCon").Width(480).Height(26).MinHeight(26)
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Center").Padding("4,0")
+        PosX := 10
+        PosY += 70
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("操作说明："))
+        PosX := 100
+        this.OperCon := MyGui.Add("Edit", Format("x{} y{} w{} h{}", PosX, PosY - 2, 480, 200))
+        this.OperCon.OnEvent("Change", this.OnValueChange.Bind(this))
 
-        effectRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
-        effectRow.Add("TextBlock").Text(GetLang("配置作用：")).Width(80).VerticalAlignment("Top")
-        effectRow.Add("TextBox").Name("EffectCon").Width(480).Height(60).AcceptsReturn("True").TextWrapping("Wrap")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
+        PosX := 10
+        PosY += 210
+        MyGui.Add("Text", Format("x{} y{}", PosX, PosY), GetLang("图片备注："))
+        PosX := 100
+        this.LVCon := MyGui.AddListView(Format("x{} y{} w{} h{} Icon", PosX, PosY - 2, 480, 100))
+        this.LVCon.OnEvent("DoubleClick", this.OnLVDoubleClick.Bind(this))
+        this.LVCon.OnEvent("ContextMenu", this.OnLVRightClick.Bind(this))
 
-        operRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
-        operRow.Add("TextBlock").Text(GetLang("操作说明：")).Width(80).VerticalAlignment("Top")
-        operRow.Add("TextBox").Name("OperCon").Width(480).Height(140).AcceptsReturn("True").TextWrapping("Wrap")
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1").VerticalContentAlignment("Top").Padding("4,2").FontSize(11)
+        PosX := 10
+        PosY += 25
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("选择图片"))
+        con.OnEvent("Click", (*) => this.OnSelectImage())
 
-        lvRow := body.Add("StackPanel").Orientation("Horizontal").Margin("0,6,0,0")
-        lvRow.Add("TextBlock").Text(GetLang("图片备注：")).Width(80).VerticalAlignment("Top")
-        lvRow.Add("ListBox").Name("LVCon").Width(480).Height(120)
-            .Background("{DynamicResource InputBg}").Foreground("{DynamicResource InputText}")
-            .BorderBrush("{DynamicResource InputStroke}").BorderThickness("1")
-            .VirtualizingPanel_IsVirtualizing("False")
+        PosX := 10
+        PosY += 35
+        con := MyGui.Add("Button", Format("x{} y{} w{}", PosX, PosY, 80), GetLang("截图"))
+        con.OnEvent("Click", (*) => this.OnScreenShot())
 
-        btnRow := body.Add("StackPanel").Orientation("Horizontal").Margin("80,6,0,0")
-        btnRow.Add("Button").Name("BtnSelectImage").Content(GetLang("选择图片")).Width(80).Height(28).MinHeight(28).Cursor("Hand")
-        btnRow.Add("Button").Name("BtnScreenShot").Content(GetLang("截图")).Width(80).Height(28).MinHeight(28).Margin("20,0,0,0").Cursor("Hand")
-
-        ; === 底部按钮 ===
-        bottom := main.Add("StackPanel").Grid_Row(2).Orientation("Horizontal").HorizontalAlignment("Center").VerticalAlignment("Center")
-        bottom.Add("Button").Name("BtnSure").Content(GetLang("确定")).Width(100).Height(32).MinHeight(32).Margin("4,0").Cursor("Hand")
-
-        ; === 创建 XAMLHost ===
-        tmp := StrReplace(XAML_TEMPLATE, "%CaptionHeight%", titleHeight)
-        this.ui := XAMLHost(StrReplace(tmp, "%app%", main.ToString()), "", "")
-        this.ui.xaml := StrReplace(this.ui.xaml, 'Width="940" Height="700"', 'Title="' this._EscapeXml(title) '" Width="620" Height="560" Opacity="0"')
-        this.ui.xaml := StrReplace(this.ui.xaml, 'FontFamily="Segoe UI Variable Display, Segoe UI, sans-serif"', 'FontFamily="' MainSoftData.FontType '"')
-        this.ui.xaml := StrReplace(this.ui.xaml, '%resources%', '')
-
-        ; === 事件 ===
-        this.ui.OnEvent("Window", "Closing", ObjBindMethod(this, "OnWindowClosing"))
-        this.ui.OnEvent("Window", "LoadedHwnd", ObjBindMethod(this, "OnWindowLoad"))
-        this.ui.OnEvent("BtnClosePanel", "Click", ObjBindMethod(this, "OnCancelClick"))
-        this.ui.OnEvent("AuthorCon", "TextChanged", ObjBindMethod(this, "OnValueChange"))
-        this.ui.OnEvent("EffectCon", "TextChanged", ObjBindMethod(this, "OnValueChange"))
-        this.ui.OnEvent("OperCon", "TextChanged", ObjBindMethod(this, "OnValueChange"))
-        this.ui.OnEvent("BtnSelectImage", "Click", ObjBindMethod(this, "OnSelectImage"))
-        this.ui.OnEvent("BtnScreenShot", "Click", ObjBindMethod(this, "OnScreenShot"))
-        this.ui.OnEvent("BtnSure", "Click", ObjBindMethod(this, "OnClickSureBtn"))
-        ; 图片列表：双击打开，右键删除
-        this.ui.OnEvent("LVCon", "PreviewMouseLeftButtonDown", ObjBindMethod(this, "_OnLVLeftDown"))
-        this.ui.OnEvent("LVCon", "PreviewMouseRightButtonDown", ObjBindMethod(this, "_OnLVRightClick"))
-
-        this.ui.Show()
-
-        gotHwnd := false
-        loop 40 {
-            if (this.ui.HasProp("wpfHwnd") && this.ui.wpfHwnd) {
-                gotHwnd := true
-                try WinActivate("ahk_id " this.ui.wpfHwnd)
-                try SetTimer((*) => this.ui.Update("Window", "Opacity", "1"), -10)
-                break
-            }
-            Sleep(50)
-        }
-        if (!gotHwnd)
-            this._closed := true
-    }
-
-    ; ---------------- 图片列表命中测试 ----------------
-
-    _EventCoord(state, ctrlName) {
-        coord := ""
-        if (IsObject(state) && state.Has(ctrlName))
-            coord := state[ctrlName]
-        if (coord == "")
-            return ""
-        parts := StrSplit(coord, ",")
-        if (parts.Length != 2)
-            return ""
-        return Trim(parts[1]) ";" Trim(parts[2])
-    }
-
-    _HitTest(ctrlName, coord) {
-        if (!IsObject(this.ui) || coord == "")
-            return ""
-        return this.ui.Query(ctrlName ">HitTest:" coord)
-    }
-
-    _OnLVLeftDown(state, ctrl, event) {
-        clickCount := 1
-        if (IsObject(state) && state.Has("ClickCount")) {
-            cc := state["ClickCount"]
-            if (IsNumber(cc))
-                clickCount := Integer(cc)
-        }
-        if (clickCount >= 2)
-            this._OnLVDoubleClick(state, ctrl, event)
-    }
-
-    _OnLVDoubleClick(state, ctrl, event) {
-        coord := this._EventCoord(state, "LVCon")
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        path := StrSplit(tagSlot, "|")[1]
-        this.OnValueChange()
-        run path
-    }
-
-    _OnLVRightClick(state, ctrl, event) {
-        coord := this._EventCoord(state, "LVCon")
-        if (coord == "")
-            return
-        tagSlot := this._HitTest("LVCon", coord)
-        if (tagSlot == "")
-            return
-        path := StrSplit(tagSlot, "|")[1]
-        this.OnValueChange()
-        this.RowNumber := 0
-        for i, p in this.ImagePathArr {
-            if (p == path) {
-                this.RowNumber := i
-                break
-            }
-        }
-        if (this.RowNumber == 0)
-            return
-        if (this.ContextMenu == "") {
-            this.ContextMenu := Menu()
-            this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
-        }
-        this.ContextMenu.Show()
-    }
-
-    RefreshLV() {
-        this.ui.Update("LVCon", "ClearItems", "")
-        for path in this.ImagePathArr {
-            SplitPath path, &name
-            xml := '<ListBoxItem xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"'
-                . ' Tag="' this._EscapeXml(path) '" Background="Transparent" HorizontalContentAlignment="Stretch">'
-                . '<StackPanel Orientation="Horizontal" Margin="2,2,2,2">'
-                . '<Image Source="' this._EscapeXml(StrReplace(path, "\", "/")) '" Width="32" Height="32" Margin="0,0,6,0"/>'
-                . '<TextBlock Text="' this._EscapeXml(name) '" VerticalAlignment="Center" FontSize="11"/>'
-                . '</StackPanel></ListBoxItem>'
-            this.ui.Update("LVCon", "AddXamlItem", xml)
-        }
+        PosY += 50
+        PosX := 250
+        btnCon := MyGui.Add("Button", Format("x{} y{} w{} h{}", PosX, PosY, 100, 40), GetLang("确定"))
+        btnCon.OnEvent("Click", (*) => this.OnClickSureBtn())
+        MyGui.OnEvent("Close", (*) => this.OnTriggerModeAction(false, false))
+        pos := GetCenterPosOnActiveMonitor(600, 520)
+        MyGui.Show(Format("x{} y{} w{} h{}", pos.x, pos.y, 600, 520))
     }
 
     Init(SettingPath) {
         this.SettingPath := SettingPath
+        this.IL := IL_Create(10, 5, true)   ; 5 = 色深，true = large icon
+        this.LVCon.SetImageList(this.IL)
         this.ImagePathArr := []
         this.HasChange := false
+        if (this.Mode == 2)
+            this.Gui.Title := GetLang("请完善使用说明")
         OperFilePath := SettingPath "\使用说明&署名.txt"
         IniSection := "Instructions for Use & Attribution"
         AuthorText := IniRead(OperFilePath, IniSection, "Author", "")
@@ -235,19 +104,41 @@ class UseExplainGui {
         AuthorText := StrReplace(AuthorText, "⫶", "`n")
         EffectText := StrReplace(EffectText, "⫶", "`n")
         OperText := StrReplace(OperText, "⫶", "`n")
-        this.ui.Update("AuthorCon", "Text", AuthorText)
-        this.ui.Update("EffectCon", "Text", EffectText)
-        this.ui.Update("OperCon", "Text", OperText)
+        this.AuthorCon.Value := AuthorText
+        this.EffectCon.Value := EffectText
+        this.OperCon.Value := OperText
 
+        this.LVCon.Delete()
         ImagesfolderPath := SettingPath "\Images\UseExplain"
         loop files ImagesfolderPath "\*.png" {
             this.AllImagePathMap.Set(A_LoopFileFullPath, true)
             this.ImagePathArr.Push(A_LoopFileFullPath)
+            IL_Add(this.IL, this.ImagePathArr[A_Index])
+            this.LVCon.Add("Icon" . A_Index)
         }
-        this.RefreshLV()
     }
 
-    OnSelectImage(state, ctrl, event) {
+    OnLVDoubleClick(LV, RowNumber, *) {
+        if (RowNumber == 0)
+            return
+        this.OnValueChange()
+        path := this.ImagePathArr[RowNumber]
+        run path
+    }
+
+    OnLVRightClick(LV, RowNumber, isRightClick, x, y) {
+        if (RowNumber == 0)
+            return
+        this.OnValueChange()
+        this.RowNumber := RowNumber
+        if (this.ContextMenu == "") {
+            this.ContextMenu := Menu()
+            this.ContextMenu.Add(GetLang("删除"), (*) => this.MenuHandler(GetLang("删除")))
+        }
+        this.ContextMenu.Show(x, y)
+    }
+
+    OnSelectImage() {
         path := FileSelect(1, , GetLang("选择图片"), "PNG Files (*.png)")
         if (path == "")
             return
@@ -263,15 +154,16 @@ class UseExplainGui {
         FileCopy(path, newPath)
         this.AllImagePathMap.Set(newPath, true)
         this.ImagePathArr.Push(newPath)
-        this.RefreshLV()
+        IL_Add(this.IL, newPath)
+        this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
     }
 
-    OnScreenShot(state, ctrl, event) {
+    OnScreenShot() {
         this.OnValueChange()
         if (MainSoftData.ScreenShotType == 1) {
-            SetClipboard("")
+            SetClipboard("")  ; 清空剪贴板
             Run("ms-screenclip:")
-            SetTimer(this.CheckClipboardAction, 500)
+            SetTimer(this.CheckClipboardAction, 500)  ; 每 500 毫秒检查一次剪贴板
         }
         else if (MainSoftData.ScreenShotType == 3) {
             RunScreenCapture(this.CheckClipboardAction)
@@ -282,19 +174,24 @@ class UseExplainGui {
     }
 
     CheckClipboard() {
-        if DllCall("IsClipboardFormatAvailable", "uint", 8) {
+        ; 如果剪贴板中有图像
+        if DllCall("IsClipboardFormatAvailable", "uint", 8)  ; 8 是 CF_BITMAP 格式
+        {
+            ; 获取当前日期和时间，用于生成唯一的文件名
             CurrentDateTime := FormatTime(, "HHmmss")
             filePath := this.SettingPath "\Images\UseExplain\" CurrentDateTime ".png"
             SaveClipToBitmap(filePath)
 
             this.AllImagePathMap.Set(filePath, true)
             this.ImagePathArr.Push(filePath)
-            this.RefreshLV()
+            IL_Add(this.IL, filePath)
+            this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
             SetTimer(, 0)
         }
     }
 
     OnScreenShotGetArea(x1, y1, x2, y2) {
+        ; 确保截图区域至少为1x1像素，避免单像素点点击导致截图无效
         if (x1 == x2)
             x2++
         if (y1 == y2)
@@ -306,24 +203,25 @@ class UseExplainGui {
 
         this.AllImagePathMap.Set(filePath, true)
         this.ImagePathArr.Push(filePath)
-        this.RefreshLV()
+        IL_Add(this.IL, filePath)
+        this.LVCon.Add("Icon" . this.AllImagePathMap.Count)
     }
 
     CheckIfValid() {
         if (this.Mode == 1)
             return true
 
-        if (Trim(this.ui.Query("AuthorCon")) == "") {
+        if (Trim(this.AuthorCon.Value) == "") {
             MsgBox(GetLang("请完善作者信息，若不想留名请输入匿名"))
             return false
         }
 
-        if (Trim(this.ui.Query("EffectCon")) == "") {
+        if (Trim(this.EffectCon.Value) == "") {
             MsgBox(GetLang("请完善配置作用信息，简要的介绍配置的作用"))
             return false
         }
 
-        if (Trim(this.ui.Query("OperCon")) == "") {
+        if (Trim(this.OperCon.Value) == "") {
             MsgBox(GetLang("请完善操作说明信息，详细说明配置对应的操作"))
             return false
         }
@@ -343,22 +241,22 @@ class UseExplainGui {
         this.ModeAction := ""
     }
 
-    OnClickSureBtn(state, ctrl, event) {
+    OnClickSureBtn() {
         isValid := this.CheckIfValid()
         if (!isValid)
             return
 
         OperFilePath := this.SettingPath "\使用说明&署名.txt"
         IniSection := "Instructions for Use & Attribution"
-        AuthorText := StrReplace(this.ui.Query("AuthorCon"), "`n", "⫶")
-        EffectText := StrReplace(this.ui.Query("EffectCon"), "`n", "⫶")
-        OperText := StrReplace(this.ui.Query("OperCon"), "`n", "⫶")
+        AuthorText := StrReplace(this.AuthorCon.Value, "`n", "⫶")
+        EffectText := StrReplace(this.EffectCon.Value, "`n", "⫶")
+        OperText := StrReplace(this.OperCon.Value, "`n", "⫶")
         IniWrite(AuthorText, OperFilePath, IniSection, "Author")
         IniWrite(EffectText, OperFilePath, IniSection, "Effect")
         IniWrite(OperText, OperFilePath, IniSection, "Operation")
-
+        this.Gui.Hide()
+    
         this.OnTriggerModeAction(true, this.HasChange)
-        this._CloseWindow()
     }
 
     MenuHandler(cmdStr, *) {
@@ -366,36 +264,12 @@ class UseExplainGui {
             case GetLang("删除"):
             {
                 imagePath := this.ImagePathArr[this.RowNumber]
+                this.LVCon.Delete(this.RowNumber)
                 this.ImagePathArr.RemoveAt(this.RowNumber)
                 if (FileExist(imagePath))
                     FileDelete(imagePath)
-                this.RefreshLV()
             }
         }
-    }
 
-    OnWindowLoad(state, ctrl, event) {
-        try {
-            themeName := MainSoftData.HasProp("Theme") ? MainSoftData.Theme : "RMT_Light"
-            ApplyXamlTheme(this.ui, themeName)
-        } catch {
-        }
-    }
-
-    OnWindowClosing(state, ctrl, event) {
-        this.ui := ""
-        this._closed := true
-    }
-
-    OnCancelClick(state, ctrl, event) {
-        this._CloseWindow()
-    }
-
-    _CloseWindow() {
-        if (IsObject(this.ui)) {
-            try this.ui.Update("Window", "Close", "")
-        }
-        this.ui := ""
-        this._closed := true
     }
 }

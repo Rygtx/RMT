@@ -54,11 +54,6 @@
         global CommentFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\CommentFile.ini"
         global GraphNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphNodeFile.ini"
         global GraphStartNodeFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\GraphStartNodeFile.ini"
-        ; 阶段5：纯文本指令迁移到配置文件模式（间隔/按键/移动/RMT指令）
-        global IntervalFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\IntervalFile.ini"
-        global KeyDataFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\KeyDataFile.ini"
-        global MoveDataFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\MoveDataFile.ini"
-        global RMTCMDFile := A_WorkingDir "\..\Setting\" MySoftData.CurSettingName "\RMTCMDFile.ini"
         global IniSection := "UserSettings"
 
     ;项目根目录（Worker进程A_WorkingDir指向Thread子目录，需回退到项目根）
@@ -95,10 +90,8 @@
     }
 
     WorkOnError(e, mode) {
-        ; 统一日志（C 项）：Worker 运行时错误 → 仅 ER 通道上报主进程
-        ; （主进程统一写系统日志 + 聚合，一次错误一条日志，避免双写）
-        fullInfo := GetFullErrorInfo(e)
-        try MsgSendHandler("Error", "error|" workIndex "|" fullInfo)
+        GraphPoolLog("Worker运行时错误", Format("err={1} line={2} file={3} mode={4}"
+            , e.Message, e.Line, e.File, mode))
         ; 返回非零值阻止 AHK 默认错误对话框，避免 headless Worker 进程被对话框阻塞
         return 1
     }
@@ -180,7 +173,6 @@
             "MsgBox", "MB",
             "ToolTip", "TT",
             "MacroCount", "MC",
-            "Error", "ER",          ; Worker 错误上报主进程（统一日志 C 项）
             "Joy", "JY"
         )
 
@@ -280,8 +272,6 @@
 
     OnExecTask(id, cmd) {
         global rx, workIndex, workerTaskBusy, workerPendingTasks
-        ; 业务日志（C 项阶段3）：缓存当前任务标识供开始/结束埋点使用
-        static _bizCurTab := 0, _bizCurItem := 0, _bizCurRemark := ""
         workerTaskBusy := true
         try {
             if (SubStr(cmd, 1, 2) != "R1") {
@@ -304,14 +294,10 @@
                 if (opcode == "TR") {
                     tIdx := args[1]
                     iIdx := args[2]
-                    _bizCurTab := tIdx
-                    _bizCurItem := iIdx
-                    tableItem := MySoftData.TableInfo[tIdx]
-                    _bizCurRemark := tableItem.RemarkArr[iIdx]
-                    RMTLogBusiness("宏:(" _bizCurRemark ")", Format("tab{1} item{2} 开始执行", tIdx, iIdx))
                     if (args.Length >= 3) {
                         nodeSerial := args[3]
                         GraphPoolLog("Worker开始执行", Format("tab={1} item={2} node={3}", tIdx, iIdx, nodeSerial))
+                        tableItem := MySoftData.TableInfo[tIdx]
                         WalkGraphNode(tableItem, nodeSerial, iIdx)
                     } else {
                         TriggerMacro(tIdx, iIdx)
@@ -322,8 +308,6 @@
             GraphPoolLog("Worker任务异常", Format("id={1} err={2} line={3} cmd={4}"
                 , id, e.Message, e.Line, SubStr(cmd, 1, 120)))
         } finally {
-            ; 业务日志（C 项阶段3）：宏结束（正常/异常统一记录）
-            RMTLogBusiness("宏:(" _bizCurRemark ")", Format("tab{1} item{2} 结束", _bizCurTab, _bizCurItem))
             rx.Push(MsgType.FINISH, id)
             MsgPostHandler(WM_WORKER_TO_MASTER, workIndex, 0)
             if (workerPendingTasks.Length > 0) {
@@ -336,7 +320,6 @@
     }
 
     OnEventMessage(cmd) {
-        global _workerInputResult
         if (SubStr(cmd, 1, 2) != "R1")
             return
 
@@ -357,15 +340,6 @@
 
             try {
                 switch opcode {
-                    case "IPR":
-                        ; 主进程回传输入框结果：[ok, value]
-                        ; 只写首次（主进程可能因 SureAction+HideAction 回传多条，CheckTxBuffer 一次消费，防止覆盖首次结果）
-                        if (!IsObject(_workerInputResult))
-                            _workerInputResult := [args[1], args.Length >= 2 ? args[2] : ""]
-                    case "IBR":
-                        ; 主进程回传按钮条结果：[button]（true/false/continue/cancel）
-                        if (!IsObject(_workerInputResult))
-                            _workerInputResult := [args[1]]
                     case "SV":
                         MySoftData.VariableMap[args[1]] := args[2]
                     case "DV":

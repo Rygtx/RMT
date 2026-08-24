@@ -1,4 +1,4 @@
-;按键宏命令
+﻿;按键宏命令
 OnTriggerMacroKeyAndInit(tableItem, macro, index) {
     MyMacroCount("Add")
     tableItem.KilledArr[index] := false
@@ -144,53 +144,17 @@ ExecuteMacroCmdOnce(tableItem, cmdStr, index, graphNode := "") {
         return
     }
 
-    ; 阶段5：剥离指令自带错误处理段（影刀模式 |EH:...），出错按配置 stop/ignore/retry
-    eh := RMTParseErrHandle(cmdStr)
-    cmdStr := eh.cmd
-
     paramArr := StrSplit(GetCmdStr(cmdStr), "_")
     if (MySoftData.CMDTip)
         MyCMDReportAciton(cmdStr)
 
-    ; 业务日志（C 项阶段3）：每指令执行流水（默认关，设置开启后生效；Worker 执行侧写入）
-    RMTLogBusiness("宏:(" tableItem.RemarkArr[index] ")", Format("tab{1} item{2} 指令: {3}", tableItem.Index, index, GetCmdStr(cmdStr)))
-
     cmdKey := RTrim(paramArr[1], "0123456789")
     try {
         result := Actions[cmdKey](tableItem, cmdStr, index)
-    } catch as err {
-        ; 错误处理配置：优先指令 Data 配置（间隔<serial> 等配置文件模式），|EH: 后缀兼容保留
-        ehCfg := eh.cfg
-        if (!IsObject(ehCfg))
-            ehCfg := RMTGetDataErrHandle(cmdStr)
-        handled := RMTHandleError(err, cmdKey, ehCfg, () => Actions[cmdKey](tableItem, cmdStr, index))
-        if (handled[1]) {
-            result := handled[2]
-        } else {
-            KillTableItemMacro(tableItem, index)
-            result := ""
-        }
+    } catch {
+        result := ""
     }
     return result
-}
-
-; 从指令配置文件 Data 读取错误处理配置（新格式：间隔<serial> → IntervalData.ErrMode 等）
-; 无配置或默认 stop 时返回 ""（调用方走默认 stop）
-RMTGetDataErrHandle(cmdStr) {
-    try {
-        paramArr := StrSplit(cmdStr, "_")
-        SplitSerialTextAndNumbers(paramArr[1], &textOnly, &numbersOnly)
-        if (numbersOnly == "" || !MySoftData.DataFileMap.Has(textOnly))
-            return ""
-        Data := GetMacroCMDData(paramArr[1])
-        if (!Data.HasOwnProp("ErrMode") || Data.ErrMode == "stop")
-            return ""
-        return { mode: Data.ErrMode
-            , retryCount: Data.HasOwnProp("ErrRetryCount") ? Data.ErrRetryCount : 3
-            , retryInterval: Data.HasOwnProp("ErrRetryInterval") ? Data.ErrRetryInterval : 500 }
-    } catch {
-        return ""
-    }
 }
 
 OnGraphStartNode(tableItem, cmdStr, index) {
@@ -1186,20 +1150,11 @@ SendBGKeyState(hwnd, Key, state, tableItem, index) {
 
 OnMouseMove(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    ; 阶段5：新格式 移动<serial> 走配置文件；旧格式 移动_X_Y_Speed_MoveMode 兼容
-    SplitSerialTextAndNumbers(paramArr[1], &textOnly, &numbersOnly)
-    if (numbersOnly != "" && MySoftData.DataFileMap.Has(textOnly)) {
-        Data := GetMacroCMDData(paramArr[1])
-        PosX := Integer(Data.PosX)
-        PosY := Integer(Data.PosY)
-        Speed := Integer(Data.Speed)
-        MoveMode := Integer(Data.MoveMode)
-    } else {
-        PosX := Integer(paramArr[2])
-        PosY := Integer(paramArr[3])
-        Speed := paramArr.Length >= 4 ? Integer(paramArr[4]) : 90
-        MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
-    }
+    PosX := Integer(paramArr[2])
+    PosY := Integer(paramArr[3])
+    ; 界面速度 0~100（越大越快），由 MouseMoveUtil 按按键类型换算
+    Speed := paramArr.Length >= 4 ? Integer(paramArr[4]) : 90
+    MoveMode := paramArr.Length >= 5 ? Integer(paramArr[5]) : 0
 
     PosX := GetFloatValue(PosX, MainSoftData.CoordXFloat)
     PosY := GetFloatValue(PosY, MainSoftData.CoordYFloat)
@@ -1268,19 +1223,9 @@ RmtBlockKeyboard(enableBlock) {
 }
 
 OnRMTCMD(tableItem, cmd, index) {
-    ; 新格式: RMT指令<serial> 走配置文件；旧格式 RMT指令_类别_指令 兼容
+    ; 新格式: RMT指令_类别_指令 → paramArr[1]=RMT指令, paramArr[2]=类别, paramArr[3]=指令
     paramArr := StrSplit(cmd, "_")
-    SplitSerialTextAndNumbers(paramArr[1], &textOnly, &numbersOnly)
-    if (numbersOnly != "" && MySoftData.DataFileMap.Has(textOnly)) {
-        Data := GetMacroCMDData(paramArr[1])
-        cmdStr := Data.CmdStr
-        if (cmdStr == GetLang("显示菜单"))
-            cmdStr .= "_" (Data.HasOwnProp("MenuIndex") ? Data.MenuIndex : 1)
-    } else {
-        cmdStr := paramArr[3]
-        if (cmdStr == GetLang("显示菜单") && paramArr.Length >= 5)
-            cmdStr .= "_" paramArr[4]
-    }
+    cmdStr := paramArr[3]
     if (ApplyRmtInputControl(cmdStr))
         return
     cmd := StrReplace(cmd, "_", "⫶")
@@ -1289,35 +1234,19 @@ OnRMTCMD(tableItem, cmd, index) {
 
 OnInterval(tableItem, cmd, index) {
     paramArr := StrSplit(cmd, "_")
-    ; 阶段5：新格式 间隔<serial> 走配置文件；旧格式 间隔_500 兼容解析
-    SplitSerialTextAndNumbers(paramArr[1], &textOnly, &numbersOnly)
-    if (numbersOnly != "" && MySoftData.DataFileMap.Has(textOnly)) {
-        Data := GetMacroCMDData(paramArr[1])
-        time1 := Data.Time1
-        time2 := Data.Time2
-        isRandom := Data.Type == 2
-    } else {
-        time1 := paramArr[2]
-        time2 := paramArr.Length >= 3 ? paramArr[3] : ""
-        TimeArr := StrSplit(paramArr[2], "~")
-        isRandom := TimeArr.Length > 1
-        if (isRandom) {
-            time1 := TimeArr[1]
-            time2 := TimeArr[2]
-        }
-    }
-
+    TimeArr := StrSplit(paramArr[2], "~")
+    isRandom := TimeArr.Length > 1
     if (!isRandom) {
-        hasInterval := TryGetTabVarValue(&interval, tableItem, index, time1)
+        hasInterval := TryGetTabVarValue(&interval, tableItem, index, paramArr[2])
         if (!hasInterval)
             return
     }
     else {
-        hasInterval1 := TryGetTabVarValue(&interval1, tableItem, index, time1)
-        hasInterval2 := TryGetTabVarValue(&interval2, tableItem, index, time2)
+        hasInterval1 := TryGetTabVarValue(&interval1, tableItem, index, TimeArr[1])
+        hasInterval2 := TryGetTabVarValue(&interval2, tableItem, index, TimeArr[2])
         if (!hasInterval1 || !hasInterval2)
             return
-
+    
         interval := Random(interval1, interval2)
     }
 
@@ -1328,31 +1257,14 @@ OnInterval(tableItem, cmd, index) {
 OnPressKey(tableItem, cmd, index) {
     global MySoftData
     paramArr := SplitCommand(cmd)
-    ; 阶段5：新格式 按键<serial> 走配置文件；旧格式 按键_a_点击_100 兼容
-    SplitSerialTextAndNumbers(paramArr[1], &textOnly, &numbersOnly)
-    if (numbersOnly != "" && MySoftData.DataFileMap.Has(textOnly)) {
-        Data := GetMacroCMDData(paramArr[1])
-        keyName := Data.KeyName
-        keyTypeVal := Data.KeyType          ; 1按下 2松开 3点击
-        holdTime := Data.HoldTime
-        count := Data.Count
-        intervalTime := Data.IntervalTime
-    } else {
-        keyName := paramArr[2]
-        keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
-        keyTypeVal := keyTypeMap[paramArr[3]]
-        holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
-        count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1
-        intervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 0
-    }
-
     ; 录制产生的通用键名（AxisLXMin/DpadUp/AxisLT/JoyN 等）→ 友好键名（JoyAxisLXMin/JoyDpadUp/JoyLT/JoyA），
     ; 否则摇杆/方向键/扳机不含 "JoyAxis"/"JoyDpad" 前缀，会落到普通按键发送而无效
-    keyName := MySoftData.GetJoyFriendlyKey(keyName)
-    isJoyKey := InStr(keyName, "Joy")
-    isJoyAxis := InStr(keyName, "JoyAxis")
-    isJoyDpad := InStr(keyName, "JoyDpad")
+    paramArr[2] := MySoftData.GetJoyFriendlyKey(paramArr[2])
+    isJoyKey := InStr(paramArr[2], "Joy")
+    isJoyAxis := InStr(paramArr[2], "JoyAxis")
+    isJoyDpad := InStr(paramArr[2], "JoyDpad")
     actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
+    keyTypeMap := Map("按下", 1, "松开", 2, "点击", 3)
     action := actionMap[Integer(tableItem.ModeArr[index])]
     action := isJoyKey ? SendJoyBtnKey : action
     action := isJoyAxis ? SendJoyAxisKey : action
@@ -1361,11 +1273,15 @@ OnPressKey(tableItem, cmd, index) {
     if (isJoyKey || isJoyAxis || isJoyDpad) {
         actionName := isJoyDpad ? "SendJoyDpadKey" : (isJoyAxis ? "SendJoyAxisKey" : "SendJoyBtnKey")
         JoyDebugLog(Format("OnPressKey cmd={} key={} type={} mode={} action={} pool={} killed={} HasJoyMacro={}"
-            , cmd, keyName, keyTypeVal, tableItem.ModeArr[index], actionName
+            , cmd, paramArr[2], paramArr[3], tableItem.ModeArr[index], actionName
             , WorkPoolEnabled(), tableItem.KilledArr[index], MySoftData.HasJoyMacro), "press")
     }
 
-    keyType := keyTypeVal
+    keyType := keyTypeMap[paramArr[3]]
+    holdTime := paramArr.Length >= 4 ? Integer(paramArr[4]) : 100
+    count := paramArr.Length >= 5 ? Integer(paramArr[5]) : 1
+    IntervalTime := paramArr.Length >= 6 ? Integer(paramArr[6]) : 0
+
     loop count {
         WaitIfPaused(tableItem, index)
 
@@ -1373,8 +1289,8 @@ OnPressKey(tableItem, cmd, index) {
             break
 
         FloatHold := GetFloatTime(holdTime, MainSoftData.HoldFloat)
-        FloatInterval := GetFloatTime(intervalTime, MainSoftData.PreIntervalFloat)
-        SendKeyWrapper(keyName, FloatHold, tableItem, index, keyType, action)
+        FloatInterval := GetFloatTime(IntervalTime, MainSoftData.PreIntervalFloat)
+        SendKeyWrapper(paramArr[2], FloatHold, tableItem, index, keyType, action)
         if (keyType == 3 && A_Index != count && FloatInterval > 0)
             Sleep(FloatInterval)
     }
@@ -1485,28 +1401,20 @@ SyncBootStartRegistry() {
 }
 
 OnBootStartChanged(ctrl, *) {
-    global MyMainWin
-    ; Worker 无 UI：MyMainWin 为 "" 占位（见 WorkGlobalUtil），仅主程序实例化后走真实逻辑
-    if (!IsObject(MyMainWin))
-        return
-    MainSoftData.IsBootStart := MyMainWin.ui.Query("ChkBootStart") == "True"
+    MainSoftData.IsBootStart := !!ctrl.Value
     ok := ApplyBootStartRegistry(MainSoftData.IsBootStart)
     IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
     if (!ok) {
         ; 注册表未能与选项对齐时回滚勾选，避免界面已关、实际仍自启
         MainSoftData.IsBootStart := !MainSoftData.IsBootStart
-        try MyMainWin.ui.Update("ChkBootStart", "IsChecked", MainSoftData.IsBootStart ? "True" : "False")
+        try ctrl.Value := MainSoftData.IsBootStart
         IniWrite(MainSoftData.IsBootStart ? 1 : 0, IniFile, IniSection, "IsBootStart")
         MsgBox(GetLang("开机自启设置失败，请检查是否被安全软件拦截，或勿通过兼容性强制管理员运行。"), GetLang("提示"), 48)
     }
 }
 
 OnAdminStartChanged(ctrl, *) {
-    global MyMainWin
-    ; Worker 无 UI：MyMainWin 为 "" 占位（见 WorkGlobalUtil），仅主程序实例化后走真实逻辑
-    if (!IsObject(MyMainWin))
-        return
-    MainSoftData.IsAdminStart := MyMainWin.ui.Query("ChkAdminStart") == "True"
+    MainSoftData.IsAdminStart := !!ctrl.Value
     IniWrite(MainSoftData.IsAdminStart ? 1 : 0, IniFile, IniSection, "IsAdminStart")
     if (MainSoftData.IsBootStart)
         ApplyBootStartRegistry(true)

@@ -37,22 +37,18 @@ _HandleError(exception) {
 }
 
 _ShowError(msg, stack := "") {
-    fullMsg := msg
-    if (stack != "")
-        fullMsg .= "`n堆栈信息：`n" stack
-
     if (IsSet(MySoftData) && ObjHasOwnProp(MySoftData, "isWorker") && MySoftData.isWorker) {
         if (IsSet(MsgSendHandler)) {
-            ; Worker：仅 ER 上报主进程（主进程统一记录日志 + 聚合，避免双写）
-            MsgSendHandler("Error", "error|" workIndex "|" fullMsg)
+            fullMsg := msg
+            if (stack != "")
+                fullMsg .= "`n堆栈信息：`n" stack
+            MsgSendHandler("Error", fullMsg)
             return
         }
     }
-
-    ; 主进程：归口系统日志 + 错误中心聚合（不模态弹窗打断）
-    RMTLogSys(RMT_LV_ERROR, "Master", fullMsg)
-    if (IsSet(MyErrorMsgBoxGui) && IsObject(MyErrorMsgBoxGui))
-        MyErrorMsgBoxGui.ShowGui(Format("[Master] {}", fullMsg))
+    
+    if (stack != "")
+        msgbox(msg "`n堆栈信息：`n" stack)
     else
-        msgbox(fullMsg)
+        msgbox(msg)
 }

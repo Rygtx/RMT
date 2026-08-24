@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 
 TextGetSource(Data, tableItem, index) {
     IsHas := TryGetTabVarValue(&SourceText, tableItem, index, Data.Name, false)
@@ -17,7 +17,7 @@ TextOpsSplit(Data, tableItem, index) {
         if (!IsInteger(SplitArgs) || SplitArgs == 0) {
             tip1 := GetLang("定长分割时参数必须是整数且大于0")
             tip2 := Format(GetLang("变量：{}   值：{}"), Data.ArgsName, SplitArgs)
-            RMTErrorShow(tip1 "`n" tip2, RMT_LV_WARN, "宏")
+            MsgBox(tip1 "`n" tip2)
             return
         }
 
@@ -29,7 +29,7 @@ TextOpsSplit(Data, tableItem, index) {
         } catch as e {
             tip1 := GetLang("正则分割出错")
             tip2 := Format(GetLang("错误信息：{}"), e.Message)
-            RMTErrorShow(tip1 "`n" tip2, RMT_LV_WARN, "宏")
+            MsgBox(tip1 "`n" tip2)
             return
         }
     }
@@ -49,7 +49,7 @@ TextOpsReplace(Data, tableItem, index) {
         } catch as e {
             tip1 := GetLang("正则替换出错")
             tip2 := Format(GetLang("错误信息：{}"), e.Message)
-            RMTErrorShow(tip1 "`n" tip2, RMT_LV_WARN, "宏")
+            MsgBox(tip1 "`n" tip2)
             return
         }
     } else {
@@ -78,7 +78,7 @@ TextOpsEx(Data, tableItem, index) {
         } catch as e {
             tip1 := GetLang("正则提取出错")
             tip2 := Format(GetLang("错误信息：{}"), e.Message)
-            RMTErrorShow(tip1 "`n" tip2, RMT_LV_WARN, "宏")
+            MsgBox(tip1 "`n" tip2)
             return
         }
     }
