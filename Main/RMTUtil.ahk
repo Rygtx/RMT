@@ -1537,8 +1537,13 @@ SetEditData() {
         tableIndex := A_Index
         tableItem := MySoftData.TableInfo[tableIndex]
         isMacro := CheckIsMacroTable(tableIndex)
-        if (!isMacro)
+        if (!isMacro) {
+            ; 按键替换页签：MacroArr 是逗号分隔的替换键列表（非宏指令），
+            ; 需单独检测其中的手柄键，保证启动时创建 ViGEm 虚拟手柄
+            if (GetTableSymbol(tableIndex) == "Replace")
+                DetectReplaceTableJoyKeys(tableItem)
             continue
+        }
 
         for index, value in tableItem.ModeArr {
             if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
@@ -1546,6 +1551,25 @@ SetEditData() {
 
             macroStr := tableItem.MacroArr[index]
             SetGlobalData(macroStr, visitMap)
+        }
+    }
+}
+
+; 按键替换页签：替换键列表包含手柄键（Joy* 或其通用名 JoyN/Axis*/Dpad*）时标记 HasJoyMacro，
+; 使 InitViGEmPlugin 在启动时创建虚拟手柄（与其它页签 按键_JoyX 的检测保持一致）
+DetectReplaceTableJoyKeys(tableItem) {
+    for index, value in tableItem.ModeArr {
+        if (tableItem.MacroArr.Length < index || tableItem.MacroArr[index] == "")
+            continue
+        infos := StrSplit(tableItem.MacroArr[index], ",")
+        for i, key in infos {
+            key := StrReplace(key, "逗号", ",")
+            key := MySoftData.GetJoyFriendlyKey(key)
+            if (InStr(key, "Joy")) {
+                MySoftData.HasJoyMacro := true
+                JoyDebugLog(Format("DetectReplaceTableJoyKeys key='{}' -> HasJoyMacro=true", key), "init")
+                return
+            }
         }
     }
 }

@@ -1298,27 +1298,46 @@ OnPressKey(tableItem, cmd, index) {
 
 ;按键替换
 OnReplaceDownKey(tableItem, info, index, *) {
+    global MySoftData
     infos := StrSplit(info, ",")
     mode := Integer(tableItem.ModeArr[index])
     actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
-    action := actionMap[mode]
+    baseAction := actionMap[mode]
     loop infos.Length {
         assistKey := infos[A_Index]
         assistKey := StrReplace(assistKey, "逗号", ",")
-        action(assistKey, 1, tableItem, index)
+        ; 兼容旧配置里的通用键名（Joy1/AxisLXMin/DpadUp 等）→ 友好键名
+        assistKey := MySoftData.GetJoyFriendlyKey(assistKey)
+        sendAction := GetKeySendAction(baseAction, assistKey)
+        sendAction(assistKey, 1, tableItem, index)
     }
 }
 
 OnReplaceUpKey(tableItem, info, index, *) {
+    global MySoftData
     infos := StrSplit(info, ",")
     mode := Integer(tableItem.ModeArr[index])
     actionMap := Map(1, SendNormalKey, 2, SendGameModeKey, 3, SendLogicKey, 4, SendAHIKey)
-    action := actionMap[mode]
+    baseAction := actionMap[mode]
     loop infos.Length {
         assistKey := infos[A_Index]
         assistKey := StrReplace(assistKey, "逗号", ",")
-        action(assistKey, 0, tableItem, index)
+        ; 兼容旧配置里的通用键名（Joy1/AxisLXMin/DpadUp 等）→ 友好键名
+        assistKey := MySoftData.GetJoyFriendlyKey(assistKey)
+        sendAction := GetKeySendAction(baseAction, assistKey)
+        sendAction(assistKey, 0, tableItem, index)
     }
+}
+
+; 按键替换：按替换键类型分发发送函数（手柄键经 ViGEm 输出，与 OnPressKey 的 Joy 分发保持一致）
+GetKeySendAction(baseAction, key) {
+    if (InStr(key, "JoyDpad"))
+        return SendJoyDpadKey
+    if (InStr(key, "JoyAxis"))
+        return SendJoyAxisKey
+    if (InStr(key, "Joy"))
+        return SendJoyBtnKey
+    return baseAction
 }
 
 ;按钮回调
