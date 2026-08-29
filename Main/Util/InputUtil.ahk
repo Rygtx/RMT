@@ -12,13 +12,10 @@ InputPopUp(Data, tableItem, index) {
         isHide := true
     }
     Label := GetLang("变量名：") Data.SaveName
-    Content := ""
-    if (MySoftData.VariableMap.Has(Data.SaveName))
-        Content := MySoftData.VariableMap[Data.SaveName]
 
     MyInputGui.SureAction := InputBoxSureAction
     MyInputGui.HideAction := InputBoxHideAction
-    MyInputGui.ShowGui(Label, Content)
+    MyInputGui.ShowGui(Label)
     while (!isHide) {
         Sleep(200)
     }

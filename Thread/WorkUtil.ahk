@@ -75,7 +75,7 @@
     }
 
     InitWork() {
-        global MySoftData, MyHoldKeyNotify
+        global MySoftData, MyHoldKeyNotify, MyInputPopUpNotify
         global graphBranchesWaiting := false
         global graphBranchesAckReceived := false
         global graphBranchesAckKey := ""
@@ -84,6 +84,8 @@
         MySoftData.isWorker := true
         ; 按键按住状态同步到主进程（供强杀后松开）
         MyHoldKeyNotify := (tIdx, iIdx, key, state, source) => MsgSendHandler("HoldKey", tIdx, iIdx, key, state, source)
+        ; 输入弹窗显示状态同步到主进程（显示期间暂时禁用 Enter 触发键）
+        MyInputPopUpNotify := (state) => MsgSendHandler("InputPopUp", state ? "1" : "0")
 
         OnError(WorkOnError)
         SetTimer(CheckParentProcess, 10000)
@@ -173,7 +175,8 @@
             "MsgBox", "MB",
             "ToolTip", "TT",
             "MacroCount", "MC",
-            "Joy", "JY"
+            "Joy", "JY",
+            "InputPopUp", "IP"
         )
 
         opcode := actionMap[action]

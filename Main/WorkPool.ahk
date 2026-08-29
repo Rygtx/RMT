@@ -1078,6 +1078,9 @@ class WorkPool {
                         HandleWorkerGraphBranches(wd, tIdx, iIdx, branchCount, nodeSerials)
                     case "TR":
                         TriggerMacroHandler(args[1], args[2])
+                    case "IP":
+                        ; Worker 通知输入弹窗显示/隐藏，用于暂时禁用 Enter 触发键
+                        MySoftData.InputPopUpShowing := (args[1] == "1")
                 }
             } catch {
             }

@@ -352,6 +352,7 @@ class SoftData {
 
         ; ========== 热键绑定 ==========
         this.TriggerKeyMap := Map()     ;所有的按键宏，包括软件自身的快捷键
+        this.InputPopUpShowing := false ;输入弹窗是否显示（显示期间暂时禁用 Enter 触发键）
 
         ; ========== 手柄宏 ==========
         this.HasJoyMacro := false       ;含有手柄宏，手柄宏启动时需要初始化手柄（操作系统会提示，有点嘈）

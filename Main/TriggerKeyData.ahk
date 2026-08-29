@@ -21,6 +21,7 @@ class TriggerKeyData {
         this.LastKeyDownTime := 0  ;上次按下时间（用于双击检测）
         this.DblClickInterval := 300  ;双击间隔时间（毫秒）
         this.NeedReleaseBeforeRetrigger := false  ; 连续触发关闭时：需先松开才能再次触发
+        this.RepeatTimer := ""  ; 鼠标键按住自动重复计时器（模拟键盘的自动重复）
 
         ; 缓存相关字段（性能优化）
         this.cacheTime := 0          ;上次更新缓存的时间戳
@@ -97,7 +98,41 @@ class TriggerKeyData {
         }
     }
 
+    ; 是否是无松开事件的按键（滚轮 WheelUp/WheelDown/WheelLeft/WheelRight、亮度键等，见 OnlyDownKeyMap）：
+    ; 这类按键（含组合键中带这类按键）没有「松开」事件，
+    ; 而「连续触发」关闭时需要先松开触发键才能再次触发——
+    ; 若对这类按键套用该限制，滚动一次后后续滚动会被永久拦截，因此不受此选项影响。
+    IsOnlyDownKey() {
+        if (InStr(this.Key, "wheel") || InStr(this.Key, "bright_"))
+            return true
+        if (!IsObject(MySoftData))
+            return false
+        for k in MySoftData.OnlyDownKeyMap {
+            if (InStr(this.Key, StrLower(k)))
+                return true
+        }
+        return false
+    }
+
+    ; 是否为鼠标键（LButton/RButton/MButton/XButton1/XButton2，含组合键中带这类按键）：
+    ; 鼠标键按住时不会像键盘键那样产生系统「自动重复」，
+    ; 因此在「连续触发」开启时需要手动模拟自动重复，才能实现按住持续触发（与空格等键盘键一致）。
+    IsRepeatMouseKey() {
+        static Keys := Map("lbutton", 1, "rbutton", 1, "mbutton", 1, "xbutton1", 1, "xbutton2", 1)
+        if (Keys.Has(this.Key))
+            return true
+        for k in Keys {
+            if (InStr(this.Key, k))
+                return true
+        }
+        return false
+    }
+
     OnTriggerKeyDown() {
+        ; 输入弹窗显示期间，暂时禁用 Enter 触发键（避免回车时误触发宏）
+        if (this.Key == "enter" && MySoftData.InputPopUpShowing)
+            return
+
         this.UpdataArr()
 
         ;双击检测逻辑
@@ -105,8 +140,11 @@ class TriggerKeyData {
         isDblClick := (currentTime - this.LastKeyDownTime) <= this.DblClickInterval && this.LastKeyDownTime != 0
         this.LastKeyDownTime := currentTime
 
+        ; 滚轮等无松开事件的按键：不受「连续触发」影响（没有松开键，无法"先松开再触发"）
+        isOnlyDownKey := this.IsOnlyDownKey()
+
         ; 连续触发关闭时：按下/开关/长按需先松开触发键才能再次触发
-        blockRetrigger := !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
+        blockRetrigger := !isOnlyDownKey && !MainSoftData.ContinuousTrigger && this.NeedReleaseBeforeRetrigger
 
         for index, value in this.DownArr {
             if (blockRetrigger)
@@ -138,14 +176,22 @@ class TriggerKeyData {
         if (!blockRetrigger)
             this.SetHoldTimeChecker()
 
-        if (!MainSoftData.ContinuousTrigger
+        if (!isOnlyDownKey && !MainSoftData.ContinuousTrigger
             && (this.DownArr.Length > 0 || this.TogArr.Length > 0 || this.HoldArr.Length > 0))
             this.NeedReleaseBeforeRetrigger := true
+
+        ; 鼠标键按住自动重复（连续触发开启时）
+        this.UpdateRepeatTimer()
     }
 
     OnTriggerKeyUp() {
+        ; 输入弹窗显示期间，暂时禁用 Enter 触发键（松开事件同样拦截）
+        if (this.Key == "enter" && MySoftData.InputPopUpShowing)
+            return
+
         this.UpdataArr()
         this.NeedReleaseBeforeRetrigger := false
+        this.StopRepeatTimer()
 
         for index, value in this.LoosenArr {
             value.Action()
@@ -156,6 +202,90 @@ class TriggerKeyData {
         }
 
         this.DelHoldTimeChecker()
+    }
+
+    ; ========== 鼠标键按住自动重复 ==========
+    ; 键盘键按住会由系统产生自动重复（每个重复都触发一次热键），所以「连续触发」开启时按住能持续触发；
+    ; 鼠标键没有系统自动重复，这里用计时器模拟，使按住鼠标键与按住空格等键盘键行为一致。
+
+    ; 按需启停自动重复计时器
+    UpdateRepeatTimer() {
+        canRepeat := MainSoftData.ContinuousTrigger && this.IsRepeatMouseKey()
+            && (this.DownArr.Length > 0 || this.TogArr.Length > 0 || this.HoldArr.Length > 0)
+        if (canRepeat) {
+            if (this.RepeatTimer == "") {
+                this.RepeatTimer := this.RepeatTimerAction.Bind(this)
+                SetTimer(this.RepeatTimer, MySoftData.ContinueIntervale)
+            }
+        }
+        else {
+            this.StopRepeatTimer()
+        }
+    }
+
+    StopRepeatTimer() {
+        if (this.RepeatTimer != "") {
+            SetTimer(this.RepeatTimer, 0)
+            this.RepeatTimer := ""
+        }
+    }
+
+    RepeatTimerAction() {
+        ; 按键已松开 → 停止自动重复
+        if (!this.IsRepeatKeyHeld()) {
+            this.StopRepeatTimer()
+            return
+        }
+        ; 有宏仍在运行 → 本轮跳过，避免重入 / 重复触发
+        if (this.HasRunningMacro())
+            return
+        ; 再次触发「按下/开关/长按」类动作（不重复检测双击，不触发松止）
+        this.FireRepeatActions()
+    }
+
+    IsRepeatKeyHeld() {
+        return AreKeysPressed(this.Key)
+    }
+
+    ; 该触发键下是否有宏正在运行
+    HasRunningMacro() {
+        for _, info in this.DownArr {
+            if (this.IsInfoRunning(info))
+                return true
+        }
+        for _, info in this.TogArr {
+            if (this.IsInfoRunning(info))
+                return true
+        }
+        for _, info in this.HoldArr {
+            if (this.IsInfoRunning(info))
+                return true
+        }
+        return false
+    }
+
+    IsInfoRunning(info) {
+        if (info.macroType == 1) {
+            ; ColorStateArr == 1 表示运行中（主进程与 Worker 两条路径都会置位）
+            tableItem := MySoftData.TableInfo[info.tableIndex]
+            return tableItem.ColorStateArr.Length >= info.itemIndex && tableItem.ColorStateArr[info.itemIndex] == 1
+        }
+        return info.GetWorkState()
+    }
+
+    FireRepeatActions() {
+        for index, value in this.DownArr {
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
+            value.Action()
+        }
+        for index, value in this.TogArr {
+            if (index == 1 && MainSoftData.AutoLoosenModifier && SubStr(value.GetTK(), 1, 1) != "~")
+                LoosenModifyKey(value.GetTK())
+            value.Action()
+        }
+        ; 与按键按下行为一致：为长按宏重新排队
+        this.SetHoldTimeChecker()
     }
 
     ; 强制刷新缓存（在配置重载、窗口切换等关键事件时调用）
@@ -200,7 +330,7 @@ class TriggerKeyData {
             if (MainSoftData.AutoLoosenModifier && SubStr(info.GetTK(), 1, 1) != "~")
                 LoosenModifyKey(info.GetTK())
             info.Action()
-            if (!MainSoftData.ContinuousTrigger)
+            if (!this.IsOnlyDownKey() && !MainSoftData.ContinuousTrigger)
                 this.NeedReleaseBeforeRetrigger := true
         }
     }
